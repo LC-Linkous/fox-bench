@@ -18,9 +18,10 @@ import * as tabSchedule from './ui/schedule.js';
 import * as tabDeploy from './ui/deploy.js';
 import * as tabBench from './ui/bench.js';
 import * as tabFleet from './ui/fleet.js';
+import * as tabAbout from './ui/about.js';
 
-const VERSION = '0.1.0';
-const TABS = { connect: tabConnect, board: tabBoard, radio: tabRadio, plan: tabPlan, id: tabId, payload: tabPayload, schedule: tabSchedule, deploy: tabDeploy, bench: tabBench, fleet: tabFleet };
+const VERSION = '0.2.0';
+const TABS = { connect: tabConnect, board: tabBoard, radio: tabRadio, plan: tabPlan, id: tabId, payload: tabPayload, schedule: tabSchedule, deploy: tabDeploy, bench: tabBench, fleet: tabFleet, about: tabAbout };
 const TAB_KEYS = { board: ['pins'], radio: ['radio', 'module'], plan: ['plan'], id: ['id'], payload: ['payload'], schedule: ['schedule'] };
 
 export const app = {

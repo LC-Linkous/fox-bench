@@ -16,7 +16,7 @@ const kindsForTemplate = () => { const s = app.template.sections; return s.inclu
 
 function setKind(kind) {
   const p = app.cfg.payload; if (p.kind === kind) return;
-  app.cfg.payload = kind === 'songs' ? { kind, articulation: 0.875, skip_on_low_battery: true, playlist: [structuredClone(melody.BUILTIN[0])] }
+  app.cfg.payload = kind === 'songs' ? { kind, articulation: 0.875, skip_on_low_battery: true, playlist: [firstQuickSong()] }
     : kind === 'sstv' ? { kind, mode: 'robot36-gray', images_file: 'images.bin', skip_on_low_battery: true }
     : { kind, dit_s: 3.0, message: null };
   if (kind === 'sstv' && !app.images.length) app.images = [sstv.testCard()];
@@ -59,12 +59,59 @@ function renderPreview(i = 0) {
   requestAnimationFrame(() => { (p.kind === 'none' && p.dit_s > 0.3 ? drawWaterfall : drawTrace)(trace, evs); if (decode) sstv.decodeToCanvas(sstv.events(app.images[i]), decode); });
 }
 
+// ---- song libraries: repo-provided (songs/index.json) plus any loaded from disk this session
+const localLibs = [];
+let libSel = null, libQuery = '', libBox = null;
+const allLibs = () => [...(app.catalog.songLibraries || []), ...localLibs];
+const quickSongs = () => { const q = allLibs().flatMap(l => l.songs.filter(s => s.quick)); return q.length ? q : melody.BUILTIN; };
+export const firstQuickSong = () => structuredClone(quickSongs()[0] || melody.BUILTIN[0]);
+const cleanSong = s => ({ name: s.name, tempo: s.tempo, notes: s.notes.map(n => [n[0], n[1]]) });
+
+/** Parse a library file: our JSON shape, a bare array of songs, or a text file of RTTTL lines. */
+function parseLibrary(text, filename) {
+  try {
+    const j = JSON.parse(text);
+    const songs = Array.isArray(j) ? j : j.songs;
+    if (!Array.isArray(songs)) throw new Error('no songs array');
+    return { id: 'local:' + filename, name: j.name || filename, notes: j.notes || '', songs: songs.filter(x => x && x.name && x.tempo && Array.isArray(x.notes)) };
+  } catch (e) {
+    const songs = [], errs = [];
+    for (const line of text.split(/\r?\n/)) { const l = line.trim(); if (!l || l.startsWith('#')) continue; try { songs.push(rtttl.parse(l)); } catch (x) { errs.push(x.message); } }
+    if (!songs.length) throw new Error('not a song library (JSON) or RTTTL text' + (errs.length ? ': ' + errs[0] : ''));
+    return { id: 'local:' + filename, name: filename, notes: `${songs.length} RTTTL lines${errs.length ? `, ${errs.length} skipped` : ''}`, songs };
+  }
+}
+
+function libraryCard() {
+  const p = app.cfg.payload, libs = allLibs();
+  if (libSel == null || !libs.find(l => l.id === libSel)) libSel = libs[0]?.id ?? null;
+  const lib = libs.find(l => l.id === libSel);
+  const q = libQuery.toLowerCase();
+  const rows = (lib?.songs || []).filter(s => !q || s.name.toLowerCase().includes(q)).slice(0, 60);
+  const search = h('input', { type: 'text', value: libQuery, placeholder: 'filter…', style: 'width:140px' });
+  search.addEventListener('input', () => { libQuery = search.value; render('library'); });
+  const fileIn = h('input', { type: 'file', accept: '.json,.txt,.rtttl,application/json,text/plain', hidden: true, multiple: true });
+  fileIn.addEventListener('change', async () => { for (const f of fileIn.files) { try { const l = parseLibrary(await f.text(), f.name.replace(/\.[^.]+$/, '')); localLibs.push(l); libSel = l.id; app.console.dim(`library "${l.name}": ${l.songs.length} songs`); } catch (e) { app.console.err(`${f.name}: ${e.message}`); } } fileIn.value = ''; render('library'); });
+  const exportPlaylist = () => { const data = { name: 'My fox songs', notes: 'exported from fox-bench', songs: p.playlist.map(cleanSong) }; const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' })); a.download = 'songs.json'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1500); };
+  return h('div.card', {}, h('h3', {}, 'Song library'),
+    h('div.tools', { style: 'margin-bottom:8px' }, h('span.hint', {}, 'Quick add:'), quickSongs().map(s => h('button.btn.small', { onclick: () => { p.playlist.push(cleanSong(s)); app.changed('payload'); } }, s.name))),
+    libs.length ? h('div.tools', { style: 'margin:10px 0 6px' },
+      select(libs.map(l => [l.id, `${l.name} (${l.songs.length})`]), libSel, v => { libSel = v; libQuery = ''; render('library'); }), search,
+      h('button.btn.small', { onclick: () => fileIn.click() }, 'Load library file…'), fileIn) : h('p.hint', {}, 'No song libraries found in songs/.'),
+    lib?.notes ? h('p.hint', {}, lib.notes) : null,
+    rows.length ? h('ul.list', { style: 'max-height:260px;overflow:auto' }, rows.map(s => h('li', {},
+      h('span.name', {}, s.name), h('span.meta', {}, `${s.tempo} bpm · ${fmtDuration(melody.durationMs(s, p.articulation))}`),
+      h('button', { title: 'play', onclick: () => player.play(melody.events(s, p.articulation)) }, '▶'),
+      h('button.btn.small', { onclick: () => { p.playlist.push(cleanSong(s)); app.changed('payload'); } }, '+ add')))) : h('p.hint', {}, 'No songs match.'),
+    h('p.hint', { style: 'margin-top:8px' }, 'A library is a JSON file ({ name, songs: [{ name, tempo, notes }] }) or a text file with one RTTTL per line. Loaded files stay in this browser session only; to make one permanent, drop it in ', h('code', {}, 'songs/'), ' and list it in ', h('code', {}, 'songs/index.json'), '. ', h('button.btn.small', { onclick: exportPlaylist }, 'Export playlist as a library')));
+}
+
 function songsCard() {
   const p = app.cfg.payload;
   const rt = h('textarea', { rows: 3, placeholder: 'Paste RTTTL here, e.g.  Scale:d=4,o=5,b=120:8c,8d,8e,8f,8g,8a,8b,c6', spellcheck: 'false' });
   const rtErr = h('p.hint');
   const addRt = () => { try { p.playlist.push(rtttl.parse(rt.value)); rt.value = ''; rtErr.textContent = ''; app.changed('payload'); } catch (e) { rtErr.className = 'hint err'; rtErr.textContent = e.message; } };
-  return h('div.card', {}, h('h3', {}, 'Playlist ', badge(`${p.playlist.length} song${p.playlist.length === 1 ? '' : 's'}`)),
+  return h('div', {}, h('div.card', {}, h('h3', {}, 'Playlist ', badge(`${p.playlist.length} song${p.playlist.length === 1 ? '' : 's'}`)),
     h('ul.list', {}, p.playlist.map((s, i) => h('li', {},
       h('span.name', {}, s.name), h('span.meta', {}, `${s.notes.length} notes · ${s.tempo} bpm · ${fmtDuration(melody.durationMs(s, p.articulation))}`),
       h('button', { title: 'play', onclick: () => player.play(melody.events(s, p.articulation)) }, '▶'),
@@ -72,11 +119,11 @@ function songsCard() {
       i > 0 ? h('button', { title: 'move up', onclick: () => { [p.playlist[i - 1], p.playlist[i]] = [p.playlist[i], p.playlist[i - 1]]; app.changed('payload'); } }, '↑') : null,
       p.playlist.length > 1 ? h('button', { title: 'remove', onclick: () => { p.playlist.splice(i, 1); app.changed('payload'); } }, '✕') : null))),
     h('p.hint', {}, 'One song per transmission, in order, wrapping. Songs are stored in fox.json as (MIDI note, 32nds) pairs with a tempo; keep them public-domain if you publish the config.'),
-    h('div.tools', { style: 'margin:8px 0' }, h('span.hint', {}, 'Add built-in:'), melody.BUILTIN.map(s => h('button.btn.small', { onclick: () => { p.playlist.push(structuredClone(s)); app.changed('payload'); } }, s.name))),
     field('Add from RTTTL', rt), h('div.tools', {}, h('button.btn.small', { onclick: addRt }, 'Add song'), rtErr),
     h('div.two-col', { style: 'margin-top:10px' },
       field('Articulation', numInput(p.articulation, { min: 0.5, max: 1, step: 0.025, onchange: v => { p.articulation = v; app.changed('payload'); } }), 'fraction of each note that sounds; lower = more staccato'),
-      h('div.field', {}, h('label', {}, 'Low battery'), check('Skip the song, send the ID only', p.skip_on_low_battery, v => { p.skip_on_low_battery = v; app.changed('payload'); }))));
+      h('div.field', {}, h('label', {}, 'Low battery'), check('Skip the song, send the ID only', p.skip_on_low_battery, v => { p.skip_on_low_battery = v; app.changed('payload'); })))),
+    (libBox = h('div', {}, libraryCard())));
 }
 
 function sstvCard() {
@@ -109,6 +156,7 @@ function qrssCard() {
 
 function render(source) {
   if (source === 'theme') { renderPreview(); return; }
+  if (source === 'library') { if (libBox) { fill(libBox, libraryCard()); const i = libBox.querySelector('input[type=text]'); if (i && libQuery) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } } return; }
   const p = app.cfg.payload, kinds = kindsForTemplate();
   previewBox = h('div.card');
   fill(root, 

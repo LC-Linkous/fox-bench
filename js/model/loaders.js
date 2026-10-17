@@ -16,7 +16,12 @@ export async function loadCatalog() {
   const templates = Object.fromEntries(await Promise.all(fw.templates.map(async id => [id, await get(`firmware/templates/${id}/template.json`)])));
   const foxlibVersion = (await get('firmware/foxlib/VERSION', 'text')).trim();
   delete bands._note;
-  return { boards, modules, bands, templates, foxlibFiles: fw.foxlib, foxlibVersion };
+  let songLibraries = [];
+  try {
+    const idx = await get('songs/index.json');
+    songLibraries = await Promise.all(idx.libraries.map(async l => ({ ...l, ...(await get(l.file)) })));
+  } catch (e) { console.warn('song libraries not loaded', e); }
+  return { boards, modules, bands, templates, foxlibFiles: fw.foxlib, foxlibVersion, songLibraries };
 }
 
 export const loadDefaults = (templateId, boardId) => get(`firmware/templates/${templateId}/defaults/${boardId}.json`);

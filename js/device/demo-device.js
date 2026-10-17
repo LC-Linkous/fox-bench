@@ -66,7 +66,7 @@ export class DemoDevice extends Device {
     this.lastCfg = cfg; this.lastRadio = radio;
     return lines.join('\n');
   }
-  _tmplVersion() { return this.dec.decode(this.fs.get('code.py') || new Uint8Array()).match(/version ([\d.]+)/)?.[1] || '1.0.0'; }
+  _tmplVersion() { return this.dec.decode(this.fs.get('code.py') || new Uint8Array()).match(/version="?([\d.]+)/)?.[1] || '1.0.0'; }
 
   async reboot() { this.log('soft reboot (Ctrl-D) — capturing boot log', 'dim'); await sleep(600); const t = this._boot(); this.log(t, 'reply'); return t; }
 
