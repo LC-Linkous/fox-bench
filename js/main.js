@@ -43,16 +43,23 @@ export const app = {
   /** Re-validate and notify every tab. */
   changed(source) {
     if (!this.cfg) return;
+    // re-entrancy guard: a render that removes a focused input can fire a second change event mid-render
+    if (this._notifying) { this._pending = source; return; }
+    this._notifying = true;
+    try { this._changed(source); } finally { this._notifying = false; }
+    if (this._pending) { const p = this._pending; this._pending = null; this.changed(p); }
+  },
+  _changed(source) {
     const r = mergeAndValidate(this.cfg, this.defaults, this.board);
     this.report = r.report; this.status = r.status;
-    this.issues = pageChecks(r.cfg, { bands: this.catalog.bands, region: this.region, morseTable: MORSE, templateManifest: this.template });
+    this.issues = pageChecks(r.cfg, { bands: this.catalog.bands, region: this.region, morseTable: MORSE, templateManifest: this.template, module: this.module });
     this.validCfg = r.cfg;
     try { localStorage.setItem('fox-bench.working', JSON.stringify({ cfg: this.cfg, boardId: this.boardId, templateId: this.templateId, moduleId: this.moduleId, region: this.region })); } catch {}
     for (const [tab, keys] of Object.entries(TAB_KEYS)) {
       const bad = [...this.report.map(x => ({ level: 'err', key: x.key })), ...this.issues].filter(i => keys.some(k => i.key === k || i.key.startsWith(k + '.')));
       setFlag(tab, bad.some(i => i.level === 'err') ? 'err' : bad.some(i => i.level === 'warn') ? 'warn' : '');
     }
-    setFlag('deploy', this.report.length || this.issues.some(i => i.level === 'err') ? 'err' : this.connected ? 'ok' : '');
+    setFlag('deploy', this.report.length || this.issues.some(i => i.level === 'err' && i.blocking !== false) ? 'err' : this.issues.some(i => i.level === 'err') ? 'warn' : this.connected ? 'ok' : '');
     for (const fn of this.listeners) fn(source);
     $('#tmplBadge').textContent = `${this.template.name}${this.template.status === 'experimental' ? ' · experimental' : ''}`;
     $('#tmplBadge').className = 'badge ' + (this.template.status === 'experimental' ? 'warn' : 'info'); $('#tmplBadge').hidden = false;

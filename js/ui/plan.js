@@ -10,7 +10,7 @@ function whyBad(f) {
   const bands = app.catalog.bands[app.region] || {};
   const band = Object.entries(bands).find(([, [a, b]]) => f >= a && f <= b);
   if (!inMod) return { cls: 'err', text: `outside the ${app.module.name} range` };
-  if (!band) return { cls: 'err', text: `outside the ${app.region} amateur bands` };
+  if (!band) return { cls: 'err', text: `outside the ${app.region} bands — allowed, confirmed at deploy` };
   return { cls: 'ok', text: band[0] };
 }
 
@@ -32,7 +32,7 @@ function render() {
       h('div.tools', {},
         h('button.btn.small', { onclick: () => { p.frequencies_mhz.push(p.frequencies_mhz.at(-1) || 146.565); app.changed('plan'); } }, '+ Add frequency'),
         h('span.hint', {}, 'Presets:'), presets.map(([f, t]) => h('button.btn.small', { title: t, onclick: () => { p.frequencies_mhz.push(+f); app.changed('plan'); } }, f))),
-      h('p.hint', {}, 'With more than one entry the fox retunes after each transmission, in order, wrapping. Entries the module can\'t reach are dropped by the firmware at boot and named in the banner.')),
+      h('p.hint', {}, 'With more than one entry the fox retunes after each transmission, in order, wrapping. Entries the module can\'t reach are dropped by the firmware at boot and named in the banner. Entries outside the band table are allowed (bench testing, other allocations) and shown in red; Deploy asks you to confirm them.')),
     h('div.card', { hidden: p.frequencies_mhz.length < 2 }, h('h3', {}, 'Rotation'),
       check('Announce the next frequency in Morse before moving ("QSY 147.445")', p.announce_qsy, v => { p.announce_qsy = v; app.changed('plan'); }),
       h('p.hint', {}, 'Courtesy variant: the exercise is following the fox. Off: hunters have to find each new frequency themselves.')),

@@ -28,7 +28,10 @@ function plan() {
 }
 
 async function deploy(btn) {
-  if (busy) return; busy = true; lastResult = null; render();
+  if (busy) return;
+  const overrides = app.issues.filter(e => e.level === 'err' && e.blocking === false);
+  if (overrides.length && !confirm(`Deploy anyway?\n\n${overrides.map(o => '• ' + o.msg.replace(/ — .*$/, '')).join('\n')}\n\nThese are outside the ${app.region} amateur band table. Make sure this is intended (bench testing into a load, a different allocation, etc.).`)) return;
+  busy = true; lastResult = null; render();
   const d = app.device, cfg = app.validCfg, log = app.console;
   const { files } = plan();
   try {
@@ -42,7 +45,7 @@ async function deploy(btn) {
     const bootLog = await d.reboot();
     const banner = parseBanner(bootLog);
     lastResult = { bootLog, banner, ok: !!banner && banner.cfg === 'ok' && banner.radio === 'ok' && banner.id === 'set' };
-    fleet.append({ board_number: '', uid: app.info.uid, board: app.info.boardId, action: 'deploy', template: `${app.templateId}/${app.template.version}`, profile: cfg.fleet?.profile || '', callsign: cfg.id.callmessage, freq: cfg.plan.frequencies_mhz.join(' '), seed: cfg.schedule.seed ?? '', result: lastResult.ok ? 'ok' : (banner ? `${banner.cfg} ${banner.radio} ${banner.id}` : 'no banner'), notes: app.device.kind === 'demo' ? 'demo' : '' });
+    fleet.append({ board_number: '', uid: app.info.uid, board: app.info.boardId, action: 'deploy', template: `${app.templateId}/${app.template.version}`, profile: cfg.fleet?.profile || '', callsign: cfg.id.callmessage, freq: cfg.plan.frequencies_mhz.join(' '), power: `${cfg.radio.high_power ? 'high' : 'low'}${cfg.radio.power_dbm != null ? ' ' + cfg.radio.power_dbm + 'dBm' : ''}`, seed: cfg.schedule.seed ?? '', result: lastResult.ok ? 'ok' : (banner ? `${banner.cfg} ${banner.radio} ${banner.id}` : 'no banner'), notes: app.device.kind === 'demo' ? 'demo' : '' });
     await app.readBoard();
   } catch (e) { lastResult = { error: String(e.message || e) }; log.err(lastResult.error); }
   busy = false; gateOk = false; app.changed('deploy');
@@ -52,14 +55,15 @@ function render() {
   const cfg = app.cfg, { files, changes } = plan();
   const at = airtime(cfg, { images: app.images });
   const errs = [...app.report.map(r => ({ level: 'err', key: r.key, msg: r.reason })), ...app.issues];
-  const blocking = errs.filter(e => e.level === 'err');
+  const blocking = errs.filter(e => e.level === 'err' && e.blocking !== false);
+  const overrides = errs.filter(e => e.level === 'err' && e.blocking === false);
   const ready = app.connected && !blocking.length && gateOk && !busy;
   const lim = cfg.limits;
   root.replaceChildren(
     h('div.cols', {},
       h('div.card', {}, h('h3', {}, 'Checks ', blocking.length ? badge(`${blocking.length} blocking`, 'err') : badge('all pass', 'ok')),
         errs.length ? h('ul', { style: 'margin:0;padding-left:1.2em' }, errs.map(e => h('li', { class: e.level === 'err' ? 'hint err' : e.level === 'warn' ? 'hint warn' : 'hint', style: 'font-size:.9rem' }, h('code', {}, e.key), ' ', e.msg))) : h('p.hint', {}, 'fox.json validates against CONFIG.md; callsign set; all frequencies in range and in band.'),
-        h('p.hint', { style: 'margin-top:8px' }, 'Status the firmware would report: ', h('code', {}, `cfg=${app.status}`))),
+        h('p.hint', { style: 'margin-top:8px' }, 'Status the firmware would report: ', h('code', {}, `cfg=${app.status}`), '. Blocking: invalid config, unset callsign, missing required pins. Not blocking: frequencies outside the band table (confirmed at deploy).')),
       h('div.card', {}, h('h3', {}, 'Keydown'),
         h('dl.kv', {}, h('dt', {}, 'Typical transmission'), h('dd', {}, fmtDuration(at.typical_ms)), h('dt', {}, 'Worst case'), h('dd', {}, fmtDuration(at.worst_ms))),
         field('Keydown limit', h('div.row', {}, numInput(lim.max_keydown_s ?? '', { min: 1, max: 7200, step: 1, width: '120px', onchange: v => { lim.max_keydown_s = v; app.changed('limits'); } }), h('span.suffix', {}, 's'), h('button.btn.small', { onclick: () => { lim.max_keydown_s = null; app.changed('limits'); } }, 'no limit')),
@@ -72,7 +76,7 @@ function render() {
     h('div.card', {}, h('h3', {}, 'Deploy'),
       h('label.gate', {}, h('input', { type: 'checkbox', checked: gateOk, onchange: e => { gateOk = e.target.checked; render(); } }), h('span', {}, h('b', {}, 'Antenna or dummy load is connected.'), ' The fox transmits within seconds of rebooting, and keying the module with nothing on the RF connector can damage it.')),
       h('div.tools', {}, h('button.btn.primary', { disabled: !ready, onclick: e => deploy(e.currentTarget) }, busy ? 'Writing…' : 'Write to board and reboot'),
-        !app.connected ? h('span.hint', {}, 'Connect a board first.') : blocking.length ? h('span.hint.err', {}, 'Fix the blocking checks above.') : null),
+        !app.connected ? h('span.hint', {}, 'Connect a board first.') : blocking.length ? h('span.hint.err', {}, 'Fix the blocking checks above.') : overrides.length ? h('span.hint.err', {}, `${overrides.length} out-of-band override${overrides.length === 1 ? '' : 's'} — you will be asked to confirm.`) : null),
       lastResult ? resultBox(lastResult) : null),
     h('div.card', {}, h('h3', {}, 'Flash CircuitPython ', badge('next milestone', 'warn')),
       h('p.hint', {}, 'For a factory-fresh board: hold B while plugging in, then erase and write CircuitPython from this page with esptool-js. Until that lands, use ', h('a', { href: app.board.circuitpython.download, target: '_blank', rel: 'noopener' }, 'the CircuitPython .bin for this board'), ' with Adafruit\'s WebSerial ESPTool or ', h('code', {}, 'tools/batch_flash.py'), '.')));

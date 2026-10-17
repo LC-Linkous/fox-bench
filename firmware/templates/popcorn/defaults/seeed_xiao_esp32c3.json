@@ -21,10 +21,11 @@
         174.0
       ]
     ],
-    "bandwidth": 1,
+    "bandwidth_khz": 25.0,
     "squelch": 3,
     "volume": 5,
-    "high_power": false
+    "high_power": false,
+    "power_dbm": null
   },
   "plan": {
     "frequencies_mhz": [

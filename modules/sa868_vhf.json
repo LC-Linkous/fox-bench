@@ -8,10 +8,6 @@
       174.0
     ]
   ],
-  "step_khz": [
-    12.5,
-    25.0
-  ],
   "power_dbm": {
     "low": 25,
     "high": 33
@@ -19,5 +15,9 @@
   "uart": {
     "baud": 9600
   },
-  "model": "SA868"
+  "model": "SA868",
+  "bandwidths_khz": [
+    12.5,
+    25.0
+  ]
 }

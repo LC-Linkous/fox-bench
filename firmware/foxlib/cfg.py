@@ -118,11 +118,17 @@ def validate(user, defaults, board_names, board_id=None):
             cfg["radio"]["ranges_mhz"] = rr
         else:
             rep.bad("radio.ranges_mhz", "[[lo,hi],...]")
-    if "bandwidth" in r:
-        if r["bandwidth"] in (0, 1) and _is_int(r["bandwidth"]):
-            cfg["radio"]["bandwidth"] = r["bandwidth"]
+    if "bandwidth_khz" in r:
+        if _is_num(r["bandwidth_khz"]) and 1 <= r["bandwidth_khz"] <= 100:
+            cfg["radio"]["bandwidth_khz"] = r["bandwidth_khz"]
         else:
-            rep.bad("radio.bandwidth", "0 or 1")
+            rep.bad("radio.bandwidth_khz", "1-100")
+    if "power_dbm" in r:
+        v = r["power_dbm"]
+        if v is None or (_is_num(v) and 0 <= v <= 40):
+            cfg["radio"]["power_dbm"] = v
+        else:
+            rep.bad("radio.power_dbm", "null or 0-40")
     if "squelch" in r:
         if _is_int(r["squelch"]) and 0 <= r["squelch"] <= 8:
             cfg["radio"]["squelch"] = r["squelch"]

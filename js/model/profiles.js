@@ -5,7 +5,7 @@ const KEY_P = 'fox-bench.profiles', KEY_F = 'fox-bench.fleet';
 const read = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
 const write = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
 
-export const FLEET_FIELDS = ['board_number', 'timestamp', 'uid', 'mac', 'board', 'chip_type', 'revision', 'features', 'crystal', 'usb_mode', 'action', 'template', 'profile', 'callsign', 'freq', 'seed', 'result', 'notes'];
+export const FLEET_FIELDS = ['board_number', 'timestamp', 'uid', 'mac', 'board', 'chip_type', 'revision', 'features', 'crystal', 'usb_mode', 'action', 'template', 'profile', 'callsign', 'freq', 'power', 'seed', 'result', 'notes'];
 
 export const profiles = {
   all: () => read(KEY_P, []),

@@ -4,6 +4,8 @@
 # Nothing here changes the module's own firmware. A driver owns the control
 # pins (PTT, PD, HL) and the UART dialect. Families:
 #   dmo   NiceRF "DMO" AT dialect: SA818, SA818S, SA868, SA868S, DRA818.
+#         Two power levels (HL pin) and two channel widths (12.5 / 25 kHz);
+#         bandwidth_khz is mapped to the nearest, power_dbm is informational.
 #         AT+DMOCONNECT / AT+DMOSETGROUP / AT+DMOSETVOLUME / RSSI? / AT+VERSION
 # Add a family: subclass Base, implement _setup/_retune/_rssi, register in DRIVERS.
 
@@ -105,7 +107,8 @@ class Dmo(Base):
 
     def retune(self, mhz):
         c = self.cfg
-        r = self._cmd("AT+DMOSETGROUP=%d,%.4f,%.4f,0000,%d,0000" % (int(c.get("bandwidth", 1)), mhz, mhz, int(c.get("squelch", 3))))
+        bw = 0 if float(c.get("bandwidth_khz", 25)) <= 18.75 else 1      # nearest of 12.5 / 25 kHz
+        r = self._cmd("AT+DMOSETGROUP=%d,%.4f,%.4f,0000,%d,0000" % (bw, mhz, mhz, int(c.get("squelch", 3))))
         ok = "+DMOSETGROUP:0" in r
         if ok:
             self.freq_mhz = mhz

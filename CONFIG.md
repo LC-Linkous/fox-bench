@@ -72,17 +72,19 @@ pattern, because keying unknown pins is worse than not keying.
 
 ```json
 "radio": { "family": "dmo", "ranges_mhz": [[134.0, 174.0]],
-           "bandwidth": 1, "squelch": 3, "volume": 5, "high_power": false }
+           "bandwidth_khz": 25.0, "squelch": 3, "volume": 5,
+           "high_power": false, "power_dbm": null }
 ```
 
 | key | type | range | notes |
 |---|---|---|---|
 | `family` | string | `dmo` | selects the `foxlib/radio.py` driver by control protocol. `dmo` = NiceRF AT dialect (SA818/SA818S/SA868/SA868S/DRA818). Copied from the module descriptor. |
 | `ranges_mhz` | [[lo, hi], …] | | copied from the module descriptor; the firmware drops any plan frequency outside them |
-| `bandwidth` | int | 0, 1 | 0 = 12.5 kHz, 1 = 25 kHz |
+| `bandwidth_khz` | number | 1–100 | requested channel width. The driver uses the nearest width the module supports (DMO: 12.5 or 25) and the page warns when it is not exact. |
 | `squelch` | int | 0–8 | receive-side; no audible effect on a transmit-only fox |
 | `volume` | int | 1–8 | receive-side; same note |
-| `high_power` | bool | | `hl` pin high. Default `false` (~25 dBm). |
+| `high_power` | bool | | `hl` pin high. Default `false`. The DMO modules have exactly two levels; this is the only power control the firmware has. |
+| `power_dbm` | number or null | 0–40 | the measured or nominal output of the selected level, recorded for profiles and the fleet log. The firmware ignores it. |
 
 ## `plan`
 

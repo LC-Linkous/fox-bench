@@ -9,10 +9,6 @@
       174.0
     ]
   ],
-  "step_khz": [
-    12.5,
-    25.0
-  ],
   "power_dbm": {
     "low": 27,
     "high": 30
@@ -20,5 +16,9 @@
   "uart": {
     "baud": 9600
   },
-  "notes": "Same DMO AT dialect as the SA868; ~1 W max."
+  "notes": "Same DMO AT dialect as the SA868; ~1 W max.",
+  "bandwidths_khz": [
+    12.5,
+    25.0
+  ]
 }

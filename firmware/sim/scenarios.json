@@ -1,76 +1,537 @@
 {
-  "_doc": "Scenarios run against every template ('all') and per template. 'fox' is deep-merged over the template's defaults to make fox.json. Times are virtual.",
-  "all": [
-    { "name": "unset-callsign", "stop_after_unkeys": 1, "cap_ms": 90000,
-      "expect": { "banner": { "cfg": "ok", "radio": "ok", "id": "unset" }, "never_keyed": true, "prints_contain": ["staying silent"] } },
-    { "name": "normal", "stop_after_unkeys": 2, "cap_ms": 3600000,
-      "fox": { "id": { "callmessage": "W1ABC FOX DE W1ABC" } },
-      "expect": { "banner": { "cfg": "ok", "radio": "ok", "id": "set" }, "keyed_min": 2, "id_contains": ["W1ABC FOX DE W1ABC"] } },
-    { "name": "low-battery", "stop_after_unkeys": 1, "cap_ms": 600000, "battery": [[0, 3.42]],
-      "fox": { "id": { "callmessage": "W1ABC FOX" }, "pins": { "batt_sense": "A2" } },
-      "expect": { "banner": { "cfg": "ok" }, "keyed_min": 1, "id_contains": ["W1ABC FOX BAT 3V4"], "not_kinds": ["melody", "sstv"] } },
-    { "name": "critical-then-recover", "stop_after_unkeys": 1, "cap_ms": 3600000, "battery": [[0, 3.2], [200, 3.35], [400, 3.9]],
-      "fox": { "id": { "callmessage": "W1ABC FOX" }, "pins": { "batt_sense": "A2" } },
-      "expect": { "keyed_min": 1, "prints_contain": ["CRITICAL BATTERY"], "id_contains": ["BAT 3V9"] } },
-    { "name": "bad-config", "stop_after_unkeys": 1, "cap_ms": 600000,
-      "fox": { "id": { "callmessage": "W1ABC FOX", "wpm": 99 }, "plan": { "frequencies_mhz": [146.565, 433.9] }, "bogus": 1 },
-      "expect": { "banner": { "cfg": "partial(plan.frequencies_mhz,id.wpm,bogus)", "radio": "ok", "freq": "146.565" }, "keyed_min": 1 } },
-    { "name": "no-fox-json", "no_fox_json": true, "stop_after_unkeys": 1, "cap_ms": 60000,
-      "expect": { "banner": { "cfg": "default(missing)", "id": "unset" }, "never_keyed": true } },
-    { "name": "corrupt-fox-json", "raw_fox": "{ not json", "stop_after_unkeys": 1, "cap_ms": 60000,
-      "expect": { "banner": { "cfg": "default(parse)" }, "never_keyed": true } },
-    { "name": "wrong-pin", "stop_after_unkeys": 1, "cap_ms": 60000,
-      "fox": { "id": { "callmessage": "W1ABC FOX" }, "pins": { "ptt": "D99" } },
-      "expect": { "banner": { "cfg": "partial(pins.ptt)" }, "keyed_min": 1 } },
-    { "name": "duplicate-required-pin", "stop_after_unkeys": 1, "cap_ms": 60000,
-      "fox": { "id": { "callmessage": "W1ABC FOX" }, "pins": { "ptt": "D4" } },
-      "expect": { "banner": { "cfg": "fatal(pins.pd)" }, "never_keyed": true } },
-    { "name": "module-silent", "module_silent": true, "stop_after_unkeys": 1, "cap_ms": 600000,
-      "fox": { "id": { "callmessage": "W1ABC FOX" } },
-      "expect": { "banner": { "radio": "noreply" }, "keyed_min": 1 } },
-    { "name": "uhf-module-vhf-plan", "module_ranges": [[400, 480]], "stop_after_unkeys": 1, "cap_ms": 600000,
-      "fox": { "id": { "callmessage": "W1ABC FOX" } },
-      "expect": { "banner": { "radio": "err(DMOSETGROUP:1)" } } },
-    { "name": "keydown-limit", "stop_after_unkeys": 2, "cap_ms": 600000,
-      "fox": { "id": { "callmessage": "W1ABC FOX DE W1ABC" }, "limits": { "max_keydown_s": 6 } },
-      "expect": { "keyed_min": 1, "max_keyed_ms": 6300, "prints_contain": ["keydown limit"] } }
-  ],
-  "morse-songs": [
-    { "name": "songs-play", "stop_after_unkeys": 3, "cap_ms": 3600000, "fox": { "id": { "callmessage": "W1ABC FOX" }, "schedule": { "kind": "fixed", "delay_ms": 10000 } },
-      "expect": { "kinds": ["morse", "melody"], "waits": [9900, 11000] } }
-  ],
-  "morse-sstv": [
-    { "name": "image-plays", "stop_after_unkeys": 1, "cap_ms": 600000, "fox": { "id": { "callmessage": "W1ABC FOX" } },
-      "expect": { "kinds": ["morse", "sstv"], "id_contains": ["W1ABC FOX"] } }
-  ],
-  "morse-qrss": [
-    { "name": "slow-dits", "stop_after_unkeys": 1, "cap_ms": 3600000, "fox": { "id": { "callmessage": "W1ABC" }, "payload": { "kind": "none", "dit_s": 0.5, "message": null } },
-      "expect": { "id_contains": ["W1ABC"], "not_kinds": ["melody"] } }
-  ],
-  "popcorn": [
-    { "name": "clusters", "stop_after_unkeys": 4, "cap_ms": 7200000,
-      "fox": { "id": { "callmessage": "W1ABC FOX" }, "schedule": { "kind": "popcorn", "seed": 18, "cluster": 2, "cluster_gap_ms": 8000, "dark_min_ms": 60000, "dark_max_ms": 120000 } },
-      "expect": { "keyed_min": 4, "kinds": ["morse", "melody"] } }
-  ],
-  "freq-rotator": [
-    { "name": "rotates-with-qsy", "stop_after_unkeys": 2, "cap_ms": 3600000,
-      "fox": { "id": { "callmessage": "W1ABC FOX" }, "plan": { "frequencies_mhz": [146.565, 147.42], "announce_qsy": true } },
-      "expect": { "retunes_min": 2, "id_contains": ["QSY 147.420", "QSY 146.565"] } }
-  ],
-  "resurrection": [
-    { "name": "dies-and-returns", "stop_after_unkeys": 7, "cap_ms": 7200000,
-      "fox": { "id": { "callmessage": "W1ABC FOX" }, "schedule": { "kind": "resurrection", "seed": 1, "delay_ms": 10000, "alive_min_ms": 30000, "alive_max_ms": 30000, "dead_ms": 120000, "dit_min_ms": 10000, "dit_max_ms": 20000, "id_every": 3, "dead_song": false } },
-      "expect": { "keyed_min": 7, "prints_contain": ["dead-phase wake: dit", "dead-phase wake: id"] } }
-  ],
-  "composite": [
-    { "name": "popcorn+rotator+sstv", "stop_after_unkeys": 2, "cap_ms": 3600000,
-      "fox": { "id": { "callmessage": "W1ABC FOX" }, "payload": { "kind": "sstv", "mode": "robot36-gray", "images_file": "images.bin", "skip_on_low_battery": true },
-               "schedule": { "kind": "popcorn", "seed": 5, "cluster": 2, "cluster_gap_ms": 5000, "dark_min_ms": 10000, "dark_max_ms": 20000 },
-               "plan": { "frequencies_mhz": [146.565, 147.42], "announce_qsy": true } },
-      "expect": { "kinds": ["morse", "sstv"], "retunes_min": 2, "id_contains": ["QSY 147.420"] } },
-    { "name": "qrss+resurrection", "stop_after_unkeys": 3, "cap_ms": 7200000,
-      "fox": { "id": { "callmessage": "W1ABC" }, "payload": { "kind": "none", "dit_s": 0.3, "message": null },
-               "schedule": { "kind": "resurrection", "seed": 2, "delay_ms": 5000, "alive_min_ms": 20000, "alive_max_ms": 20000, "dead_ms": 60000, "dit_min_ms": 5000, "dit_max_ms": 8000, "id_every": 2, "dead_song": false } },
-      "expect": { "id_contains": ["W1ABC"], "not_kinds": ["melody"] } }
-  ]
+ "_doc": "Scenarios run against every template ('all') and per template. 'fox' is deep-merged over the template's defaults to make fox.json. Times are virtual.",
+ "all": [
+  {
+   "name": "unset-callsign",
+   "stop_after_unkeys": 1,
+   "cap_ms": 90000,
+   "expect": {
+    "banner": {
+     "cfg": "ok",
+     "radio": "ok",
+     "id": "unset"
+    },
+    "never_keyed": true,
+    "prints_contain": [
+     "staying silent"
+    ]
+   }
+  },
+  {
+   "name": "normal",
+   "stop_after_unkeys": 2,
+   "cap_ms": 3600000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX DE W1ABC"
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "ok",
+     "radio": "ok",
+     "id": "set"
+    },
+    "keyed_min": 2,
+    "id_contains": [
+     "W1ABC FOX DE W1ABC"
+    ]
+   }
+  },
+  {
+   "name": "low-battery",
+   "stop_after_unkeys": 1,
+   "cap_ms": 600000,
+   "battery": [
+    [
+     0,
+     3.42
+    ]
+   ],
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "pins": {
+     "batt_sense": "A2"
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "ok"
+    },
+    "keyed_min": 1,
+    "id_contains": [
+     "W1ABC FOX BAT 3V4"
+    ],
+    "not_kinds": [
+     "melody",
+     "sstv"
+    ]
+   }
+  },
+  {
+   "name": "critical-then-recover",
+   "stop_after_unkeys": 1,
+   "cap_ms": 3600000,
+   "battery": [
+    [
+     0,
+     3.2
+    ],
+    [
+     200,
+     3.35
+    ],
+    [
+     400,
+     3.9
+    ]
+   ],
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "pins": {
+     "batt_sense": "A2"
+    }
+   },
+   "expect": {
+    "keyed_min": 1,
+    "prints_contain": [
+     "CRITICAL BATTERY"
+    ],
+    "id_contains": [
+     "BAT 3V9"
+    ]
+   }
+  },
+  {
+   "name": "bad-config",
+   "stop_after_unkeys": 1,
+   "cap_ms": 600000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX",
+     "wpm": 99
+    },
+    "plan": {
+     "frequencies_mhz": [
+      146.565,
+      433.9
+     ]
+    },
+    "bogus": 1
+   },
+   "expect": {
+    "banner": {
+     "cfg": "partial(plan.frequencies_mhz,id.wpm,bogus)",
+     "radio": "ok",
+     "freq": "146.565"
+    },
+    "keyed_min": 1
+   }
+  },
+  {
+   "name": "no-fox-json",
+   "no_fox_json": true,
+   "stop_after_unkeys": 1,
+   "cap_ms": 60000,
+   "expect": {
+    "banner": {
+     "cfg": "default(missing)",
+     "id": "unset"
+    },
+    "never_keyed": true
+   }
+  },
+  {
+   "name": "corrupt-fox-json",
+   "raw_fox": "{ not json",
+   "stop_after_unkeys": 1,
+   "cap_ms": 60000,
+   "expect": {
+    "banner": {
+     "cfg": "default(parse)"
+    },
+    "never_keyed": true
+   }
+  },
+  {
+   "name": "wrong-pin",
+   "stop_after_unkeys": 1,
+   "cap_ms": 60000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "pins": {
+     "ptt": "D99"
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "partial(pins.ptt)"
+    },
+    "keyed_min": 1
+   }
+  },
+  {
+   "name": "duplicate-required-pin",
+   "stop_after_unkeys": 1,
+   "cap_ms": 60000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "pins": {
+     "ptt": "D4"
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "fatal(pins.pd)"
+    },
+    "never_keyed": true
+   }
+  },
+  {
+   "name": "module-silent",
+   "module_silent": true,
+   "stop_after_unkeys": 1,
+   "cap_ms": 600000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    }
+   },
+   "expect": {
+    "banner": {
+     "radio": "noreply"
+    },
+    "keyed_min": 1
+   }
+  },
+  {
+   "name": "uhf-module-vhf-plan",
+   "module_ranges": [
+    [
+     400,
+     480
+    ]
+   ],
+   "stop_after_unkeys": 1,
+   "cap_ms": 600000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    }
+   },
+   "expect": {
+    "banner": {
+     "radio": "err(DMOSETGROUP:1)"
+    }
+   }
+  },
+  {
+   "name": "keydown-limit",
+   "stop_after_unkeys": 2,
+   "cap_ms": 600000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX DE W1ABC"
+    },
+    "limits": {
+     "max_keydown_s": 6
+    }
+   },
+   "expect": {
+    "keyed_min": 1,
+    "max_keyed_ms": 6300,
+    "prints_contain": [
+     "keydown limit"
+    ]
+   }
+  },
+  {
+   "name": "radio-settings",
+   "stop_after_unkeys": 1,
+   "cap_ms": 3600000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "radio": {
+     "bandwidth_khz": 12.5,
+     "high_power": true,
+     "power_dbm": 32.5
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "ok",
+     "radio": "ok"
+    },
+    "keyed_min": 1,
+    "uart_contains": [
+     "AT+DMOSETGROUP=0,146.5650"
+    ]
+   }
+  },
+  {
+   "name": "odd-bandwidth",
+   "stop_after_unkeys": 1,
+   "cap_ms": 3600000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "radio": {
+     "bandwidth_khz": 20
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "ok"
+    },
+    "uart_contains": [
+     "AT+DMOSETGROUP=1,"
+    ]
+   }
+  }
+ ],
+ "morse-songs": [
+  {
+   "name": "songs-play",
+   "stop_after_unkeys": 3,
+   "cap_ms": 3600000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "schedule": {
+     "kind": "fixed",
+     "delay_ms": 10000
+    }
+   },
+   "expect": {
+    "kinds": [
+     "morse",
+     "melody"
+    ],
+    "waits": [
+     9900,
+     11000
+    ]
+   }
+  }
+ ],
+ "morse-sstv": [
+  {
+   "name": "image-plays",
+   "stop_after_unkeys": 1,
+   "cap_ms": 600000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    }
+   },
+   "expect": {
+    "kinds": [
+     "morse",
+     "sstv"
+    ],
+    "id_contains": [
+     "W1ABC FOX"
+    ]
+   }
+  }
+ ],
+ "morse-qrss": [
+  {
+   "name": "slow-dits",
+   "stop_after_unkeys": 1,
+   "cap_ms": 3600000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC"
+    },
+    "payload": {
+     "kind": "none",
+     "dit_s": 0.5,
+     "message": null
+    }
+   },
+   "expect": {
+    "id_contains": [
+     "W1ABC"
+    ],
+    "not_kinds": [
+     "melody"
+    ]
+   }
+  }
+ ],
+ "popcorn": [
+  {
+   "name": "clusters",
+   "stop_after_unkeys": 4,
+   "cap_ms": 7200000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "schedule": {
+     "kind": "popcorn",
+     "seed": 18,
+     "cluster": 2,
+     "cluster_gap_ms": 8000,
+     "dark_min_ms": 60000,
+     "dark_max_ms": 120000
+    }
+   },
+   "expect": {
+    "keyed_min": 4,
+    "kinds": [
+     "morse",
+     "melody"
+    ]
+   }
+  }
+ ],
+ "freq-rotator": [
+  {
+   "name": "rotates-with-qsy",
+   "stop_after_unkeys": 2,
+   "cap_ms": 3600000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "plan": {
+     "frequencies_mhz": [
+      146.565,
+      147.42
+     ],
+     "announce_qsy": true
+    }
+   },
+   "expect": {
+    "retunes_min": 2,
+    "id_contains": [
+     "QSY 147.420",
+     "QSY 146.565"
+    ]
+   }
+  }
+ ],
+ "resurrection": [
+  {
+   "name": "dies-and-returns",
+   "stop_after_unkeys": 7,
+   "cap_ms": 7200000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "schedule": {
+     "kind": "resurrection",
+     "seed": 1,
+     "delay_ms": 10000,
+     "alive_min_ms": 30000,
+     "alive_max_ms": 30000,
+     "dead_ms": 120000,
+     "dit_min_ms": 10000,
+     "dit_max_ms": 20000,
+     "id_every": 3,
+     "dead_song": false
+    }
+   },
+   "expect": {
+    "keyed_min": 7,
+    "prints_contain": [
+     "dead-phase wake: dit",
+     "dead-phase wake: id"
+    ]
+   }
+  }
+ ],
+ "composite": [
+  {
+   "name": "popcorn+rotator+sstv",
+   "stop_after_unkeys": 2,
+   "cap_ms": 3600000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "payload": {
+     "kind": "sstv",
+     "mode": "robot36-gray",
+     "images_file": "images.bin",
+     "skip_on_low_battery": true
+    },
+    "schedule": {
+     "kind": "popcorn",
+     "seed": 5,
+     "cluster": 2,
+     "cluster_gap_ms": 5000,
+     "dark_min_ms": 10000,
+     "dark_max_ms": 20000
+    },
+    "plan": {
+     "frequencies_mhz": [
+      146.565,
+      147.42
+     ],
+     "announce_qsy": true
+    }
+   },
+   "expect": {
+    "kinds": [
+     "morse",
+     "sstv"
+    ],
+    "retunes_min": 2,
+    "id_contains": [
+     "QSY 147.420"
+    ]
+   }
+  },
+  {
+   "name": "qrss+resurrection",
+   "stop_after_unkeys": 3,
+   "cap_ms": 7200000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC"
+    },
+    "payload": {
+     "kind": "none",
+     "dit_s": 0.3,
+     "message": null
+    },
+    "schedule": {
+     "kind": "resurrection",
+     "seed": 2,
+     "delay_ms": 5000,
+     "alive_min_ms": 20000,
+     "alive_max_ms": 20000,
+     "dead_ms": 60000,
+     "dit_min_ms": 5000,
+     "dit_max_ms": 8000,
+     "id_every": 2,
+     "dead_song": false
+    }
+   },
+   "expect": {
+    "id_contains": [
+     "W1ABC"
+    ],
+    "not_kinds": [
+     "melody"
+    ]
+   }
+  }
+ ]
 }

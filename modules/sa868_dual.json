@@ -12,10 +12,6 @@
       480.0
     ]
   ],
-  "step_khz": [
-    12.5,
-    25.0
-  ],
   "power_dbm": {
     "low": 25,
     "high": 33
@@ -24,5 +20,9 @@
     "baud": 9600
   },
   "notes": "Use Radio \u2192 Probe to confirm which ranges the fitted module accepts.",
-  "model": "SA868"
+  "model": "SA868",
+  "bandwidths_khz": [
+    12.5,
+    25.0
+  ]
 }

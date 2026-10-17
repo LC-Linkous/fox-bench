@@ -60,7 +60,8 @@ export function mergeAndValidate(user, defaults, board) {
   const r = u.radio || {};
   if ('family' in r) { if (typeof r.family === 'string' && r.family) cfg.radio.family = r.family; else bad('radio.family', 'string'); }
   if ('ranges_mhz' in r) { if (Array.isArray(r.ranges_mhz) && r.ranges_mhz.length && r.ranges_mhz.every(x => Array.isArray(x) && x.length === 2 && isNum(x[0]) && isNum(x[1]) && x[0] < x[1])) cfg.radio.ranges_mhz = r.ranges_mhz; else bad('radio.ranges_mhz', '[[lo,hi],…]'); }
-  if ('bandwidth' in r) { if (r.bandwidth === 0 || r.bandwidth === 1) cfg.radio.bandwidth = r.bandwidth; else bad('radio.bandwidth', '0 or 1'); }
+  if ('bandwidth_khz' in r) { if (isNum(r.bandwidth_khz) && inRange(r.bandwidth_khz, 1, 100)) cfg.radio.bandwidth_khz = r.bandwidth_khz; else bad('radio.bandwidth_khz', '1–100'); }
+  if ('power_dbm' in r) { if (r.power_dbm === null || inRange(r.power_dbm, 0, 40)) cfg.radio.power_dbm = r.power_dbm; else bad('radio.power_dbm', 'null or 0–40'); }
   if ('squelch' in r) { if (isInt(r.squelch) && inRange(r.squelch, 0, 8)) cfg.radio.squelch = r.squelch; else bad('radio.squelch', '0–8'); }
   if ('volume' in r) { if (isInt(r.volume) && inRange(r.volume, 1, 8)) cfg.radio.volume = r.volume; else bad('radio.volume', '1–8'); }
   if ('high_power' in r) { if (typeof r.high_power === 'boolean') cfg.radio.high_power = r.high_power; else bad('radio.high_power', 'bool'); }
@@ -155,7 +156,7 @@ export function mergeAndValidate(user, defaults, board) {
 }
 
 /** Page-side checks that go beyond the firmware: callsign set, band plan, Morse characters. */
-export function pageChecks(cfg, { bands, region, morseTable, templateManifest }) {
+export function pageChecks(cfg, { bands, region, morseTable, templateManifest, module }) {
   const issues = [];   // { level: 'err'|'warn', key, msg }
   if (cfg.id.callmessage.includes(cfg.id.placeholder)) issues.push({ level: 'err', key: 'id.callmessage', msg: `callsign not set (still contains ${cfg.id.placeholder})` });
   const unsendable = [...new Set(cfg.id.callmessage.toLowerCase().split('').filter(c => c !== ' ' && !(c in morseTable)))];
@@ -164,8 +165,9 @@ export function pageChecks(cfg, { bands, region, morseTable, templateManifest })
   const regionBands = bands?.[region] || {};
   for (const f of cfg.plan.frequencies_mhz) {
     const inBand = Object.values(regionBands).some(([lo, hi]) => f >= lo && f <= hi);
-    if (!inBand) issues.push({ level: 'err', key: 'plan.frequencies_mhz', msg: `${f} MHz is outside the ${region} amateur bands` });
+    if (!inBand) issues.push({ level: 'err', blocking: false, key: 'plan.frequencies_mhz', msg: `${f} MHz is outside the ${region} amateur bands — deploying will ask you to confirm` });
   }
+  if (module?.bandwidths_khz && !module.bandwidths_khz.includes(cfg.radio.bandwidth_khz)) issues.push({ level: 'warn', key: 'radio.bandwidth_khz', msg: `${cfg.radio.bandwidth_khz} kHz is not a width the ${module.name} offers (${module.bandwidths_khz.join(' / ')}); the firmware will use the nearest` });
   if (cfg.plan.frequencies_mhz.length > 1 && !cfg.plan.announce_qsy) issues.push({ level: 'info', key: 'plan.announce_qsy', msg: 'silent rotation: hunters must find each new frequency themselves' });
   if (templateManifest?.pins) for (const role of templateManifest.pins.required) if (!cfg.pins[role]) issues.push({ level: 'err', key: `pins.${role}`, msg: `${role} is required by ${templateManifest.id}` });
   if (cfg.id.telemetry.includes('batt') && !cfg.pins.batt_sense) issues.push({ level: 'info', key: 'id.telemetry', msg: 'battery telemetry requested but no batt_sense pin — ignored by the firmware' });

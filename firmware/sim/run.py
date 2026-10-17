@@ -127,6 +127,9 @@ def check(template, scen, rec, err):
         bad = [g for g in gaps if not (lo <= g <= hi)]
         if bad:
             fails.append("gaps between transmissions outside [%d,%d]: %s" % (lo, hi, [round(g) for g in bad][:6]))
+    for want in exp.get("uart_contains", []):
+        if not any(want in l for _, l in rec.uart):
+            fails.append("no UART line containing %r" % want)
     for want in exp.get("prints_contain", []):
         if not any(want in l for l in rec.prints):
             fails.append("no print containing %r" % want)
