@@ -1,3 +1,23 @@
-{ "id": "sa868_uhf", "name": "NiceRF SA868 (UHF 400–480 MHz)", "family": "sa868",
-  "ranges_mhz": [[400.0, 480.0]], "step_khz": [12.5, 25.0],
-  "power_dbm": { "low": 25, "high": 33 }, "uart": { "baud": 9600 } }
+{
+  "id": "sa868_uhf",
+  "name": "NiceRF SA868 (UHF 400\u2013480 MHz)",
+  "family": "dmo",
+  "ranges_mhz": [
+    [
+      400.0,
+      480.0
+    ]
+  ],
+  "step_khz": [
+    12.5,
+    25.0
+  ],
+  "power_dbm": {
+    "low": 25,
+    "high": 33
+  },
+  "uart": {
+    "baud": 9600
+  },
+  "model": "SA868"
+}

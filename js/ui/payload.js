@@ -1,0 +1,119 @@
+// payload.js — Payload tab: songs (built-ins, RTTTL, playlist), SSTV images, QRSS; full-transmission preview.
+// SPDX-License-Identifier: GPL-2.0-only
+import { h, badge, field, select, numInput, check, fill } from './dom.js';
+import * as morse from '../audio/morse.js';
+import * as melody from '../audio/melody.js';
+import * as rtttl from '../audio/rtttl.js';
+import * as sstv from '../audio/sstv.js';
+import { Player, drawTrace, drawWaterfall } from '../audio/player.js';
+import { fmtDuration } from '../model/airtime.js';
+
+let app, root; const player = new Player();
+export function init(a, el) { app = a; root = el; app.listeners.add(render); render('boot'); }
+
+const KINDS = { songs: 'Songs (Morse ID, then a tune)', sstv: 'SSTV image (Morse ID, then a Robot 36 picture)', none: 'Morse only / QRSS (slow Morse for waterfall copy)' };
+const kindsForTemplate = () => { const s = app.template.sections; return s.includes('payload.*') ? Object.keys(KINDS) : Object.keys(KINDS).filter(k => s.includes('payload.' + k)); };
+
+function setKind(kind) {
+  const p = app.cfg.payload; if (p.kind === kind) return;
+  app.cfg.payload = kind === 'songs' ? { kind, articulation: 0.875, skip_on_low_battery: true, playlist: [structuredClone(melody.BUILTIN[0])] }
+    : kind === 'sstv' ? { kind, mode: 'robot36-gray', images_file: 'images.bin', skip_on_low_battery: true }
+    : { kind, dit_s: 3.0, message: null };
+  if (kind === 'sstv' && !app.images.length) app.images = [sstv.testCard()];
+  app.changed('payload');
+}
+
+/** The whole transmission as events: ID, gap, payload item i. */
+export function transmissionEvents(i = 0) {
+  const cfg = app.cfg, d = cfg.id, p = cfg.payload;
+  const idText = d.callmessage + (d.telemetry.includes('batt') && cfg.pins.batt_sense ? ' BAT 3V7' : '');
+  const evs = [[0, 750]];
+  if (p.kind === 'none') { evs.push(...morse.events(p.message || idText, { wpm: d.wpm, toneHz: d.tone_hz, ditMs: p.dit_s ? p.dit_s * 1000 : null })); return evs; }
+  evs.push(...morse.events(idText, { wpm: d.wpm, toneHz: d.tone_hz }), [0, 750]);
+  if (p.kind === 'songs' && p.playlist[i]) evs.push(...melody.events(p.playlist[i], p.articulation));
+  if (p.kind === 'sstv' && app.images[i]) evs.push(...sstv.events(app.images[i]));
+  if (cfg.plan.frequencies_mhz.length > 1 && cfg.plan.announce_qsy) { const nf = cfg.plan.frequencies_mhz[1 % cfg.plan.frequencies_mhz.length]; evs.push([0, 750], ...morse.events(`QSY ${nf.toFixed(3)}`, { wpm: d.wpm, toneHz: d.tone_hz })); }
+  return evs;
+}
+
+let previewBox;
+function renderPreview(i = 0) {
+  const p = app.cfg.payload, evs = transmissionEvents(i), total = evs.reduce((a, [, ms]) => a + ms, 0);
+  const trace = h('canvas.preview', { style: 'height:110px' });
+  const prog = h('progress', { max: 1, value: 0, style: 'width:100%;height:6px;display:block;margin-top:6px' });
+  const btn = h('button.btn.primary', { onclick: () => {
+    if (player.playing) { player.stop(); btn.textContent = 'Preview transmission'; btn.classList.remove('running'); return; }
+    const speed = p.kind === 'none' && p.dit_s > 0.3 ? 10 : 1;
+    player.onProgress = (f) => { prog.value = f; }; player.onDone = () => { btn.textContent = 'Preview transmission'; btn.classList.remove('running'); prog.value = 0; };
+    player.play(evs, { speed }); btn.textContent = speed > 1 ? `Stop (playing at ${speed}×)` : 'Stop'; btn.classList.add('running');
+  } }, 'Preview transmission');
+  const waveSel = select([['square', 'square (like the PWM)'], ['sine', 'sine (easier on the ears)']], player.wave, v => { player.wave = v; });
+  const items = p.kind === 'songs' ? p.playlist.map((s, k) => [k, s.name]) : p.kind === 'sstv' ? app.images.map((im, k) => [k, im.name]) : [];
+  const decode = p.kind === 'sstv' && app.images[i] ? h('canvas', { style: 'width:320px;height:240px;max-width:100%;image-rendering:pixelated;border:1px solid var(--edge);display:block;margin-top:8px' }) : null;
+  fill(previewBox, 
+    h('h3', {}, 'Preview ', badge(fmtDuration(total) + ' keydown', total > 60000 ? 'warn' : '')),
+    items.length > 1 ? field('Item', select(items, i, v => renderPreview(+v))) : null,
+    h('div.screen', {}, trace), prog,
+    h('div.tools', { style: 'margin-top:10px' }, btn, waveSel, h('span.hint', {}, p.kind === 'none' && p.dit_s > 0.3 ? 'QRSS plays sped up 10× in the preview; the trace shows real proportions.' : 'ID, payload' + (app.cfg.plan.announce_qsy && app.cfg.plan.frequencies_mhz.length > 1 ? ', QSY announcement' : '') + ' — exactly the event stream the fox plays.')),
+    decode ? h('div', {}, h('p.hint', { style: 'margin-top:10px' }, 'What a hunter\'s SSTV app shows (time-sampled decode of the event stream above; the 40-pixel source is why it is chunky):'), decode) : null);
+  requestAnimationFrame(() => { (p.kind === 'none' && p.dit_s > 0.3 ? drawWaterfall : drawTrace)(trace, evs); if (decode) sstv.decodeToCanvas(sstv.events(app.images[i]), decode); });
+}
+
+function songsCard() {
+  const p = app.cfg.payload;
+  const rt = h('textarea', { rows: 3, placeholder: 'Paste RTTTL here, e.g.  Scale:d=4,o=5,b=120:8c,8d,8e,8f,8g,8a,8b,c6', spellcheck: 'false' });
+  const rtErr = h('p.hint');
+  const addRt = () => { try { p.playlist.push(rtttl.parse(rt.value)); rt.value = ''; rtErr.textContent = ''; app.changed('payload'); } catch (e) { rtErr.className = 'hint err'; rtErr.textContent = e.message; } };
+  return h('div.card', {}, h('h3', {}, 'Playlist ', badge(`${p.playlist.length} song${p.playlist.length === 1 ? '' : 's'}`)),
+    h('ul.list', {}, p.playlist.map((s, i) => h('li', {},
+      h('span.name', {}, s.name), h('span.meta', {}, `${s.notes.length} notes · ${s.tempo} bpm · ${fmtDuration(melody.durationMs(s, p.articulation))}`),
+      h('button', { title: 'play', onclick: () => player.play(melody.events(s, p.articulation)) }, '▶'),
+      h('button', { title: 'copy as RTTTL', onclick: () => navigator.clipboard?.writeText(rtttl.format(s)) }, '⎘'),
+      i > 0 ? h('button', { title: 'move up', onclick: () => { [p.playlist[i - 1], p.playlist[i]] = [p.playlist[i], p.playlist[i - 1]]; app.changed('payload'); } }, '↑') : null,
+      p.playlist.length > 1 ? h('button', { title: 'remove', onclick: () => { p.playlist.splice(i, 1); app.changed('payload'); } }, '✕') : null))),
+    h('p.hint', {}, 'One song per transmission, in order, wrapping. Songs are stored in fox.json as (MIDI note, 32nds) pairs with a tempo; keep them public-domain if you publish the config.'),
+    h('div.tools', { style: 'margin:8px 0' }, h('span.hint', {}, 'Add built-in:'), melody.BUILTIN.map(s => h('button.btn.small', { onclick: () => { p.playlist.push(structuredClone(s)); app.changed('payload'); } }, s.name))),
+    field('Add from RTTTL', rt), h('div.tools', {}, h('button.btn.small', { onclick: addRt }, 'Add song'), rtErr),
+    h('div.two-col', { style: 'margin-top:10px' },
+      field('Articulation', numInput(p.articulation, { min: 0.5, max: 1, step: 0.025, onchange: v => { p.articulation = v; app.changed('payload'); } }), 'fraction of each note that sounds; lower = more staccato'),
+      h('div.field', {}, h('label', {}, 'Low battery'), check('Skip the song, send the ID only', p.skip_on_low_battery, v => { p.skip_on_low_battery = v; app.changed('payload'); }))));
+}
+
+function sstvCard() {
+  const p = app.cfg.payload;
+  const drop = h('div.drop', {}, 'Drop a PNG/JPG here or click to choose. It becomes a 40×240 grayscale image (~37 s on air).');
+  const file = h('input', { type: 'file', accept: 'image/*', hidden: true });
+  const addImage = f => { const img = new Image(); img.onload = () => { app.images.push(sstv.fromCanvasSource(img, f.name.replace(/\.[^.]+$/, '').slice(0, 24))); URL.revokeObjectURL(img.src); app.changed('payload'); }; img.src = URL.createObjectURL(f); };
+  drop.addEventListener('click', () => file.click()); file.addEventListener('change', () => { for (const f of file.files) addImage(f); file.value = ''; });
+  drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); }); drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+  drop.addEventListener('drop', e => { e.preventDefault(); drop.classList.remove('over'); for (const f of e.dataTransfer.files) if (f.type.startsWith('image/')) addImage(f); });
+  const card = h('textarea', { rows: 3, placeholder: 'HINT CARD\nLOOK UP\nNEAR TREE', spellcheck: 'false' });
+  return h('div.card', {}, h('h3', {}, 'Images ', badge(`${app.images.length} image${app.images.length === 1 ? '' : 's'}`)),
+    h('ul.list', {}, app.images.map((im, i) => { const c = h('canvas', { width: im.width, height: im.height, style: 'width:40px;height:60px;image-rendering:pixelated;border:1px solid var(--edge)' }); const g = c.getContext('2d'), id = g.createImageData(im.width, im.height); for (let k = 0; k < im.pixels.length; k++) { id.data[k * 4] = id.data[k * 4 + 1] = id.data[k * 4 + 2] = im.pixels[k]; id.data[k * 4 + 3] = 255; } g.putImageData(id, 0, 0);
+      return h('li', {}, c, h('span.name', {}, im.name), h('span.meta', {}, `${im.width}×${im.height}`), i > 0 ? h('button', { onclick: () => { [app.images[i - 1], app.images[i]] = [app.images[i], app.images[i - 1]]; app.changed('payload'); } }, '↑') : null, app.images.length > 1 ? h('button', { onclick: () => { app.images.splice(i, 1); app.changed('payload'); } }, '✕') : null); })),
+    drop, file,
+    field('Or a text card', card), h('div.tools', {}, h('button.btn.small', { onclick: () => { if (card.value.trim()) { app.images.push(sstv.textCard(card.value, card.value.split('\n')[0].slice(0, 24) || 'card')); card.value = ''; app.changed('payload'); } } }, 'Add card'), h('button.btn.small', { onclick: () => { app.images.push(sstv.testCard()); app.changed('payload'); } }, 'Add test card')),
+    h('p.hint', { style: 'margin-top:10px' }, 'Images travel as ', h('code', {}, 'images.bin'), ' next to fox.json (count, then width/height/name/pixels per image). Robot 36 grayscale at 40 px per line: airtime is fixed by the mode, not the picture.'),
+    check('Skip the image on low battery, send the ID only', p.skip_on_low_battery, v => { p.skip_on_low_battery = v; app.changed('payload'); }));
+}
+
+function qrssCard() {
+  const p = app.cfg.payload;
+  const msg = h('input', { type: 'text', value: p.message || '', placeholder: '(empty = the normal ID)', style: 'width:100%;text-transform:uppercase' });
+  msg.addEventListener('change', () => { p.message = msg.value.trim().toUpperCase() || null; app.changed('payload'); });
+  return h('div.card', {}, h('h3', {}, 'Slow Morse'),
+    field('Dit length (seconds)', numInput(p.dit_s ?? 0.1, { min: 0.05, max: 30, step: 0.5, onchange: v => { p.dit_s = v; app.changed('payload'); } }), 'Multi-second dits are read on a waterfall over minutes, not by ear. At 3 s the full ID keys for about 18 minutes. Leave at the WPM-derived value (0.1 s at 12 WPM) for a plain Morse-only fox.'),
+    field('Message override', msg, 'Must still carry your callsign.'),
+    h('p.hint', {}, 'No upper bound here by design; use Deploy → keydown limit if you want one.'));
+}
+
+function render(source) {
+  if (source === 'theme') { renderPreview(); return; }
+  const p = app.cfg.payload, kinds = kindsForTemplate();
+  previewBox = h('div.card');
+  fill(root, 
+    h('div.card', {}, field('Payload kind', select(kinds.map(k => [k, KINDS[k]]), p.kind, setKind), kinds.length === 1 ? `The ${app.template.name} template reads only this kind. Switch template on the Connect tab for others, or use composite.` : 'Composite template: any kind.')),
+    h('div.cols', {}, p.kind === 'songs' ? songsCard() : p.kind === 'sstv' ? sstvCard() : qrssCard(), previewBox));
+  renderPreview(0);
+}
+export function shown() { renderPreview(0); }

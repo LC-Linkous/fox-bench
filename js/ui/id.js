@@ -1,0 +1,51 @@
+// id.js — Callsign & ID tab: callmessage, Morse settings, telemetry, the silent-when-unset rule.
+// SPDX-License-Identifier: GPL-2.0-only
+import { h, badge, field, numInput, check, fill } from './dom.js';
+import * as morse from '../audio/morse.js';
+import { Player, drawTrace } from '../audio/player.js';
+
+let app, root; const player = new Player();
+let callInput, previewBox, warnBox, titleBadge;
+export function init(a, el) { app = a; root = el; app.listeners.add(render); render('boot'); }
+
+function idText() { const d = app.cfg.id; return d.callmessage + (d.telemetry.includes('batt') && app.cfg.pins.batt_sense ? ' BAT 3V7' : ''); }
+
+function renderPreview() {
+  const d = app.cfg.id, unset = d.callmessage.includes(d.placeholder), bad = morse.unsendable(d.callmessage);
+  const text = idText(), evs = morse.events(text, { wpm: d.wpm, toneHz: d.tone_hz });
+  const secs = evs.reduce((a, [, ms]) => a + ms, 0) / 1000;
+  fill(titleBadge, unset ? badge('not set', 'err') : badge('set', 'ok'));
+  fill(warnBox, 
+    bad.length ? h('p.hint.warn', {}, `Not in the Morse table, will be skipped: ${bad.join(' ')}`) : null,
+    unset ? h('p.hint.err', {}, `Still contains the placeholder "${d.placeholder}". The firmware will boot, print id=unset, and never key the transmitter. Deploy is blocked until a callsign is set.`) : null);
+  const trace = h('canvas.preview', { style: 'height:90px' });
+  const playBtn = h('button.btn', { onclick: () => { if (player.playing) { player.stop(); playBtn.textContent = 'Play ID'; playBtn.classList.remove('running'); return; } player.play(evs); playBtn.textContent = 'Stop'; playBtn.classList.add('running'); player.onDone = () => { playBtn.textContent = 'Play ID'; playBtn.classList.remove('running'); }; } }, 'Play ID');
+  fill(previewBox, 
+    h('p', {}, h('code', {}, text), ` · ${secs.toFixed(1)} s at ${d.wpm} WPM`),
+    h('p.mono', { style: 'font-size:.85rem;color:var(--ink-2);word-break:break-word' }, morse.encode(text).map(w => w.join(' ')).join('  /  ')),
+    h('div.screen', {}, trace),
+    h('div.tools', { style: 'margin-top:10px' }, playBtn, h('span.hint', {}, 'Web Audio; same timing as the firmware.')));
+  requestAnimationFrame(() => drawTrace(trace, evs));
+}
+
+function render(source) {
+  if (source === 'id-live') { renderPreview(); return; }
+  const d = app.cfg.id;
+  callInput = h('input', { type: 'text', value: d.callmessage, maxlength: 64, spellcheck: 'false', style: 'width:100%;text-transform:uppercase' });
+  callInput.addEventListener('input', () => { d.callmessage = callInput.value.toUpperCase(); app.changed('id-live'); });
+  previewBox = h('div'); warnBox = h('div'); titleBadge = h('span');
+  fill(root, 
+    h('div.cols', {},
+      h('div.card', {}, h('h3', {}, 'Callsign and message ', titleBadge),
+        field('callmessage', callInput, 'Your callsign plus a short message, e.g. W1ABC FOX or W1ABC FOXHUNT DE W1ABC. Letters, digits and / are sent; anything else is skipped.'),
+        warnBox,
+        h('div.two-col', {},
+          field('Speed (WPM)', numInput(d.wpm, { min: 5, max: 40, step: 1, onchange: v => { d.wpm = v; app.changed('id'); } })),
+          field('Tone (Hz)', numInput(d.tone_hz, { min: 300, max: 3000, step: 10, onchange: v => { d.tone_hz = v; app.changed('id'); } }))),
+        check('Append battery voltage to the ID (e.g. "BAT 3V7")', d.telemetry.includes('batt'), v => { d.telemetry = v ? ['batt'] : []; app.changed('id'); }, app.cfg.pins.batt_sense ? '' : '— no batt_sense pin set on the Board tab, so the firmware will ignore this')),
+      h('div.card', {}, h('h3', {}, 'Preview'), previewBox)),
+    h('div.card', {}, h('h3', {}, 'Unset-callsign behaviour'),
+      check('Transmit even if the callsign is unset (legacy warn-and-transmit)', d.tx_without_callsign, v => { d.tx_without_callsign = v; app.changed('id'); }),
+      h('p.hint', {}, `Default off: a fox whose callmessage still contains "${d.placeholder}" stays silent and shows the unconfigured LED pattern (double blink every 2 s). The page refuses to deploy an unset callsign either way; this switch only changes what the firmware does if a bad fox.json reaches a board some other way.`)));
+  renderPreview();
+}

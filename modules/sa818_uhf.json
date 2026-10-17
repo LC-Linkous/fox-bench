@@ -1,0 +1,24 @@
+{
+  "id": "sa818_uhf",
+  "name": "NiceRF SA818 (UHF 400\u2013480 MHz)",
+  "family": "dmo",
+  "model": "SA818",
+  "ranges_mhz": [
+    [
+      400.0,
+      480.0
+    ]
+  ],
+  "step_khz": [
+    12.5,
+    25.0
+  ],
+  "power_dbm": {
+    "low": 27,
+    "high": 30
+  },
+  "uart": {
+    "baud": 9600
+  },
+  "notes": "Same DMO AT dialect as the SA868; ~1 W max."
+}

@@ -1,4 +1,28 @@
-{ "id": "sa868_dual", "name": "NiceRF SA868 (dual band)", "family": "sa868",
-  "ranges_mhz": [[134.0, 174.0], [400.0, 480.0]], "step_khz": [12.5, 25.0],
-  "power_dbm": { "low": 25, "high": 33 }, "uart": { "baud": 9600 },
-  "notes": "Use Radio → Probe to confirm which ranges the fitted module accepts." }
+{
+  "id": "sa868_dual",
+  "name": "NiceRF SA868 (dual band)",
+  "family": "dmo",
+  "ranges_mhz": [
+    [
+      134.0,
+      174.0
+    ],
+    [
+      400.0,
+      480.0
+    ]
+  ],
+  "step_khz": [
+    12.5,
+    25.0
+  ],
+  "power_dbm": {
+    "low": 25,
+    "high": 33
+  },
+  "uart": {
+    "baud": 9600
+  },
+  "notes": "Use Radio \u2192 Probe to confirm which ranges the fitted module accepts.",
+  "model": "SA868"
+}

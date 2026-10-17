@@ -1,0 +1,41 @@
+/* theme.css — colour tokens and fonts. Dark bench default, light available. */
+/* SPDX-License-Identifier: GPL-2.0-only */
+
+:root {
+  --font: 'Atkinson Hyperlegible', system-ui, sans-serif;
+  --mono: 'Spline Sans Mono', ui-monospace, Menlo, Consolas, monospace;
+  --radius: 4px;
+}
+
+:root, :root[data-theme="dark"] {
+  --paper:   #0f1318;
+  --panel:   #161b22;
+  --screen:  #0b0e12;
+  --edge:    #2a323d;
+  --grid:    #232b36;
+  --ink:     #e8ecf1;
+  --ink-2:   #a9b3bf;
+  --ink-3:   #6c7784;
+  --accent:  #e0a634;   /* fox amber: primary actions, active tab */
+  --accent-2:#c48f22;
+  --field:   #0f1318;
+  --tx:      #e45a50;   /* keyed / on the air */
+  --ok: #43b05c; --warn: #e0a634; --err: #e45a50; --info: #5c8df0;
+  --tone:    #f2cf3a;   /* preview trace */
+}
+:root[data-theme="light"] {
+  --paper:   #f4f6f8;
+  --panel:   #ffffff;
+  --screen:  #fbfcfd;
+  --edge:    #d3d9e0;
+  --grid:    #e6eaef;
+  --ink:     #1a2028;
+  --ink-2:   #4d5866;
+  --ink-3:   #8a94a1;
+  --accent:  #b8700a;
+  --accent-2:#955a06;
+  --field:   #ffffff;
+  --tx:      #c2342a;
+  --ok: #2f8a3f; --warn: #b8700a; --err: #c2342a; --info: #2f5fc4;
+  --tone:    #9c7205;
+}
