@@ -1,0 +1,5 @@
+{
+  "foxlib": ["VERSION", "__init__.py", "cfg.py", "radio.py", "tones.py", "morse.py", "melody.py",
+             "sstv.py", "battery.py", "schedule.py", "led.py", "cycle.py"],
+  "templates": ["morse-songs", "morse-sstv", "morse-qrss", "popcorn", "freq-rotator", "resurrection", "composite"]
+}

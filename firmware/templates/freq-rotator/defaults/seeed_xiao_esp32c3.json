@@ -1,0 +1,205 @@
+{
+  "schema": 1,
+  "template": "freq-rotator",
+  "board": "seeed_xiao_esp32c3",
+  "module": "sa868_vhf",
+  "pins": {
+    "ptt": "D3",
+    "pd": "D4",
+    "hl": "D5",
+    "uart_tx": "D6",
+    "uart_rx": "D7",
+    "audio": "D1",
+    "led": "D10",
+    "batt_sense": null
+  },
+  "radio": {
+    "family": "dmo",
+    "ranges_mhz": [
+      [
+        134.0,
+        174.0
+      ]
+    ],
+    "bandwidth": 1,
+    "squelch": 3,
+    "volume": 5,
+    "high_power": false
+  },
+  "plan": {
+    "frequencies_mhz": [
+      146.565,
+      147.42,
+      147.445
+    ],
+    "announce_qsy": true
+  },
+  "id": {
+    "callmessage": "N0CALL DECOY DECOY N0CALL",
+    "placeholder": "N0CALL",
+    "wpm": 12,
+    "tone_hz": 800,
+    "telemetry": [
+      "batt"
+    ],
+    "tx_without_callsign": false
+  },
+  "payload": {
+    "kind": "songs",
+    "articulation": 0.875,
+    "skip_on_low_battery": true,
+    "playlist": [
+      {
+        "name": "Auld Lang Syne",
+        "tempo": 90,
+        "notes": [
+          [
+            55,
+            8
+          ],
+          [
+            60,
+            12
+          ],
+          [
+            60,
+            4
+          ],
+          [
+            60,
+            8
+          ],
+          [
+            64,
+            8
+          ],
+          [
+            62,
+            12
+          ],
+          [
+            60,
+            4
+          ],
+          [
+            62,
+            8
+          ],
+          [
+            64,
+            4
+          ],
+          [
+            62,
+            4
+          ],
+          [
+            60,
+            12
+          ],
+          [
+            60,
+            4
+          ],
+          [
+            64,
+            8
+          ],
+          [
+            67,
+            8
+          ],
+          [
+            69,
+            16
+          ],
+          [
+            0,
+            8
+          ],
+          [
+            69,
+            8
+          ],
+          [
+            67,
+            12
+          ],
+          [
+            64,
+            4
+          ],
+          [
+            64,
+            8
+          ],
+          [
+            60,
+            8
+          ],
+          [
+            62,
+            12
+          ],
+          [
+            60,
+            4
+          ],
+          [
+            62,
+            8
+          ],
+          [
+            64,
+            4
+          ],
+          [
+            62,
+            4
+          ],
+          [
+            60,
+            12
+          ],
+          [
+            57,
+            4
+          ],
+          [
+            57,
+            8
+          ],
+          [
+            55,
+            8
+          ],
+          [
+            60,
+            16
+          ]
+        ]
+      }
+    ]
+  },
+  "schedule": {
+    "kind": "fixed",
+    "delay_ms": 30000
+  },
+  "battery": {
+    "divider_ratio": 2.0,
+    "calibration": 1.0,
+    "samples": 16,
+    "low_v": 3.5,
+    "critical_v": 3.3,
+    "recovery_v": 3.4
+  },
+  "limits": {
+    "max_keydown_s": null
+  },
+  "fleet": {
+    "profile": "",
+    "number": null,
+    "event": "",
+    "notes": ""
+  }
+}

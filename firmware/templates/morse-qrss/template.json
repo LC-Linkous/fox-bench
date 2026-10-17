@@ -1,0 +1,44 @@
+{
+  "id": "morse-qrss",
+  "name": "QRSS (slow Morse for waterfall copy)",
+  "version": "1.0.0",
+  "status": "stable",
+  "foxlib": ">=1.0.0 <2.0.0",
+  "sections": [
+    "pins",
+    "radio",
+    "plan",
+    "id",
+    "payload.none",
+    "schedule.fixed",
+    "battery",
+    "limits"
+  ],
+  "pins": {
+    "required": [
+      "ptt",
+      "pd",
+      "hl",
+      "uart_tx",
+      "uart_rx",
+      "audio"
+    ],
+    "optional": [
+      "led",
+      "batt_sense"
+    ]
+  },
+  "files": [
+    "code.py"
+  ],
+  "payloads": [],
+  "capabilities": [
+    "keytest",
+    "rssi",
+    "batt"
+  ],
+  "boards_tested": [
+    "seeed_xiao_esp32c3"
+  ],
+  "typical_keydown_s": 1100
+}

@@ -1,0 +1,43 @@
+{
+  "id": "resurrection",
+  "name": "Resurrection (plays dead)",
+  "version": "1.0.0",
+  "status": "stable",
+  "foxlib": ">=1.0.0 <2.0.0",
+  "sections": [
+    "pins",
+    "radio",
+    "plan",
+    "id",
+    "payload.songs",
+    "schedule.resurrection",
+    "battery",
+    "limits"
+  ],
+  "pins": {
+    "required": [
+      "ptt",
+      "pd",
+      "hl",
+      "uart_tx",
+      "uart_rx",
+      "audio"
+    ],
+    "optional": [
+      "led",
+      "batt_sense"
+    ]
+  },
+  "files": [
+    "code.py"
+  ],
+  "payloads": [],
+  "capabilities": [
+    "keytest",
+    "rssi",
+    "batt"
+  ],
+  "boards_tested": [
+    "seeed_xiao_esp32c3"
+  ]
+}

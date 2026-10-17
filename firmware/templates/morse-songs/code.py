@@ -12,7 +12,7 @@
 
 import foxlib
 
-fox = foxlib.Fox("fox.json", defaults="defaults.json")
+fox = foxlib.Fox("fox.json", defaults="defaults.json", version="1.0.0")
 for tx in fox.cycles():
     tx.morse(tx.id_message)
     if not (tx.low_battery and fox.cfg["payload"]["skip_on_low_battery"]):

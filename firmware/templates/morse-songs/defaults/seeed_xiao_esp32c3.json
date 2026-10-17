@@ -5,7 +5,7 @@
   "module": "sa868_vhf",
   "pins": { "ptt": "D3", "pd": "D4", "hl": "D5", "uart_tx": "D6", "uart_rx": "D7",
             "audio": "D1", "led": "D10", "batt_sense": null },
-  "radio": { "family": "sa868", "ranges_mhz": [[134.0, 174.0]],
+  "radio": { "family": "dmo", "ranges_mhz": [[134.0, 174.0]],
              "bandwidth": 1, "squelch": 3, "volume": 5, "high_power": false },
   "plan": { "frequencies_mhz": [146.565], "announce_qsy": false },
   "id": { "callmessage": "N0CALL DECOY DECOY N0CALL", "placeholder": "N0CALL",
