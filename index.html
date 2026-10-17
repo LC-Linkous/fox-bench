@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<!--
+  fox-bench — browser workbench for small amateur-radio fox transmitters
+  SPDX-License-Identifier: GPL-2.0-only
+  Copyright (C) 2026 Lauren Linkous
+  Source and license: https://github.com/LC-Linkous/fox-bench
+  Markup only. Styles in css/, behaviour in js/ (ES modules — serve over http, not file://).
+-->
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>fox-bench</title>
+<meta name="description" content="Configure, deploy, preview and test a CircuitPython + SA868 fox transmitter from the browser over USB. Profiles and a fleet log for setting up a batch of foxes.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Spline+Sans+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/theme.css">
+<link rel="stylesheet" href="css/layout.css">
+<link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+
+<header class="topbar">
+  <h1>fox-bench <small id="ver">v0.1</small></h1>
+  <button class="btn primary" id="connectBtn">Connect</button>
+  <button class="btn" id="demoBtn" aria-pressed="false">Try without hardware</button>
+  <span class="status" id="status"><span class="dot"></span><span id="statusText">Not connected</span></span>
+  <span class="badge" id="tmplBadge" hidden></span>
+  <span class="spacer"></span>
+  <button class="btn small" id="themeBtn" title="Toggle light / dark">Theme</button>
+  <nav>
+    <a href="https://github.com/LC-Linkous/fox-bench">Source</a>
+    <a href="https://lc-linkous.github.io/">Portfolio</a>
+  </nav>
+</header>
+<p class="notice warn" id="noSerial" hidden>This browser can't open USB serial ports. Use <b>Chrome</b> or <b>Edge</b> on a laptop or desktop to connect a board. <i>Try without hardware</i> works anywhere.</p>
+
+<div class="app">
+  <nav class="rail" id="rail" aria-label="Tabs">
+    <button data-tab="connect" aria-selected="true"><span class="n">1</span>Connect<span class="flag"></span></button>
+    <button data-tab="board"><span class="n">2</span>Board &amp; pins<span class="flag"></span></button>
+    <button data-tab="radio"><span class="n">3</span>Radio<span class="flag"></span></button>
+    <button data-tab="plan"><span class="n">4</span>Frequency plan<span class="flag"></span></button>
+    <button data-tab="id"><span class="n">5</span>Callsign &amp; ID<span class="flag"></span></button>
+    <button data-tab="payload"><span class="n">6</span>Payload<span class="flag"></span></button>
+    <button data-tab="schedule"><span class="n">7</span>Schedule<span class="flag"></span></button>
+    <button data-tab="deploy"><span class="n">8</span>Deploy<span class="flag"></span></button>
+    <hr>
+    <button data-tab="bench"><span class="n">9</span>Bench<span class="flag"></span></button>
+    <button data-tab="fleet"><span class="n">10</span>Profiles &amp; fleet<span class="flag"></span></button>
+  </nav>
+
+  <main class="main">
+    <section class="panel active" id="tab-connect"><h2>Connect</h2><p class="lede">Plug the fox in over USB-C and connect, or use the simulated board. Then pick a firmware template.</p><div class="body"></div></section>
+    <section class="panel" id="tab-board"><h2>Board &amp; pins</h2><p class="lede">Which microcontroller, and which pin does each job. Defaults come from the board; change them if your carrier PCB is wired differently.</p><div class="body"></div></section>
+    <section class="panel" id="tab-radio"><h2>Radio</h2><p class="lede">The radio module fitted next to the microcontroller, and its settings. If you don't know which band the module is, <b>Probe</b> will ask it.</p><div class="body"></div></section>
+    <section class="panel" id="tab-plan"><h2>Frequency plan</h2><p class="lede">One frequency, or a list the fox rotates through. Each entry is checked against the module's range and the amateur band plan.</p><div class="body"></div></section>
+    <section class="panel" id="tab-id"><h2>Callsign &amp; ID</h2><p class="lede">What the fox sends in Morse every cycle. Identifying with a licensed callsign is required; a fox with the placeholder stays silent.</p><div class="body"></div></section>
+    <section class="panel" id="tab-payload"><h2>Payload</h2><p class="lede">What follows the ID. Preview plays the whole transmission from the same event stream the fox will use.</p><div class="body"></div></section>
+    <section class="panel" id="tab-schedule"><h2>Schedule</h2><p class="lede">When the next transmission happens. Seeded schedules are drawn out so you can see the day in advance.</p><div class="body"></div></section>
+    <section class="panel" id="tab-deploy"><h2>Deploy</h2><p class="lede">What will change on the board, write it, reboot, and read the boot banner back.</p><div class="body"></div></section>
+    <section class="panel" id="tab-bench"><h2>Bench</h2><p class="lede">Tests that run against the firmware on the board. Available once the fox firmware is deployed.</p><div class="body"></div></section>
+    <section class="panel" id="tab-fleet"><h2>Profiles &amp; fleet</h2><p class="lede">Save configurations by name and keep a log of every board that crosses the bench.</p><div class="body"></div></section>
+
+    <aside class="console" id="console">
+      <div class="bar">
+        <h2>Console</h2>
+        <button class="btn small" id="consoleToggle" aria-expanded="true">Hide</button>
+        <label>Log <select id="dlMode"><option value="full">commands + replies</option><option value="cmds">commands only</option></select></label>
+        <button class="btn small" id="dlLog">Download</button>
+        <button class="btn small" id="copyLog">Copy</button>
+        <button class="btn small" id="clearLog">Clear</button>
+      </div>
+      <div class="handle" id="consoleHandle" title="Drag to resize"></div>
+      <div class="log" id="log" aria-live="polite"></div>
+      <form class="log-send" id="sendForm"><input type="text" id="sendInput" placeholder="Python to run on the board (raw REPL), e.g. print(board.board_id)" autocomplete="off" disabled><button class="btn" type="submit" disabled>Run</button></form>
+    </aside>
+  </main>
+</div>
+
+<footer>
+  <span>fox-bench · GPL-2.0 (page) · GPL-3.0-or-later (firmware) · <a href="DESIGN.md">design</a> · <a href="CONFIG.md">fox.json contract</a></span>
+</footer>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
