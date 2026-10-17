@@ -1,0 +1,6 @@
+{
+  "_doc": "Song libraries the Payload tab can browse. Each file: { name, notes, license, songs: [ {name, tempo, notes:[[midi,dur32],...], quick?:true} ] }. Add your own file here and list it below; a song with quick:true also appears as an Add-built-in button.",
+  "libraries": [
+    { "id": "public-domain", "name": "Public domain samples", "file": "songs/public-domain.json" }
+  ]
+}
