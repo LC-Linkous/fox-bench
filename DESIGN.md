@@ -189,7 +189,8 @@ board because the board does not know what is soldered next to it.
 {
   "id": "sa868_vhf",
   "name": "NiceRF SA868 (VHF)",
-  "family": "sa868",
+  "family": "dmo",
+  "model": "SA868",
   "ranges_mhz": [[134.0, 174.0]],
   "step_khz": [12.5, 25.0],
   "power_dbm": { "low": 25, "high": 33 },
@@ -198,10 +199,12 @@ board because the board does not know what is soldered next to it.
 }
 ```
 
-`sa868_uhf` is `[[400.0, 480.0]]`; `sa868_dual` is both. The user picks
-the module or runs **Probe** (§7). Future modules (other families,
-other UART dialects) add a descriptor and a `foxlib` driver class named
-by `family`.
+`family` names the control protocol, not the part: `dmo` is the NiceRF
+AT dialect shared by the SA818, SA818S, SA868, SA868S and DRA818, which
+differ only in band and power (descriptor data). `sa868_uhf`, `sa868_dual`,
+`sa818_vhf`, `sa818_uhf` ship alongside. The user picks the module or runs
+**Probe** (§7). A module with a different protocol adds a descriptor with a
+new `family` and a driver class in `foxlib/radio.py`; nothing else changes.
 
 **`bands.json`** — amateur allocations by region, used only for
 validation and explanation:
@@ -232,7 +235,9 @@ that chooses from them, plus a manifest and per-board defaults.
 firmware/foxlib/
   __init__.py     Fox: loads config, builds radio/battery/led, exposes cycles()
   cfg.py          defaults → fox.json override → validation → boot banner
-  sa868.py        AT driver; parses replies (DMOSETGROUP :0/:1, RSSI?, VERSION)
+  radio.py        module drivers by family: `dmo` (SA818/SA818S/SA868/SA868S/DRA818 AT
+                  dialect); parses replies (DMOSETGROUP :0/:1, RSSI?, VERSION). New
+                  module protocol = new class + descriptor, nothing else changes
   tones.py        one PWM transmitter: play(events), deadline-scheduled
   morse.py        text → events; table + encode(); WPM/tone/dit override (QRSS)
   melody.py       song dict → events; articulation; playlist rotation
@@ -345,8 +350,10 @@ FOX template=composite/0.3.0 … cfg=partial(radio.freq_mhz,pins.ptt) radio=err(
 | **Fleet** | Profiles (save/load/export a config set) and the fleet log: board UID, MAC, chip info, which profile went on when. Batch mode: plug → click → flash → next, same CSV columns as `tools/batch_flash.py`. |
 | **Console** | Raw exchange, history, log download. |
 
-Bench actions run through `exec-and-capture` against the live `foxlib`
-objects after the fox is interrupted: `fox.radio.key(3)`,
+Bench actions run through `exec-and-capture` after the fox is interrupted.
+CircuitPython starts a fresh VM for the REPL, so `code.py`'s objects are
+gone; the page builds a new `foxlib.Fox(..., quiet=True)` (no banner, nothing
+keyed) and calls `fox.radio.probe()`, `fox.radio.key_for(3)`,
 `fox.radio.rssi()`, `fox.batt.read()`. The firmware's functions are the
 bench API; no second protocol.
 

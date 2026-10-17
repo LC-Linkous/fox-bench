@@ -71,13 +71,13 @@ pattern, because keying unknown pins is worse than not keying.
 ## `radio`
 
 ```json
-"radio": { "family": "sa868", "ranges_mhz": [[134.0, 174.0]],
+"radio": { "family": "dmo", "ranges_mhz": [[134.0, 174.0]],
            "bandwidth": 1, "squelch": 3, "volume": 5, "high_power": false }
 ```
 
 | key | type | range | notes |
 |---|---|---|---|
-| `family` | string | `sa868` | selects the `foxlib` driver |
+| `family` | string | `dmo` | selects the `foxlib/radio.py` driver by control protocol. `dmo` = NiceRF AT dialect (SA818/SA818S/SA868/SA868S/DRA818). Copied from the module descriptor. |
 | `ranges_mhz` | [[lo, hi], …] | | copied from the module descriptor; the firmware drops any plan frequency outside them |
 | `bandwidth` | int | 0, 1 | 0 = 12.5 kHz, 1 = 25 kHz |
 | `squelch` | int | 0–8 | receive-side; no audible effect on a transmit-only fox |
