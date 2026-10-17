@@ -88,6 +88,7 @@ js/
     schedule.js            LCG twin of foxlib/schedule.py → timeline
   ui/                      one module per tab
 boards/      <board_id>.json          see §4
+songs/       index.json + libraries   song libraries the Payload tab browses; quick:true = one-click add
 modules/     <module_id>.json         see §4
 bands.json                            amateur allocations by region
 firmware/
@@ -383,11 +384,33 @@ identical event streams for a fixed corpus.
 The page ships the firmware as data it writes to a board; it does not
 link against it. The two halves are an aggregation, not one program.
 
-## 10. Out of scope for v1, kept possible
+## 10. Device families
+
+Everything above describes the **foxlib family**: a CircuitPython board,
+a `dmo`-dialect radio module, files written through the REPL, behaviour
+from `foxlib`. Some foxes are built differently and still belong on the
+bench. A *device family* is the unit that varies:
+
+| | foxlib (today) | drive-configured (planned) |
+|---|---|---|
+| example | XIAO ESP32-C3 + SA868 | RP2040 + SI5351 designs such as the PicoFox |
+| firmware | ours, deployed by the page | the vendor's, left alone |
+| transport | `fs-repl.js` (raw REPL) | `fs-drive.js` (File System Access API on the USB drive) |
+| config contract | `CONFIG.md` → `fox.json` | the vendor's file, e.g. `settings.txt` keys |
+| payload | event stream played by `foxlib/tones.py` | an audio file the page **renders from the same event stream** (Morse ID + song → PCM WAV) |
+| bench | `exec-and-capture` | none (no REPL); timeline and airtime still apply |
+
+The board descriptor names its family; the page shows the tabs and
+sections that family has a meaning for. Rendering the audio file is the
+same preview code the Payload tab already runs, written to a buffer
+instead of the speakers.
+
+## 11. Out of scope for v1, kept possible
 
 - `fs-drive.js` for boards that mount `CIRCUITPY` (ESP32-S2/S3, SAMD).
 - UF2 flashing.
 - `wifi-beacon` payload (ESP32 Wi-Fi SSID as the fox, 2.4 GHz, no SA868).
+- The drive-configured device family (§10).
 - Other radio module families (`modules/` descriptor + `foxlib` driver).
 - Correlating the bench event log with external instruments; the log
   format is stable for that purpose, nothing else is assumed.
