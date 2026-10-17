@@ -1,0 +1,5 @@
+{
+  "US": { "2m": [144.0, 148.0], "1.25m": [222.0, 225.0], "70cm": [420.0, 450.0] },
+  "EU": { "2m": [144.0, 146.0], "70cm": [430.0, 440.0] },
+  "_note": "Validation only: a frequency must lie inside a module range AND a band of the chosen region. Regions and sub-band etiquette beyond this are the operator's responsibility."
+}

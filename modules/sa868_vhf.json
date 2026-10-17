@@ -1,0 +1,3 @@
+{ "id": "sa868_vhf", "name": "NiceRF SA868 (VHF 134–174 MHz)", "family": "sa868",
+  "ranges_mhz": [[134.0, 174.0]], "step_khz": [12.5, 25.0],
+  "power_dbm": { "low": 25, "high": 33 }, "uart": { "baud": 9600 } }

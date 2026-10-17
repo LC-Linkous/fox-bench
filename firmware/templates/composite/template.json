@@ -1,0 +1,15 @@
+{
+  "id": "composite",
+  "name": "Composite (mix and match)",
+  "version": "0.1.0",
+  "status": "experimental",
+  "description": "Reads every axis from fox.json: any payload, any schedule, any plan. Combinations outside the six discrete templates have not been run on hardware.",
+  "foxlib": ">=1.0.0 <2.0.0",
+  "sections": ["pins", "radio", "plan", "id", "payload.*", "schedule.*", "battery", "limits"],
+  "pins": { "required": ["ptt", "pd", "hl", "uart_tx", "uart_rx", "audio"],
+            "optional": ["led", "batt_sense"] },
+  "files": ["code.py"],
+  "payloads": [ { "file": "images.bin", "kind": "sstv-images", "when": "payload.kind == 'sstv'" } ],
+  "capabilities": ["keytest", "rssi", "batt"],
+  "boards_tested": []
+}
