@@ -5,7 +5,8 @@ import { loadTemplateCode, loadFoxlibFile } from '../model/loaders.js';
 import { parseBanner } from '../device/device.js';
 import { airtime, fmtDuration } from '../model/airtime.js';
 import { packImages } from '../audio/sstv.js';
-import { fleet } from '../model/profiles.js';
+import { fleet, download } from '../model/profiles.js';
+import { makeZip } from '../model/zip.js';
 
 let app, root, gateOk = false, lastResult = null, busy = false;
 export function init(a, el) { app = a; root = el; app.listeners.add(render); render(); }
@@ -25,6 +26,35 @@ function plan() {
   const a = flat(ob.cfg || {}), b = flat(cfg), changes = [];
   for (const k of new Set([...Object.keys(a), ...Object.keys(b)])) if (a[k] !== b[k] && !k.startsWith('fleet.')) changes.push({ key: k, from: a[k], to: b[k] });
   return { files, changes };
+}
+
+/** The complete deploy set as a zip: what Deploy would write, laid out as the board root. */
+async function exportZip() {
+  const overrides = app.issues.filter(e => e.level === 'err' && e.blocking === false);
+  if (overrides.length && !confirm(`Export anyway?\n\n${overrides.map(o => '• ' + o.msg.replace(/ — .*$/, '')).join('\n')}`)) return;
+  const cfg = app.validCfg, files = [];
+  for (const name of app.catalog.foxlibFiles) files.push({ path: 'foxlib/' + name, data: await loadFoxlibFile(name) });
+  files.push({ path: 'code.py', data: await loadTemplateCode(app.templateId) });
+  files.push({ path: 'defaults.json', data: JSON.stringify(app.defaults) });
+  files.push({ path: 'fox.json', data: JSON.stringify(cfg, null, 1) });
+  if (cfg.payload.kind === 'sstv') files.push({ path: cfg.payload.images_file, data: packImages(app.images) });
+  files.push({ path: 'README.txt', data: [
+    `fox-bench deploy set — ${app.templateId} ${app.template.version}, foxlib ${app.catalog.foxlibVersion}, board ${app.boardId}`,
+    `callsign ${cfg.id.callmessage} · ${cfg.plan.frequencies_mhz.join(', ')} MHz · exported ${new Date().toISOString()}`,
+    '',
+    'Copy everything in this zip to the root of the CircuitPython board, keeping the foxlib/ folder:',
+    '  code.py  defaults.json  fox.json  foxlib/  ' + (cfg.payload.kind === 'sstv' ? cfg.payload.images_file : ''),
+    'With Thonny: File → Open each file → File → Save As → CircuitPython device, same name and path.',
+    'With a board that mounts a CIRCUITPY drive: drag the files onto the drive.',
+    'Then reset (Ctrl-D in the REPL, or the R button). The boot log prints a line starting with "FOX" that reports',
+    'cfg=ok radio=ok id=set when the fox came up correctly.',
+    '',
+    'To change the callsign or frequency later you only need to replace fox.json.',
+  ].join('\n') });
+  const safe = s => s.replace(/[^A-Za-z0-9._-]+/g, '_');
+  download(`fox-${safe(cfg.id.callmessage.split(' ')[0])}-${app.templateId}.zip`, makeZip(files));
+  fleet.append({ board_number: '', uid: app.info?.uid || '', board: app.boardId, action: 'export-zip', template: `${app.templateId}/${app.template.version}`, profile: cfg.fleet?.profile || '', callsign: cfg.id.callmessage, freq: cfg.plan.frequencies_mhz.join(' '), power: `${cfg.radio.high_power ? 'high' : 'low'}${cfg.radio.power_dbm != null ? ' ' + cfg.radio.power_dbm + 'dBm' : ''}`, seed: cfg.schedule.seed ?? '', result: 'zip', notes: '' });
+  app.console.dim(`exported deploy set (${files.length} files)`);
 }
 
 async function deploy(btn) {
@@ -76,7 +106,8 @@ function render() {
     h('div.card', {}, h('h3', {}, 'Deploy'),
       h('label.gate', {}, h('input', { type: 'checkbox', checked: gateOk, onchange: e => { gateOk = e.target.checked; render(); } }), h('span', {}, h('b', {}, 'Antenna or dummy load is connected.'), ' The fox transmits within seconds of rebooting, and keying the module with nothing on the RF connector can damage it.')),
       h('div.tools', {}, h('button.btn.primary', { disabled: !ready, onclick: e => deploy(e.currentTarget) }, busy ? 'Writing…' : 'Write to board and reboot'),
-        !app.connected ? h('span.hint', {}, 'Connect a board first.') : blocking.length ? h('span.hint.err', {}, 'Fix the blocking checks above.') : overrides.length ? h('span.hint.err', {}, `${overrides.length} out-of-band override${overrides.length === 1 ? '' : 's'} — you will be asked to confirm.`) : null),
+        h('button.btn', { disabled: !!blocking.length || busy, title: 'Download the same files as a zip, to copy onto a board by hand (Thonny or a CIRCUITPY drive)', onclick: exportZip }, 'Export deploy set (.zip)'),
+        !app.connected ? h('span.hint', {}, 'Connect a board to write, or export the zip.') : blocking.length ? h('span.hint.err', {}, 'Fix the blocking checks above.') : overrides.length ? h('span.hint.err', {}, `${overrides.length} out-of-band override${overrides.length === 1 ? '' : 's'} — you will be asked to confirm.`) : null),
       lastResult ? resultBox(lastResult) : null),
     h('div.card', {}, h('h3', {}, 'Flash CircuitPython ', badge('next milestone', 'warn')),
       h('p.hint', {}, 'For a factory-fresh board: hold B while plugging in, then erase and write CircuitPython from this page with esptool-js. Until that lands, use ', h('a', { href: app.board.circuitpython.download, target: '_blank', rel: 'noopener' }, 'the CircuitPython .bin for this board'), ' with Adafruit\'s WebSerial ESPTool or ', h('code', {}, 'tools/batch_flash.py'), '.')));
