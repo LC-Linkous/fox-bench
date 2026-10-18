@@ -36,6 +36,8 @@ export class Device {
   async remove() {}
   async list() { return {}; }
   async reboot() { return ''; }
+  /** Stop a running code.py and take the REPL (no-op for the demo). */
+  async interrupt() {}
   async exec() { return ''; }
   async close() {}
 }

@@ -69,6 +69,7 @@ async function deploy(btn) {
   const d = app.device, cfg = app.validCfg, log = app.console;
   const { files } = plan();
   try {
+    await d.interrupt();                       // the fox may be running from a previous deploy or restart
     for (const f of files) {
       if (f.kind === 'foxlib') { await d.mkdir('foxlib'); for (const name of app.catalog.foxlibFiles) await d.writeBytes('foxlib/' + name, await loadFoxlibFile(name)); }
       else if (f.kind === 'code') await d.writeText('code.py', await loadTemplateCode(app.templateId));
@@ -79,8 +80,11 @@ async function deploy(btn) {
     const bootLog = await d.reboot();
     const banner = parseBanner(bootLog);
     lastResult = { bootLog, banner, ok: !!banner && banner.cfg === 'ok' && banner.radio === 'ok' && banner.id === 'set' };
+    const written = Object.fromEntries(files.map(f => [f.path.replace('/*', ''), { size: 1, dir: f.kind === 'foxlib' }]));
+    app.onBoard = { ...app.onBoard, cfg: structuredClone(cfg), raw: JSON.stringify(cfg), template: app.templateId, foxlibVersion: app.catalog.foxlibVersion, foxlibComplete: true, foxlibMissing: [], files: { ...app.onBoard.files, ...written } };
+    app.info.foxlibVersion = app.catalog.foxlibVersion;
+    app.setStatus(`${d.kind === 'demo' ? 'Demo · ' : ''}${app.info.boardId} · uid ${app.info.uid.slice(-6)} · foxlib ${app.catalog.foxlibVersion} · fox running`, d.kind === 'demo' ? 'demo' : 'tx');
     fleet.append({ board_number: '', uid: app.info.uid, board: app.info.boardId, action: 'deploy', template: `${app.templateId}/${app.template.version}`, profile: cfg.fleet?.profile || '', callsign: cfg.id.callmessage, freq: cfg.plan.frequencies_mhz.join(' '), power: `${cfg.radio.high_power ? 'high' : 'low'}${cfg.radio.power_dbm != null ? ' ' + cfg.radio.power_dbm + 'dBm' : ''}`, seed: cfg.schedule.seed ?? '', result: lastResult.ok ? 'ok' : (banner ? `${banner.cfg} ${banner.radio} ${banner.id}` : 'no banner'), notes: app.device.kind === 'demo' ? 'demo' : '' });
-    await app.readBoard();
   } catch (e) { lastResult = { error: String(e.message || e) + (/HTTP 404/.test(e.message || '') ? ' — a firmware file is missing from the site; the repo needs a .nojekyll marker so GitHub Pages serves foxlib/__init__.py' : '') }; log.err(lastResult.error); }
   busy = false; gateOk = false; app.changed('deploy');
 }
@@ -121,5 +125,7 @@ function resultBox(r) {
   if (r.error) return h('pre.out', {}, h('span.err', {}, 'deploy failed: ' + r.error));
   const b = r.banner;
   const kv = b ? ['template', 'foxlib', 'cfg', 'radio', 'id', 'freq'].map(k => h('span', { class: k === 'cfg' ? (b.cfg === 'ok' ? 'ok' : 'warn') : k === 'radio' ? (b.radio === 'ok' ? 'ok' : 'err') : k === 'id' ? (b.id === 'set' ? 'ok' : 'err') : '' }, `${k}=${b[k] ?? '?'}  `)) : [h('span.err', {}, 'no FOX banner in the boot log — the firmware did not start')];
-  return h('div', {}, h('p', { style: 'margin:12px 0 4px' }, r.ok ? badge('fox is up', 'ok') : badge('check the banner', 'warn'), ' ', ...kv), h('details', {}, h('summary.hint', {}, 'boot log'), h('pre.out', {}, r.bootLog)));
+  return h('div', {}, h('p', { style: 'margin:12px 0 4px' }, r.ok ? badge('fox is up', 'ok') : badge('check the banner', 'warn'), ' ', ...kv),
+    h('p.hint', {}, 'The fox is running now. Reading the board (Connect tab) or a Bench action interrupts it; ', h('button.btn.small', { onclick: () => app.restartFox() }, 'Restart fox'), ' starts it again.'),
+    h('details', {}, h('summary.hint', {}, 'boot log'), h('pre.out', {}, r.bootLog)));
 }

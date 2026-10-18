@@ -3,17 +3,20 @@
 import { h, badge, field, numInput } from './dom.js';
 import { download } from '../model/profiles.js';
 
-let app, root; const events = [];
+let app, root, busy = false; const events = [];
 export function init(a, el) { app = a; root = el; app.listeners.add(render); render(); }
 
 function note(action, detail) { events.push({ t: new Date().toISOString(), uid: app.info?.uid || '', action, detail }); render(); }
 
 async function run(action, args, btn, label) {
-  btn.disabled = true; const prev = btn.textContent; btn.textContent = label || 'Running…'; btn.classList.add('running');
+  if (busy) return;
+  busy = true; const prev = btn.textContent; btn.textContent = label || 'Running…'; btn.classList.add('running');
+  root.querySelectorAll('button').forEach(b => { if (b !== btn) b.disabled = true; });
   note(action + ':start', JSON.stringify(args));
   try { const out = await app.device.bench(action, args); note(action, out); }
   catch (e) { note(action + ':error', String(e.message || e)); }
-  btn.disabled = false; btn.textContent = prev; btn.classList.remove('running');
+  busy = false; btn.textContent = prev; btn.classList.remove('running');
+  render();
 }
 
 function render() {
@@ -34,6 +37,7 @@ function render() {
       caps.has('batt') ? h('div.card', {}, h('h3', {}, 'Battery'),
         app.cfg.pins.batt_sense ? h('p.hint', {}, `Averaged ADC read on ${app.cfg.pins.batt_sense} through the divider, with the calibration from fox.json.`) : h('p.hint.warn', {}, 'No batt_sense pin configured; the firmware has no battery monitor.'),
         h('div.tools', {}, h('button.btn', { disabled: !ready || !app.cfg.pins.batt_sense, onclick: e => run('batt', {}, e.currentTarget) }, 'Read voltage'), last('batt') ? h('span.big', {}, last('batt'), h('span.unit', {}, 'V')) : null)) : null),
+    ready ? h('p.hint', {}, 'Bench actions stop the running fox and talk to the firmware directly; one at a time, and the first one after a reboot takes ~10 s longer while CircuitPython compiles foxlib. ', h('button.btn.small', { onclick: () => app.restartFox() }, 'Restart fox'), ' when you are done.') : null,
     h('div.card', {}, h('h3', {}, 'Event log ', badge(events.length + ' events')),
       h('p.hint', {}, 'Every bench action with a timestamp and the board UID, so an external test procedure can be lined up against it later.'),
       events.length ? h('pre.out', {}, events.slice(-40).map(e => `${e.t}  ${e.uid.slice(-6)}  ${e.action.padEnd(12)} ${e.detail}`).join('\n')) : null,

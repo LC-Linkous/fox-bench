@@ -13,6 +13,8 @@
 // has no flow control.
 
 const CHUNK = 128;
+/** CircuitPython's REPL emits terminal escapes: ESC[2K ESC[0G (clear line), ESC]0;title BEL/ESC\\ (title bar). */
+export const stripAnsi = t => t.replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, '').replace(/\x1b\[[0-9;?]*[ -\/]*[@-~]/g, '').replace(/\r/g, '');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 export class ReplLink {
@@ -29,7 +31,7 @@ export class ReplLink {
   _onData(bytes) {
     this.buf += this.dec.decode(bytes, { stream: true });
     if (this.waiters.length) this.waiters[0].check();
-    else if (this.onUnsolicited) { this.onUnsolicited(this.buf); this.buf = ''; }
+    else if (this.onUnsolicited) { const t = stripAnsi(this.buf); this.buf = ''; if (t.replace(/[\s>]/g, '')) this.onUnsolicited(t); }
   }
 
   /** Resolve when `buf` contains `marker`; returns text before it and removes through it. */
@@ -105,6 +107,6 @@ export class ReplLink {
       if (until.test(text)) { await sleep(300); text += this.buf; this.buf = ''; break; }
       if (/Traceback|Error:/.test(text) && /Press any key|Code done running/.test(text)) break;
     }
-    return text.replace(/\r/g, '');
+    return stripAnsi(text);
   }
 }

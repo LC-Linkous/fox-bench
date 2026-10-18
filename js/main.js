@@ -3,6 +3,7 @@
 import { $, $$ } from './ui/dom.js';
 import { loadCatalog, loadDefaults } from './model/loaders.js';
 import { mergeAndValidate, pageChecks } from './model/schema.js';
+import { parseBanner } from './device/device.js';
 import { TABLE as MORSE } from './audio/morse.js';
 import { hasWebSerial, SerialLink } from './device/serial-link.js';
 import { ReplDevice } from './device/repl-device.js';
@@ -123,8 +124,10 @@ export const app = {
     await this.readBoard();
     this.changed('connect');
   },
+  /** Read what is on the board. Interrupts a running fox; call restartFox() afterwards if it should keep running. */
   async readBoard() {
     const d = this.device; if (!d) return;
+    await d.interrupt();
     const files = await d.list('');
     const fv = files.foxlib ? ((await d.readText('foxlib/VERSION')) || '').trim() : '';
     const libFiles = files.foxlib ? await d.list('foxlib') : {};
@@ -139,6 +142,15 @@ export const app = {
     if (raw) { this.onBoard.raw = raw; try { this.onBoard.cfg = JSON.parse(raw); } catch { this.console.err('fox.json on the board is not valid JSON'); } }
     if (this.onBoard.cfg) { this.console.dim(`fox.json read from board: template ${this.onBoard.cfg.template}, call "${this.onBoard.cfg.id?.callmessage}"`); }
     else this.console.dim(this.onBoard.template ? `board runs ${this.onBoard.template} with no fox.json` : 'no fox firmware on the board');
+  },
+  /** Soft-reboot so code.py runs again; shows the banner. */
+  async restartFox() {
+    if (!this.device) return null;
+    const text = await this.device.reboot();
+    const banner = parseBanner(text);
+    this.console.line(banner ? `fox restarted: ${banner._raw}` : 'restarted; no FOX banner seen', banner ? 'ok' : 'err');
+    this.changed('restart');
+    return banner;
   },
   async disconnect() {
     try { await this.device?.close(); } catch {}
