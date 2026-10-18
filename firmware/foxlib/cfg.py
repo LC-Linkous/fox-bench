@@ -27,6 +27,17 @@ def _is_num(v):
     return (isinstance(v, (int, float))) and not isinstance(v, bool)
 
 
+def _intify(v):
+    """JSON has one number type: a hand-edited '3.0' means 3. Floats with an integral value become ints, recursively."""
+    if isinstance(v, float) and v == int(v):
+        return int(v)
+    if isinstance(v, dict):
+        return {k: _intify(x) for k, x in v.items()}
+    if isinstance(v, list):
+        return [_intify(x) for x in v]
+    return v
+
+
 class Report:
     def __init__(self):
         self.items = []       # (key, reason)
@@ -50,7 +61,7 @@ def validate(user, defaults, board_names, board_id=None):
     """Returns (cfg, report). board_names: names the board module exposes (dir(board))."""
     cfg = _copy(defaults)
     rep = Report()
-    u = user if isinstance(user, dict) else {}
+    u = _intify(user) if isinstance(user, dict) else {}
     has = lambda name: isinstance(name, str) and name in board_names
 
     # ---- gates: whole-file fallbacks
@@ -63,8 +74,11 @@ def validate(user, defaults, board_names, board_id=None):
     if "board" in u and board_id and u["board"] != board_id:
         rep.mode = "default(board)"
         return cfg, rep
-    if isinstance(u.get("module"), str):
-        cfg["module"] = u["module"]
+    if "module" in u:
+        if isinstance(u["module"], str):
+            cfg["module"] = u["module"]
+        else:
+            rep.bad("module", "string")
 
     # ---- pins
     pins = u.get("pins") if isinstance(u.get("pins"), dict) else {}
@@ -107,7 +121,7 @@ def validate(user, defaults, board_names, board_id=None):
     # ---- radio
     r = u.get("radio") if isinstance(u.get("radio"), dict) else {}
     if "family" in r:
-        if isinstance(r["family"], str):
+        if isinstance(r["family"], str) and r["family"]:
             cfg["radio"]["family"] = r["family"]
         else:
             rep.bad("radio.family", "string")
@@ -231,6 +245,8 @@ def validate(user, defaults, board_names, board_id=None):
                 out["playlist"] = songs
             elif kind == "sstv":
                 out["mode"] = "robot36-gray"
+                if "mode" in pl and pl["mode"] != "robot36-gray":
+                    rep.bad("payload.mode", "robot36-gray only")
                 out["images_file"] = pl.get("images_file") if isinstance(pl.get("images_file"), str) else "images.bin"
                 out["skip_on_low_battery"] = pl.get("skip_on_low_battery", True) is True
             else:
@@ -271,22 +287,24 @@ def validate(user, defaults, board_names, board_id=None):
         if kind == "fixed":
             cfg["schedule"] = {"kind": "fixed", "delay_ms": ms("delay_ms", 30000)}
         elif kind == "popcorn":
+            sd = seed()
             cl = s.get("cluster")
             if not (_is_int(cl) and 1 <= cl <= 50):
                 rep.bad("schedule.cluster", "1-50")
                 cl = 2
-            out = {"kind": "popcorn", "seed": seed(), "cluster": cl, "cluster_gap_ms": ms("cluster_gap_ms", 8000),
+            out = {"kind": "popcorn", "seed": sd, "cluster": cl, "cluster_gap_ms": ms("cluster_gap_ms", 8000),
                    "dark_min_ms": ms("dark_min_ms", 10000), "dark_max_ms": ms("dark_max_ms", 300000)}
             if out["dark_min_ms"] > out["dark_max_ms"]:
                 rep.bad("schedule.dark_min_ms", "min>max")
                 out["dark_min_ms"] = out["dark_max_ms"]
             cfg["schedule"] = out
         elif kind == "resurrection":
+            sd = seed()
             ie = s.get("id_every")
             if not (_is_int(ie) and 1 <= ie <= 100):
                 rep.bad("schedule.id_every", "1-100")
                 ie = 3
-            out = {"kind": "resurrection", "seed": seed(), "delay_ms": ms("delay_ms", 30000),
+            out = {"kind": "resurrection", "seed": sd, "delay_ms": ms("delay_ms", 30000),
                    "alive_min_ms": ms("alive_min_ms", 1800000), "alive_max_ms": ms("alive_max_ms", 3600000),
                    "dead_ms": ms("dead_ms", 3600000), "dit_min_ms": ms("dit_min_ms", 180000), "dit_max_ms": ms("dit_max_ms", 300000),
                    "id_every": ie, "dead_song": s.get("dead_song") is True}
@@ -330,7 +348,9 @@ def validate(user, defaults, board_names, board_id=None):
 
     # ---- fleet (opaque), unknown keys
     if isinstance(u.get("fleet"), dict):
-        cfg["fleet"] = _copy(u["fleet"])
+        fl = dict(cfg.get("fleet") or {})
+        fl.update(_copy(u["fleet"]))
+        cfg["fleet"] = fl
     for k in u:
         if k not in TOP_KEYS:
             rep.bad(k, "unknown key")
