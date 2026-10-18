@@ -1,0 +1,30 @@
+name: page
+on: [push, pull_request]
+jobs:
+  page:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: tests/package-lock.json
+      - name: Install test dependencies
+        working-directory: tests
+        run: npm ci
+      - name: Install Chromium
+        working-directory: tests
+        run: npx playwright install --with-deps chromium
+      - name: Unit tests (REPL protocol, device layer, model)
+        working-directory: tests
+        run: npm run unit
+      - name: Page smoke test (every tab × every template on the demo board; exported zips booted in the firmware simulator)
+        working-directory: tests
+        run: SHOTS=../_shots npm run smoke
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: page-screenshots
+          path: _shots
+          retention-days: 7

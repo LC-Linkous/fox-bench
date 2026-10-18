@@ -5,31 +5,37 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
       - uses: actions/setup-python@v5
         with: { python-version: '3.12' }
       - uses: actions/setup-node@v4
         with: { node-version: '20' }
       - name: Syntax check (CircuitPython-compatible subset is not enforced here; the sim is)
         run: python3 -m py_compile firmware/foxlib/*.py firmware/templates/*/code.py
-      - name: Deploy set matches manifests and index
+      - name: Catalog lint (descriptors, defaults through the firmware validator, index files, version bumps)
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
-          python3 - <<'PY'
-          import json, os, sys
-          idx = json.load(open('firmware/index.json'))
-          have = sorted(f for f in os.listdir('firmware/foxlib') if not f.startswith('__pycache__'))
-          assert sorted(idx['foxlib']) == have, (idx['foxlib'], have)
-          for t in idx['templates']:
-              m = json.load(open(f'firmware/templates/{t}/template.json'))
-              code = open(f'firmware/templates/{t}/code.py').read()
-              assert f'version="{m["version"]}"' in code, f'{t}: code.py version != manifest {m["version"]}'
-              for b in m['boards_tested'] or ['seeed_xiao_esp32c3']:
-                  assert os.path.exists(f'firmware/templates/{t}/defaults/{b}.json'), f'{t}: no defaults for {b}'
-          print('manifests ok')
-          PY
+          if [ -n "$BASE" ] && ! echo "$BASE" | grep -q '^0*$' && git cat-file -e "$BASE" 2>/dev/null; then
+            python3 tools/check_catalog.py --since "$BASE"
+          else
+            python3 tools/check_catalog.py
+          fi
       - name: Simulator — every template, every scenario
         run: python3 firmware/sim/run.py
+      - name: Bench script against the simulated board on a pty (tools/hw_smoke.py end to end)
+        run: |
+          pip install --quiet pyserial
+          python3 firmware/sim/pty_board.py --quiet > /tmp/port & sleep 2
+          python3 tools/hw_smoke.py --port "$(cat /tmp/port)" --call "W1ABC FOX DE W1ABC" --yes-antenna --observe 0.5 --templates morse-songs,morse-sstv,resurrection --report /tmp/hw_smoke.json
+          python3 -c "import json; r=json.load(open('/tmp/hw_smoke.json')); assert all(t['ok'] and t['key']=='ok' for t in r['templates'].values()), r"
       - name: Python / JS encoder parity
         run: |
           python3 firmware/sim/parity.py > /tmp/py.json
           node firmware/sim/parity.mjs > /tmp/js.json
           node firmware/sim/parity.mjs --compare /tmp/py.json /tmp/js.json
+      - name: Python / JS fox.json validator parity (same corpus, same effective config, same banner status)
+        run: |
+          python3 firmware/sim/schema_parity.py > /tmp/spy.json
+          node firmware/sim/schema_parity.mjs > /tmp/sjs.json
+          node firmware/sim/schema_parity.mjs --compare /tmp/spy.json /tmp/sjs.json
