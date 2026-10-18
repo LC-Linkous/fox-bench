@@ -7,6 +7,7 @@ import * as rtttl from '../audio/rtttl.js';
 import * as sstv from '../audio/sstv.js';
 import { Player, drawTrace, drawWaterfall } from '../audio/player.js';
 import { fmtDuration } from '../model/airtime.js';
+import * as spectrum from '../audio/spectrum.js';
 
 let app, root; const player = new Player();
 export function init(a, el) { app = a; root = el; app.listeners.add(render); render('boot'); }
@@ -37,7 +38,33 @@ export function transmissionEvents(i = 0) {
 }
 
 let previewBox;
+let devOverride = (() => { try { return JSON.parse(localStorage.getItem('fox-bench.deviationHz')); } catch { return null; } })();
+let freqIdx = 0;
+const nominalDeviation = () => (app.cfg.radio.bandwidth_khz <= 18.75 ? 2500 : 5000);
+
+function spectrumPanel(evs) {
+  const r = app.cfg.radio, bw = r.bandwidth_khz, dev = devOverride ?? nominalDeviation();
+  const freqs = app.cfg.plan.frequencies_mhz; if (freqIdx >= freqs.length) freqIdx = 0;
+  const est = spectrum.estimate(evs, { deviationHz: dev });
+  const outside = spectrum.outsideFraction(est, bw * 1000);
+  const canvas = h('canvas.preview', { style: 'height:190px' });
+  const devIn = numInput(dev / 1000, { min: 0.3, max: 10, step: 0.1, width: '90px', onchange: v => { devOverride = Math.round(v * 1000); try { localStorage.setItem('fox-bench.deviationHz', JSON.stringify(devOverride)); } catch {} renderPreview(lastItem); } });
+  requestAnimationFrame(() => spectrum.drawSpectrum(canvas, est, { carrierMhz: freqs[freqIdx] || 0, bwKhz: bw, deviationHz: dev }));
+  return h('div', { style: 'margin-top:14px' },
+    h('div.tools', { style: 'margin-bottom:6px' },
+      h('b', {}, 'RF spectrum (estimate)'),
+      freqs.length > 1 ? select(freqs.map((f, k) => [k, f.toFixed(4) + ' MHz']), freqIdx, v => { freqIdx = +v; renderPreview(lastItem); }) : null,
+      h('span.suffix', {}, 'deviation ±'), devIn, h('span.suffix', {}, 'kHz'),
+      devOverride != null ? h('button.btn.small', { onclick: () => { devOverride = null; try { localStorage.removeItem('fox-bench.deviationHz'); } catch {} renderPreview(lastItem); } }, 'nominal') : null,
+      badge(`Carson ${(est.carsonHz / 1000).toFixed(1)} kHz`, est.carsonHz <= bw * 1000 ? 'ok' : 'warn'),
+      badge(`${(outside * 100).toFixed(1)} % outside ${bw} kHz`, outside < 0.01 ? 'ok' : outside < 0.05 ? 'warn' : 'err')),
+    h('div.screen', {}, canvas),
+    h('p.hint', {}, 'Narrowband-FM sidebands (Bessel) for every tone in the transmission, weighted by airtime, with the square-wave 3rd/5th harmonics after a ~3 kHz mic low-pass. Amber band = intended channel; grey = adjacent channels; red lines = energy outside the channel. The module\'s real deviation depends on the PWM level into MIC — set the measured value here; it is remembered in this browser, not in fox.json.'));
+}
+
+let lastItem = 0;
 function renderPreview(i = 0) {
+  lastItem = i;
   const p = app.cfg.payload, evs = transmissionEvents(i), total = evs.reduce((a, [, ms]) => a + ms, 0);
   const trace = h('canvas.preview', { style: 'height:110px' });
   const prog = h('progress', { max: 1, value: 0, style: 'width:100%;height:6px;display:block;margin-top:6px' });
@@ -55,7 +82,8 @@ function renderPreview(i = 0) {
     items.length > 1 ? field('Item', select(items, i, v => renderPreview(+v))) : null,
     h('div.screen', {}, trace), prog,
     h('div.tools', { style: 'margin-top:10px' }, btn, waveSel, h('span.hint', {}, p.kind === 'none' && p.dit_s > 0.3 ? 'QRSS plays sped up 10× in the preview; the trace shows real proportions.' : 'ID, payload' + (app.cfg.plan.announce_qsy && app.cfg.plan.frequencies_mhz.length > 1 ? ', QSY announcement' : '') + ' — exactly the event stream the fox plays.')),
-    decode ? h('div', {}, h('p.hint', { style: 'margin-top:10px' }, 'What a hunter\'s SSTV app shows (time-sampled decode of the event stream above; the 40-pixel source is why it is chunky):'), decode) : null);
+    decode ? h('div', {}, h('p.hint', { style: 'margin-top:10px' }, 'What a hunter\'s SSTV app shows (time-sampled decode of the event stream above; the 40-pixel source is why it is chunky):'), decode) : null,
+    spectrumPanel(evs));
   requestAnimationFrame(() => { (p.kind === 'none' && p.dit_s > 0.3 ? drawWaterfall : drawTrace)(trace, evs); if (decode) sstv.decodeToCanvas(sstv.events(app.images[i]), decode); });
 }
 
