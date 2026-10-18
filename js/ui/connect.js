@@ -9,10 +9,11 @@ function render() {
   const t = app.template, ob = app.onBoard, info = app.info;
   const deviceCard = h('div.card', {},
     h('h3', {}, 'Board'),
+    ob.listening && !ob.template ? h('p.hint', {}, 'Listening only. Whatever the fox prints appears in the console below; tap the board\'s R button to watch it boot and read its FOX banner. Re-read board takes control (stops the fox).') : null,
     !info ? h('div', {},
         h('p.hint', {}, 'Not connected. Connect a board (Chrome or Edge) or start the simulated one from the top bar.'),
         h('p.hint', {}, h('b', {}, 'The board must already be running CircuitPython.'), ' Flashing CircuitPython from this page is not in yet; see the Board tab for the bootloader move and the link to the .bin.'),
-        h('p.hint', {}, h('b', {}, 'Board already running fox or other firmware?'), ' Plug in normally (no B button). If Connect times out waiting for a prompt, tap the board\'s R (reset) button and click Connect again — the page interrupts whatever is running and takes the REPL.'))
+        h('p.hint', {}, h('b', {}, 'Board already running fox or other firmware?'), ' Plug in normally (no B button). ', h('b', {}, 'Connect'), ' interrupts whatever is running and takes the REPL; ', h('b', {}, 'Listen only'), ' just opens the port and shows the fox\'s output without stopping it. If Connect times out waiting for a prompt, tap the board\'s R (reset) button and try again.'))
       : h('dl.kv', {},
         h('dt', {}, 'Board id'), h('dd', {}, info.boardId, app.catalog.boards[info.boardId] ? '' : badge('unknown to fox-bench', 'warn')),
         h('dt', {}, 'Chip UID'), h('dd', {}, info.uid),

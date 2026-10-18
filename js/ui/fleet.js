@@ -9,7 +9,7 @@ export function init(a, el) { app = a; root = el; app.listeners.add(render); ren
 function render() {
   const list = profiles.all(), log = fleet.all();
   const nameIn = h('input', { type: 'text', value: app.cfg.fleet?.profile || '', placeholder: 'Fox 3 — 146.565 — W1ABC/3', style: 'width:100%' });
-  const save = () => { const name = nameIn.value.trim(); if (!name) return; app.cfg.fleet = { ...app.cfg.fleet, profile: name }; profiles.save({ name, template: app.templateId, board: app.boardId, module: app.moduleId, cfg: structuredClone(app.cfg), images: app.images.map(im => ({ ...im, pixels: Array.from(im.pixels) })) }); app.changed('profile'); };
+  const save = () => app.saveProfile(nameIn.value);
   const fileIn = h('input', { type: 'file', accept: 'application/json', hidden: true });
   fileIn.addEventListener('change', async () => { try { const n = profiles.importJson(await fileIn.files[0].text()); app.console.dim(`imported ${n} profile(s)`); render(); } catch (e) { app.console.err('import failed: ' + e.message); } fileIn.value = ''; });
   root.replaceChildren(

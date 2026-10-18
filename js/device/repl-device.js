@@ -31,7 +31,12 @@ export class ReplDevice extends Device {
   _run(fn) { const p = this._queue.then(fn, fn); this._queue = p.catch(() => {}); return p; }
 
   async connect() { return this._run(() => this._connect()); }
+  /** Listen only: no interrupt, no identity query; the fox keeps running and its output streams to the console. */
+  async listen() { this.listening = true; this.log('listening — the fox keeps running; Re-read board, Deploy or a Bench action will interrupt it', 'dim'); return { boardId: '?', uid: '', foxlibVersion: '', cpVersion: '', files: {}, listening: true }; }
+  /** Interrupt and ask the board who it is (used when a listen-only session takes control). */
+  async identify() { return this._run(() => this._connect()); }
   async _connect() {
+    this.listening = false;
     await this.repl.interrupt();
     const out = await this._exec(
       "import board, microcontroller, os\n" +

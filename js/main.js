@@ -4,6 +4,7 @@ import { $, $$ } from './ui/dom.js';
 import { loadCatalog, loadDefaults } from './model/loaders.js';
 import { mergeAndValidate, pageChecks } from './model/schema.js';
 import { parseBanner } from './device/device.js';
+import { profiles } from './model/profiles.js';
 import { TABLE as MORSE } from './audio/morse.js';
 import { hasWebSerial, SerialLink } from './device/serial-link.js';
 import { ReplDevice } from './device/repl-device.js';
@@ -100,15 +101,32 @@ export const app = {
     this.changed(source);
   },
 
+  /** Save the whole form (and SSTV images) under a name; the name is kept in cfg.fleet.profile. */
+  saveProfile(name) {
+    name = (name || '').trim(); if (!name) return null;
+    this.cfg.fleet = { ...this.cfg.fleet, profile: name };
+    const rec = profiles.save({ name, template: this.templateId, board: this.boardId, module: this.moduleId, cfg: structuredClone(this.cfg), images: this.images.map(im => ({ ...im, pixels: Array.from(im.pixels) })) });
+    this.console.line(`profile "${name}" saved`, 'ok');
+    this.changed('profile');
+    return rec;
+  },
   setStatus(text, cls) { $('#status').className = 'status ' + (cls || ''); $('#statusText').textContent = text; },
 
-  async connect(kind) {
+  async connect(kind, { listen = false } = {}) {
     if (this.device) await this.disconnect();
     let device;
     if (kind === 'demo') device = new DemoDevice({ board: this.board, moduleRanges: this.module.ranges_mhz });
-    else { const link = new SerialLink(); await link.open(); link.onDrop = () => { this.console.err('serial port dropped'); this.disconnect(); }; device = new ReplDevice(link); }
+    else { const link = new SerialLink(); await link.open(); link.onDrop = () => { this.console.err('serial port dropped (a reset re-enumerates the USB port — reconnect)'); this.disconnect(); }; device = new ReplDevice(link); }
     device.onLog = (t, cls) => cls === 'tx' ? this.console.tx(t) : cls === 'reply' ? this.console.reply(t) : cls === 'ok' ? this.console.line(t, 'ok') : cls === 'err' ? this.console.err(t) : this.console.dim(t);
-    this.setStatus(kind === 'demo' ? 'Starting simulated board…' : 'Connecting…');
+    this.setStatus(kind === 'demo' ? 'Starting simulated board…' : listen ? 'Opening port…' : 'Connecting…');
+    if (listen && kind !== 'demo') {
+      this.device = device; this.info = await device.listen(); this.onBoard = { cfg: null, raw: null, foxlibVersion: '', foxlibMissing: [], foxlibComplete: false, files: {}, template: null, listening: true };
+      // banner lines that scroll past while listening update the status
+      const prev = device.onLog; device.onLog = (t, cls) => { prev(t, cls); const b = parseBanner(t); if (b) { this.info = { ...this.info, boardId: b.board || '?', uid: b.uid || '' }; this.onBoard.foxlibVersion = b.foxlib || ''; this.onBoard.template = (b.template || '').split('/')[0] || null; this.setStatus(`Listening · ${b.board} · uid ${(b.uid || '').slice(-6)} · ${b.template} · cfg=${b.cfg} radio=${b.radio}`, 'tx'); this.changed('banner'); } };
+      $('#connectBtn').textContent = 'Disconnect'; $('#listenBtn').hidden = true; this.console.setEnabled(false);
+      this.setStatus('Listening — fox output streams to the console; tap R on the board to see its boot banner', 'tx');
+      this.changed('connect'); return;
+    }
     try { this.info = await device.connect(); }
     catch (e) {
       this.console.err(String(e.message || e));
@@ -117,7 +135,7 @@ export const app = {
     }
     this.device = device;
     $('#demoBtn').setAttribute('aria-pressed', kind === 'demo' ? 'true' : 'false');
-    $('#connectBtn').textContent = 'Disconnect';
+    $('#connectBtn').textContent = 'Disconnect'; $('#listenBtn').hidden = true;
     this.console.setEnabled(kind !== 'demo');
     this.setStatus(`${kind === 'demo' ? 'Demo · ' : ''}${this.info.boardId} · uid ${this.info.uid.slice(-6)}${this.info.foxlibVersion ? ' · foxlib ' + this.info.foxlibVersion : ' · no fox firmware'}`, kind === 'demo' ? 'demo' : 'ok');
     if (this.catalog.boards[this.info.boardId] && this.info.boardId !== this.boardId) await this.setBoard(this.info.boardId);
@@ -127,7 +145,8 @@ export const app = {
   /** Read what is on the board. Interrupts a running fox; call restartFox() afterwards if it should keep running. */
   async readBoard() {
     const d = this.device; if (!d) return;
-    await d.interrupt();
+    if (d.listening) { this.info = await d.identify(); this.setStatus(`${this.info.boardId} · uid ${this.info.uid.slice(-6)}`, 'ok'); this.console.setEnabled(true); }
+    else await d.interrupt();
     const files = await d.list('');
     const fv = files.foxlib ? ((await d.readText('foxlib/VERSION')) || '').trim() : '';
     const libFiles = files.foxlib ? await d.list('foxlib') : {};
@@ -155,7 +174,7 @@ export const app = {
   async disconnect() {
     try { await this.device?.close(); } catch {}
     this.device = null; this.info = null; this.onBoard = { cfg: null, raw: null, foxlibVersion: '', foxlibMissing: [], foxlibComplete: false, files: {} };
-    $('#demoBtn').setAttribute('aria-pressed', 'false'); $('#connectBtn').textContent = 'Connect';
+    $('#demoBtn').setAttribute('aria-pressed', 'false'); $('#connectBtn').textContent = 'Connect'; $('#listenBtn').hidden = false;
     this.console.setEnabled(false); this.setStatus('Not connected');
     this.changed('disconnect');
   },
@@ -191,6 +210,8 @@ async function boot() {
   for (const [name, mod] of Object.entries(TABS)) mod.init(app, $(`#tab-${name} .body`));
   $$('.rail button').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
   $('#connectBtn').addEventListener('click', () => app.device ? app.disconnect() : app.connect('serial'));
+  $('#listenBtn').addEventListener('click', () => app.device ? app.disconnect() : app.connect('serial', { listen: true }));
+  if (!hasWebSerial()) $('#listenBtn').disabled = true;
   $('#demoBtn').addEventListener('click', () => app.device?.kind === 'demo' ? app.disconnect() : app.connect('demo'));
   window.addEventListener('beforeunload', () => { app.device?.close?.(); });
 

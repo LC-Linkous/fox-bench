@@ -117,6 +117,11 @@ function render() {
         h('button.btn', { disabled: !!blocking.length || busy, title: 'Download the same files as a zip, to copy onto a board by hand (Thonny or a CIRCUITPY drive)', onclick: exportZip }, 'Export deploy set (.zip)'),
         !app.connected ? h('span.hint', {}, 'Connect a board to write, or export the zip.') : blocking.length ? h('span.hint.err', {}, 'Fix the blocking checks above.') : overrides.length ? h('span.hint.err', {}, `${overrides.length} out-of-band override${overrides.length === 1 ? '' : 's'} — you will be asked to confirm.`) : null),
       lastResult ? resultBox(lastResult) : null),
+    h('div.card', {}, h('h3', {}, 'Save as profile'),
+      h('p.hint', {}, 'Keep this whole configuration under a name so it can be loaded onto the next fox in a couple of clicks (Profiles & fleet tab). Saving here does not write anything to the board.'),
+      (() => { const nameIn = h('input', { type: 'text', value: cfg.fleet?.profile || '', placeholder: 'Fox 3 — 146.565 — W1ABC/3', style: 'flex:1;min-width:220px' });
+        nameIn.addEventListener('keydown', e => { if (e.key === 'Enter') app.saveProfile(nameIn.value); });
+        return h('div.tools', {}, nameIn, h('button.btn', { onclick: () => app.saveProfile(nameIn.value) }, cfg.fleet?.profile ? 'Update profile' : 'Save profile'), cfg.fleet?.profile ? h('span.hint', {}, `current: "${cfg.fleet.profile}"`) : null); })()),
     h('div.card', {}, h('h3', {}, 'Flash CircuitPython ', badge('next milestone', 'warn')),
       h('p.hint', {}, 'For a factory-fresh board: hold B while plugging in, then erase and write CircuitPython from this page with esptool-js. Until that lands, use ', h('a', { href: app.board.circuitpython.download, target: '_blank', rel: 'noopener' }, 'the CircuitPython .bin for this board'), ' with Adafruit\'s WebSerial ESPTool or ', h('code', {}, 'tools/batch_flash.py'), '.')));
 }
