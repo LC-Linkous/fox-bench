@@ -45,20 +45,31 @@ export class Player {
 }
 
 /** Draw an event stream as a frequency-vs-time trace (the "oscillograph" under Preview). */
-export function drawTrace(canvas, events, { fmin = 200, fmax = 2600, color } = {}) {
+export function drawTrace(canvas, events, { fmin = 200, fmax = 2600, color, segments } = {}) {
   const g = canvas.getContext('2d'), dpr = window.devicePixelRatio || 1;
   const w = canvas.clientWidth || 600, h = canvas.clientHeight || 120;
   canvas.width = w * dpr; canvas.height = h * dpr; g.scale(dpr, dpr);
-  const css = getComputedStyle(document.documentElement);
-  g.fillStyle = css.getPropertyValue('--screen'); g.fillRect(0, 0, w, h);
-  g.strokeStyle = css.getPropertyValue('--grid'); g.lineWidth = 1;
-  for (let i = 1; i < 4; i++) { g.beginPath(); g.moveTo(0, h * i / 4); g.lineTo(w, h * i / 4); g.stroke(); }
+  const css = getComputedStyle(document.documentElement), v = k => css.getPropertyValue(k).trim();
+  const top = segments?.length ? 14 : 0, bottom = 12, ph = h - top - bottom;
+  g.fillStyle = v('--screen'); g.fillRect(0, 0, w, h);
+  g.strokeStyle = v('--grid'); g.lineWidth = 1;
+  for (let i = 1; i < 4; i++) { g.beginPath(); g.moveTo(0, top + ph * i / 4); g.lineTo(w, top + ph * i / 4); g.stroke(); }
   const total = events.reduce((a, [, ms]) => a + ms, 0); if (!total) return;
-  g.strokeStyle = color || css.getPropertyValue('--tone'); g.lineWidth = 2; let x = 0;
-  for (const [hz, ms] of events) { const dx = ms / total * w; if (hz > 0) { const y = h - (Math.min(fmax, Math.max(fmin, hz)) - fmin) / (fmax - fmin) * (h - 8) - 4; g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.max(dx, 0.5), y); g.stroke(); } x += dx; }
+  const xOf = ms => ms / total * w;
+  // time ticks: pick a step that gives ~80 px spacing
+  const pxPerS = w / (total / 1000); const steps = [0.5, 1, 2, 5, 10, 30, 60, 120, 300, 600]; const step = steps.find(s => s * pxPerS >= 70) || 600;
+  g.fillStyle = v('--ink-3'); g.font = '10px ' + v('--mono'); g.textAlign = 'left';
+  for (let t = 0; t <= total / 1000; t += step) { const x = xOf(t * 1000); g.strokeStyle = v('--grid'); g.beginPath(); g.moveTo(x, top); g.lineTo(x, top + ph); g.stroke(); g.fillText(t >= 60 ? `${Math.floor(t / 60)}:${String(Math.round(t % 60)).padStart(2, '0')}` : `${t}s`, x + 2, h - 2); }
+  // segment markers
+  if (segments?.length) {
+    g.fillStyle = v('--ink-2'); g.font = '10px ' + v('--font');
+    for (const sgm of segments) { const x = xOf(sgm.t); g.strokeStyle = v('--edge'); g.beginPath(); g.moveTo(x, 0); g.lineTo(x, top + ph); g.stroke(); g.fillText(sgm.label, x + 3, 10); }
+  }
+  g.strokeStyle = color || v('--tone'); g.lineWidth = 2; let x = 0;
+  for (const [hz, ms] of events) { const dx = xOf(ms); if (hz > 0) { const y = top + ph - (Math.min(fmax, Math.max(fmin, hz)) - fmin) / (fmax - fmin) * (ph - 8) - 4; g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.max(dx, 0.5), y); g.stroke(); } x += dx; }
 }
 
 /** Spectrogram-style render for QRSS: time across, audio frequency up, tone as a bright line. */
-export function drawWaterfall(canvas, events, { fmin = 300, fmax = 1300 } = {}) {
-  drawTrace(canvas, events, { fmin, fmax });
+export function drawWaterfall(canvas, events, { fmin = 300, fmax = 1300, segments } = {}) {
+  drawTrace(canvas, events, { fmin, fmax, segments });
 }

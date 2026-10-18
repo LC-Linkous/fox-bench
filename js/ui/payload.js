@@ -25,15 +25,25 @@ function setKind(kind) {
 }
 
 /** The whole transmission as events: ID, gap, payload item i. */
+/** One transmission (rotation item i), or every item in order when i === 'all'. Also returns segment markers. */
 export function transmissionEvents(i = 0) {
   const cfg = app.cfg, d = cfg.id, p = cfg.payload;
   const idText = d.callmessage + (d.telemetry.includes('batt') && cfg.pins.batt_sense ? ' BAT 3V7' : '');
-  const evs = [[0, 750]];
-  if (p.kind === 'none') { evs.push(...morse.events(p.message || idText, { wpm: d.wpm, toneHz: d.tone_hz, ditMs: p.dit_s ? p.dit_s * 1000 : null })); return evs; }
-  evs.push(...morse.events(idText, { wpm: d.wpm, toneHz: d.tone_hz }), [0, 750]);
-  if (p.kind === 'songs' && p.playlist[i]) evs.push(...melody.events(p.playlist[i], p.articulation));
-  if (p.kind === 'sstv' && app.images[i]) evs.push(...sstv.events(app.images[i]));
-  if (cfg.plan.frequencies_mhz.length > 1 && cfg.plan.announce_qsy) { const nf = cfg.plan.frequencies_mhz[1 % cfg.plan.frequencies_mhz.length]; evs.push([0, 750], ...morse.events(`QSY ${nf.toFixed(3)}`, { wpm: d.wpm, toneHz: d.tone_hz })); }
+  const evs = [], segs = [];
+  const dur = e => e.reduce((a, [, ms]) => a + ms, 0);
+  const push = (label, e) => { segs.push({ t: dur(evs), label }); evs.push(...e); };
+  const n = p.kind === 'songs' ? p.playlist.length : p.kind === 'sstv' ? app.images.length : 1;
+  const items = i === 'all' ? [...Array(Math.max(1, n)).keys()] : [i];
+  items.forEach((k, idx) => {
+    if (idx > 0) push('(wait)', [[0, 1500]]);                 // the schedule gap, compressed to 1.5 s for the trace
+    evs.push([0, 750]);
+    if (p.kind === 'none') { push('ID', morse.events(p.message || idText, { wpm: d.wpm, toneHz: d.tone_hz, ditMs: p.dit_s ? p.dit_s * 1000 : null })); return; }
+    push('ID', morse.events(idText, { wpm: d.wpm, toneHz: d.tone_hz })); evs.push([0, 750]);
+    if (p.kind === 'songs' && p.playlist[k]) push(p.playlist[k].name, melody.events(p.playlist[k], p.articulation));
+    if (p.kind === 'sstv' && app.images[k]) push(app.images[k].name, sstv.events(app.images[k]));
+    if (cfg.plan.frequencies_mhz.length > 1 && cfg.plan.announce_qsy) { const nf = cfg.plan.frequencies_mhz[(idx + 1) % cfg.plan.frequencies_mhz.length]; evs.push([0, 750]); push('QSY', morse.events(`QSY ${nf.toFixed(3)}`, { wpm: d.wpm, toneHz: d.tone_hz })); }
+  });
+  evs.segments = segs;
   return evs;
 }
 
@@ -63,7 +73,7 @@ function spectrumPanel(evs) {
     h('p.hint', {}, 'Narrowband-FM sidebands (Bessel) for every tone in the transmission, weighted by airtime, with the square-wave 3rd/5th harmonics after a ~3 kHz mic low-pass. Amber band = intended channel; grey = adjacent channels; red lines = energy outside the channel. The module\'s real deviation depends on the PWM level into MIC — set the measured value here; it is remembered in this browser, not in fox.json.'));
 }
 
-let lastItem = 0, previewBusy = false, previewPending = null;
+let lastItem = 0, previewBusy = false, previewPending = null, zoom = 'fit';   // 'fit' | px per second
 function renderPreview(i = 0) {
   if (previewBusy) { previewPending = i; return; }          // a change event can fire mid-render; coalesce
   previewBusy = true;
@@ -74,6 +84,8 @@ function _renderPreview(i = 0) {
   lastItem = i;
   const p = app.cfg.payload, evs = transmissionEvents(i), total = evs.reduce((a, [, ms]) => a + ms, 0);
   const trace = h('canvas.preview', { style: 'height:110px' });
+  const scroller = h('div.screen', { style: 'overflow-x:auto;overflow-y:hidden' }, trace);
+  const zoomSel = select([['fit', 'fit'], ['20', '20 px/s'], ['50', '50 px/s'], ['200', '200 px/s'], ['1000', '1000 px/s']], zoom, v => { zoom = v; renderPreview(lastItem); });
   const prog = h('progress', { max: 1, value: 0, style: 'width:100%;height:6px;display:block;margin-top:6px' });
   const btn = h('button.btn.primary', { onclick: () => {
     if (player.playing) { player.stop(); btn.textContent = 'Preview transmission'; btn.classList.remove('running'); return; }
@@ -83,15 +95,24 @@ function _renderPreview(i = 0) {
   } }, 'Preview transmission');
   const waveSel = select([['square', 'square (like the PWM)'], ['sine', 'sine (easier on the ears)']], player.wave, v => { player.wave = v; });
   const items = p.kind === 'songs' ? p.playlist.map((s, k) => [k, s.name]) : p.kind === 'sstv' ? app.images.map((im, k) => [k, im.name]) : [];
-  const decode = p.kind === 'sstv' && app.images[i] ? h('canvas', { style: 'width:320px;height:240px;max-width:100%;image-rendering:pixelated;border:1px solid var(--edge);display:block;margin-top:8px' }) : null;
+  if (items.length > 1) items.push(['all', `whole rotation (${items.length} transmissions)`]);
+  const decodeImages = p.kind === 'sstv' ? (i === 'all' ? app.images : app.images[i] ? [app.images[i]] : []) : [];
+  const decodes = decodeImages.map(() => h('canvas', { style: 'width:320px;height:240px;max-width:100%;image-rendering:pixelated;border:1px solid var(--edge);display:block' }));
+  const decode = decodes.length ? h('div', { style: 'display:flex;gap:10px;overflow-x:auto;margin-top:8px' }, decodes.map((c, k) => h('div', {}, c, h('p.hint', { style: 'margin:2px 0 0' }, decodeImages[k].name)))) : null;
   fill(previewBox, 
     h('h3', {}, 'Preview ', badge(fmtDuration(total) + ' keydown', total > 60000 ? 'warn' : '')),
-    items.length > 1 ? field('Item', select(items, i, v => renderPreview(+v))) : null,
-    h('div.screen', {}, trace), prog,
+    items.length > 1 ? h('div.tools', {}, field('Item', select(items, i, v => renderPreview(v === 'all' ? 'all' : +v))), field('Trace zoom', zoomSel)) : field('Trace zoom', zoomSel),
+    scroller, prog,
     h('div.tools', { style: 'margin-top:10px' }, btn, waveSel, h('span.hint', {}, p.kind === 'none' && p.dit_s > 0.3 ? 'QRSS plays sped up 10× in the preview; the trace shows real proportions.' : 'ID, payload' + (app.cfg.plan.announce_qsy && app.cfg.plan.frequencies_mhz.length > 1 ? ', QSY announcement' : '') + ' — exactly the event stream the fox plays.')),
     decode ? h('div', {}, h('p.hint', { style: 'margin-top:10px' }, 'What a hunter\'s SSTV app shows (time-sampled decode of the event stream above; the 40-pixel source is why it is chunky):'), decode) : null,
     spectrumPanel(evs));
-  requestAnimationFrame(() => { (p.kind === 'none' && p.dit_s > 0.3 ? drawWaterfall : drawTrace)(trace, evs); if (decode) sstv.decodeToCanvas(sstv.events(app.images[i]), decode); });
+  requestAnimationFrame(() => {
+    const fitW = scroller.clientWidth || 600;
+    const wantW = zoom === 'fit' ? fitW : Math.max(fitW, Math.round(total / 1000 * +zoom));
+    trace.style.width = wantW + 'px';
+    (p.kind === 'none' && p.dit_s > 0.3 ? drawWaterfall : drawTrace)(trace, evs, { segments: evs.segments });
+    decodes.forEach((c, k) => sstv.decodeToCanvas(sstv.events(decodeImages[k]), c));
+  });
 }
 
 // ---- song libraries: repo-provided (songs/index.json) plus any loaded from disk this session
@@ -172,7 +193,7 @@ function sstvCard() {
   const card = h('textarea', { rows: 3, placeholder: 'HINT CARD\nLOOK UP\nNEAR TREE', spellcheck: 'false' });
   return h('div.card', {}, h('h3', {}, 'Images ', badge(`${app.images.length} image${app.images.length === 1 ? '' : 's'}`)),
     h('ul.list', {}, app.images.map((im, i) => { const c = h('canvas', { width: im.width, height: im.height, style: 'width:40px;height:60px;image-rendering:pixelated;border:1px solid var(--edge)' }); const g = c.getContext('2d'), id = g.createImageData(im.width, im.height); for (let k = 0; k < im.pixels.length; k++) { id.data[k * 4] = id.data[k * 4 + 1] = id.data[k * 4 + 2] = im.pixels[k]; id.data[k * 4 + 3] = 255; } g.putImageData(id, 0, 0);
-      return h('li', {}, c, h('span.name', {}, im.name), h('span.meta', {}, `${im.width}×${im.height}`), i > 0 ? h('button', { onclick: () => { [app.images[i - 1], app.images[i]] = [app.images[i], app.images[i - 1]]; app.changed('payload'); } }, '↑') : null, app.images.length > 1 ? h('button', { onclick: () => { app.images.splice(i, 1); app.changed('payload'); } }, '✕') : null); })),
+      return h('li', {}, c, h('span.name', {}, im.name), h('span.meta', {}, `${im.width}×${im.height}`), i > 0 ? h('button', { onclick: () => { [app.images[i - 1], app.images[i]] = [app.images[i], app.images[i - 1]]; app.changed('payload'); } }, '↑') : null, h('button', { title: app.images.length > 1 ? 'remove' : 'remove (the test card takes its place)', onclick: () => { app.images.splice(i, 1); app.changed('payload'); } }, '✕')); })),
     drop, file,
     field('Or a text card', card), h('div.tools', {}, h('button.btn.small', { onclick: () => { if (card.value.trim()) { app.images.push(sstv.textCard(card.value, card.value.split('\n')[0].slice(0, 24) || 'card')); card.value = ''; app.changed('payload'); } } }, 'Add card'), h('button.btn.small', { onclick: () => { app.images.push(sstv.testCard()); app.changed('payload'); } }, 'Add test card')),
     h('p.hint', { style: 'margin-top:10px' }, 'Images travel as ', h('code', {}, 'images.bin'), ' next to fox.json (count, then width/height/name/pixels per image). Robot 36 grayscale at 40 px per line: airtime is fixed by the mode, not the picture.'),
@@ -190,6 +211,7 @@ function qrssCard() {
 }
 
 function render(source) {
+  if (app.cfg.payload.kind === 'sstv' && !app.images.length) app.images = [sstv.testCard()];   // never an empty rotation
   if (source === 'theme') { renderPreview(); return; }
   if (source === 'library') { if (libBox) { fill(libBox, libraryCard()); const i = libBox.querySelector('input[type=text]'); if (i && libQuery) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } } return; }
   const p = app.cfg.payload, kinds = kindsForTemplate();
