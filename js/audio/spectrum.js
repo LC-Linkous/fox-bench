@@ -51,12 +51,12 @@ export function estimate(events, { deviationHz = 2500, lowpassHz = 3000, binHz =
     const nmax = Math.min(40, Math.ceil(beta + 6 * Math.cbrt(beta) + 3));
     for (let n = 0; n <= nmax; n++) {
       const a = besselJ(n, beta); const p = a * a * t.w;
-      if (p < 1e-7) continue;
+      if (p < 1e-13) continue;
       if (n === 0) add(0, p); else { add(n * t.hz, p); add(-n * t.hz, p); if (t.amp >= 0.2) fmax = Math.max(fmax, t.hz); }
     }
   }
   const peak = Math.max(...bins.values(), 1e-12);
-  const lines = [...bins.entries()].map(([off, p]) => ({ off, db: 10 * Math.log10(p / peak) })).filter(l => l.db > -70).sort((a, b) => a.off - b.off);
+  const lines = [...bins.entries()].map(([off, p]) => ({ off, db: 10 * Math.log10(p / peak) })).filter(l => l.db > -125).sort((a, b) => a.off - b.off);
   return { bins, lines, fmax, carsonHz: 2 * (deviationHz + fmax), tones };
 }
 
@@ -67,15 +67,20 @@ export function outsideFraction(est, bwHz) {
   return tot ? out / tot : 0;
 }
 
-export function drawSpectrum(canvas, est, { carrierMhz, bwKhz, deviationHz, spanKhz }) {
+export function drawSpectrum(canvas, est, { carrierMhz, bwKhz, deviationHz, spanKhz, floorDb }) {
   const g = canvas.getContext('2d'), dpr = window.devicePixelRatio || 1;
   const w = canvas.clientWidth || 600, h = canvas.clientHeight || 180;
   canvas.width = w * dpr; canvas.height = h * dpr; g.scale(dpr, dpr);
   const css = getComputedStyle(document.documentElement), v = k => css.getPropertyValue(k).trim();
   const padL = 8, padR = 8, top = 26, bottom = 30, plotH = h - top - bottom;
-  const span = (spanKhz || Math.max(bwKhz * 1.5, est.carsonHz / 1000 * 0.75, 12)) * 1000;   // ± Hz
+  // adaptive dB floor: deep enough to show the weakest predicted line, in 20 dB steps, −60 … −120
+  const minDb = est.lines.length ? Math.min(...est.lines.map(l => l.db)) : -60;
+  const floor = floorDb ?? Math.max(-120, Math.min(-60, Math.floor(minDb / 20) * 20));
+  // adaptive span: the widest line above the floor, with margin, never narrower than 1.5 channels
+  const maxOff = est.lines.reduce((m, l) => l.db > floor ? Math.max(m, Math.abs(l.off)) : m, 0);
+  const span = (spanKhz ? spanKhz * 1000 : Math.max(bwKhz * 1500, maxOff * 1.15, est.carsonHz * 0.75, 12000));   // ± Hz
   const x = off => padL + (off + span) / (2 * span) * (w - padL - padR);
-  const y = db => top + (-db / 60) * plotH;
+  const y = db => top + Math.min(1, db / floor) * plotH;
   g.fillStyle = v('--screen'); g.fillRect(0, 0, w, h);
   // adjacent channels (dim) and the intended channel (accent)
   const bw = bwKhz * 1000;
@@ -87,7 +92,7 @@ export function drawSpectrum(canvas, est, { carrierMhz, bwKhz, deviationHz, span
   g.setLineDash([]);
   // grid: dB lines
   g.strokeStyle = v('--grid'); g.lineWidth = 1; g.fillStyle = v('--ink-3'); g.font = '10px ' + v('--mono');
-  for (const db of [0, -20, -40, -60]) { g.beginPath(); g.moveTo(padL, y(db)); g.lineTo(w - padR, y(db)); g.stroke(); g.fillText(`${db} dB`, padL + 2, y(db) - 2); }
+  for (let db = 0; db >= floor; db -= 20) { g.beginPath(); g.moveTo(padL, y(db)); g.lineTo(w - padR, y(db)); g.stroke(); g.fillText(`${db} dB`, padL + 2, y(db) - 2); }
   // spectral lines
   for (const l of est.lines) {
     const inside = Math.abs(l.off) <= bw / 2;
@@ -101,11 +106,11 @@ export function drawSpectrum(canvas, est, { carrierMhz, bwKhz, deviationHz, span
   g.fillText(`Carson ≈ ${(est.carsonHz / 1000).toFixed(1)} kHz`, x(0), top - 11);
   // x axis: kHz offsets and absolute MHz
   g.fillStyle = v('--ink-2'); g.font = '10px ' + v('--mono'); g.textAlign = 'center';
-  const step = span > 30000 ? 10000 : span > 15000 ? 5000 : 2500;
+  const step = span > 80000 ? 25000 : span > 30000 ? 10000 : span > 15000 ? 5000 : 2500;
   for (let off = -Math.floor(span / step) * step; off <= span; off += step) {
     g.strokeStyle = v('--grid'); g.beginPath(); g.moveTo(x(off), top + plotH); g.lineTo(x(off), top + plotH + 3); g.stroke();
     g.fillText(off === 0 ? `${carrierMhz.toFixed(4)} MHz` : `${off > 0 ? '+' : ''}${off / 1000} k`, x(off), h - 16);
   }
   g.fillStyle = v('--ink-3'); g.textAlign = 'left';
-  g.fillText(`channel ${bwKhz} kHz · deviation ±${(deviationHz / 1000).toFixed(1)} kHz · f_max ${Math.round(est.fmax)} Hz`, padL + 2, h - 4);
+  g.fillText(`channel ${bwKhz} kHz · deviation ±${(deviationHz / 1000).toFixed(1)} kHz · f_max ${Math.round(est.fmax)} Hz · floor ${floor} dB`, padL + 2, h - 4);
 }

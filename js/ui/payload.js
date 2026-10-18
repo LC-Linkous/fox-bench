@@ -39,7 +39,7 @@ export function transmissionEvents(i = 0) {
 
 let previewBox;
 let devOverride = (() => { try { return JSON.parse(localStorage.getItem('fox-bench.deviationHz')); } catch { return null; } })();
-let freqIdx = 0;
+let freqIdx = 0, floorSel = 'auto';
 const nominalDeviation = () => (app.cfg.radio.bandwidth_khz <= 18.75 ? 2500 : 5000);
 
 function spectrumPanel(evs) {
@@ -49,21 +49,28 @@ function spectrumPanel(evs) {
   const outside = spectrum.outsideFraction(est, bw * 1000);
   const canvas = h('canvas.preview', { style: 'height:190px' });
   const devIn = numInput(dev / 1000, { min: 0.3, max: 10, step: 0.1, width: '90px', onchange: v => { devOverride = Math.round(v * 1000); try { localStorage.setItem('fox-bench.deviationHz', JSON.stringify(devOverride)); } catch {} renderPreview(lastItem); } });
-  requestAnimationFrame(() => spectrum.drawSpectrum(canvas, est, { carrierMhz: freqs[freqIdx] || 0, bwKhz: bw, deviationHz: dev }));
+  requestAnimationFrame(() => spectrum.drawSpectrum(canvas, est, { carrierMhz: freqs[freqIdx] || 0, bwKhz: bw, deviationHz: dev, floorDb: floorSel === 'auto' ? null : +floorSel }));
   return h('div', { style: 'margin-top:14px' },
     h('div.tools', { style: 'margin-bottom:6px' },
       h('b', {}, 'RF spectrum (estimate)'),
       freqs.length > 1 ? select(freqs.map((f, k) => [k, f.toFixed(4) + ' MHz']), freqIdx, v => { freqIdx = +v; renderPreview(lastItem); }) : null,
       h('span.suffix', {}, 'deviation ±'), devIn, h('span.suffix', {}, 'kHz'),
       devOverride != null ? h('button.btn.small', { onclick: () => { devOverride = null; try { localStorage.removeItem('fox-bench.deviationHz'); } catch {} renderPreview(lastItem); } }, 'nominal') : null,
+      h('span.suffix', {}, 'floor'), select([['auto', 'auto'], ['-60', '−60 dB'], ['-90', '−90 dB'], ['-120', '−120 dB']], floorSel, v => { floorSel = v; renderPreview(lastItem); }),
       badge(`Carson ${(est.carsonHz / 1000).toFixed(1)} kHz`, est.carsonHz <= bw * 1000 ? 'ok' : 'warn'),
       badge(`${(outside * 100).toFixed(1)} % outside ${bw} kHz`, outside < 0.01 ? 'ok' : outside < 0.05 ? 'warn' : 'err')),
     h('div.screen', {}, canvas),
     h('p.hint', {}, 'Narrowband-FM sidebands (Bessel) for every tone in the transmission, weighted by airtime, with the square-wave 3rd/5th harmonics after a ~3 kHz mic low-pass. Amber band = intended channel; grey = adjacent channels; red lines = energy outside the channel. The module\'s real deviation depends on the PWM level into MIC — set the measured value here; it is remembered in this browser, not in fox.json.'));
 }
 
-let lastItem = 0;
+let lastItem = 0, previewBusy = false, previewPending = null;
 function renderPreview(i = 0) {
+  if (previewBusy) { previewPending = i; return; }          // a change event can fire mid-render; coalesce
+  previewBusy = true;
+  try { _renderPreview(i); } finally { previewBusy = false; }
+  if (previewPending != null) { const k = previewPending; previewPending = null; renderPreview(k); }
+}
+function _renderPreview(i = 0) {
   lastItem = i;
   const p = app.cfg.payload, evs = transmissionEvents(i), total = evs.reduce((a, [, ms]) => a + ms, 0);
   const trace = h('canvas.preview', { style: 'height:110px' });
