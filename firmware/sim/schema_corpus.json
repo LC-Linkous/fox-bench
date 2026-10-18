@@ -1,0 +1,1391 @@
+{
+ "_doc": "Schema parity corpus: each case is a partial fox.json applied over the named template's defaults for the named board. Both js/model/schema.js and foxlib/cfg.py must produce the same effective config and the same status string. Run: python3 firmware/sim/schema_parity.py > py.json && node firmware/sim/schema_parity.mjs > js.json && node firmware/sim/schema_parity.mjs --compare py.json js.json",
+ "cases": [
+  {
+   "name": "empty@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {}
+  },
+  {
+   "name": "empty@morse-sstv",
+   "template": "morse-sstv",
+   "board": "seeed_xiao_esp32c3",
+   "user": {}
+  },
+  {
+   "name": "empty@morse-qrss",
+   "template": "morse-qrss",
+   "board": "seeed_xiao_esp32c3",
+   "user": {}
+  },
+  {
+   "name": "empty@popcorn",
+   "template": "popcorn",
+   "board": "seeed_xiao_esp32c3",
+   "user": {}
+  },
+  {
+   "name": "empty@freq-rotator",
+   "template": "freq-rotator",
+   "board": "seeed_xiao_esp32c3",
+   "user": {}
+  },
+  {
+   "name": "empty@resurrection",
+   "template": "resurrection",
+   "board": "seeed_xiao_esp32c3",
+   "user": {}
+  },
+  {
+   "name": "empty@composite",
+   "template": "composite",
+   "board": "seeed_xiao_esp32c3",
+   "user": {}
+  },
+  {
+   "name": "identity@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "schema": 1,
+    "template": "morse-songs",
+    "board": "seeed_xiao_esp32c3",
+    "module": "sa868_vhf"
+   }
+  },
+  {
+   "name": "identity@morse-sstv",
+   "template": "morse-sstv",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "schema": 1,
+    "template": "morse-sstv",
+    "board": "seeed_xiao_esp32c3",
+    "module": "sa868_vhf"
+   }
+  },
+  {
+   "name": "identity@morse-qrss",
+   "template": "morse-qrss",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "schema": 1,
+    "template": "morse-qrss",
+    "board": "seeed_xiao_esp32c3",
+    "module": "sa868_vhf"
+   }
+  },
+  {
+   "name": "identity@popcorn",
+   "template": "popcorn",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "schema": 1,
+    "template": "popcorn",
+    "board": "seeed_xiao_esp32c3",
+    "module": "sa868_vhf"
+   }
+  },
+  {
+   "name": "identity@freq-rotator",
+   "template": "freq-rotator",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "schema": 1,
+    "template": "freq-rotator",
+    "board": "seeed_xiao_esp32c3",
+    "module": "sa868_vhf"
+   }
+  },
+  {
+   "name": "identity@resurrection",
+   "template": "resurrection",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "schema": 1,
+    "template": "resurrection",
+    "board": "seeed_xiao_esp32c3",
+    "module": "sa868_vhf"
+   }
+  },
+  {
+   "name": "identity@composite",
+   "template": "composite",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "schema": 1,
+    "template": "composite",
+    "board": "seeed_xiao_esp32c3",
+    "module": "sa868_vhf"
+   }
+  },
+  {
+   "name": "schema_wrong@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "schema": 2,
+    "id": {
+     "wpm": 20
+    }
+   }
+  },
+  {
+   "name": "template_wrong@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "template": "popcorn",
+    "id": {
+     "wpm": 20
+    }
+   }
+  },
+  {
+   "name": "board_wrong@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "board": "other_board",
+    "id": {
+     "wpm": 20
+    }
+   }
+  },
+  {
+   "name": "module_not_string@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "module": 5
+   }
+  },
+  {
+   "name": "pins_required_null@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "pins": {
+     "ptt": null
+    }
+   }
+  },
+  {
+   "name": "pins_no_such_pin@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "pins": {
+     "ptt": "D42"
+    }
+   }
+  },
+  {
+   "name": "pins_alias@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "pins": {
+     "ptt": "A3"
+    }
+   }
+  },
+  {
+   "name": "pins_optional_null@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "pins": {
+     "led": null,
+     "batt_sense": null
+    }
+   }
+  },
+  {
+   "name": "pins_optional_set@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "pins": {
+     "batt_sense": "D2"
+    }
+   }
+  },
+  {
+   "name": "pins_unknown_role@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "pins": {
+     "buzzer": "D1"
+    }
+   }
+  },
+  {
+   "name": "pins_duplicate_loser_falls_back@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "pins": {
+     "led": "D3"
+    }
+   }
+  },
+  {
+   "name": "pins_duplicate_required_both_changed@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "pins": {
+     "ptt": "D8",
+     "pd": "D8"
+    }
+   }
+  },
+  {
+   "name": "pins_duplicate_with_default_fatal@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "pins": {
+     "pd": "D3"
+    }
+   }
+  },
+  {
+   "name": "pins_rewire@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "pins": {
+     "ptt": "D0",
+     "pd": "D1",
+     "hl": "D2",
+     "uart_tx": "D6",
+     "uart_rx": "D7",
+     "audio": "D3",
+     "led": null
+    }
+   }
+  },
+  {
+   "name": "pins_not_object@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "pins": "D3"
+   }
+  },
+  {
+   "name": "radio_all_ok@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "radio": {
+     "family": "dmo",
+     "ranges_mhz": [
+      [
+       400,
+       480
+      ]
+     ],
+     "bandwidth_khz": 12.5,
+     "power_dbm": 27.5,
+     "squelch": 0,
+     "volume": 8,
+     "high_power": true
+    },
+    "plan": {
+     "frequencies_mhz": [
+      433.9
+     ]
+    }
+   }
+  },
+  {
+   "name": "radio_all_bad@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "radio": {
+     "family": "",
+     "ranges_mhz": [
+      [
+       174,
+       134
+      ]
+     ],
+     "bandwidth_khz": 0.5,
+     "power_dbm": 41,
+     "squelch": 9,
+     "volume": 0,
+     "high_power": "yes"
+    }
+   }
+  },
+  {
+   "name": "radio_power_null@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "radio": {
+     "power_dbm": null
+    }
+   }
+  },
+  {
+   "name": "radio_squelch_float@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "radio": {
+     "squelch": 3.0
+    }
+   }
+  },
+  {
+   "name": "radio_ranges_empty@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "radio": {
+     "ranges_mhz": []
+    }
+   }
+  },
+  {
+   "name": "plan_single@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "plan": {
+     "frequencies_mhz": [
+      147.42
+     ],
+     "announce_qsy": true
+    }
+   }
+  },
+  {
+   "name": "plan_rotating@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "plan": {
+     "frequencies_mhz": [
+      146.565,
+      147.42,
+      147.445
+     ]
+    }
+   }
+  },
+  {
+   "name": "plan_one_out_of_range_dropped@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "plan": {
+     "frequencies_mhz": [
+      146.565,
+      433.9
+     ]
+    }
+   }
+  },
+  {
+   "name": "plan_all_out_of_range_fatal@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "plan": {
+     "frequencies_mhz": [
+      433.9,
+      446.0
+     ]
+    }
+   }
+  },
+  {
+   "name": "plan_empty_list@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "plan": {
+     "frequencies_mhz": []
+    }
+   }
+  },
+  {
+   "name": "plan_not_numbers@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "plan": {
+     "frequencies_mhz": [
+      "146.565"
+     ]
+    }
+   }
+  },
+  {
+   "name": "plan_announce_not_bool@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "plan": {
+     "announce_qsy": 1
+    }
+   }
+  },
+  {
+   "name": "plan_change_ranges_then_freq@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "radio": {
+     "ranges_mhz": [
+      [
+       400,
+       480
+      ]
+     ]
+    },
+    "plan": {
+     "frequencies_mhz": [
+      146.565
+     ]
+    }
+   }
+  },
+  {
+   "name": "id_ok@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "id": {
+     "callmessage": "W1ABC FOX DE W1ABC",
+     "placeholder": "N0CALL",
+     "wpm": 18,
+     "tone_hz": 700,
+     "telemetry": [
+      "batt"
+     ],
+     "tx_without_callsign": false
+    }
+   }
+  },
+  {
+   "name": "id_bad@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "id": {
+     "callmessage": "",
+     "placeholder": "",
+     "wpm": 4,
+     "tone_hz": 5000,
+     "telemetry": [
+      "volts"
+     ],
+     "tx_without_callsign": "no"
+    }
+   }
+  },
+  {
+   "name": "id_wpm_float@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "id": {
+     "wpm": 12.5
+    }
+   }
+  },
+  {
+   "name": "id_callmessage_long@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "id": {
+     "callmessage": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+    }
+   }
+  },
+  {
+   "name": "id_callmessage_64@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "id": {
+     "callmessage": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+    }
+   }
+  },
+  {
+   "name": "id_telemetry_empty@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "id": {
+     "telemetry": []
+    }
+   }
+  },
+  {
+   "name": "payload_songs_ok@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "payload": {
+     "kind": "songs",
+     "articulation": 0.9,
+     "skip_on_low_battery": false,
+     "playlist": [
+      {
+       "name": "x",
+       "tempo": 120,
+       "notes": [
+        [
+         60,
+         8
+        ],
+        [
+         0,
+         4
+        ],
+        [
+         67,
+         8
+        ]
+       ]
+      },
+      {
+       "name": "y",
+       "tempo": 120,
+       "notes": [
+        [
+         60,
+         8
+        ],
+        [
+         0,
+         4
+        ],
+        [
+         67,
+         8
+        ]
+       ]
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "payload_songs_defaults_filled@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "payload": {
+     "kind": "songs",
+     "playlist": [
+      {
+       "name": "x",
+       "tempo": 120,
+       "notes": [
+        [
+         60,
+         8
+        ],
+        [
+         0,
+         4
+        ],
+        [
+         67,
+         8
+        ]
+       ]
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "payload_songs_bad_song_filtered@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "payload": {
+     "kind": "songs",
+     "playlist": [
+      {
+       "name": "x",
+       "tempo": 120,
+       "notes": [
+        [
+         60,
+         8
+        ],
+        [
+         0,
+         4
+        ],
+        [
+         67,
+         8
+        ]
+       ]
+      },
+      {
+       "name": "bad",
+       "tempo": 10,
+       "notes": []
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "payload_songs_all_bad@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "payload": {
+     "kind": "songs",
+     "playlist": [
+      {
+       "name": 1
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "payload_songs_articulation_bad@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "payload": {
+     "kind": "songs",
+     "articulation": 2,
+     "playlist": [
+      {
+       "name": "x",
+       "tempo": 120,
+       "notes": [
+        [
+         60,
+         8
+        ],
+        [
+         0,
+         4
+        ],
+        [
+         67,
+         8
+        ]
+       ]
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "payload_songs_no_playlist@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "payload": {
+     "kind": "songs"
+    }
+   }
+  },
+  {
+   "name": "payload_songs_no_playlist@morse-sstv",
+   "template": "morse-sstv",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "payload": {
+     "kind": "songs"
+    }
+   }
+  },
+  {
+   "name": "payload_songs_no_playlist@morse-qrss",
+   "template": "morse-qrss",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "payload": {
+     "kind": "songs"
+    }
+   }
+  },
+  {
+   "name": "payload_songs_no_playlist@popcorn",
+   "template": "popcorn",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "payload": {
+     "kind": "songs"
+    }
+   }
+  },
+  {
+   "name": "payload_songs_no_playlist@freq-rotator",
+   "template": "freq-rotator",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "payload": {
+     "kind": "songs"
+    }
+   }
+  },
+  {
+   "name": "payload_songs_no_playlist@resurrection",
+   "template": "resurrection",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "payload": {
+     "kind": "songs"
+    }
+   }
+  },
+  {
+   "name": "payload_songs_no_playlist@composite",
+   "template": "composite",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "payload": {
+     "kind": "songs"
+    }
+   }
+  },
+  {
+   "name": "payload_sstv_ok@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "payload": {
+     "kind": "sstv",
+     "images_file": "pics.bin",
+     "skip_on_low_battery": true
+    }
+   }
+  },
+  {
+   "name": "payload_sstv_defaults@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "payload": {
+     "kind": "sstv"
+    }
+   }
+  },
+  {
+   "name": "payload_sstv_defaults@morse-sstv",
+   "template": "morse-sstv",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "payload": {
+     "kind": "sstv"
+    }
+   }
+  },
+  {
+   "name": "payload_sstv_defaults@morse-qrss",
+   "template": "morse-qrss",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "payload": {
+     "kind": "sstv"
+    }
+   }
+  },
+  {
+   "name": "payload_sstv_defaults@popcorn",
+   "template": "popcorn",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "payload": {
+     "kind": "sstv"
+    }
+   }
+  },
+  {
+   "name": "payload_sstv_defaults@freq-rotator",
+   "template": "freq-rotator",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "payload": {
+     "kind": "sstv"
+    }
+   }
+  },
+  {
+   "name": "payload_sstv_defaults@resurrection",
+   "template": "resurrection",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "payload": {
+     "kind": "sstv"
+    }
+   }
+  },
+  {
+   "name": "payload_sstv_defaults@composite",
+   "template": "composite",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "payload": {
+     "kind": "sstv"
+    }
+   }
+  },
+  {
+   "name": "payload_sstv_bad_mode@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "payload": {
+     "kind": "sstv",
+     "mode": "martin1"
+    }
+   }
+  },
+  {
+   "name": "payload_none_qrss@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "payload": {
+     "kind": "none",
+     "dit_s": 3,
+     "message": "W1ABC"
+    }
+   }
+  },
+  {
+   "name": "payload_none_nulls@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "payload": {
+     "kind": "none",
+     "dit_s": null,
+     "message": null
+    }
+   }
+  },
+  {
+   "name": "payload_none_bad@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "payload": {
+     "kind": "none",
+     "dit_s": 100,
+     "message": 7
+    }
+   }
+  },
+  {
+   "name": "payload_kind_bad@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "payload": {
+     "kind": "video"
+    }
+   }
+  },
+  {
+   "name": "payload_not_object@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "payload": "songs"
+   }
+  },
+  {
+   "name": "schedule_fixed@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "schedule": {
+     "kind": "fixed",
+     "delay_ms": 5000
+    }
+   }
+  },
+  {
+   "name": "schedule_fixed_default_delay@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "schedule": {
+     "kind": "fixed"
+    }
+   }
+  },
+  {
+   "name": "schedule_fixed_bad_delay@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "schedule": {
+     "kind": "fixed",
+     "delay_ms": -1
+    }
+   }
+  },
+  {
+   "name": "schedule_popcorn@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "schedule": {
+     "kind": "popcorn",
+     "seed": 42,
+     "cluster": 3,
+     "cluster_gap_ms": 5000,
+     "dark_min_ms": 20000,
+     "dark_max_ms": 60000
+    }
+   }
+  },
+  {
+   "name": "schedule_popcorn_defaults@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "schedule": {
+     "kind": "popcorn"
+    }
+   }
+  },
+  {
+   "name": "schedule_popcorn_min_gt_max@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "schedule": {
+     "kind": "popcorn",
+     "seed": 1,
+     "cluster": 2,
+     "dark_min_ms": 90000,
+     "dark_max_ms": 60000
+    }
+   }
+  },
+  {
+   "name": "schedule_popcorn_bad@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "schedule": {
+     "kind": "popcorn",
+     "seed": -1,
+     "cluster": 0,
+     "cluster_gap_ms": "x"
+    }
+   }
+  },
+  {
+   "name": "schedule_resurrection@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "schedule": {
+     "kind": "resurrection",
+     "seed": 7,
+     "delay_ms": 20000,
+     "alive_min_ms": 60000,
+     "alive_max_ms": 120000,
+     "dead_ms": 300000,
+     "dit_min_ms": 10000,
+     "dit_max_ms": 20000,
+     "id_every": 2,
+     "dead_song": true
+    }
+   }
+  },
+  {
+   "name": "schedule_resurrection_defaults@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "schedule": {
+     "kind": "resurrection"
+    }
+   }
+  },
+  {
+   "name": "schedule_resurrection_defaults@morse-sstv",
+   "template": "morse-sstv",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "schedule": {
+     "kind": "resurrection"
+    }
+   }
+  },
+  {
+   "name": "schedule_resurrection_defaults@morse-qrss",
+   "template": "morse-qrss",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "schedule": {
+     "kind": "resurrection"
+    }
+   }
+  },
+  {
+   "name": "schedule_resurrection_defaults@popcorn",
+   "template": "popcorn",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "schedule": {
+     "kind": "resurrection"
+    }
+   }
+  },
+  {
+   "name": "schedule_resurrection_defaults@freq-rotator",
+   "template": "freq-rotator",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "schedule": {
+     "kind": "resurrection"
+    }
+   }
+  },
+  {
+   "name": "schedule_resurrection_defaults@resurrection",
+   "template": "resurrection",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "schedule": {
+     "kind": "resurrection"
+    }
+   }
+  },
+  {
+   "name": "schedule_resurrection_defaults@composite",
+   "template": "composite",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "schedule": {
+     "kind": "resurrection"
+    }
+   }
+  },
+  {
+   "name": "schedule_resurrection_min_gt_max@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "schedule": {
+     "kind": "resurrection",
+     "alive_min_ms": 200,
+     "alive_max_ms": 100,
+     "dit_min_ms": 50,
+     "dit_max_ms": 10
+    }
+   }
+  },
+  {
+   "name": "schedule_resurrection_bad@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "schedule": {
+     "kind": "resurrection",
+     "seed": 2147483648,
+     "id_every": 0,
+     "dead_song": 1
+    }
+   }
+  },
+  {
+   "name": "schedule_kind_bad@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "schedule": {
+     "kind": "random"
+    }
+   }
+  },
+  {
+   "name": "schedule_not_object@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "schedule": "fixed"
+   }
+  },
+  {
+   "name": "battery_ok@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "battery": {
+     "divider_ratio": 2.0,
+     "calibration": 1.02,
+     "low_v": 3.6,
+     "critical_v": 3.3,
+     "recovery_v": 3.5,
+     "samples": 16
+    }
+   }
+  },
+  {
+   "name": "battery_bad_values@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "battery": {
+     "divider_ratio": 0.5,
+     "calibration": 3,
+     "samples": 0
+    }
+   }
+  },
+  {
+   "name": "battery_order_wrong@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "battery": {
+     "low_v": 3.3,
+     "critical_v": 3.7,
+     "recovery_v": 3.5
+    }
+   }
+  },
+  {
+   "name": "battery_recovery_eq_low@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "battery": {
+     "low_v": 3.5,
+     "critical_v": 3.3,
+     "recovery_v": 3.5
+    }
+   }
+  },
+  {
+   "name": "limits_null@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "limits": {
+     "max_keydown_s": null
+    }
+   }
+  },
+  {
+   "name": "limits_set@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "limits": {
+     "max_keydown_s": 120
+    }
+   }
+  },
+  {
+   "name": "limits_bad@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "limits": {
+     "max_keydown_s": 0
+    }
+   }
+  },
+  {
+   "name": "fleet_opaque@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "fleet": {
+     "profile": "Fox 3",
+     "notes": "blue tape"
+    }
+   }
+  },
+  {
+   "name": "unknown_top_key@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "wifi": {
+     "ssid": "x"
+    }
+   }
+  },
+  {
+   "name": "many_partial@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "pins": {
+     "led": null
+    },
+    "radio": {
+     "volume": 9
+    },
+    "id": {
+     "wpm": 50
+    },
+    "battery": {
+     "samples": 99
+    },
+    "extra": 1
+   }
+  },
+  {
+   "name": "many_partial@morse-sstv",
+   "template": "morse-sstv",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "pins": {
+     "led": null
+    },
+    "radio": {
+     "volume": 9
+    },
+    "id": {
+     "wpm": 50
+    },
+    "battery": {
+     "samples": 99
+    },
+    "extra": 1
+   }
+  },
+  {
+   "name": "many_partial@morse-qrss",
+   "template": "morse-qrss",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "pins": {
+     "led": null
+    },
+    "radio": {
+     "volume": 9
+    },
+    "id": {
+     "wpm": 50
+    },
+    "battery": {
+     "samples": 99
+    },
+    "extra": 1
+   }
+  },
+  {
+   "name": "many_partial@popcorn",
+   "template": "popcorn",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "pins": {
+     "led": null
+    },
+    "radio": {
+     "volume": 9
+    },
+    "id": {
+     "wpm": 50
+    },
+    "battery": {
+     "samples": 99
+    },
+    "extra": 1
+   }
+  },
+  {
+   "name": "many_partial@freq-rotator",
+   "template": "freq-rotator",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "pins": {
+     "led": null
+    },
+    "radio": {
+     "volume": 9
+    },
+    "id": {
+     "wpm": 50
+    },
+    "battery": {
+     "samples": 99
+    },
+    "extra": 1
+   }
+  },
+  {
+   "name": "many_partial@resurrection",
+   "template": "resurrection",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "pins": {
+     "led": null
+    },
+    "radio": {
+     "volume": 9
+    },
+    "id": {
+     "wpm": 50
+    },
+    "battery": {
+     "samples": 99
+    },
+    "extra": 1
+   }
+  },
+  {
+   "name": "many_partial@composite",
+   "template": "composite",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "pins": {
+     "led": null
+    },
+    "radio": {
+     "volume": 9
+    },
+    "id": {
+     "wpm": 50
+    },
+    "battery": {
+     "samples": 99
+    },
+    "extra": 1
+   }
+  },
+  {
+   "name": "not_an_object@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": [
+    1,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "null@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": null
+  }
+ ]
+}

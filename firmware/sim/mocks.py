@@ -8,6 +8,9 @@ import sys
 import types
 
 
+ACTIVE = [True]   # set False by the runner after a run, so generator finalizers of a finished run cannot raise SimDone
+
+
 class SimDone(BaseException):   # BaseException so the firmware's `except Exception` never swallows it
     pass
 
@@ -17,10 +20,13 @@ class Clock:
         self.ns = 0
         self.cap_ns = int(cap_ms * 1e6)
         self.on_tick = None
+        self.stop_requested = None   # set by the recorder (e.g. "unkeys"); raised at the next advance, never from inside a pin setter
 
     def advance(self, ns):
         self.ns += int(ns)
-        if self.ns > self.cap_ns:
+        if ACTIVE[0] and self.stop_requested:
+            raise SimDone(self.stop_requested)
+        if self.ns > self.cap_ns and ACTIVE[0]:
             raise SimDone("time cap")
         if self.on_tick:
             self.on_tick()
@@ -118,8 +124,7 @@ def install(scenario):
                 if not keyed and was_keyed:
                     rec.unkeys += 1
                     if rec.stop_after_unkeys and rec.unkeys >= rec.stop_after_unkeys:
-                        self._v = v
-                        raise SimDone("unkeys")
+                        clock.stop_requested = "unkeys"   # raised at the next time advance: a pin setter may be running in a finally/finalizer
             if self.pin.name == led_name and v != self._v:
                 rec.led.append((now_ms(), v))
             self._v = v

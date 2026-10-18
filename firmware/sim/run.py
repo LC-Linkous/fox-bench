@@ -5,6 +5,7 @@
 #   python3 firmware/sim/run.py                 all templates, all scenarios
 #   python3 firmware/sim/run.py morse-songs     one template
 #   python3 firmware/sim/run.py morse-songs --scenario low -v
+#   python3 firmware/sim/run.py --deploy-set DIR   boot a deploy set as written/exported by the page
 #
 # For each scenario: stage a deploy set (foxlib/, code.py, defaults.json,
 # fox.json, images.bin) exactly as the page would, exec code.py, record what
@@ -43,14 +44,23 @@ def stage(template, board_id, fox_cfg, raw_fox=None):
     return d
 
 
-def run_one(template, scen, verbose=False):
-    board_id = scen.get("board_id", "seeed_xiao_esp32c3")
-    defaults = json.load(open(os.path.join(FW, "templates", template, "defaults", board_id + ".json")))
-    fox_cfg = None if scen.get("no_fox_json") else deep_merge(defaults, scen.get("fox", {}))
-    d = stage(template, board_id, fox_cfg, scen.get("raw_fox"))
-    eff, _ = fwcfg.validate(fox_cfg or {}, defaults, BOARD_NAMES, board_id)   # what the firmware will actually use
-    rec = mocks.install({**scen, "pin_roles": eff["pins"], "board_id": board_id, "divider_ratio": eff["battery"]["divider_ratio"], "board_names": BOARD_NAMES})
+def boot_dir(d, cap_ms=180000, stop_after_unkeys=2):
+    """Boot an existing deploy set (code.py, defaults.json, fox.json, foxlib/, images) under the mocks.
+    Returns (rec, err). Used to prove an exported zip is a bootable set."""
+    defaults = json.load(open(os.path.join(d, "defaults.json")))
+    try:
+        fox = json.load(open(os.path.join(d, "fox.json")))
+    except Exception:
+        fox = {}
+    board_id = defaults.get("board")
+    eff, _ = fwcfg.validate(fox, defaults, BOARD_NAMES, board_id)
+    rec = mocks.install({"cap_ms": cap_ms, "stop_after_unkeys": stop_after_unkeys, "module_ranges": eff["radio"]["ranges_mhz"],
+                         "pin_roles": eff["pins"], "board_id": board_id, "divider_ratio": eff["battery"]["divider_ratio"], "board_names": BOARD_NAMES})
     rec.effective_cfg = eff
+    return _exec_in(d, rec)
+
+
+def _exec_in(d, rec):
     for m in [m for m in sys.modules if m == "foxlib" or m.startswith("foxlib.")]:
         del sys.modules[m]
     cwd = os.getcwd()
@@ -61,21 +71,46 @@ def run_one(template, scen, verbose=False):
     real_print = builtins.print
     builtins.print = lambda *a, **k: out_lines.append(" ".join(str(x) for x in a))
     err = None
+    mocks.ACTIVE[0] = True
     try:
         code = open("code.py").read()
         exec(compile(code, "code.py", "exec"), {"__name__": "__main__"})
-    except mocks.SimDone:
-        pass
-    except Exception as e:
-        err = traceback.format_exc()
+    except BaseException as e:
+        # Disarm SimDone *before* the traceback (and with it code.py's frame and its suspended cycle generator)
+        # is released at the end of this handler: the generator's `finally: unkey` runs then, and must not raise.
+        mocks.ACTIVE[0] = False
+        if isinstance(e, mocks.SimDone):
+            pass
+        elif isinstance(e, Exception):
+            err = traceback.format_exc()
+        else:
+            raise
     finally:
+        mocks.ACTIVE[0] = False
+        for m in [m for m in sys.modules if m == "foxlib" or m.startswith("foxlib.")]:
+            del sys.modules[m]           # the module graph keeps the Fox alive; drop it now, while finalizers are harmless
+        import gc
+        gc.collect()
         builtins.print = real_print
         os.chdir(cwd)
         sys.path.remove(d)
-        shutil.rmtree(d, ignore_errors=True)
     rec.prints = out_lines
     rec.tone(rec.clock.ns / 1e6, 0)
     return rec, err
+
+
+def run_one(template, scen, verbose=False):
+    board_id = scen.get("board_id", "seeed_xiao_esp32c3")
+    defaults = json.load(open(os.path.join(FW, "templates", template, "defaults", board_id + ".json")))
+    fox_cfg = None if scen.get("no_fox_json") else deep_merge(defaults, scen.get("fox", {}))
+    d = stage(template, board_id, fox_cfg, scen.get("raw_fox"))
+    eff, _ = fwcfg.validate(fox_cfg or {}, defaults, BOARD_NAMES, board_id)   # what the firmware will actually use
+    rec = mocks.install({**scen, "pin_roles": eff["pins"], "board_id": board_id, "divider_ratio": eff["battery"]["divider_ratio"], "board_names": BOARD_NAMES})
+    rec.effective_cfg = eff
+    try:
+        return _exec_in(d, rec)
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
 
 
 def check(template, scen, rec, err):
@@ -141,7 +176,23 @@ def main():
     ap.add_argument("template", nargs="?", default="all")
     ap.add_argument("--scenario")
     ap.add_argument("-v", "--verbose", action="store_true")
+    ap.add_argument("--deploy-set", help="directory holding a deploy set to boot (what the page writes or exports)")
+    ap.add_argument("--seconds", type=int, default=180, help="virtual seconds to run a deploy set")
     a = ap.parse_args()
+    if a.deploy_set:
+        rec, err = boot_dir(os.path.abspath(a.deploy_set), cap_ms=a.seconds * 1000)
+        banner = next((l for l in rec.prints if l.startswith("FOX ")), None)
+        keyed = rec.keyed_intervals()
+        print("banner:", banner)
+        print("keyed %d time(s) in %.0f virtual s; %d tone events" % (len(keyed), rec.clock.ns / 1e9, len(rec.tones)))
+        for l in rec.prints[-8:] if a.verbose else []:
+            print("  |", l)
+        kv = dict(re.findall(r"(\w+)=(\S+)", banner or ""))
+        ok = not err and banner and kv.get("cfg") == "ok" and kv.get("radio") == "ok" and (keyed or kv.get("id") == "unset")
+        if err:
+            print(err)
+        print("deploy set boots" if ok else "deploy set FAILED to boot cleanly")
+        sys.exit(0 if ok else 1)
     scen_all = json.load(open(os.path.join(HERE, "scenarios.json")))
     templates = sorted(k for k in scen_all if k != "all" and not k.startswith("_")) if a.template == "all" else [a.template]
     total = failed = 0
