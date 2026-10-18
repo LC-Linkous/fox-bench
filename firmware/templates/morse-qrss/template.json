@@ -3,6 +3,7 @@
   "name": "QRSS (slow Morse for waterfall copy)",
   "version": "1.0.0",
   "status": "stable",
+  "description": "Very slow Morse for weak-signal hunting: long deliberate key-downs at a few seconds per dit. No keydown limit in the firmware by design.",
   "foxlib": ">=1.0.0 <2.0.0",
   "sections": [
     "pins",

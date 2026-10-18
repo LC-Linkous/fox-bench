@@ -3,6 +3,7 @@
   "name": "Morse ID + songs",
   "version": "1.0.0",
   "status": "stable",
+  "description": "Morse ID, then a playlist of melodies, on a fixed interval. The classic song fox; battery telemetry in the ID if a divider is fitted.",
   "foxlib": ">=1.0.0 <2.0.0",
   "sections": ["pins", "radio", "plan", "id", "payload.songs", "schedule.fixed", "battery", "limits"],
   "pins": { "required": ["ptt", "pd", "hl", "uart_tx", "uart_rx", "audio"],
