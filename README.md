@@ -9,11 +9,13 @@ to install.
 **Use it:** https://lc-linkous.github.io/fox-bench/ — *Try without
 hardware* runs the whole page against a simulated board.
 
-Status: **v0.2 — firmware milestone.** `foxlib` is implemented and every
-template passes the simulator (`python3 firmware/sim/run.py`: 92 scenario
-runs on mocked hardware with a virtual clock), and the Python and JS
-encoders emit byte-identical event streams (`firmware/sim/parity.*`). Not
-yet run on a real board — that is the next step.
+Status: **v0.2 — running on hardware.** The first XIAO ESP32-C3 + SA868
+foxes have been deployed from the page and heard on the air (morse-songs);
+the other templates are verified in the simulator and awaiting their turn
+on the bench. Every push runs three test layers in CI: the firmware
+simulator (`firmware/sim/`), the REPL protocol against a fake board and
+the page itself in headless Chromium (`tests/`), and a lint of every
+descriptor (`tools/check_catalog.py`). See `tests/README.md`.
 
 | | |
 |---|---|
@@ -25,7 +27,12 @@ yet run on a real board — that is the next step.
 | `firmware/foxlib/` | shared firmware library |
 | `firmware/templates/<id>/` | one `code.py`, manifest and per-board defaults per fox behaviour |
 | `firmware/sim/` | simulator: mocked hardware, virtual clock, scenarios, Python/JS parity |
+| `firmware/sim/pty_board.py` | the simulated board on a pseudo-terminal, for testing serial tools without hardware |
+| `tests/` | page smoke test (Playwright) and REPL protocol tests (fake board) |
+| `tools/check_catalog.py` | lint for every descriptor, defaults file and index; runs in CI |
+| `tools/hw_smoke.py` | bench script: every template on a real board, banner + bench + memory, JSON report |
 | `tools/batch_flash.py` | headless CircuitPython batch flasher, same CSV as the Fleet tab |
+| `docs/first-hardware-session.md` | checklist for a new board, module or CircuitPython build |
 
 ## Running locally
 
@@ -33,6 +40,9 @@ yet run on a real board — that is the next step.
 python -m http.server 8000
 ```
 then open http://localhost:8000/ — module scripts don't load from `file://`.
+
+Tests: `python3 firmware/sim/run.py` · `python3 tools/check_catalog.py` ·
+`cd tests && npm ci && npx playwright install chromium && npm test`.
 
 ## Licensing
 

@@ -13,7 +13,16 @@ Rules that apply everywhere:
   in the banner. The fox still runs.
 - A file that fails to parse → every default, `cfg=default(parse)`.
 - No file → every default, `cfg=default(missing)`.
-- Types are strict: `146.565` not `"146.565"`; `true` not `1`.
+- Types are strict: `146.565` not `"146.565"`; `true` not `1`. JSON has
+  one number type, so an integer field accepts `3.0` as `3`.
+- A top-level value that is not an object (a list, `null`) is treated as
+  an empty file: every default, `cfg=ok`.
+- `fleet` is merged over the template's `fleet` block, key by key; the
+  firmware never reads it.
+- Both validators are run over the same corpus in CI
+  (`firmware/sim/schema_corpus.json`, `schema_parity.py`, `schema_parity.mjs`)
+  and must agree on the effective configuration and the banner status,
+  including the order of the keys named in `partial(...)`.
 
 ## Top level
 
@@ -214,7 +223,8 @@ computed airtime per transmission next to this field.
 "fleet": { "profile": "Fox 3 — 146.565", "number": 3, "event": "", "notes": "" }
 ```
 
-Bookkeeping for the page. The firmware ignores this block entirely.
+Bookkeeping for the page. The firmware ignores this block entirely
+(it is merged over the defaults' `fleet` block so no key is lost).
 
 ## Boot banner
 
