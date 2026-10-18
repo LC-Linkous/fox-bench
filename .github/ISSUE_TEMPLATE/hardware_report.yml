@@ -1,0 +1,33 @@
+name: Hardware test report
+description: You ran a template on a board — tell us whether it worked, so boards_tested can be updated.
+labels: [hardware-report]
+body:
+  - type: input
+    id: board
+    attributes:
+      label: Board and module
+      placeholder: XIAO ESP32-C3 · SA818 UHF
+    validations:
+      required: true
+  - type: dropdown
+    id: template
+    attributes:
+      label: Template
+      options: [morse-songs, morse-sstv, morse-qrss, popcorn, freq-rotator, resurrection, composite]
+    validations:
+      required: true
+  - type: dropdown
+    id: result
+    attributes:
+      label: Result
+      options:
+        - Worked as previewed
+        - Worked with caveats (describe below)
+        - Did not work
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: What you measured if anything (power, deviation, bandwidth), what the hunt looked like, what you would change. Attach the fleet log CSV or a diagnostics file if useful.

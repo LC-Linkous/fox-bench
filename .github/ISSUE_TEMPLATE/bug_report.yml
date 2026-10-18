@@ -1,0 +1,41 @@
+name: Something went wrong
+description: A deploy failed, a board misbehaved, or the page did something odd.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        On the **Connect** tab, scroll to *Something wrong?* and click **Download diagnostics**; attach that file below. It carries the page version, your form, what the board reported, the last deploy, bench results and the console log — nothing you can't already see on the page.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what you got. One line is fine if the diagnostics file tells the rest.
+    validations:
+      required: true
+  - type: textarea
+    id: diag
+    attributes:
+      label: Diagnostics file
+      description: Drag the fox-bench-diagnostics-….json here (or paste it inside a code block).
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where
+      options:
+        - On a real board (over USB)
+        - Try without hardware (demo)
+        - Listen only
+        - Not connected
+  - type: input
+    id: hw
+    attributes:
+      label: Hardware
+      description: Board, radio module, CircuitPython version, anything unusual about the wiring. (In the diagnostics file if you were connected.)
+      placeholder: XIAO ESP32-C3 · SA868 VHF · CircuitPython 10.0.0
+  - type: textarea
+    id: banner
+    attributes:
+      label: Boot banner, if you have one
+      description: The `FOX template=… cfg=… radio=…` line from the console or from Listen only.
+      render: text
