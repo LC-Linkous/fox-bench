@@ -52,13 +52,14 @@ export class ReplLink {
   /** Stop whatever is running and get a prompt. Tolerates a board mid-boot or already at a prompt. */
   async interrupt() {
     this.buf = '';
-    for (let attempt = 0; attempt < 3; attempt++) {
+    for (let attempt = 0; attempt < 4; attempt++) {
       await this._send('\r\x03\x03');
-      try { await this._waitFor('>>> ', 1500); this.inRaw = false; this.log('interrupted → friendly REPL'); return; } catch {}
-      // maybe at "Press any key to enter the REPL" or already in raw mode
+      try { await this._waitFor('>>> ', 2500); this.inRaw = false; this.log('interrupted → friendly REPL'); return; } catch {}
+      // maybe at "Press any key to enter the REPL", mid-boot, or already in raw mode
       await this._send('\r');
-      try { await this._waitFor('>>> ', 1500); this.inRaw = false; return; } catch {}
-      try { await this._send('\r\x02'); await this._waitFor('>>> ', 1500); this.inRaw = false; return; } catch {}
+      try { await this._waitFor('>>> ', 2000); this.inRaw = false; return; } catch {}
+      try { await this._send('\r\x02'); await this._waitFor('>>> ', 2000); this.inRaw = false; return; } catch {}
+      await sleep(500);
     }
     throw new Error('no REPL prompt — is this a CircuitPython board? (Try: unplug, replug without holding B, then Connect.)');
   }
@@ -86,7 +87,7 @@ export class ReplLink {
     await this._waitFor('OK', 3000);
     const out = await this._waitFor('\x04', timeout);
     const err = await this._waitFor('\x04', 3000);
-    await this._waitFor('>', 2000);
+    try { await this._waitFor('>', 2000); } catch { /* both \x04 seen: the exec completed; the prompt may arrive with the next read */ }
     if (err && !soft) throw new Error(err.trim().split('\n').pop() || err);
     return { out, err };
   }

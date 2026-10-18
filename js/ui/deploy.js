@@ -17,8 +17,8 @@ function flat(o, pre = '', out = {}) { for (const [k, v] of Object.entries(o || 
 function plan() {
   const files = [];
   const ob = app.onBoard, cfg = app.validCfg || app.cfg;
-  const fwNeeded = !app.connected || ob.foxlibVersion !== app.catalog.foxlibVersion;
-  if (fwNeeded) files.push({ path: 'foxlib/*', why: ob.foxlibVersion ? `foxlib ${ob.foxlibVersion} → ${app.catalog.foxlibVersion}` : 'install foxlib ' + app.catalog.foxlibVersion, kind: 'foxlib' });
+  const fwNeeded = !app.connected || ob.foxlibVersion !== app.catalog.foxlibVersion || !ob.foxlibComplete;
+  if (fwNeeded) files.push({ path: 'foxlib/*', why: ob.foxlibVersion && !ob.foxlibComplete ? `foxlib ${ob.foxlibVersion} is incomplete on the board (${ob.foxlibMissing.length} file${ob.foxlibMissing.length === 1 ? '' : 's'} missing) → reinstall ${app.catalog.foxlibVersion}` : ob.foxlibVersion ? `foxlib ${ob.foxlibVersion} → ${app.catalog.foxlibVersion}` : 'install foxlib ' + app.catalog.foxlibVersion, kind: 'foxlib' });
   if (!app.connected || ob.template !== app.templateId || fwNeeded) files.push({ path: 'code.py', why: ob.template && ob.template !== app.templateId ? `${ob.template} → ${app.templateId}` : `${app.templateId} ${app.template.version}`, kind: 'code' });
   files.push({ path: 'defaults.json', why: `${app.templateId} defaults for ${app.boardId}`, kind: 'defaults' });
   files.push({ path: 'fox.json', why: 'configuration', kind: 'cfg' });
@@ -30,6 +30,10 @@ function plan() {
 
 /** The complete deploy set as a zip: what Deploy would write, laid out as the board root. */
 async function exportZip() {
+  try { await _exportZip(); }
+  catch (e) { const msg = 'export failed: ' + (e.message || e); app.console.err(msg); alert(msg + '\n\nIf this is an HTTP 404 for a firmware file, the site is missing its .nojekyll marker (GitHub Pages drops files whose names start with an underscore).'); }
+}
+async function _exportZip() {
   const overrides = app.issues.filter(e => e.level === 'err' && e.blocking === false);
   if (overrides.length && !confirm(`Export anyway?\n\n${overrides.map(o => '• ' + o.msg.replace(/ — .*$/, '')).join('\n')}`)) return;
   const cfg = app.validCfg, files = [];
@@ -77,7 +81,7 @@ async function deploy(btn) {
     lastResult = { bootLog, banner, ok: !!banner && banner.cfg === 'ok' && banner.radio === 'ok' && banner.id === 'set' };
     fleet.append({ board_number: '', uid: app.info.uid, board: app.info.boardId, action: 'deploy', template: `${app.templateId}/${app.template.version}`, profile: cfg.fleet?.profile || '', callsign: cfg.id.callmessage, freq: cfg.plan.frequencies_mhz.join(' '), power: `${cfg.radio.high_power ? 'high' : 'low'}${cfg.radio.power_dbm != null ? ' ' + cfg.radio.power_dbm + 'dBm' : ''}`, seed: cfg.schedule.seed ?? '', result: lastResult.ok ? 'ok' : (banner ? `${banner.cfg} ${banner.radio} ${banner.id}` : 'no banner'), notes: app.device.kind === 'demo' ? 'demo' : '' });
     await app.readBoard();
-  } catch (e) { lastResult = { error: String(e.message || e) }; log.err(lastResult.error); }
+  } catch (e) { lastResult = { error: String(e.message || e) + (/HTTP 404/.test(e.message || '') ? ' — a firmware file is missing from the site; the repo needs a .nojekyll marker so GitHub Pages serves foxlib/__init__.py' : '') }; log.err(lastResult.error); }
   busy = false; gateOk = false; app.changed('deploy');
 }
 

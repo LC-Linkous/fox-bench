@@ -9,12 +9,15 @@ function render() {
   const t = app.template, ob = app.onBoard, info = app.info;
   const deviceCard = h('div.card', {},
     h('h3', {}, 'Board'),
-    !info ? h('p.hint', {}, 'Not connected. Connect a board (Chrome or Edge) or start the simulated one from the top bar. Hold B while plugging in only when you want the bootloader for flashing CircuitPython; for everything else plug in normally.')
+    !info ? h('div', {},
+        h('p.hint', {}, 'Not connected. Connect a board (Chrome or Edge) or start the simulated one from the top bar.'),
+        h('p.hint', {}, h('b', {}, 'The board must already be running CircuitPython.'), ' Flashing CircuitPython from this page is not in yet; see the Board tab for the bootloader move and the link to the .bin.'),
+        h('p.hint', {}, h('b', {}, 'Board already running fox or other firmware?'), ' Plug in normally (no B button). If Connect times out waiting for a prompt, tap the board\'s R (reset) button and click Connect again — the page interrupts whatever is running and takes the REPL.'))
       : h('dl.kv', {},
         h('dt', {}, 'Board id'), h('dd', {}, info.boardId, app.catalog.boards[info.boardId] ? '' : badge('unknown to fox-bench', 'warn')),
         h('dt', {}, 'Chip UID'), h('dd', {}, info.uid),
         h('dt', {}, 'CircuitPython'), h('dd', {}, info.cpVersion || '?'),
-        h('dt', {}, 'foxlib on board'), h('dd', {}, ob.foxlibVersion || '—', ob.foxlibVersion && ob.foxlibVersion !== app.catalog.foxlibVersion ? badge(`repo has ${app.catalog.foxlibVersion}`, 'warn') : ''),
+        h('dt', {}, 'foxlib on board'), h('dd', {}, ob.foxlibVersion || '—', ob.foxlibVersion && !ob.foxlibComplete ? badge(`incomplete: ${ob.foxlibMissing.length} missing`, 'err') : ob.foxlibVersion && ob.foxlibVersion !== app.catalog.foxlibVersion ? badge(`repo has ${app.catalog.foxlibVersion}`, 'warn') : ''),
         h('dt', {}, 'Template on board'), h('dd', {}, ob.template || '—'),
         h('dt', {}, 'fox.json'), h('dd', {}, ob.cfg ? `${ob.cfg.id?.callmessage} · ${(ob.cfg.plan?.frequencies_mhz || []).join(', ')} MHz` : ob.raw ? badge('invalid JSON', 'err') : '—'),
         h('dt', {}, 'Files'), h('dd', {}, Object.keys(ob.files).sort().join('  ') || '(empty)')),
@@ -37,7 +40,7 @@ function render() {
   const flow = h('div.card', {}, h('h3', {}, 'How a deploy works'),
     h('ol.steps', {},
       h('li', {}, 'The form on tabs 2–7 is a complete ', h('code', {}, 'fox.json'), '. Every field is validated here and again by the firmware at boot.'),
-      h('li', {}, 'Deploy writes ', h('code', {}, 'fox.json'), ', the template\'s ', h('code', {}, 'defaults.json'), ' and ', h('code', {}, 'code.py'), ', and ', h('code', {}, 'foxlib/'), ' when its version differs — through the CircuitPython REPL, the same way Thonny saves files.'),
+      h('li', {}, 'Deploy writes ', h('code', {}, 'fox.json'), ', the template\'s ', h('code', {}, 'defaults.json'), ' and ', h('code', {}, 'code.py'), ', and ', h('code', {}, 'foxlib/'), ' when its version differs or files are missing — through the CircuitPython REPL, the same way Thonny saves files. The board therefore has to be running CircuitPython already; the page does not (yet) flash it.'),
       h('li', {}, 'The board soft-reboots and the page reads the ', h('code', {}, 'FOX …'), ' banner back: config status, radio status, callsign set or not.')));
 
   root.replaceChildren(h('div.cols', {}, deviceCard, tmplCard), flow);

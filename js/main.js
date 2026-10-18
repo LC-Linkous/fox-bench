@@ -28,7 +28,7 @@ export const app = {
   version: VERSION,
   catalog: null,
   device: null, info: null,            // connected device and what connect() returned
-  onBoard: { cfg: null, raw: null, foxlibVersion: '', files: {} },   // what was read from the board
+  onBoard: { cfg: null, raw: null, foxlibVersion: '', foxlibMissing: [], foxlibComplete: false, files: {} },   // what was read from the board
   boardId: 'seeed_xiao_esp32c3', templateId: 'morse-songs', moduleId: 'sa868_vhf', region: 'US',
   defaults: null, cfg: null,           // template defaults for the board; the working config
   images: [],                           // sstv payload images
@@ -109,7 +109,11 @@ export const app = {
     device.onLog = (t, cls) => cls === 'tx' ? this.console.tx(t) : cls === 'reply' ? this.console.reply(t) : cls === 'ok' ? this.console.line(t, 'ok') : cls === 'err' ? this.console.err(t) : this.console.dim(t);
     this.setStatus(kind === 'demo' ? 'Starting simulated board…' : 'Connecting…');
     try { this.info = await device.connect(); }
-    catch (e) { this.console.err(String(e.message || e)); this.setStatus('Not connected', 'err'); try { await device.close(); } catch {} return; }
+    catch (e) {
+      this.console.err(String(e.message || e));
+      if (kind !== 'demo') this.console.err('No REPL prompt. If the board is running other firmware, tap its R (reset) button — or unplug and replug without holding B — then click Connect again. The board must already run CircuitPython.');
+      this.setStatus('Not connected', 'err'); try { await device.close(); } catch {} return;
+    }
     this.device = device;
     $('#demoBtn').setAttribute('aria-pressed', kind === 'demo' ? 'true' : 'false');
     $('#connectBtn').textContent = 'Disconnect';
@@ -123,8 +127,11 @@ export const app = {
     const d = this.device; if (!d) return;
     const files = await d.list('');
     const fv = files.foxlib ? ((await d.readText('foxlib/VERSION')) || '').trim() : '';
+    const libFiles = files.foxlib ? await d.list('foxlib') : {};
+    const foxlibMissing = this.catalog.foxlibFiles.filter(n => !libFiles[n] || libFiles[n].size <= 0);
     this.info.foxlibVersion = fv;
-    this.onBoard = { cfg: null, raw: null, foxlibVersion: fv, files, template: null };
+    this.onBoard = { cfg: null, raw: null, foxlibVersion: fv, foxlibMissing, foxlibComplete: !!fv && foxlibMissing.length === 0, files, template: null };
+    if (fv && foxlibMissing.length) this.console.err(`foxlib on the board is incomplete (missing ${foxlibMissing.join(', ')}); Deploy will reinstall it`);
     this.setStatus(`${d.kind === 'demo' ? 'Demo · ' : ''}${this.info.boardId} · uid ${this.info.uid.slice(-6)}${fv ? ' · foxlib ' + fv : ' · no fox firmware'}`, d.kind === 'demo' ? 'demo' : 'ok');
     const code = await d.readText('code.py');
     this.onBoard.template = code?.match(/fox-bench template: ([\w-]+)/)?.[1] || (code ? 'other' : null);
@@ -135,7 +142,7 @@ export const app = {
   },
   async disconnect() {
     try { await this.device?.close(); } catch {}
-    this.device = null; this.info = null; this.onBoard = { cfg: null, raw: null, foxlibVersion: '', files: {} };
+    this.device = null; this.info = null; this.onBoard = { cfg: null, raw: null, foxlibVersion: '', foxlibMissing: [], foxlibComplete: false, files: {} };
     $('#demoBtn').setAttribute('aria-pressed', 'false'); $('#connectBtn').textContent = 'Connect';
     this.console.setEnabled(false); this.setStatus('Not connected');
     this.changed('disconnect');
