@@ -1,0 +1,9 @@
+{
+  "name": "fox-bench",
+  "private": true,
+  "type": "module",
+  "description": "Browser workbench for small amateur-radio fox transmitters. No build step; this file only marks js/ as ES modules for Node (tests) and points at the test suite.",
+  "scripts": {
+    "test": "cd tests && npm test"
+  }
+}
