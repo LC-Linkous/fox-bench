@@ -193,7 +193,8 @@ function sstvCard() {
   const card = h('textarea', { rows: 3, placeholder: 'HINT CARD\nLOOK UP\nNEAR TREE', spellcheck: 'false' });
   return h('div.card', {}, h('h3', {}, 'Images ', badge(`${app.images.length} image${app.images.length === 1 ? '' : 's'}`)),
     h('ul.list', {}, app.images.map((im, i) => { const c = h('canvas', { width: im.width, height: im.height, style: 'width:40px;height:60px;image-rendering:pixelated;border:1px solid var(--edge)' }); const g = c.getContext('2d'), id = g.createImageData(im.width, im.height); for (let k = 0; k < im.pixels.length; k++) { id.data[k * 4] = id.data[k * 4 + 1] = id.data[k * 4 + 2] = im.pixels[k]; id.data[k * 4 + 3] = 255; } g.putImageData(id, 0, 0);
-      return h('li', {}, c, h('span.name', {}, im.name), h('span.meta', {}, `${im.width}×${im.height}`), i > 0 ? h('button', { onclick: () => { [app.images[i - 1], app.images[i]] = [app.images[i], app.images[i - 1]]; app.changed('payload'); } }, '↑') : null, h('button', { title: app.images.length > 1 ? 'remove' : 'remove (the test card takes its place)', onclick: () => { app.images.splice(i, 1); app.changed('payload'); } }, '✕')); })),
+      return h('li', {}, c, h('span.name', {}, im.name), h('span.meta', {}, `${im.width}×${im.height}`), i > 0 ? h('button', { onclick: () => { [app.images[i - 1], app.images[i]] = [app.images[i], app.images[i - 1]]; app.changed('payload'); } }, '↑') : null, h('button', { title: 'remove', onclick: () => { app.images.splice(i, 1); app.changed('payload'); } }, '✕')); })),
+    app.images.length ? null : h('p.hint.warn', {}, 'No images. The page writes an empty images.bin and the firmware transmits its built-in test card until you add one.'),
     drop, file,
     field('Or a text card', card), h('div.tools', {}, h('button.btn.small', { onclick: () => { if (card.value.trim()) { app.images.push(sstv.textCard(card.value, card.value.split('\n')[0].slice(0, 24) || 'card')); card.value = ''; app.changed('payload'); } } }, 'Add card'), h('button.btn.small', { onclick: () => { app.images.push(sstv.testCard()); app.changed('payload'); } }, 'Add test card')),
     h('p.hint', { style: 'margin-top:10px' }, 'Images travel as ', h('code', {}, 'images.bin'), ' next to fox.json (count, then width/height/name/pixels per image). Robot 36 grayscale at 40 px per line: airtime is fixed by the mode, not the picture.'),
@@ -211,7 +212,6 @@ function qrssCard() {
 }
 
 function render(source) {
-  if (app.cfg.payload.kind === 'sstv' && !app.images.length) app.images = [sstv.testCard()];   // never an empty rotation
   if (source === 'theme') { renderPreview(); return; }
   if (source === 'library') { if (libBox) { fill(libBox, libraryCard()); const i = libBox.querySelector('input[type=text]'); if (i && libQuery) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } } return; }
   const p = app.cfg.payload, kinds = kindsForTemplate();

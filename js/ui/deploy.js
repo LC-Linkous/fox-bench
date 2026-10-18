@@ -21,7 +21,7 @@ function plan() {
   if (!app.connected || ob.template !== app.templateId || fwNeeded) files.push({ path: 'code.py', why: ob.template && ob.template !== app.templateId ? `${ob.template} → ${app.templateId}` : `${app.templateId} ${app.template.version}`, kind: 'code' });
   files.push({ path: 'defaults.json', why: `${app.templateId} defaults for ${app.boardId}`, kind: 'defaults' });
   files.push({ path: 'fox.json', why: 'configuration', kind: 'cfg' });
-  if (cfg.payload.kind === 'sstv') files.push({ path: cfg.payload.images_file, why: `${app.images.length} image${app.images.length === 1 ? '' : 's'}`, kind: 'images' });
+  if (cfg.payload.kind === 'sstv') files.push({ path: cfg.payload.images_file, why: app.images.length ? `${app.images.length} image${app.images.length === 1 ? '' : 's'}` : 'no images — firmware will use its test card', kind: 'images' });
   const a = flat(ob.cfg || {}), b = flat(cfg), changes = [];
   for (const k of new Set([...Object.keys(a), ...Object.keys(b)])) if (a[k] !== b[k] && !k.startsWith('fleet.')) changes.push({ key: k, from: a[k], to: b[k] });
   return { files, changes };
