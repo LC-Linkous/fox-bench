@@ -73,6 +73,17 @@ class Fox:
         self.id_ok = c["id"]["placeholder"] not in c["id"]["callmessage"]
         self._banner()
 
+    def deinit(self):
+        """Release every pin, the UART and the PWM. The bench builds a fresh Fox per action in one REPL
+        session; without this the second one fails with '<pin> in use' and boots with radio=None."""
+        for part in (self.radio, self.player, self.batt, self.led):
+            if part is not None:
+                try:
+                    part.deinit()
+                except Exception:
+                    pass
+        self.radio = self.player = self.batt = None
+
     # ---- output
     def log(self, text):
         if not self.quiet:

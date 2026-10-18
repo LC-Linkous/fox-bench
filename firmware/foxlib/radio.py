@@ -46,6 +46,18 @@ class Base:
         self.ptt.value = True
         self.keyed = False
 
+    def deinit(self):
+        """Release pins and UART so another Fox can be built in the same VM (bench actions)."""
+        try:
+            self.unkey()
+        except Exception:
+            pass
+        for d in (self.ptt, self.pd, self.hl, self.uart):
+            try:
+                d.deinit()
+            except Exception:
+                pass
+
     def keyed_ms(self):
         return 0 if not self.keyed else (time.monotonic() - self.keyed_since) * 1000
 

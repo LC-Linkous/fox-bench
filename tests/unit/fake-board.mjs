@@ -45,7 +45,7 @@ export class FakeBoard extends Link {
     this.o = { running: false, ctrlCIgnores: 0, ansi: false, noise: false, noiseMs: 50, dropPrompt: false, chunk: 0, latency: 0, bootLog: [], execDelay: 0, ...opts };
     this.fs = new Map(Object.entries(opts.files || {}).map(([k, v]) => [k, typeof v === 'string' ? enc.encode(v) : v]));   // path -> bytes; dirs end with '/'
     this.identity = { boardId: 'seeed_xiao_esp32c3', uid: '85c818eae840', release: '10.0.0', ...(opts.identity || {}) };
-    this.bench = { probe: '{146.5: True, 433.5: False}', key: 'ok', rssi: '56', batt: '3.97', ...(opts.bench || {}) };
+    this.bench = { probe: { '146.5': true, '433.5': false }, key: 'ok', rssi: '56', batt: '3.97', ...(opts.bench || {}) };
     this.handler = opts.handler || (code => this._defaultHandler(code));
     this.state = this.o.running ? 'running' : 'friendly';
     this.code = ''; this.openFile = null;
@@ -164,9 +164,11 @@ export class FakeBoard extends Link {
     }
     if ((m = code.match(/^import os\ntry:\n os\.mkdir\(("[^"]*")\)/))) { this.fs.set(J(m[1]).replace(/\/?$/, '/') + '', new Uint8Array(0)); return {}; }
     if ((m = code.match(/^import os\ntry:\n os\.remove\(("[^"]*")\)/))) { this.fs.delete(J(m[1])); return {}; }
-    if (code.startsWith('import foxlib\nfox = foxlib.Fox(')) {
+    if (code.startsWith('import foxlib\n') && /fox = foxlib\.Fox\(/.test(code)) {
       if (!this.fs.has('foxlib/__init__.py')) throw new Error("ImportError: no module named 'foxlib'");
-      if (/radio\.probe\(/.test(code)) return { out: this.bench.probe + '\n' };
+      if (!/fox\.deinit\(\)/.test(code)) throw new Error("ValueError: D3 in use");   // a second Fox in one VM must release the first
+      // print(dict) on the board is a Python repr with single quotes and True/False — only json.dumps gives the page JSON
+      if (/radio\.probe\(/.test(code)) return { out: (/json\.dumps\(/.test(code) ? JSON.stringify(this.bench.probe) : '{' + Object.entries(this.bench.probe).map(([k, v]) => `'${k}': ${v ? 'True' : 'False'}`).join(', ') + '}') + '\n' };
       if (/radio\.key_for\(/.test(code)) return { out: this.bench.key + '\n' };
       if (/radio\.rssi\(/.test(code)) return { out: this.bench.rssi + '\n' };
       if (/fox\.batt/.test(code)) return { out: this.bench.batt + '\n' };

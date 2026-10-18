@@ -11,5 +11,5 @@
   "files": ["code.py"],
   "payloads": [ { "file": "images.bin", "kind": "sstv-images", "when": "payload.kind == 'sstv'" } ],
   "capabilities": ["keytest", "rssi", "batt"],
-  "boards_tested": []
+  "boards_tested": ["seeed_xiao_esp32c3"]
 }

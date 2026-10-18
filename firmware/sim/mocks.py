@@ -102,12 +102,26 @@ def install(scenario):
     roles = scenario.get("pin_roles", {})
     ptt_name, led_name = roles.get("ptt", "D3"), roles.get("led", "D10")
 
+    # CircuitPython refuses to claim a pin a second time until the first owner is deinit'ed (or collected).
+    # The mocks do the same, so a second Fox in one VM without Fox.deinit() fails here as it does on the board.
+    claimed = {}
+    def claim(pin, owner):
+        if pin is None:
+            raise ValueError("pin is None")
+        if pin.name in claimed:
+            raise ValueError("%s in use" % pin.name)
+        claimed[pin.name] = owner
+    def release(pin):
+        if pin is not None:
+            claimed.pop(pin.name, None)
+
     # ---- digitalio
     dio = types.ModuleType("digitalio")
     class Direction:
         OUTPUT, INPUT = "out", "in"
     class DigitalInOut:
         def __init__(self, pin):
+            claim(pin, self)
             self.pin = pin
             self.direction = Direction.INPUT
             self._v = False
@@ -129,7 +143,7 @@ def install(scenario):
                 rec.led.append((now_ms(), v))
             self._v = v
         def deinit(self):
-            pass
+            release(self.pin)
     dio.Direction = Direction
     dio.DigitalInOut = DigitalInOut
     dio.Pull = types.SimpleNamespace(UP="up", DOWN="down")
@@ -138,6 +152,7 @@ def install(scenario):
     pwm = types.ModuleType("pwmio")
     class PWMOut:
         def __init__(self, pin, frequency=500, duty_cycle=0, variable_frequency=False):
+            claim(pin, self)
             self.pin = pin
             self._f = frequency
             self._d = duty_cycle
@@ -159,6 +174,7 @@ def install(scenario):
             rec.tone(now_ms(), self._f if d else 0)
         def deinit(self):
             self.duty_cycle = 0
+            release(self.pin)
     pwm.PWMOut = PWMOut
 
     # ---- busio.UART with a scripted DMO module
@@ -166,7 +182,12 @@ def install(scenario):
     bus = types.ModuleType("busio")
     class UART:
         def __init__(self, tx, rx, baudrate=9600, timeout=1.0, **kw):
+            claim(tx, self); claim(rx, self)
+            self._pins = (tx, rx)
             self._out = b""
+        def deinit(self):
+            for p in self._pins:
+                release(p)
         def write(self, data):
             line = data.decode(errors="replace").strip()
             rec.uart.append((now_ms(), line))
@@ -198,6 +219,7 @@ def install(scenario):
     class AnalogIn:
         reference_voltage = 3.3
         def __init__(self, pin):
+            claim(pin, self)
             self.pin = pin
         @property
         def value(self):
@@ -211,7 +233,7 @@ def install(scenario):
             ratio = scenario.get("divider_ratio", 2.0)
             return int(v / ratio / 3.3 * 65535)
         def deinit(self):
-            pass
+            release(self.pin)
     an.AnalogIn = AnalogIn
 
     for name, mod in (("time", t), ("board", board), ("microcontroller", mc), ("digitalio", dio), ("pwmio", pwm), ("busio", bus), ("analogio", an)):

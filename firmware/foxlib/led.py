@@ -26,6 +26,15 @@ class Status:
             self.pin.direction = digitalio.Direction.OUTPUT
             self.pin.value = False
 
+    def deinit(self):
+        if self.pin:
+            try:
+                self.pin.value = False
+                self.pin.deinit()
+            except Exception:
+                pass
+            self.pin = None
+
     def _set(self, on):
         if self.pin:
             self.pin.value = on

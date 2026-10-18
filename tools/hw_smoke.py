@@ -161,6 +161,7 @@ def main():
     ap.add_argument("--templates", default="all", help="comma list or all")
     ap.add_argument("--call", default="N0CALL DECOY DECOY N0CALL", help="callmessage; with the placeholder the fox stays silent (id=unset)")
     ap.add_argument("--freq", type=float, help="frequency in MHz (default: the template default)")
+    ap.add_argument("--module", help="radio module id from modules/ (e.g. sa868_dual); sets radio.family and ranges_mhz so --freq on the other band is allowed")
     ap.add_argument("--observe", type=float, default=8, help="seconds to watch each template run after its banner")
     ap.add_argument("--key-seconds", type=float, default=1, help="bench key test length; 0 skips keying")
     ap.add_argument("--yes-antenna", action="store_true", help="confirm an antenna or dummy load is connected")
@@ -184,7 +185,7 @@ def main():
     if board_id != a.board:
         print("WARNING: board reports %s, deploying defaults for %s" % (board_id, a.board))
     report = {"generated": datetime.now().isoformat(timespec="seconds"), "board_id": board_id, "uid": uid, "circuitpython": cp_release, "cp_version": cp_version,
-              "foxlib": foxlib_version, "call": a.call, "freq": a.freq, "templates": {}}
+              "foxlib": foxlib_version, "call": a.call, "freq": a.freq, "module": a.module, "templates": {}}
 
     # what was there
     before = {p: r.read_file(p) for p in ("code.py", "fox.json", "defaults.json")}
@@ -210,6 +211,11 @@ def main():
             defaults = json.load(open(os.path.join(tdir, "defaults", a.board + ".json")))
             fox = json.loads(json.dumps(defaults))
             fox["id"]["callmessage"] = a.call
+            if a.module:
+                mod = json.load(open(os.path.join(ROOT, "modules", a.module + ".json")))
+                fox["module"] = mod["id"]
+                fox["radio"]["family"] = mod["family"]
+                fox["radio"]["ranges_mhz"] = mod["ranges_mhz"]
             if a.freq: fox["plan"]["frequencies_mhz"] = [a.freq]
             fox.setdefault("fleet", {})["notes"] = "hw_smoke"
             res["template_version"] = manifest["version"]
@@ -233,13 +239,14 @@ def main():
             if run.strip(): print("  while running: " + " | ".join(run.strip().splitlines()[-3:])[:200])
             res["ok"] = b.get("cfg") == "ok" and b.get("radio") == "ok" and (b.get("id") == "set" or a.call.startswith("N0CALL"))
             if b.get("cfg") != "ok": print("  cfg=%s — the firmware disagreed with the defaults or fox.json" % b.get("cfg"))
-            if b.get("radio") != "ok": print("  radio=%s — module not answering (wiring, PD pin, baud)" % b.get("radio"))
+            if b.get("radio") == "skipped": print("  radio=skipped — not attempted because the config was fatal; nothing was transmitted")
+            elif b.get("radio") != "ok": print("  radio=%s — module not answering (wiring, PD pin, baud)" % b.get("radio"))
 
             # bench, on a fresh VM
             r.interrupt()
             m = r.exec("import gc, time\ngc.collect()\na=gc.mem_free()\nt=time.monotonic()\nimport foxlib\nprint(a, gc.mem_free(), time.monotonic()-t)\n", timeout=60).split()
             res["mem_free_before"], res["mem_free_after_import"], res["import_s"] = int(m[0]), int(m[1]), round(float(m[2]), 2)
-            pre = "import foxlib, gc\nfox = foxlib.Fox('fox.json', defaults='defaults.json', quiet=True)\ngc.collect()\n"
+            pre = "import foxlib, gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfox = foxlib.Fox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\n"
             out = r.exec(pre + "print(gc.mem_free())\nprint(fox.radio.probe((146.5, 433.5)))\nprint(fox.radio.rssi())\nprint(fox.batt.read() if fox.batt else None)\n", timeout=60).strip().splitlines()
             res["mem_free_with_fox"], res["probe"], res["rssi"], res["batt_v"] = int(out[0]), out[1], out[2], out[3]
             print("  import %.1fs · free %d → %d → %d B · probe %s · rssi %s · batt %s" % (res["import_s"], res["mem_free_before"], res["mem_free_after_import"], res["mem_free_with_fox"], out[1], out[2], out[3]))

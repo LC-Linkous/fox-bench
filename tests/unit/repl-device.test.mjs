@@ -92,8 +92,11 @@ test('bench actions build a fresh Fox and return the firmware\'s answer', async 
   assert.equal(await d.bench('rssi'), '61');
   assert.equal(await d.bench('key', { seconds: 2 }), 'ok');
   assert.equal(await d.bench('batt'), '3.97');
-  assert.match(await d.bench('probe'), /146\.5/);
+  const probe = JSON.parse(await d.bench('probe'));                 // the Radio tab JSON.parses this; a Python repr would throw
+  assert.deepEqual(probe, { '146.5': true, '433.5': false });
   assert.ok(b.execs.every(c => !c.includes('import foxlib') || /fox = foxlib\.Fox\('fox\.json', defaults='defaults\.json', quiet=True\)/.test(c)), 'every bench exec constructs Fox(quiet=True)');
+  assert.ok(b.execs.every(c => !c.includes('import foxlib') || /fox\.deinit\(\)/.test(c)), 'every bench exec releases a previous Fox first');
+  assert.ok(b.execs.every(c => !c.includes('import foxlib') || /if fox\.fatal: raise/.test(c)), 'every bench exec surfaces a fatal boot instead of an AttributeError');
   assert.match(b.execs.find(c => c.includes('key_for')), /key_for\(2\)/);
   await assert.rejects(d.bench('dance'), /unknown bench action/);
 });
