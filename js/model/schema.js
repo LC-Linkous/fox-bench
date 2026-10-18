@@ -26,7 +26,7 @@ export function mergeAndValidate(user, defaults, board) {
   const report = [];
   let fatal = null;
   const bad = (key, reason) => report.push({ key, reason });
-  const u = (user && typeof user === 'object') ? user : {};
+  const u = (user && typeof user === 'object' && !Array.isArray(user)) ? user : {};
 
   // ---- top level gates
   if (u.schema !== undefined && u.schema !== SCHEMA) { return { cfg, report: [{ key: 'schema', reason: `schema ${u.schema} not supported` }], fatal: null, status: 'default(schema)' }; }
@@ -94,7 +94,7 @@ export function mergeAndValidate(user, defaults, board) {
     else {
       const out = { kind: pl.kind };
       if (pl.kind === 'songs') {
-        out.articulation = inRange(pl.articulation, 0.5, 1.0) ? pl.articulation : (bad('payload.articulation', '0.5–1.0'), 0.875);
+        out.articulation = !('articulation' in pl) ? 0.875 : inRange(pl.articulation, 0.5, 1.0) ? pl.articulation : (bad('payload.articulation', '0.5–1.0'), 0.875);
         out.skip_on_low_battery = typeof pl.skip_on_low_battery === 'boolean' ? pl.skip_on_low_battery : true;
         const songs = Array.isArray(pl.playlist) ? pl.playlist.filter((s, i) => {
           const ok = s && typeof s.name === 'string' && isInt(s.tempo) && inRange(s.tempo, 40, 300) && Array.isArray(s.notes) && s.notes.length && s.notes.every(n => Array.isArray(n) && n.length === 2 && isInt(n[0]) && inRange(n[0], 0, 127) && isInt(n[1]) && inRange(n[1], 1, 64));

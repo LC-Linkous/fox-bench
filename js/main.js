@@ -22,7 +22,7 @@ import * as tabBench from './ui/bench.js';
 import * as tabFleet from './ui/fleet.js';
 import * as tabAbout from './ui/about.js';
 
-const VERSION = '0.2.0';
+const VERSION = '0.3.0';
 const TABS = { connect: tabConnect, board: tabBoard, radio: tabRadio, plan: tabPlan, id: tabId, payload: tabPayload, schedule: tabSchedule, deploy: tabDeploy, bench: tabBench, fleet: tabFleet, about: tabAbout };
 const TAB_KEYS = { board: ['pins'], radio: ['radio', 'module'], plan: ['plan'], id: ['id'], payload: ['payload'], schedule: ['schedule'] };
 
@@ -171,6 +171,26 @@ export const app = {
     this.changed('restart');
     return banner;
   },
+  /** Everything a bug report needs, as one JSON object. No secrets: the config, the board's identity, what the page saw. */
+  diagnostics() {
+    const safe = fn => { try { return fn(); } catch (e) { return `(unavailable: ${e.message})`; } };
+    return {
+      generated: new Date().toISOString(),
+      page: { version: VERSION, url: location.href, userAgent: navigator.userAgent, webSerial: 'serial' in navigator, theme: document.documentElement.dataset.theme },
+      catalog: safe(() => ({ foxlib: this.catalog.foxlibVersion, templates: Object.fromEntries(Object.values(this.catalog.templates).map(t => [t.id, `${t.version} ${t.status}`])), boards: Object.keys(this.catalog.boards), modules: Object.keys(this.catalog.modules) })),
+      selection: { boardId: this.boardId, templateId: this.templateId, moduleId: this.moduleId, region: this.region },
+      validation: { status: this.status, report: this.report, issues: this.issues },
+      cfg: this.cfg, images: this.images.map(im => ({ name: im.name, w: im.w, h: im.h })),
+      device: this.device ? { kind: this.device.kind, listening: !!this.device.listening, info: this.info, link: safe(() => this.device.link?.info?.()) } : null,
+      onBoard: { ...this.onBoard, raw: this.onBoard.raw ? this.onBoard.raw.slice(0, 4000) : null },
+      lastDeploy: this.lastDeploy || null,
+      bench: (this.benchEvents || []).slice(-50),
+      storage: safe(() => ({ profiles: JSON.parse(localStorage.getItem('fox-bench.profiles') || '[]').length, fleetRows: JSON.parse(localStorage.getItem('fox-bench.fleet') || '[]').length })),
+      pageErrors: this.pageErrors.slice(-50),
+      console: safe(() => this.console.recent(300)),
+    };
+  },
+  pageErrors: [],
   async disconnect() {
     try { await this.device?.close(); } catch {}
     this.device = null; this.info = null; this.onBoard = { cfg: null, raw: null, foxlibVersion: '', foxlibMissing: [], foxlibComplete: false, files: {} };
@@ -214,6 +234,8 @@ async function boot() {
   if (!hasWebSerial()) $('#listenBtn').disabled = true;
   $('#demoBtn').addEventListener('click', () => app.device?.kind === 'demo' ? app.disconnect() : app.connect('demo'));
   window.addEventListener('beforeunload', () => { app.device?.close?.(); });
+  window.addEventListener('error', e => app.pageErrors.push({ t: new Date().toISOString(), msg: String(e.message), at: `${e.filename}:${e.lineno}` }));
+  window.addEventListener('unhandledrejection', e => app.pageErrors.push({ t: new Date().toISOString(), msg: String(e.reason?.message || e.reason) }));
 
   app.changed('boot');
   showTab(localStorage.getItem('fox-bench.tab') || 'connect');

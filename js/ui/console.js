@@ -41,5 +41,5 @@ export function initConsole({ log, form, input, handle, drawer, toggle, clearBtn
   handle.addEventListener('pointerdown', e => { dragging = true; startY = e.clientY; startH = log.getBoundingClientRect().height; handle.setPointerCapture(e.pointerId); });
   handle.addEventListener('pointermove', e => { if (!dragging) return; log.style.height = Math.max(100, Math.min(700, startH + (e.clientY - startY))) + 'px'; });
   handle.addEventListener('pointerup', () => { dragging = false; try { localStorage.setItem('fox-bench.consoleH', String(Math.round(log.getBoundingClientRect().height))); } catch {} });
-  return { line, reply, tx: c => line('> ' + c, 'tx'), err: t => line(t, 'err'), dim: t => line(t, 'dim'), setEnabled: on => { input.disabled = !on; form.querySelector('button').disabled = !on; } };
+  return { line, reply, recent: (n = 200) => entries.slice(-n), tx: c => line('> ' + c, 'tx'), err: t => line(t, 'err'), dim: t => line(t, 'dim'), setEnabled: on => { input.disabled = !on; form.querySelector('button').disabled = !on; } };
 }

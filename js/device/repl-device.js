@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 import { Device } from './device.js';
 import { ReplLink } from './repl-link.js';
+import { crc32 } from '../model/zip.js';
 
 const WRITE_CHUNK = 384;   // bytes per f.write(); bytes-literal escapes roughly double it on the wire
 
@@ -16,6 +17,9 @@ function pyBytesLiteral(bytes) {
   }
   return s + "'";
 }
+const VERIFY_SNIPPET = "import os, binascii\nc=0\nf=open(PATH,'rb')\nwhile True:\n b=f.read(512)\n if not b: break\n c=binascii.crc32(b,c)\nf.close()\nprint(os.stat(PATH)[6], c)\n";
+
+
 function hexToBytes(hex) { const out = new Uint8Array(hex.length / 2); for (let i = 0; i < out.length; i++) out[i] = parseInt(hex.substr(i * 2, 2), 16); return out; }
 
 export class ReplDevice extends Device {
@@ -85,11 +89,22 @@ export class ReplDevice extends Device {
     for (let i = 0; i < bytes.length; i += WRITE_CHUNK) {
       await this.repl.exec(`f.write(${pyBytesLiteral(bytes.subarray(i, i + WRITE_CHUNK))})`);
     }
-    const out = await this.repl.exec(`f.close()\nimport os\nprint(os.stat(${JSON.stringify(path)})[6])`);
-    const size = parseInt(out.out.trim(), 10);
+    await this.repl.exec(`f.close()`);
+    const { size, crc } = await this._verify(path);
+    const want = crc32(bytes);
     if (size !== bytes.length) throw new Error(`${path}: wrote ${bytes.length} bytes, board reports ${size}`);
-    this.log(`wrote ${path} (${bytes.length} B)`, 'ok');
+    if (crc !== want) throw new Error(`${path}: CRC mismatch after write (board ${crc.toString(16)}, sent ${want.toString(16)}) — try again; if it repeats, the board's flash may be failing`);
+    this.log(`wrote ${path} (${bytes.length} B, crc ${want.toString(16)})`, 'ok');
   }
+
+  /** Size and CRC32 of a file as the board sees it. The CRC is computed on the board in 512-byte pieces so large files need no RAM. */
+  async _verify(path) {
+    const out = await this.repl.exec(VERIFY_SNIPPET.replace(/PATH/g, JSON.stringify(path)));
+    const [size, crc] = out.out.trim().split(' ').map(s => parseInt(s, 10));
+    if (!Number.isFinite(size) || !Number.isFinite(crc)) throw new Error(`${path}: could not verify (${out.out.trim().slice(0, 80)})`);
+    return { size, crc: crc >>> 0 };
+  }
+  async verify(path) { return this._run(() => this._verify(path)); }
   async writeText(path, text) { return this.writeBytes(path, this.enc.encode(text)); }
 
   async mkdir(path) { return this._run(() => this._exec(`import os\ntry:\n os.mkdir(${JSON.stringify(path)})\nexcept OSError:\n pass\n`)); }

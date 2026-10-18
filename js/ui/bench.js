@@ -4,7 +4,7 @@ import { h, badge, field, numInput } from './dom.js';
 import { download } from '../model/profiles.js';
 
 let app, root, busy = false; const events = [];
-export function init(a, el) { app = a; root = el; app.listeners.add(render); render(); }
+export function init(a, el) { app = a; root = el; app.benchEvents = events; app.listeners.add(render); render(); }
 
 function note(action, detail) { events.push({ t: new Date().toISOString(), uid: app.info?.uid || '', action, detail }); render(); }
 

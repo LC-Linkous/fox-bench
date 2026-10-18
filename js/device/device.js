@@ -5,7 +5,7 @@
 //
 //   connect()                 -> { boardId, uid, foxlibVersion, files: {name: size} }
 //   readText(path) / readBytes(path)   null if missing
-//   writeText(path, text) / writeBytes(path, bytes)   verified by size
+//   writeText(path, text) / writeBytes(path, bytes)   verified by size and CRC32
 //   mkdir(path), remove(path), list(path)
 //   reboot()                  -> boot log text (parse with parseBanner)
 //   exec(code)                -> stdout        (bench commands)

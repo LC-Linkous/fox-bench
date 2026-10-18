@@ -23,6 +23,8 @@ export class ReplLink {
     this.dec = new TextDecoder();
     this.buf = '';
     this.waiters = [];
+    this.capture = null;                // { text } while rebootAndCapture is collecting the boot log
+    this.busy = 0;                      // depth of operations in progress
     this.inRaw = false;
     this.onUnsolicited = null;          // text arriving when nobody is waiting (boot output)
     link.onData = bytes => this._onData(bytes);
@@ -31,8 +33,20 @@ export class ReplLink {
   _onData(bytes) {
     this.buf += this.dec.decode(bytes, { stream: true });
     if (this.waiters.length) this.waiters[0].check();
-    else if (this.onUnsolicited) { const t = stripAnsi(this.buf); this.buf = ''; if (t.replace(/[\s>]/g, '')) this.onUnsolicited(t); }
+    else if (this.capture) { this.capture.text += this.buf; this.buf = ''; }
+    else if (!this.busy) this._flushUnsolicited();
+    // else: an operation is between two waits; the next _waitFor picks the bytes up
   }
+  _flushUnsolicited() {
+    if (!this.buf) return;
+    const t = stripAnsi(this.buf); this.buf = '';
+    if (this.onUnsolicited && t.replace(/[\s>]/g, '')) this.onUnsolicited(t);
+  }
+  /** Mark an operation in progress: bytes arriving between its waits are kept for the next wait, not treated as fox output. */
+  async _op(fn) { this.busy++; try { return await fn(); } finally { if (--this.busy === 0) this._flushUnsolicited(); } }
+
+  /** Register the wait before sending, so a reply that arrives in the same tick is never mistaken for unsolicited output. */
+  _sendAndWait(s, marker, timeout) { const p = this._waitFor(marker, timeout); p.catch(() => {}); return this._send(s).then(() => p); }
 
   /** Resolve when `buf` contains `marker`; returns text before it and removes through it. */
   _waitFor(marker, timeout = 3000) {
@@ -52,41 +66,40 @@ export class ReplLink {
   async _send(s) { await this.link.write(s); }
 
   /** Stop whatever is running and get a prompt. Tolerates a board mid-boot or already at a prompt. */
-  async interrupt() {
+  async interrupt() { return this._op(() => this._interrupt()); }
+  async _interrupt() {
     this.buf = '';
     for (let attempt = 0; attempt < 4; attempt++) {
-      await this._send('\r\x03\x03');
-      try { await this._waitFor('>>> ', 2500); this.inRaw = false; this.log('interrupted → friendly REPL'); return; } catch {}
+      try { await this._sendAndWait('\r\x03\x03', '>>> ', 2500); this.inRaw = false; this.log('interrupted → friendly REPL'); return; } catch {}
       // maybe at "Press any key to enter the REPL", mid-boot, or already in raw mode
-      await this._send('\r');
-      try { await this._waitFor('>>> ', 2000); this.inRaw = false; return; } catch {}
-      try { await this._send('\r\x02'); await this._waitFor('>>> ', 2000); this.inRaw = false; return; } catch {}
+      try { await this._sendAndWait('\r', '>>> ', 2000); this.inRaw = false; return; } catch {}
+      try { await this._sendAndWait('\r\x02', '>>> ', 2000); this.inRaw = false; return; } catch {}
       await sleep(500);
     }
     throw new Error('no REPL prompt — is this a CircuitPython board? (Try: unplug, replug without holding B, then Connect.)');
   }
 
-  async enterRaw() {
+  async enterRaw() { return this._op(() => this._enterRaw()); }
+  async _enterRaw() {
     if (this.inRaw) return;
     this.buf = '';
-    await this._send('\r\x01');
-    await this._waitFor('raw REPL; CTRL-B to exit\r\n>', 3000);
+    await this._sendAndWait('\r\x01', 'raw REPL; CTRL-B to exit\r\n>', 3000);
     this.inRaw = true;
   }
-  async exitRaw() {
+  async exitRaw() { return this._op(() => this._exitRaw()); }
+  async _exitRaw() {
     if (!this.inRaw) return;
-    await this._send('\r\x02');
-    try { await this._waitFor('>>> ', 2000); } catch {}
+    try { await this._sendAndWait('\r\x02', '>>> ', 2000); } catch {}
     this.inRaw = false;
   }
 
   /** Run Python in raw mode; returns { out, err }. Throws on a Python exception unless {soft}. */
-  async exec(code, { timeout = 10000, soft = false } = {}) {
-    await this.enterRaw();
+  async exec(code, opts) { return this._op(() => this._exec(code, opts)); }
+  async _exec(code, { timeout = 10000, soft = false } = {}) {
+    await this._enterRaw();
     this.buf = '';
     for (let i = 0; i < code.length; i += CHUNK) { await this._send(code.slice(i, i + CHUNK)); await sleep(8); }
-    await this._send('\x04');
-    await this._waitFor('OK', 3000);
+    await this._sendAndWait('\x04', 'OK', 3000);
     const out = await this._waitFor('\x04', timeout);
     const err = await this._waitFor('\x04', 3000);
     try { await this._waitFor('>', 2000); } catch { /* both \x04 seen: the exec completed; the prompt may arrive with the next read */ }
@@ -95,18 +108,20 @@ export class ReplLink {
   }
 
   /** Soft reboot and collect the boot log until the FOX banner or timeout. */
-  async rebootAndCapture({ timeout = 15000, until = /^FOX /m } = {}) {
-    await this.exitRaw();
+  async rebootAndCapture(opts) { return this._op(() => this._rebootAndCapture(opts)); }
+  async _rebootAndCapture({ timeout = 15000, until = /^FOX /m } = {}) {
+    await this._exitRaw();
     this.buf = '';
-    await this._send('\x04');
-    const start = performance.now();
-    let text = '';
-    while (performance.now() - start < timeout) {
-      await sleep(100);
-      if (this.buf.length) { text += this.buf; this.buf = ''; }
-      if (until.test(text)) { await sleep(300); text += this.buf; this.buf = ''; break; }
-      if (/Traceback|Error:/.test(text) && /Press any key|Code done running/.test(text)) break;
-    }
-    return stripAnsi(text);
+    const cap = this.capture = { text: '' };
+    try {
+      await this._send('\x04');
+      const start = performance.now();
+      while (performance.now() - start < timeout) {
+        await sleep(100);
+        if (until.test(cap.text)) { await sleep(300); break; }
+        if (/Traceback|Error:/.test(cap.text) && /Press any key|Code done running/.test(cap.text)) break;
+      }
+    } finally { this.capture = null; }
+    return stripAnsi(cap.text);
   }
 }

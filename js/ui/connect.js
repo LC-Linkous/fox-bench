@@ -1,6 +1,7 @@
 // connect.js — Connect tab: what's on the board, template choice, load from board.
 // SPDX-License-Identifier: GPL-2.0-only
 import { h, badge, field, select } from './dom.js';
+import { download } from '../model/profiles.js';
 
 let app, root;
 export function init(a, el) { app = a; root = el; app.listeners.add(render); render(); }
@@ -46,5 +47,10 @@ function render() {
       h('li', {}, 'Deploy writes ', h('code', {}, 'fox.json'), ', the template\'s ', h('code', {}, 'defaults.json'), ' and ', h('code', {}, 'code.py'), ', and ', h('code', {}, 'foxlib/'), ' when its version differs or files are missing — through the CircuitPython REPL, the same way Thonny saves files. The board therefore has to be running CircuitPython already; the page does not (yet) flash it.'),
       h('li', {}, 'The board soft-reboots and the page reads the ', h('code', {}, 'FOX …'), ' banner back: config status, radio status, callsign set or not.')));
 
-  root.replaceChildren(h('div.cols', {}, deviceCard, tmplCard), flow);
+  const diag = h('div.card', {}, h('h3', {}, 'Something wrong?'),
+    h('p.hint', {}, 'Download a diagnostics file and attach it to a ', h('a', { href: 'https://github.com/LC-Linkous/fox-bench/issues/new/choose', target: '_blank', rel: 'noopener' }, 'GitHub issue'), '. It holds the page version, your form, what the board reported, the last deploy, bench results and the console — no more than you can already see on this page.'),
+    h('div.tools', {},
+      h('button.btn.small', { onclick: () => download(`fox-bench-diagnostics-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.json`, JSON.stringify(app.diagnostics(), null, 1), 'application/json') }, 'Download diagnostics'),
+      h('button.btn.small', { onclick: async e => { try { await navigator.clipboard.writeText(JSON.stringify(app.diagnostics(), null, 1)); e.target.textContent = 'Copied'; setTimeout(() => { e.target.textContent = 'Copy to clipboard'; }, 1200); } catch { app.console.err('clipboard unavailable'); } } }, 'Copy to clipboard')));
+  root.replaceChildren(h('div.cols', {}, deviceCard, tmplCard), flow, diag);
 }

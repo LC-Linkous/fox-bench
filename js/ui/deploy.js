@@ -9,6 +9,7 @@ import { fleet, download } from '../model/profiles.js';
 import { makeZip } from '../model/zip.js';
 
 let app, root, gateOk = false, lastResult = null, busy = false;
+const setLast = r => { lastResult = r; app.lastDeploy = r ? { ...r, at: new Date().toISOString(), template: app.templateId, uid: app.info?.uid } : null; };
 export function init(a, el) { app = a; root = el; app.listeners.add(render); render(); }
 
 /** Flatten a config to dotted key → JSON value for diffing. */
@@ -65,7 +66,7 @@ async function deploy(btn) {
   if (busy) return;
   const overrides = app.issues.filter(e => e.level === 'err' && e.blocking === false);
   if (overrides.length && !confirm(`Deploy anyway?\n\n${overrides.map(o => '• ' + o.msg.replace(/ — .*$/, '')).join('\n')}\n\nThese are outside the ${app.region} amateur band table. Make sure this is intended (bench testing into a load, a different allocation, etc.).`)) return;
-  busy = true; lastResult = null; render();
+  busy = true; setLast(null); render();
   const d = app.device, cfg = app.validCfg, log = app.console;
   const { files } = plan();
   try {
@@ -79,13 +80,13 @@ async function deploy(btn) {
     }
     const bootLog = await d.reboot();
     const banner = parseBanner(bootLog);
-    lastResult = { bootLog, banner, ok: !!banner && banner.cfg === 'ok' && banner.radio === 'ok' && banner.id === 'set' };
+    setLast({ bootLog, banner, ok: !!banner && banner.cfg === 'ok' && banner.radio === 'ok' && banner.id === 'set' });
     const written = Object.fromEntries(files.map(f => [f.path.replace('/*', ''), { size: 1, dir: f.kind === 'foxlib' }]));
     app.onBoard = { ...app.onBoard, cfg: structuredClone(cfg), raw: JSON.stringify(cfg), template: app.templateId, foxlibVersion: app.catalog.foxlibVersion, foxlibComplete: true, foxlibMissing: [], files: { ...app.onBoard.files, ...written } };
     app.info.foxlibVersion = app.catalog.foxlibVersion;
     app.setStatus(`${d.kind === 'demo' ? 'Demo · ' : ''}${app.info.boardId} · uid ${app.info.uid.slice(-6)} · foxlib ${app.catalog.foxlibVersion} · fox running`, d.kind === 'demo' ? 'demo' : 'tx');
     fleet.append({ board_number: '', uid: app.info.uid, board: app.info.boardId, action: 'deploy', template: `${app.templateId}/${app.template.version}`, profile: cfg.fleet?.profile || '', callsign: cfg.id.callmessage, freq: cfg.plan.frequencies_mhz.join(' '), power: `${cfg.radio.high_power ? 'high' : 'low'}${cfg.radio.power_dbm != null ? ' ' + cfg.radio.power_dbm + 'dBm' : ''}`, seed: cfg.schedule.seed ?? '', result: lastResult.ok ? 'ok' : (banner ? `${banner.cfg} ${banner.radio} ${banner.id}` : 'no banner'), notes: app.device.kind === 'demo' ? 'demo' : '' });
-  } catch (e) { lastResult = { error: String(e.message || e) + (/HTTP 404/.test(e.message || '') ? ' — a firmware file is missing from the site; the repo needs a .nojekyll marker so GitHub Pages serves foxlib/__init__.py' : '') }; log.err(lastResult.error); }
+  } catch (e) { setLast({ error: String(e.message || e) + (/HTTP 404/.test(e.message || '') ? ' — a firmware file is missing from the site; the repo needs a .nojekyll marker so GitHub Pages serves foxlib/__init__.py' : '') }); log.err(lastResult.error); }
   busy = false; gateOk = false; app.changed('deploy');
 }
 
