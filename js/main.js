@@ -9,6 +9,8 @@ import { TABLE as MORSE } from './audio/morse.js';
 import { hasWebSerial, SerialLink } from './device/serial-link.js';
 import { ReplDevice } from './device/repl-device.js';
 import { DemoDevice } from './device/demo-device.js';
+import { DriveDevice, demoDrive } from './device/drive-device.js';
+import { MemDirectoryHandle } from './device/memfs.js';
 import { initConsole } from './ui/console.js';
 import * as tabConnect from './ui/connect.js';
 import * as tabBoard from './ui/board.js';
@@ -22,7 +24,17 @@ import * as tabBench from './ui/bench.js';
 import * as tabFleet from './ui/fleet.js';
 import * as tabAbout from './ui/about.js';
 
-const VERSION = '0.4.0';
+const VERSION = '0.5.0';
+/** Tab subtitles that read differently per device family (null = the page's original text). */
+const LEDES = { drive: {
+  connect: 'Open the fox\'s USB drive, or use the simulated one. The vendor firmware stays; the page writes its files.',
+  board: 'A fixed design: nothing to wire. What the firmware does on its own, and how its firmware is restored.',
+  radio: 'Zone, attenuation and FM deviation for the SI5351 exciter the firmware drives.',
+  plan: 'One frequency, checked against the limits the firmware itself enforces.',
+  payload: 'What goes into audio.wav. Preview plays the same events the file will carry.',
+  schedule: 'The firmware\'s duty cycle, drawn with the carrier offsets and power steps it adds by itself.',
+  deploy: 'Render the four files, write them to the drive and read them back; then eject and power-cycle.',
+} };
 const TABS = { connect: tabConnect, board: tabBoard, radio: tabRadio, plan: tabPlan, id: tabId, payload: tabPayload, schedule: tabSchedule, deploy: tabDeploy, bench: tabBench, fleet: tabFleet, about: tabAbout };
 const TAB_KEYS = { board: ['pins'], radio: ['radio', 'module'], plan: ['plan'], id: ['id'], payload: ['payload'], schedule: ['schedule'] };
 
@@ -41,6 +53,11 @@ export const app = {
   get template() { return this.catalog.templates[this.templateId]; },
   get module() { return this.catalog.modules[this.moduleId]; },
   get connected() { return !!this.device; },
+  /** Device family of the selected board: 'foxlib' (CircuitPython + our firmware) or 'drive' (vendor firmware, files on a USB drive). */
+  get family() { return this.board.family || 'foxlib'; },
+  get vendor() { return this.board.vendor ? this.catalog.vendors[this.board.vendor] : null; },
+  /** Templates that apply to a family. */
+  templatesFor(family) { return Object.values(this.catalog.templates).filter(t => (t.families || ['foxlib']).includes(family)); },
 
   /** Re-validate and notify every tab. */
   changed(source) {
@@ -52,10 +69,22 @@ export const app = {
     if (this._pending) { const p = this._pending; this._pending = null; this.changed(p); }
   },
   _changed(source) {
-    const r = mergeAndValidate(this.cfg, this.defaults, this.board);
-    this.report = r.report; this.status = r.status;
-    this.issues = pageChecks(r.cfg, { bands: this.catalog.bands, region: this.region, morseTable: MORSE, templateManifest: this.template, module: this.module });
-    this.validCfg = r.cfg;
+    if (this.family === 'drive') {
+      const r = this.vendor.validate(this.cfg, this.defaults, this.board);
+      this.report = r.report; this.status = r.status; this.issues = r.issues; this.validCfg = r.cfg;
+    } else {
+      const r = mergeAndValidate(this.cfg, this.defaults, this.board);
+      this.report = r.report; this.status = r.status;
+      this.issues = pageChecks(r.cfg, { bands: this.catalog.bands, region: this.region, morseTable: MORSE, templateManifest: this.template, module: this.module });
+      this.validCfg = r.cfg;
+    }
+    if (document.body.dataset.family !== this.family) {
+      document.body.dataset.family = this.family;
+      for (const [tab, text] of Object.entries(LEDES[this.family] || {})) { const el = $(`#tab-${tab} .lede`); if (el) { el.dataset.orig ??= el.textContent; el.textContent = text === null ? el.dataset.orig : text; } }
+      for (const el of $$('.panel .lede')) if (!(LEDES[this.family] || {})[el.closest('.panel').id.slice(4)] && el.dataset.orig) el.textContent = el.dataset.orig;
+    }
+    $('.rail button[data-tab="bench"]').hidden = this.family === 'drive';
+    if (!this.device) { $('#connectBtn').textContent = this.family === 'drive' ? `Open ${this.board.drive?.label || 'drive'}` : 'Connect'; $('#connectBtn').disabled = this.family === 'drive' ? !('showDirectoryPicker' in window) : !hasWebSerial(); }
     try { localStorage.setItem('fox-bench.working', JSON.stringify({ cfg: this.cfg, boardId: this.boardId, templateId: this.templateId, moduleId: this.moduleId, region: this.region })); } catch {}
     for (const [tab, keys] of Object.entries(TAB_KEYS)) {
       const bad = [...this.report.map(x => ({ level: 'err', key: x.key })), ...this.issues].filter(i => keys.some(k => i.key === k || i.key.startsWith(k + '.')));
@@ -83,9 +112,21 @@ export const app = {
     this.changed('template');
   },
   async setBoard(id) {
+    const prevFamily = this.family, prev = this.cfg;
     this.boardId = id;
+    if (this.board.module_fixed) this.moduleId = this.board.module_fixed;
+    if (!this.templatesFor(this.family).some(t => t.id === this.templateId)) {
+      // the current template has no meaning for this board: switch to the first one that does, keeping the callsign and fleet notes
+      this.templateId = this.templatesFor(this.family)[0].id;
+      this.defaults = await loadDefaults(this.templateId, id);
+      this.cfg = structuredClone(this.defaults);
+      if (prev) { this.cfg.id.callmessage = prev.id.callmessage; this.cfg.fleet = structuredClone(prev.fleet); if (this.family === prevFamily) this.cfg.plan = structuredClone(prev.plan); }
+      this.console.dim(`board ${this.board.name}: template switched to ${this.template.name}`);
+      this.changed('board'); return;
+    }
     this.defaults = await loadDefaults(this.templateId, id);
     this.cfg.board = id; this.cfg.pins = structuredClone(this.defaults.pins);
+    if (this.board.module_fixed) { this.cfg.module = this.moduleId; this.cfg.radio = { ...this.cfg.radio, ...structuredClone(this.defaults.radio) }; }
     this.changed('board');
   },
   setModule(id) {
@@ -97,7 +138,7 @@ export const app = {
     if (cfg.board && this.catalog.boards[cfg.board]) this.boardId = cfg.board;
     if (cfg.module && this.catalog.modules[cfg.module]) this.moduleId = cfg.module;
     this.defaults = await loadDefaults(this.templateId, this.boardId);
-    this.cfg = mergeAndValidate(cfg, this.defaults, this.board).cfg;
+    this.cfg = this.family === 'drive' ? this.vendor.validate(cfg, this.defaults, this.board).cfg : mergeAndValidate(cfg, this.defaults, this.board).cfg;
     this.changed(source);
   },
 
@@ -115,36 +156,55 @@ export const app = {
   async connect(kind, { listen = false } = {}) {
     if (this.device) await this.disconnect();
     let device;
-    if (kind === 'demo') device = new DemoDevice({ board: this.board, moduleRanges: this.module.ranges_mhz });
+    if (this.family === 'drive' && !listen) {
+      if (kind === 'demo') device = await demoDrive(this.board, { MemDirectoryHandle });
+      else { let handle; try { handle = await DriveDevice.pick({ id: 'fox-bench-' + this.boardId }); } catch (e) { if (e.name !== 'AbortError') this.console.err(String(e.message || e)); return; } device = new DriveDevice(handle, { board: this.board }); }
+    }
+    else if (kind === 'demo') device = new DemoDevice({ board: this.board, moduleRanges: this.module.ranges_mhz });
     else { const link = new SerialLink(); await link.open(); link.onDrop = () => { this.console.err('serial port dropped (a reset re-enumerates the USB port — reconnect)'); this.disconnect(); }; device = new ReplDevice(link); }
     device.onLog = (t, cls) => cls === 'tx' ? this.console.tx(t) : cls === 'reply' ? this.console.reply(t) : cls === 'ok' ? this.console.line(t, 'ok') : cls === 'err' ? this.console.err(t) : this.console.dim(t);
     this.setStatus(kind === 'demo' ? 'Starting simulated board…' : listen ? 'Opening port…' : 'Connecting…');
     if (listen && kind !== 'demo') {
       this.device = device; this.info = await device.listen(); this.onBoard = { cfg: null, raw: null, foxlibVersion: '', foxlibMissing: [], foxlibComplete: false, files: {}, template: null, listening: true };
       // banner lines that scroll past while listening update the status
-      const prev = device.onLog; device.onLog = (t, cls) => { prev(t, cls); const b = parseBanner(t); if (b) { this.info = { ...this.info, boardId: b.board || '?', uid: b.uid || '' }; this.onBoard.foxlibVersion = b.foxlib || ''; this.onBoard.template = (b.template || '').split('/')[0] || null; this.setStatus(`Listening · ${b.board} · uid ${(b.uid || '').slice(-6)} · ${b.template} · cfg=${b.cfg} radio=${b.radio}`, 'tx'); this.changed('banner'); } };
+      const prev = device.onLog; device.onLog = (t, cls) => { prev(t, cls); const b = parseBanner(t); if (b) { this.info = { ...this.info, boardId: b.board || '?', uid: b.uid || '' }; this.onBoard.foxlibVersion = b.foxlib || ''; this.onBoard.template = (b.template || '').split('/')[0] || null; this.setStatus(`Listening · ${b.board} · uid ${(b.uid || '').slice(-6)} · ${b.template} · cfg=${b.cfg} radio=${b.radio}`, 'tx'); this.changed('banner'); }
+        else if (this.family === 'drive' && this.vendor?.BOOT_OK?.test(t)) { this.setStatus(`Listening · ${this.board.name} · firmware up, transmitting`, 'tx'); this.changed('banner'); }
+        else if (this.family === 'drive' && this.vendor?.BOOT_REGEN?.test(t)) { this.console.line('the firmware is regenerating its own ID audio: the marker file did not match settings.txt (expected after a hand edit; not after a page deploy)', 'err'); } };
       $('#connectBtn').textContent = 'Disconnect'; $('#listenBtn').hidden = true; this.console.setEnabled(false);
-      this.setStatus('Listening — fox output streams to the console; tap R on the board to see its boot banner', 'tx');
+      this.setStatus(this.family === 'drive' ? `Listening on the ${this.board.name} serial port — switch it off and on to see its boot messages` : 'Listening — fox output streams to the console; tap R on the board to see its boot banner', 'tx');
       this.changed('connect'); return;
     }
     try { this.info = await device.connect(); }
     catch (e) {
       this.console.err(String(e.message || e));
-      if (kind !== 'demo') this.console.err('No REPL prompt. If the board is running other firmware, tap its R (reset) button — or unplug and replug without holding B — then click Connect again. The board must already run CircuitPython.');
+      if (kind !== 'demo' && this.family !== 'drive') this.console.err('No REPL prompt. If the board is running other firmware, tap its R (reset) button — or unplug and replug without holding B — then click Connect again. The board must already run CircuitPython.');
       this.setStatus('Not connected', 'err'); try { await device.close(); } catch {} return;
     }
     this.device = device;
     $('#demoBtn').setAttribute('aria-pressed', kind === 'demo' ? 'true' : 'false');
     $('#connectBtn').textContent = 'Disconnect'; $('#listenBtn').hidden = true;
-    this.console.setEnabled(kind !== 'demo');
+    this.console.setEnabled(kind !== 'demo' && this.family !== 'drive');
+    if (this.family === 'drive') { this.setStatus(`${kind === 'demo' ? 'Demo · ' : ''}${this.board.name} · drive "${this.info.driveName || ''}"`, kind === 'demo' ? 'demo' : 'ok'); await this.readDrive(); this.changed('connect'); return; }
     this.setStatus(`${kind === 'demo' ? 'Demo · ' : ''}${this.info.boardId} · uid ${this.info.uid.slice(-6)}${this.info.foxlibVersion ? ' · foxlib ' + this.info.foxlibVersion : ' · no fox firmware'}`, kind === 'demo' ? 'demo' : 'ok');
     if (this.catalog.boards[this.info.boardId] && this.info.boardId !== this.boardId) await this.setBoard(this.info.boardId);
     await this.readBoard();
     this.changed('connect');
   },
+  /** Drive family: list the drive and read the vendor's settings file into onBoard. */
+  async readDrive() {
+    const d = this.device, v = this.vendor; if (!d || !v) return;
+    const files = await d.list('');
+    const raw = await d.readText(v.FILES.settings);
+    const marker = await d.readBytes(v.FILES.marker);
+    const ob = { cfg: null, raw, foxlibVersion: '', foxlibMissing: [], foxlibComplete: true, files, template: raw != null ? this.templatesFor('drive')[0]?.id : null, settings: raw != null ? v.parseSettings(raw) : null, markerOk: null };
+    if (raw != null) { ob.cfg = v.cfgFromSettings(ob.settings, this.defaults); ob.markerOk = marker ? v.readMarker(marker) === v.byteSum(raw) : false; }
+    this.onBoard = ob;
+    this.console.dim(raw != null ? `${v.FILES.settings}: ${Object.entries(ob.settings).map(([k, x]) => k + '=' + x).join(' ')}` : `no ${v.FILES.settings} on the drive (a factory board writes one at power-on)`);
+  },
   /** Read what is on the board. Interrupts a running fox; call restartFox() afterwards if it should keep running. */
   async readBoard() {
     const d = this.device; if (!d) return;
+    if (this.family === 'drive') return this.readDrive();
     if (d.listening) { this.info = await d.identify(); this.setStatus(`${this.info.boardId} · uid ${this.info.uid.slice(-6)}`, 'ok'); this.console.setEnabled(true); }
     else await d.interrupt();
     const files = await d.list('');
@@ -165,6 +225,7 @@ export const app = {
   /** Soft-reboot so code.py runs again; shows the banner. */
   async restartFox() {
     if (!this.device) return null;
+    if (this.family === 'drive') { this.console.line('no reset over USB: eject the drive, switch the board off and on; Listen only shows its boot messages', 'dim'); return null; }
     const text = await this.device.reboot();
     const banner = parseBanner(text);
     this.console.line(banner ? `fox restarted: ${banner._raw}` : 'restarted; no FOX banner seen', banner ? 'ok' : 'err');
@@ -194,9 +255,9 @@ export const app = {
   async disconnect() {
     try { await this.device?.close(); } catch {}
     this.device = null; this.info = null; this.onBoard = { cfg: null, raw: null, foxlibVersion: '', foxlibMissing: [], foxlibComplete: false, files: {} };
-    $('#demoBtn').setAttribute('aria-pressed', 'false'); $('#connectBtn').textContent = 'Connect'; $('#listenBtn').hidden = false;
+    $('#demoBtn').setAttribute('aria-pressed', 'false'); $('#listenBtn').hidden = false;
     this.console.setEnabled(false); this.setStatus('Not connected');
-    this.changed('disconnect');
+    this.changed('disconnect');       // also resets the Connect button label for the family
   },
 };
 
@@ -215,7 +276,7 @@ async function boot() {
   $('#themeBtn').addEventListener('click', () => { const t = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light'; document.documentElement.dataset.theme = t; localStorage.setItem('fox-bench.theme', t); app.changed('theme'); });
   app.console = initConsole({ log: $('#log'), form: $('#sendForm'), input: $('#sendInput'), handle: $('#consoleHandle'), drawer: $('#console'), toggle: $('#consoleToggle'), clearBtn: $('#clearLog'), copyBtn: $('#copyLog'), dlBtn: $('#dlLog'), dlMode: $('#dlMode') },
     async code => { if (!app.device) return; try { const out = await app.device.exec(code, { soft: true }); if (out) app.console.reply(out.replace(/\r/g, '')); } catch (e) { app.console.err(String(e.message || e)); } });
-  if (!hasWebSerial()) { $('#noSerial').hidden = false; $('#connectBtn').disabled = true; }
+  if (!hasWebSerial()) { $('#noSerial').hidden = false; }
 
   try { app.catalog = await loadCatalog(); }
   catch (e) { app.console.err('could not load descriptors: ' + e.message + ' (serve the folder over http, not file://)'); return; }
@@ -229,7 +290,7 @@ async function boot() {
 
   for (const [name, mod] of Object.entries(TABS)) mod.init(app, $(`#tab-${name} .body`));
   $$('.rail button').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
-  $('#connectBtn').addEventListener('click', () => app.device ? app.disconnect() : app.connect('serial'));
+  $('#connectBtn').addEventListener('click', () => app.device ? app.disconnect() : app.connect(app.family === 'drive' ? 'drive' : 'serial'));
   $('#listenBtn').addEventListener('click', () => app.device ? app.disconnect() : app.connect('serial', { listen: true }));
   if (!hasWebSerial()) $('#listenBtn').disabled = true;
   $('#demoBtn').addEventListener('click', () => app.device?.kind === 'demo' ? app.disconnect() : app.connect('demo'));

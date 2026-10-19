@@ -24,7 +24,7 @@ function hexToBytes(hex) { const out = new Uint8Array(hex.length / 2); for (let 
 
 export class ReplDevice extends Device {
   constructor(link) {
-    super(); this.kind = 'repl'; this.link = link;
+    super(); this.kind = 'repl'; this.transport = 'repl'; this.link = link;
     this._queue = Promise.resolve();      // one operation on the wire at a time; a second call waits, never interrupts
     this.repl = new ReplLink(link, t => this.log(t, 'dim'));
     this.repl.onUnsolicited = t => this.log(t.replace(/\r/g, ''), 'reply');

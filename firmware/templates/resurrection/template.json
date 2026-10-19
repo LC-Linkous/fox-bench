@@ -2,6 +2,7 @@
   "id": "resurrection",
   "name": "Resurrection (plays dead)",
   "version": "1.0.0",
+  "families": ["foxlib"],
   "status": "stable",
   "description": "Transmits normally for a while, goes dead for a seeded dormant phase, then comes back: the hunt has two acts.",
   "foxlib": ">=1.0.0 <2.0.0",

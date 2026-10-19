@@ -20,6 +20,7 @@ async function run(action, args, btn, label) {
 }
 
 function render() {
+  if (app.family === 'drive') { root.replaceChildren(h('div.card', {}, h('p.hint', {}, `${app.board.name}: no bench. The firmware has no command interface and does not transmit while the drive is mounted. Use a receiver after the power cycle; Listen only shows the boot messages.`))); return; }
   const caps = new Set(app.template.capabilities);
   const ready = app.connected && (app.device.kind === 'demo' || app.onBoard.foxlibVersion);
   let keySecs = 3;

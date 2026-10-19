@@ -1,0 +1,15 @@
+{
+  "id": "picofox_si5351",
+  "name": "PicoFox SI5351 FM exciter (built in)",
+  "family": "si5351fm",
+  "fixed_to_board": "picofox",
+  "ranges_mhz": [[144.0, 148.0]],
+  "zones": { "1": [[144.0, 146.0]], "2": [[144.0, 148.0]], "3": [[144.0, 148.0]] },
+  "edge_margin_khz": 20,
+  "power_dbm": { "low": -14, "high": 18 },
+  "attenuation": { "steps": 127, "db_per_step": 0.25, "revisions_with": ["r3"] },
+  "bandwidths_khz": [12.5, 25.0],
+  "audio": { "sample_rate_hz": 5000, "bits": 16, "signed": true, "channels": 1, "max_deviation_hz": 10000, "max_audio_hz": 2500 },
+  "uart": null,
+  "model": "SI5351 + amplifier"
+}

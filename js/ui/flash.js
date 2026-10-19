@@ -79,8 +79,9 @@ export function statusBlock() {
 /** Board tab: image source, options, one flash. */
 export function flashCard(app) {
   const b = app.board;
+  if (b.flash.method === 'uf2') return uf2Card(app);
   if (b.flash.method !== 'esptool') {
-    return h('div.card', {}, h('h3', {}, 'Flash CircuitPython'), h('p.hint', {}, `${b.name} is flashed by ${b.flash.method}, which this page does not do yet. `, h('a', { href: b.circuitpython.download, target: '_blank', rel: 'noopener' }, 'CircuitPython downloads for this board'), '.'));
+    return h('div.card', {}, h('h3', {}, 'Flash CircuitPython'), h('p.hint', {}, `${b.name} is flashed by ${b.flash.method}, which this page does not do yet. `, b.circuitpython ? h('a', { href: b.circuitpython.download, target: '_blank', rel: 'noopener' }, 'CircuitPython downloads for this board') : null, '.'));
   }
   const fileIn = h('input', { type: 'file', accept: '.bin', hidden: true });
   fileIn.addEventListener('change', async () => {
@@ -106,6 +107,7 @@ export function flashCard(app) {
 
 /** Fleet tab: plug → click → next. */
 export function batchCard(app) {
+  if (app.board.flash.method !== 'esptool') return h('div.card', {}, h('h3', {}, 'Batch flashing'), h('p.hint', {}, `${app.board.name} does not run CircuitPython; there is nothing to batch-flash. Select an ESP32 board on the Board tab for this.`));
   const why = blocker(app);
   const n = state.boardNumber;
   return h('div.card', {}, h('h3', {}, 'Batch flashing ', imageBadge()),
@@ -116,4 +118,32 @@ export function batchCard(app) {
       h('span.hint', {}, 'next number '), h('input', { type: 'number', min: 1, value: n, style: 'width:80px', onchange: e => { state.boardNumber = Math.max(1, parseInt(e.target.value, 10) || 1); notify(); } }),
       why && !state.busy ? h('span.hint', {}, why) : null),
     ...statusBlock());
+}
+
+/** UF2 boards (PicoFox): no CircuitPython; the only flash operation is copying a vendor .uf2 to the bootloader drive. */
+let uf2 = { name: '', bytes: null, busy: false, last: null };
+function uf2Card(app) {
+  const b = app.board;
+  const fileIn = h('input', { type: 'file', accept: '.uf2', hidden: true });
+  fileIn.addEventListener('change', async () => { const f = fileIn.files[0]; if (!f) return; uf2 = { ...uf2, name: f.name, bytes: new Uint8Array(await f.arrayBuffer()), last: null }; notify(); fileIn.value = ''; });
+  const copy = async () => {
+    uf2.busy = true; uf2.last = null; notify();
+    try {
+      if (!('showDirectoryPicker' in window)) throw new Error('this browser cannot open a drive folder (Chrome or Edge needed)');
+      const dir = await window.showDirectoryPicker({ id: 'fox-bench-uf2', mode: 'readwrite' });
+      if (dir.name && b.flash.drive_name && dir.name.toUpperCase() !== b.flash.drive_name && !confirm(`The folder is "${dir.name}", not ${b.flash.drive_name}. Copy the UF2 there anyway?`)) throw new Error('cancelled');
+      const h2 = await dir.getFileHandle(uf2.name, { create: true }); const w = await h2.createWritable(); await w.write(uf2.bytes); await w.close();
+      uf2.last = { ok: true, text: `${uf2.name} copied (${(uf2.bytes.length / 1024).toFixed(0)} kB). The board reboots into the new firmware by itself and the ${b.flash.drive_name} drive disappears.` };
+      app.console.line(`UF2 ${uf2.name} copied to ${dir.name}`, 'ok');
+      fleet.append({ board_number: '', uid: '', board: b.id, action: 'flash', template: '', profile: '', callsign: '', freq: '', power: '', seed: '', result: 'ok', notes: uf2.name + ' (uf2)' });
+    } catch (e) { if (e.name !== 'AbortError' && e.message !== 'cancelled') { uf2.last = { ok: false, text: String(e.message || e) }; app.console.err('UF2 copy failed: ' + uf2.last.text); } }
+    uf2.busy = false; notify(); app.changed('flash');
+  };
+  return h('div.card', {}, h('h3', {}, 'Firmware ', badge('no CircuitPython', 'warn')),
+    h('p.hint', {}, h('b', {}, `This fox board does not run CircuitPython.`), ' ', b.flash.note),
+    h('p.hint', {}, h('b', {}, 'Bootloader: '), b.flash.bootloader_instructions, ' Firmware is a .uf2 file copied onto that drive; the board reboots when the copy finishes. The vendor\'s releases are at ', h('a', { href: b.flash.stock_firmware_url, target: '_blank', rel: 'noopener' }, 'their GitHub'), '.'),
+    h('div.tools', {}, h('button.btn.small', { onclick: () => fileIn.click() }, 'Load .uf2…'), fileIn, h('span.hint', {}, uf2.name ? `${uf2.name} · ${(uf2.bytes.length / 1024).toFixed(0)} kB` : 'nothing loaded'),
+      h('button.btn', { disabled: !uf2.bytes || uf2.busy, onclick: copy }, uf2.busy ? 'Copying…' : `Copy to ${b.flash.drive_name}…`)),
+    uf2.last ? h('p.hint' + (uf2.last.ok ? '.ok' : '.err'), {}, uf2.last.text) : null,
+    h('p.hint', {}, 'There is no "flash CircuitPython" here on purpose; the batch-flashing card on the Fleet tab is for the ESP32 family.'));
 }

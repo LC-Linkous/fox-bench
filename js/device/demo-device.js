@@ -11,7 +11,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 export class DemoDevice extends Device {
   /** opts.board: board descriptor; opts.module: module descriptor whose ranges the fake SA868 accepts */
   constructor(opts = {}) {
-    super(); this.kind = 'demo';
+    super(); this.kind = 'demo'; this.transport = 'memory';
     this.board = opts.board; this.moduleRanges = opts.moduleRanges || [[134, 174]];
     this.fs = new Map();           // path -> Uint8Array
     this.dirs = new Set();

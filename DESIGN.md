@@ -405,26 +405,29 @@ a `dmo`-dialect radio module, files written through the REPL, behaviour
 from `foxlib`. Some foxes are built differently and still belong on the
 bench. A *device family* is the unit that varies:
 
-| | foxlib (today) | drive-configured (planned) |
+| | foxlib | drive |
 |---|---|---|
-| example | XIAO ESP32-C3 + SA868 | RP2040 + SI5351 designs such as the PicoFox |
-| firmware | ours, deployed by the page | the vendor's, left alone |
-| transport | `fs-repl.js` (raw REPL) | `fs-drive.js` (File System Access API on the USB drive) |
-| config contract | `CONFIG.md` → `fox.json` | the vendor's file, e.g. `settings.txt` keys |
-| payload | event stream played by `foxlib/tones.py` | an audio file the page **renders from the same event stream** (Morse ID + song → PCM WAV) |
-| bench | `exec-and-capture` | none (no REPL); timeline and airtime still apply |
+| example | XIAO ESP32-C3 + SA868 | AI6YM PicoFox (RP2040 + SI5351, 2 m FM) |
+| firmware | ours, deployed by the page | the vendor's, left alone (CC BY-NC-SA; not in this repo) |
+| transport | `repl-device.js` (raw REPL) | `drive-device.js` (File System Access API on the USB drive) |
+| config contract | `CONFIG.md` → `fox.json` | the vendor's files, modelled in `js/model/vendor/<id>.js` |
+| payload | event stream played by `foxlib/tones.py` | `audio.wav` the page **renders from the same event stream** (`js/audio/wav.js`), plus its own Morse-ID file |
+| validation | `schema.js` + `cfg.py` (parity-tested) | the vendor module's `validate()`, which knows what makes that firmware fall silent |
+| bench | `exec-and-capture` | none (no REPL); serial boot log on Listen only |
+| flashing | esptool (`flasher/`) | UF2 copy to the bootloader drive |
 
-The board descriptor names its family; the page shows the tabs and
-sections that family has a meaning for. Rendering the audio file is the
-same preview code the Payload tab already runs, written to a buffer
-instead of the speakers.
+`boards/<id>.json` names its `family`, `vendor` and `module_fixed`;
+templates list the `families` they apply to, and the page shows only
+those. The working config keeps the `fox.json` shape for both families
+(so profiles, the fleet log, the ID and payload tabs are shared) with
+family-specific `radio` and `schedule` contents. `docs/picofox-notes.md`
+records what was learnt from the PicoFox's drive and published firmware.
 
 ## 11. Out of scope for v1, kept possible
 
-- `fs-drive.js` for boards that mount `CIRCUITPY` (ESP32-S2/S3, SAMD).
-- UF2 flashing.
+- `drive-device.js` for foxlib boards that mount `CIRCUITPY` (ESP32-S2/S3, SAMD): the transport exists (§10); wiring it to the foxlib deploy does not.
+- UF2 flashing of CircuitPython itself (the UF2 copy exists for vendor firmware).
 - `wifi-beacon` payload (ESP32 Wi-Fi SSID as the fox, 2.4 GHz, no SA868).
-- The drive-configured device family (§10).
 - Other radio module families (`modules/` descriptor + `foxlib` driver).
 - Correlating the bench event log with external instruments; the log
   format is stable for that purpose, nothing else is assumed.

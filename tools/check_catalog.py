@@ -47,16 +47,31 @@ def check_range(req, have, where):
 # ---------------------------------------------------------------- boards
 boards = {}
 board_ids = load("boards/index.json")
+module_ids = load("modules/index.json")
 if sorted(board_ids) != sorted(set(board_ids)): bad("boards/index.json", "duplicate entry")
 for bid in board_ids:
     rel = f"boards/{bid}.json"
     if not exists(rel): bad(rel, "listed in boards/index.json but missing"); continue
     b = boards[bid] = load(rel)
     if b.get("id") != bid: bad(rel, f"id {b.get('id')!r} != filename")
-    for k in ("name", "circuitpython", "flash", "has_usb_drive", "pins", "roles"):
+    fam = b.get("family", "foxlib")
+    if fam not in ("foxlib", "drive"): bad(rel, f"unknown family {fam!r}")
+    for k in ("name", "flash", "has_usb_drive", "pins", "roles"):
         if k not in b: bad(rel, f"missing {k}")
-    for k in ("board_id", "download"):
-        if k not in b.get("circuitpython", {}): bad(rel, f"missing circuitpython.{k}")
+    if fam == "foxlib":
+        if "circuitpython" not in b: bad(rel, "missing circuitpython")
+        for k in ("board_id", "download"):
+            if k not in (b.get("circuitpython") or {}): bad(rel, f"missing circuitpython.{k}")
+    else:
+        for k in ("vendor", "module_fixed", "drive", "notes"):
+            if k not in b: bad(rel, f"drive-family board missing {k}")
+        if b.get("vendor") and not exists(f"js/model/vendor/{b['vendor']}.js"): bad(rel, f"vendor model js/model/vendor/{b['vendor']}.js missing")
+        if b.get("module_fixed") and b["module_fixed"] not in module_ids: bad(rel, f"module_fixed {b['module_fixed']!r} not in modules/index.json")
+        for k in ("label", "files", "note"):
+            if k not in (b.get("drive") or {}): bad(rel, f"missing drive.{k}")
+        if b.get("flash", {}).get("method") == "uf2":
+            for k in ("drive_name", "stock_firmware_url", "note"):
+                if k not in b["flash"]: bad(rel, f"uf2 board missing flash.{k}")
     for k in ("method", "chip", "offset", "bootloader_instructions"):
         if k not in b.get("flash", {}): bad(rel, f"missing flash.{k}")
     names = {}
@@ -68,7 +83,7 @@ for bid in board_ids:
             if a in names and names[a] is not p: bad(rel, f"alias {a} clashes")
             names[a] = p
     roles = b.get("roles", {})
-    for role in fcfg.REQUIRED_PINS + fcfg.OPTIONAL_PINS:
+    for role in (fcfg.REQUIRED_PINS + fcfg.OPTIONAL_PINS if fam == "foxlib" else ()):
         if role not in roles: bad(rel, f"roles.{role} missing (use null if not wired)")
     for role, pin in roles.items():
         if role not in fcfg.REQUIRED_PINS + fcfg.OPTIONAL_PINS: bad(rel, f"roles.{role}: unknown role")
@@ -82,12 +97,12 @@ for bid in board_ids:
     used = [v for v in roles.values() if v]
     if len(used) != len(set(used)): bad(rel, "two roles share a pin")
     b["_names"] = set(names)
+    b["_family"] = fam
 for n in listdir("boards"):
     if n.endswith(".json") and n != "index.json" and n[:-5] not in board_ids: bad(f"boards/{n}", "not listed in boards/index.json")
 
 # ---------------------------------------------------------------- modules
 modules = {}
-module_ids = load("modules/index.json")
 for mid in module_ids:
     rel = f"modules/{mid}.json"
     if not exists(rel): bad(rel, "listed in modules/index.json but missing"); continue
@@ -95,13 +110,17 @@ for mid in module_ids:
     if m.get("id") != mid: bad(rel, f"id {m.get('id')!r} != filename")
     for k in ("name", "family", "ranges_mhz", "power_dbm", "bandwidths_khz", "uart", "model"):
         if k not in m: bad(rel, f"missing {k}")
+    if m.get("fixed_to_board"):
+        if m["fixed_to_board"] not in board_ids: bad(rel, f"fixed_to_board {m['fixed_to_board']!r} unknown")
+        for k in ("audio", "zones"):
+            if k not in m: bad(rel, f"built-in exciter descriptor missing {k}")
     rr = m.get("ranges_mhz", [])
     if not rr or not all(isinstance(x, list) and len(x) == 2 and x[0] < x[1] for x in rr): bad(rel, "ranges_mhz must be [[lo,hi],...] with lo<hi")
     pw = m.get("power_dbm", {})
     if not (isinstance(pw, dict) and "low" in pw and "high" in pw and pw["low"] <= pw["high"]): bad(rel, "power_dbm needs low <= high")
     bw = m.get("bandwidths_khz", [])
     if not bw or not all(1 <= x <= 100 for x in bw): bad(rel, "bandwidths_khz must be within 1–100")
-    if not isinstance(m.get("uart", {}).get("baud"), int): bad(rel, "uart.baud must be an int")
+    if m.get("uart") is not None and not isinstance(m.get("uart", {}).get("baud"), int): bad(rel, "uart.baud must be an int")
 for n in listdir("modules"):
     if n.endswith(".json") and n != "index.json" and n[:-5] not in module_ids: bad(f"modules/{n}", "not listed in modules/index.json")
 
@@ -129,8 +148,13 @@ for tid in fw["templates"]:
     if not exists(rel): bad(rel, "missing"); continue
     t = templates[tid] = load(rel)
     if t.get("id") != tid: bad(rel, f"id {t.get('id')!r} != directory")
-    for k in ("name", "version", "status", "description", "foxlib", "sections", "pins", "files", "payloads", "capabilities", "boards_tested"):
+    for k in ("name", "version", "status", "description", "foxlib", "sections", "pins", "files", "payloads", "capabilities", "boards_tested", "families"):
         if k not in t: bad(rel, f"missing {k}")
+    fams = t.get("families", ["foxlib"])
+    for f in fams:
+        if f not in ("foxlib", "drive"): bad(rel, f"unknown family {f!r}")
+    if "drive" in fams and not t.get("vendor"): bad(rel, "drive-family template needs a vendor")
+    is_fw = "foxlib" in fams
     if not SEMVER.match(str(t.get("version", ""))): bad(rel, f"version not semver: {t.get('version')!r}")
     if t.get("status") not in ("stable", "experimental"): bad(rel, f"status must be stable|experimental, got {t.get('status')!r}")
     check_range(t.get("foxlib", ""), foxlib_version, rel)
@@ -142,7 +166,7 @@ for tid in fw["templates"]:
         if c not in ("keytest", "rssi", "batt"): bad(rel, f"unknown capability {c}")
     for b in t.get("boards_tested", []):
         if b not in boards: bad(rel, f"boards_tested names unknown board {b}")
-    if "code.py" not in t.get("files", []): bad(rel, "files must include code.py")
+    if is_fw and "code.py" not in t.get("files", []): bad(rel, "files must include code.py")
     for f in t.get("files", []):
         if not exists(f"{base}/{f}"): bad(rel, f"file {f} missing")
     code_rel = base + "/code.py"
@@ -150,11 +174,20 @@ for tid in fw["templates"]:
         code = open(os.path.join(ROOT, code_rel), encoding="utf-8").read()
         if f'version="{t.get("version")}"' not in code: bad(code_rel, f'does not carry version="{t.get("version")}"')
         if "import foxlib" not in code and "from foxlib" not in code: bad(code_rel, "does not import foxlib")
-    # defaults: one per board, validating clean through the firmware
+    # defaults: one per board of a family the template supports; foxlib ones validate clean through the firmware
     for bid, b in boards.items():
         drel = f"{base}/defaults/{bid}.json"
-        if not exists(drel): bad(drel, f"missing — every template needs defaults for every board in boards/index.json"); continue
+        if b["_family"] not in fams:
+            if exists(drel): bad(drel, f"defaults for a board of family {b['_family']}, which this template does not list")
+            continue
+        if not exists(drel): bad(drel, f"missing — every template needs defaults for every board of the families it lists"); continue
         d = load(drel)
+        if b["_family"] == "drive":
+            if d.get("template") != tid or d.get("board") != bid or d.get("module") != b.get("module_fixed"): bad(drel, "template/board/module do not match")
+            if d.get("schedule", {}).get("kind") != "duty": bad(drel, "drive-family defaults need schedule.kind = duty")
+            for k in ("itu_zone", "attenuation", "revision", "id_deviation_hz", "audio_deviation_hz"):
+                if k not in d.get("radio", {}): bad(drel, f"radio.{k} missing")
+            continue
         if d.get("schema") != fcfg.SCHEMA: bad(drel, f"schema {d.get('schema')} != firmware SCHEMA {fcfg.SCHEMA}")
         if d.get("template") != tid: bad(drel, f"template {d.get('template')!r} != {tid}")
         if d.get("board") != bid: bad(drel, f"board {d.get('board')!r} != {bid}")

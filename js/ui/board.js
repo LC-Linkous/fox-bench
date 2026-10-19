@@ -14,6 +14,7 @@ export function init(a, el) { app = a; root = el; app.listeners.add(render); onF
 
 function render() {
   const b = app.board, cfg = app.cfg, pins = cfg.pins;
+  if (app.family === 'drive') return renderDrive();
   const probs = Object.fromEntries(app.report.filter(r => r.key.startsWith('pins.')).map(r => [r.key.slice(5), r.reason]));
   for (const i of app.issues) if (i.key.startsWith('pins.')) probs[i.key.slice(5)] = probs[i.key.slice(5)] || i.msg;
   const used = new Map(); for (const r of [...REQUIRED_PINS, ...OPTIONAL_PINS]) if (pins[r]) used.set(pins[r], r);
@@ -41,4 +42,19 @@ function render() {
     h('div.card', {}, h('h3', {}, 'Pin map', app.report.some(r => r.key.startsWith('pins.')) ? badge('check', 'err') : badge('ok', 'ok')),
       h('p.hint', {}, 'Written into fox.json in full. The firmware resolves each name with ', h('code', {}, 'getattr(board, name)'), ' at boot; an invalid required pin makes the fox boot silent rather than key unknown pins.'),
       h('div.grid-wrap', {}, h('table.grid', {}, h('thead', {}, h('tr', {}, h('th', {}, 'Role'), h('th', {}, 'Pin'), h('th', {}, 'Default'), h('th', {}, ''))), h('tbody', {}, rows)))));
+}
+
+/** Drive family: fixed hardware, nothing to wire; the vendor's quirks instead of a pin table. */
+function renderDrive() {
+  const b = app.board, m = app.module;
+  root.replaceChildren(
+    h('div.cols', {},
+      h('div.card', {}, h('h3', {}, 'Board'),
+        field('Board', select(Object.values(app.catalog.boards).map(x => [x.id, x.name]), app.boardId, id => app.setBoard(id)), 'Switching board also switches to a template that board can use.'),
+        h('dl.kv', {}, h('dt', {}, 'Family'), h('dd', {}, 'vendor firmware, configured by files on its USB drive'), h('dt', {}, 'Radio'), h('dd', {}, `${m.name}: ${m.ranges_mhz.map(([a, c]) => `${a}–${c} MHz`).join(', ')}`), h('dt', {}, 'Power'), h('dd', {}, `about ${m.power_dbm.high} dBm, attenuator to ${m.power_dbm.low} dBm (rev 3)`), h('dt', {}, 'Audio'), h('dd', {}, `${m.audio.sample_rate_hz} Hz ${m.audio.bits}-bit mono WAV, up to ±${m.audio.max_deviation_hz / 1000} kHz deviation`), h('dt', {}, 'USB'), h('dd', {}, `drive "${b.drive.label}" + serial (boot messages only)`), h('dt', {}, 'Battery'), h('dd', {}, b.battery?.divider_note || '—')),
+        h('p.hint', {}, 'No pin map: the hardware is fixed and the firmware is the vendor\'s. fox-bench writes the files it reads and nothing else.')),
+      flashCard(app)),
+    h('div.card', {}, h('h3', {}, 'Things this firmware does quietly'),
+      h('ul', {}, (b.notes || []).map(n => h('li', {}, n))),
+      h('p.hint', {}, 'From reading the published firmware; see ', h('code', {}, 'docs/picofox-notes.md'), ' in the repository.')));
 }

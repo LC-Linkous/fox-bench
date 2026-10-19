@@ -21,7 +21,10 @@ export async function loadCatalog() {
     const idx = await get('songs/index.json');
     songLibraries = await Promise.all(idx.libraries.map(async l => ({ ...l, ...(await get(l.file)) })));
   } catch (e) { console.warn('song libraries not loaded', e); }
-  return { boards, modules, bands, templates, foxlibFiles: fw.foxlib, foxlibVersion, songLibraries };
+  // vendor models for drive-configured boards (js/model/vendor/<id>.js), loaded once
+  const vendors = {};
+  for (const b of Object.values(boards)) if (b.vendor && !vendors[b.vendor]) vendors[b.vendor] = await import(new URL(`./vendor/${b.vendor}.js`, import.meta.url));
+  return { boards, modules, bands, templates, foxlibFiles: fw.foxlib, foxlibVersion, songLibraries, vendors };
 }
 
 export const loadDefaults = (templateId, boardId) => get(`firmware/templates/${templateId}/defaults/${boardId}.json`);

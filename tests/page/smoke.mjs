@@ -64,8 +64,8 @@ try {
   console.log('load');
   check((await text('#ver')).startsWith('v'), 'version shown');
   eq(await text('#statusText'), 'Not connected', 'initial status');
-  const templates = await app(() => Object.keys(window.foxbench.catalog.templates));
-  check(templates.length >= 7, `catalog has ${templates.length} templates`);
+  const templates = await app(() => window.foxbench.templatesFor('foxlib').map(t => t.id));
+  check(templates.length >= 7, `catalog has ${templates.length} foxlib templates`);
   for (const t of TABS) await tab(t);                                    // every tab renders disconnected
 
   console.log('demo connect');
@@ -213,6 +213,59 @@ try {
   await tab('connect');
   const [dl3] = await Promise.all([page.waitForEvent('download', { timeout: 10000 }), page.click('#tab-connect button:has-text("Download diagnostics")')]);
   check(/fox-bench-diagnostics-.*\.json/.test(dl3.suggestedFilename()), 'diagnostics downloads as JSON');
+
+  console.log('PicoFox (drive family)');
+  await page.click('#demoBtn'); await settle(300);                       // leave the C3 demo
+  await tab('board');
+  await page.selectOption('#tab-board select', 'picofox'); await settle(400);
+  eq(await app(() => window.foxbench.family), 'drive', 'family switches with the board');
+  eq(await app(() => window.foxbench.templateId), 'picofox', 'template switched to the board\'s only template');
+  eq(await app(() => window.foxbench.cfg.id.callmessage), 'W1ABC FOX DE W1ABC', 'callsign carried across the board switch');
+  check(/does not run CircuitPython/.test(await text('#tab-board')), 'Board tab says no CircuitPython');
+  check(!(await page.$('#tab-board button:has-text("Flash CircuitPython")')), 'no Flash CircuitPython button for the PicoFox');
+  check(/silently dropped/.test(await text('#tab-board')) && /DUTY_CYCLE of 0/.test(await text('#tab-board')), 'firmware quirks listed on the Board tab');
+  check(await page.isHidden('.rail button[data-tab="bench"]'), 'Bench tab hidden');
+  eq(await text('#connectBtn'), 'Open PicoFox', 'Connect button names the drive');
+  await tab('connect');
+  const opts = await page.$$eval('#tab-connect select option', els => els.map(e => e.value));
+  check(opts.length === 1 && opts[0] === 'picofox', 'template dropdown filtered to the board\'s templates (' + opts.join(',') + ')');
+  for (const t of ['radio', 'plan', 'id', 'payload', 'schedule', 'deploy', 'fleet', 'about']) await tab(t);
+  await tab('plan');
+  const fIn = await page.$('#tab-plan input[type=number]'); await fIn.fill('147.99'); await fIn.dispatchEvent('change'); await settle(200);
+  check(/would stay silent/.test(await text('#tab-plan')), 'band-edge rule explained on the Frequency tab');
+  const fIn2 = await page.$('#tab-plan input[type=number]'); await fIn2.fill('146.565'); await fIn2.dispatchEvent('change'); await settle(200);   // the tab re-rendered
+  await tab('id'); await page.fill('#tab-id input[type=text]', 'KY4ZR/3 FOX'); await settle(300);
+  check(/KY4ZR3/.test(await text('#tab-id')), 'ID tab shows the firmware-reduced CALLSIGN');
+  await page.fill('#tab-id input[type=text]', 'KY4ZR FOX DE KY4ZR'); await settle(300);
+  await tab('radio');
+  check(/±5 kHz is standard/.test(await text('#tab-radio')), 'ID deviation defaults to ±5 kHz with the firmware\'s 7 kHz noted');
+  eq(await app(() => window.foxbench.cfg.radio.id_deviation_hz), 5000, 'id deviation default 5000');
+  await tab('schedule');
+  await page.click('#tab-schedule button:has-text("50 %")'); await settle(300);
+  check(/Off/.test(await text('#tab-schedule')) && await page.$('#tab-schedule canvas'), 'duty cycle timeline drawn');
+  await page.click('#demoBtn'); await settle(800);                       // demo drive
+  check(/PicoFox/.test(await text('#statusText')) && /drive/.test(await text('#statusText')), 'demo drive connected: ' + await text('#statusText'));
+  await tab('connect');
+  check(/no callsign — silent/.test(await text('#tab-connect')), 'factory drive shows an empty callsign');
+  await tab('deploy');
+  check(/settings\.txt/.test(await text('#tab-deploy')) && /\.callsign\.wav/.test(await text('#tab-deploy')) && /\.settings_crc\.bin/.test(await text('#tab-deploy')), 'deploy lists the four files');
+  await page.check('#tab-deploy .gate input'); await page.click('#tab-deploy button.btn.primary'); await settle(1500);
+  check(/files written and read back/.test(await text('#tab-deploy')), 'files written to the demo drive');
+  const onDrive = await app(async () => { const d = window.foxbench.device; const l = await d.list(''); const s = await d.readText('settings.txt'); return { names: Object.keys(l).sort(), s, markerOk: window.foxbench.onBoard.markerOk }; });
+  check(onDrive.names.join() === '.callsign.wav,.settings_crc.bin,audio.wav,settings.txt' && /CALLSIGN=KY4ZR\n/.test(onDrive.s) && /DUTY_CYCLE=50\n/.test(onDrive.s) && onDrive.markerOk === true, 'drive holds the four files, settings as configured, marker matching');
+  page.removeAllListeners('dialog'); page.once('dialog', d => d.accept());
+  const [dlp] = await Promise.all([page.waitForEvent('download', { timeout: 10000 }), page.click('#tab-deploy button:has-text("Export files")')]);
+  const pfNames = zipEntries(new Uint8Array(await (await import('node:fs/promises')).readFile(await dlp.path()))).map(e => e.name);
+  check(['settings.txt', 'audio.wav', '.callsign.wav', '.settings_crc.bin', 'README.txt'].every(n => pfNames.includes(n)), 'PicoFox zip has the four files + README');
+  page.on('dialog', d => d.dismiss());
+  const row = await app(() => JSON.parse(localStorage.getItem('fox-bench.fleet') || '[]').filter(r => r.board === 'picofox' && r.action === 'deploy').pop());
+  check(row && row.result === 'written' && /dBm/.test(row.power), 'fleet row for the PicoFox deploy');
+  await page.click('#demoBtn'); await settle(300);
+  await tab('board'); await page.selectOption('#tab-board select', 'seeed_xiao_esp32c3'); await settle(400);
+  eq(await app(() => window.foxbench.family), 'foxlib', 'back to the C3: family foxlib');
+  check(await page.isVisible('.rail button[data-tab="bench"]'), 'Bench tab back');
+  check((await page.$$eval('#tab-connect select option', els => els.length)) >= 7, 'template dropdown back to the foxlib set');
+  await page.click('#demoBtn'); await settle(600);
 
   console.log('theme, disconnect');
   await page.click('#themeBtn'); await settle(100);

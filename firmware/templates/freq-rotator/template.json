@@ -2,6 +2,7 @@
   "id": "freq-rotator",
   "name": "Frequency rotator",
   "version": "1.0.0",
+  "families": ["foxlib"],
   "status": "stable",
   "description": "Morse ID then payload, retuning to the next frequency in the plan after each transmission, optionally announcing the QSY first.",
   "foxlib": ">=1.0.0 <2.0.0",

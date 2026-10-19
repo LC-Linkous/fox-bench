@@ -21,7 +21,7 @@ jobs:
       - name: Stage site (page, descriptors, firmware the page deploys, docs)
         run: |
           mkdir -p _site
-          cp -r index.html css js flasher boards modules songs bands.json firmware DESIGN.md CONFIG.md PROTOCOL.md _site/
+          cp -r index.html css js flasher boards modules songs bands.json firmware docs DESIGN.md CONFIG.md PROTOCOL.md _site/
           rm -rf _site/firmware/sim
           touch _site/.nojekyll   # Jekyll would drop foxlib/__init__.py (leading underscore)
       - uses: actions/configure-pages@v5

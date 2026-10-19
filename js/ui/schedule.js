@@ -21,6 +21,7 @@ const minField = (label, key, hint) => { const s = app.cfg.schedule; return fiel
 const seedField = () => { const s = app.cfg.schedule; return field('Seed', h('div.row', {}, numInput(s.seed, { min: 0, max: 2147483647, step: 1, onchange: v => { s.seed = v; app.changed('schedule'); } }), h('button.btn.small', { onclick: () => { s.seed = Math.floor(Math.random() * 2147483647); app.changed('schedule'); } }, 'random')), 'Same seed, same timeline, on the board and here. Recorded in the fleet log so organisers can reconstruct every transmission time.'); };
 
 function render() {
+  if (app.family === 'drive') return renderDrive();
   const s = app.cfg.schedule, kinds = kindsForTemplate();
   const at = airtime(app.cfg, { images: app.images });
   const txMs = at.typical_ms, horizon = horizonH * 3600000;
@@ -45,3 +46,51 @@ function render() {
   requestAnimationFrame(() => drawTimeline(canvas, items, horizon));
 }
 export function shown() { render(); }
+
+/** Drive family (PicoFox): the firmware's one schedule, a duty cycle, drawn with its carrier offsets and power steps. */
+let driveHorizonMin = 5;
+function renderDrive() {
+  const s = app.cfg.schedule, v = app.vendor, cfg = app.validCfg || app.cfg;
+  if (s.kind !== 'duty') { app.cfg.schedule = { kind: 'duty', duty_percent: 100, pad_ms: 2000 }; app.changed('schedule'); return; }
+  const horizon = driveHorizonMin * 60000, cyc = v.cycle(cfg, horizon);
+  const canvas = h('canvas.preview', { style: 'height:120px' });
+  const onAir = cyc.items.filter(i => i.kind !== 'off').reduce((a, i) => a + i.dur, 0);
+  root.replaceChildren(
+    h('div.cols', {},
+      h('div.card', {}, h('h3', {}, 'Duty cycle'),
+        field('On-air share', h('div.row', {}, numInput(s.duty_percent, { min: 0, max: 100, step: 1, width: '100px', onchange: val => { s.duty_percent = Math.round(val); app.changed('schedule'); } }), h('span.suffix', {}, '%'), [100, 75, 50, 25].map(d => h('button.btn.small', { 'aria-pressed': s.duty_percent === d ? 'true' : 'false', onclick: () => { s.duty_percent = d; app.changed('schedule'); } }, d + ' %'))),
+          'Written as DUTY_CYCLE. Below 100 the fox switches off after each audio + ID pass for (100 − duty) % of the time that pass took. 0 never transmits.'),
+        field('Pause after each song', h('div.row', {}, numInput((s.pad_ms ?? 2000) / 1000, { min: 0, max: 60, step: 0.5, width: '100px', onchange: val => { s.pad_ms = Math.round(val * 1000); app.changed('schedule'); } }), h('span.suffix', {}, 's')), 'Silence inside the audio file: an unmodulated carrier, still on the air. Only the duty-cycle gap is really off.'),
+        h('p.hint', {}, 'No popcorn or resurrection here: the firmware plays its audio file and ID back to back and only knows this one gap.')),
+      h('div.card', {}, h('h3', {}, 'One cycle'),
+        h('dl.kv', {}, h('dt', {}, 'Audio'), h('dd', {}, fmtDuration(cyc.audioMs)), h('dt', {}, 'Morse ID'), h('dd', {}, fmtDuration(cyc.idMs)), h('dt', {}, 'Off'), h('dd', {}, cyc.offMs ? fmtDuration(cyc.offMs) : 'none'), h('dt', {}, 'Period'), h('dd', {}, fmtDuration(cyc.periodMs)), h('dt', {}, 'ID every'), h('dd', {}, fmtDuration(cyc.periodMs))),
+        h('p.hint', {}, 'The audio length sets the cycle, so the playlist length is also how often the fox IDs.'))),
+    h('div.card', {}, h('h3', {}, 'Timeline ', badge(`${cyc.items.filter(i => i.kind === 'id').length} IDs in ${driveHorizonMin} min · ${fmtDuration(onAir)} on air`)),
+      h('div.tools', { style: 'margin-bottom:8px' }, h('span.hint', {}, 'Horizon:'), [2, 5, 10, 30, 60].map(m => h('button.btn.small', { 'aria-pressed': m === driveHorizonMin ? 'true' : 'false', onclick: () => { driveHorizonMin = m; render(); } }, m + ' min'))),
+      h('div.screen', {}, canvas),
+      h('p.hint', {}, 'Blue = audio, yellow = Morse ID, dark = off. Height of each block is the carrier offset the firmware applies to that segment (0, ±1, ±3, ±5 kHz in a fixed order); the number under a cycle is the attenuation it runs at when the power steps (duty below 100 %, rev 3).')));
+  requestAnimationFrame(() => drawCycle(canvas, cyc, horizon));
+}
+
+function drawCycle(canvas, cyc, horizonMs) {
+  const g = canvas.getContext('2d'), dpr = window.devicePixelRatio || 1;
+  const w = canvas.clientWidth || 800, h = canvas.clientHeight || 120;
+  canvas.width = w * dpr; canvas.height = h * dpr; g.scale(dpr, dpr);
+  const css = getComputedStyle(document.documentElement);
+  g.fillStyle = css.getPropertyValue('--screen'); g.fillRect(0, 0, w, h);
+  const x = ms => ms / horizonMs * w, mid = h * 0.5, scale = (h * 0.36) / 5000;
+  g.strokeStyle = css.getPropertyValue('--grid'); g.lineWidth = 1;
+  for (const off of [-5000, -3000, -1000, 0, 1000, 3000, 5000]) { const y = mid - off * scale; g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke(); }
+  g.fillStyle = css.getPropertyValue('--ink-3'); g.font = '10px ' + css.getPropertyValue('--mono');
+  g.fillText('+5k', 2, mid - 5000 * scale - 2); g.fillText('0', 2, mid - 2); g.fillText('−5k', 2, mid + 5000 * scale + 10);
+  const mins = horizonMs / 60000, step = mins <= 5 ? 0.5 : mins <= 10 ? 1 : mins <= 30 ? 5 : 10;
+  for (let m = 0; m <= mins; m += step) { const px = x(m * 60000); g.beginPath(); g.moveTo(px, h - 14); g.lineTo(px, h); g.stroke(); g.fillText(m % 1 ? `${m * 60}s` : `${m}m`, px + 3, h - 3); }
+  let lastAtt = null;
+  for (const it of cyc.items) {
+    if (it.kind === 'off') { g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(x(it.t), 0, Math.max(1, x(it.dur)), h - 14); continue; }
+    const y = mid - it.offsetHz * scale;
+    g.fillStyle = it.kind === 'id' ? css.getPropertyValue('--tone') : css.getPropertyValue('--info');
+    g.fillRect(x(it.t), y - 4, Math.max(1.5, x(it.dur)), 8);
+    if (it.kind === 'audio' && it.attenuation !== lastAtt && cyc.offMs) { g.fillStyle = css.getPropertyValue('--ink-2'); g.fillText(`att ${it.attenuation}`, x(it.t) + 2, h - 18); lastAtt = it.attenuation; }
+  }
+}

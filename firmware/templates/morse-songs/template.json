@@ -2,6 +2,7 @@
   "id": "morse-songs",
   "name": "Morse ID + songs",
   "version": "1.0.0",
+  "families": ["foxlib"],
   "status": "stable",
   "description": "Morse ID, then a playlist of melodies, on a fixed interval. The classic song fox; battery telemetry in the ID if a divider is fitted.",
   "foxlib": ">=1.0.0 <2.0.0",
