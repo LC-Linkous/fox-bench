@@ -8,7 +8,7 @@ import * as flasher from '../../flasher/flasher.js';   // separate component, Ap
 const KEY_N = 'fox-bench.batchNumber';
 export const state = {
   busy: false, phase: '', progress: 0, last: null,          // last: { ok, facts, error, when }
-  erase: true, baud: 460800, version: '', fetching: false, fetchError: '',
+  erase: true, baud: 460800,
   get boardNumber() { return parseInt(localStorage.getItem(KEY_N) || '1', 10) || 1; },
   set boardNumber(n) { try { localStorage.setItem(KEY_N, String(n)); } catch {} },
 };
@@ -82,29 +82,17 @@ export function flashCard(app) {
   if (b.flash.method !== 'esptool') {
     return h('div.card', {}, h('h3', {}, 'Flash CircuitPython'), h('p.hint', {}, `${b.name} is flashed by ${b.flash.method}, which this page does not do yet. `, h('a', { href: b.circuitpython.download, target: '_blank', rel: 'noopener' }, 'CircuitPython downloads for this board'), '.'));
   }
-  if (!state.version) state.version = b.circuitpython.latest_known || '';
   const fileIn = h('input', { type: 'file', accept: '.bin', hidden: true });
   fileIn.addEventListener('change', async () => {
     const f = fileIn.files[0]; if (!f) return;
     flasher.setImage(f.name, new Uint8Array(await f.arrayBuffer()), 'file'); state.fetchError = ''; notify(); app.console.dim(`loaded ${f.name} (${f.size} B)`); fileIn.value = '';
   });
-  const verIn = h('input', { type: 'text', value: state.version, placeholder: '10.2.1', style: 'width:110px', oninput: e => { state.version = e.target.value.trim(); } });
-  const fetchBtn = h('button.btn.small', { disabled: state.fetching, onclick: async () => {
-    const url = flasher.BIN_URL(b.circuitpython.board_id, state.version);
-    state.fetching = true; state.fetchError = ''; notify();
-    try {
-      const r = await fetch(url); if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      flasher.setImage(url.split('/').pop(), new Uint8Array(await r.arrayBuffer()), 'download'); app.console.dim(`downloaded ${url}`);
-    } catch (e) { state.fetchError = `Could not fetch ${url} from the browser (${e.message}). Download it from circuitpython.org and use Load .bin.`; }
-    state.fetching = false; notify();
-  } }, state.fetching ? 'Fetching…' : 'Fetch from circuitpython.org');
   const mism = flasher.image.info && flasher.image.info.boardId !== b.circuitpython.board_id;
   const why = blocker(app);
   return h('div.card', {}, h('h3', {}, 'Flash CircuitPython ', imageBadge()),
     h('p.hint', {}, 'For a bare board, or to reset one to factory CircuitPython. ', h('b', {}, b.flash.bootloader_instructions), ' The board then shows up as a new serial port; pick that one when asked.'),
-    field('Image', h('div.row', {}, h('button.btn.small', { onclick: () => fileIn.click() }, 'Load .bin…'), fileIn, h('span.hint', {}, 'or version'), verIn, fetchBtn),
-      h('span', {}, h('a', { href: b.circuitpython.download, target: '_blank', rel: 'noopener' }, `CircuitPython downloads for ${b.name}`), ' — the .bin, not the .uf2.')),
-    state.fetchError ? h('p.hint.warn', {}, state.fetchError) : null,
+    field('Image', h('div.row', {}, h('button.btn.small', { onclick: () => fileIn.click() }, 'Load .bin…'), fileIn, h('span.hint', {}, flasher.image.bytes ? `${flasher.image.name}${flasher.image.info ? ' · CircuitPython ' + flasher.image.info.version : ''}` : 'nothing loaded')),
+      h('span', {}, 'Get it from ', h('a', { href: b.circuitpython.download, target: '_blank', rel: 'noopener' }, `circuitpython.org › ${b.name}`), ` — the .bin (not the .uf2). ${b.circuitpython.latest_known ? 'Last known good: ' + b.circuitpython.latest_known + '. ' : ''}The download site does not allow a page to fetch it directly, so it is a save-then-load.`)),
     mism ? h('p.hint.err', {}, `This image is for "${flasher.image.info.boardId}", not ${b.circuitpython.board_id}. Flashing it would brick nothing but it will not run right.`) : null,
     h('div.two-col', {},
       check('Erase the whole flash first', state.erase, v => { state.erase = v; notify(); }, 'Also wipes the board\'s files (fox.json, foxlib). What a fleet reset wants; off only for a quick CircuitPython upgrade that keeps the files.'),

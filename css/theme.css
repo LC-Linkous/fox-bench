@@ -19,6 +19,8 @@
   --accent:  #e0a634;   /* fox amber: primary actions, active tab */
   --accent-2:#c48f22;
   --field:   #0f1318;
+  --btn:     #1f2a3a;   /* secondary buttons: slate blue, distinct from panel and text */
+  --btn-2:   #28364a;
   --tx:      #e45a50;   /* keyed / on the air */
   --ok: #43b05c; --warn: #e0a634; --err: #e45a50; --info: #5c8df0;
   --tone:    #f2cf3a;   /* preview trace */
@@ -35,6 +37,8 @@
   --accent:  #b8700a;
   --accent-2:#955a06;
   --field:   #ffffff;
+  --btn:     #e3e9f2;
+  --btn-2:   #d3dce9;
   --tx:      #c2342a;
   --ok: #2f8a3f; --warn: #b8700a; --err: #c2342a; --info: #2f5fc4;
   --tone:    #9c7205;

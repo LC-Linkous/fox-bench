@@ -123,8 +123,8 @@ function render() {
       (() => { const nameIn = h('input', { type: 'text', value: cfg.fleet?.profile || '', placeholder: 'Fox 3 — 146.565 — W1ABC/3', style: 'flex:1;min-width:220px' });
         nameIn.addEventListener('keydown', e => { if (e.key === 'Enter') app.saveProfile(nameIn.value); });
         return h('div.tools', {}, nameIn, h('button.btn', { onclick: () => app.saveProfile(nameIn.value) }, cfg.fleet?.profile ? 'Update profile' : 'Save profile'), cfg.fleet?.profile ? h('span.hint', {}, `current: "${cfg.fleet.profile}"`) : null); })()),
-    h('div.card', {}, h('h3', {}, 'Bare board?'),
-      h('p.hint', {}, 'Deploy needs CircuitPython on the board already. For a factory-fresh board, or to reset one, ', h('b', {}, 'Flash CircuitPython'), ' is on the Board & pins tab; several boards in a row go through Profiles & fleet → Batch flashing.')));
+    h('div.card', {}, h('h3', {}, 'No CircuitPython on the board yet?'),
+      h('p.hint', {}, 'Deploy writes files through CircuitPython, so a factory-fresh board needs it first: ', h('b', {}, 'Board & pins → Flash CircuitPython'), ' (one board), or ', h('b', {}, 'Profiles & fleet → Batch flashing'), ' (several in a row). Then come back here.')));
 }
 
 function resultBox(r) {

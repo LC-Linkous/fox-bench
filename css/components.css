@@ -6,11 +6,12 @@ button { cursor: pointer; }
 button:disabled { cursor: not-allowed; opacity: .45; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-.btn { border: 1px solid var(--edge); background: var(--panel); color: var(--ink); border-radius: var(--radius); padding: 7px 14px; line-height: 1.2; }
-.btn:hover:not(:disabled) { border-color: var(--ink-3); }
+.btn { border: 1px solid color-mix(in srgb, var(--btn) 70%, var(--edge)); background: var(--btn); color: var(--ink); border-radius: var(--radius); padding: 7px 14px; line-height: 1.2; }
+.btn:hover:not(:disabled) { background: var(--btn-2); border-color: var(--ink-3); }
+.btn:disabled { opacity: .55; }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: #111; font-weight: 700; }
 .btn.primary:hover:not(:disabled) { background: var(--accent-2); border-color: var(--accent-2); }
-.btn.danger { border-color: var(--tx); color: var(--tx); }
+.btn.danger { background: color-mix(in srgb, var(--tx) 14%, var(--btn)); border-color: var(--tx); color: var(--tx); }
 .btn.small { padding: 4px 10px; font-size: .88rem; }
 .btn[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 18%, var(--panel)); border-color: var(--accent); font-weight: 700; }
 .btn.running { background: var(--tx); border-color: var(--tx); color: #fff; font-weight: 700; }
