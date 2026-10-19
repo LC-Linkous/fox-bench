@@ -123,8 +123,8 @@ function render() {
       (() => { const nameIn = h('input', { type: 'text', value: cfg.fleet?.profile || '', placeholder: 'Fox 3 — 146.565 — W1ABC/3', style: 'flex:1;min-width:220px' });
         nameIn.addEventListener('keydown', e => { if (e.key === 'Enter') app.saveProfile(nameIn.value); });
         return h('div.tools', {}, nameIn, h('button.btn', { onclick: () => app.saveProfile(nameIn.value) }, cfg.fleet?.profile ? 'Update profile' : 'Save profile'), cfg.fleet?.profile ? h('span.hint', {}, `current: "${cfg.fleet.profile}"`) : null); })()),
-    h('div.card', {}, h('h3', {}, 'Flash CircuitPython ', badge('next milestone', 'warn')),
-      h('p.hint', {}, 'For a factory-fresh board: hold B while plugging in, then erase and write CircuitPython from this page with esptool-js. Until that lands, use ', h('a', { href: app.board.circuitpython.download, target: '_blank', rel: 'noopener' }, 'the CircuitPython .bin for this board'), ' with Adafruit\'s WebSerial ESPTool or ', h('code', {}, 'tools/batch_flash.py'), '.')));
+    h('div.card', {}, h('h3', {}, 'Bare board?'),
+      h('p.hint', {}, 'Deploy needs CircuitPython on the board already. For a factory-fresh board, or to reset one, ', h('b', {}, 'Flash CircuitPython'), ' is on the Board & pins tab; several boards in a row go through Profiles & fleet → Batch flashing.')));
 }
 
 function resultBox(r) {

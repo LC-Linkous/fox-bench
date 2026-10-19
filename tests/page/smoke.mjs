@@ -101,7 +101,7 @@ try {
     check(m && m[4] === 'ok', `${id}: radio=ok`);
     check(m && m[5] === 'set', `${id}: id=set`);
   }
-  const rows = await app(() => JSON.parse(localStorage.getItem('fox-bench.fleet') || '[]').length);
+  const rows = await app(() => JSON.parse(localStorage.getItem('fox-bench.fleet') || '[]').filter(r => r.action === 'deploy').length);
   eq(rows, templates.length, 'fleet log has one row per deploy');
 
   console.log('bench');
@@ -113,6 +113,30 @@ try {
   await tab('radio');
   await page.click('#tab-radio button:has-text("Probe")'); await settle(500);
   check(/146\.5 MHz accepted/.test(await text('#tab-radio')), 'probe reports the VHF band');
+
+  console.log('flash CircuitPython (demo esptool)');
+  const lib = await app(async () => { try { const m = await import(new URL('flasher/vendor/esptool-js/bundle.js', location.href).href); return Object.keys(m).filter(k => /^(ESPLoader|Transport)$/.test(k)); } catch (e) { return 'ERR ' + e.message; } });
+  check(Array.isArray(lib) && lib.length === 2, 'vendored esptool-js bundle is served and exports ESPLoader/Transport (' + JSON.stringify(lib) + ')');
+  await tab('board');
+  check(await page.isDisabled('#tab-board button:has-text("Flash CircuitPython")'), 'flash disabled until an image is loaded');
+  const fakeBin = Buffer.alloc(80000); for (let i = 0; i < fakeBin.length; i++) fakeBin[i] = (i * 7) & 0xff;
+  await page.setInputFiles('#tab-board input[type=file][accept=".bin"]', { name: 'adafruit-circuitpython-raspberry_pi_pico-en_US-10.2.1.bin', mimeType: 'application/octet-stream', buffer: fakeBin }); await settle(300);
+  check(/not seeed_xiao_esp32c3/.test(await text('#tab-board')), 'image for another board is flagged');
+  await page.setInputFiles('#tab-board input[type=file][accept=".bin"]', { name: 'adafruit-circuitpython-seeed_xiao_esp32c3-en_US-10.2.1.bin', mimeType: 'application/octet-stream', buffer: fakeBin }); await settle(300);
+  check(!(await page.isDisabled('#tab-board button:has-text("Flash CircuitPython")')), 'flash enabled with the right image in demo mode');
+  await page.click('#tab-board button:has-text("Flash CircuitPython")'); await settle(400);
+  check(await page.$('#tab-board progress'), 'progress bar shown while flashing');
+  await settle(2500);
+  check(/Flashed in .* ESP32-C3.*MAC 84:f7:03:12:34:56/.test(await text('#tab-board')), 'demo flash reports chip and MAC');
+  let flashRows = await app(() => JSON.parse(localStorage.getItem('fox-bench.fleet') || '[]').filter(r => r.action === 'flash'));
+  check(flashRows.length === 1 && flashRows[0].uid === '84f703123456' && /10\.2\.1\.bin/.test(flashRows[0].notes) && flashRows[0].result === 'ok', 'fleet row for the flash keyed on the MAC');
+  await tab('fleet');
+  check(/Flash board #1/.test(await text('#tab-fleet')), 'batch card starts at board #1');
+  await page.click('#tab-fleet button:has-text("Flash board #1")'); await settle(3000);
+  check(/Flash board #2/.test(await text('#tab-fleet')), 'batch number advances after a flash');
+  flashRows = await app(() => JSON.parse(localStorage.getItem('fox-bench.fleet') || '[]').filter(r => r.action === 'flash'));
+  check(flashRows.length === 2 && String(flashRows[1].board_number) === '1', 'batch row carries the board number');
+  check(/flash/.test(await text('#tab-fleet table')), 'fleet table shows the flash rows');
 
   console.log('payload: library, SSTV, spectrum');
   await tab('connect'); await page.selectOption('#tab-connect select', 'morse-songs'); await settle(300);

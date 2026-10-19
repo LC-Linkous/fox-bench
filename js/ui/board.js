@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 import { h, badge, field, select } from './dom.js';
 import { REQUIRED_PINS, OPTIONAL_PINS, PIN_FLAGS, findPin } from '../model/schema.js';
+import { flashCard, onChange as onFlashChange } from './flash.js';
 
 const ROLE_HELP = {
   ptt: 'Push-to-talk. Low = transmit.', pd: 'Power-down. Held high keeps the module awake.', hl: 'High/low power select. Low = low power (default).',
@@ -9,7 +10,7 @@ const ROLE_HELP = {
   led: 'Status LED, one blink per cycle. Optional.', batt_sense: 'ADC pin on a battery divider. Leave unset if no divider is fitted — a floating pin reads garbage.',
 };
 let app, root;
-export function init(a, el) { app = a; root = el; app.listeners.add(render); render(); }
+export function init(a, el) { app = a; root = el; app.listeners.add(render); onFlashChange(render); render(); }
 
 function render() {
   const b = app.board, cfg = app.cfg, pins = cfg.pins;
@@ -36,7 +37,7 @@ function render() {
       h('div.card', {}, h('h3', {}, 'Board'),
         field('Microcontroller board', select(Object.values(app.catalog.boards).map(x => [x.id, x.name]), app.boardId, id => app.setBoard(id)), 'Changing the board resets the pin map to that board\'s defaults.'),
         h('dl.kv', {}, h('dt', {}, 'CircuitPython id'), h('dd', {}, b.circuitpython.board_id), h('dt', {}, 'Flash'), h('dd', {}, `${b.flash.method} · ${b.flash.chip} @ ${b.flash.offset}`), h('dt', {}, 'USB drive'), h('dd', {}, b.has_usb_drive ? 'yes (CIRCUITPY)' : 'none — files go through the REPL'), h('dt', {}, 'Battery'), h('dd', {}, b.battery?.divider_note || '—'))),
-      h('div.card', {}, h('h3', {}, 'Bootloader'), h('p', {}, b.flash.bootloader_instructions), h('p.hint', {}, 'Only needed to put CircuitPython itself on a bare board. That step is not in this page yet: use ', h('a', { href: b.circuitpython.download, target: '_blank', rel: 'noopener' }, 'the .bin for this board'), ' with Adafruit\'s WebSerial ESPTool (Chrome) or ', h('code', {}, 'tools/batch_flash.py'), ', then come back here. Holding B also stops a fox from transmitting while it charges: nothing runs in bootloader mode.'))),
+      flashCard(app)),
     h('div.card', {}, h('h3', {}, 'Pin map', app.report.some(r => r.key.startsWith('pins.')) ? badge('check', 'err') : badge('ok', 'ok')),
       h('p.hint', {}, 'Written into fox.json in full. The firmware resolves each name with ', h('code', {}, 'getattr(board, name)'), ' at boot; an invalid required pin makes the fox boot silent rather than key unknown pins.'),
       h('div.grid-wrap', {}, h('table.grid', {}, h('thead', {}, h('tr', {}, h('th', {}, 'Role'), h('th', {}, 'Pin'), h('th', {}, 'Default'), h('th', {}, ''))), h('tbody', {}, rows)))));

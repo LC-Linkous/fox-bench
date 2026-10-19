@@ -9,10 +9,10 @@ to install.
 **Use it:** https://lc-linkous.github.io/fox-bench/ — *Try without
 hardware* runs the whole page against a simulated board.
 
-Status: **v0.2 — running on hardware.** The first XIAO ESP32-C3 + SA868
-foxes have been deployed from the page and heard on the air (morse-songs);
-the other templates are verified in the simulator and awaiting their turn
-on the bench. Every push runs three test layers in CI: the firmware
+Status: **v0.4 — running on hardware.** All seven templates have been
+deployed from the page to a XIAO ESP32-C3 + SA868 and run on both 2 m and
+70 cm (`tools/hw_smoke.py` reports); CircuitPython itself can be flashed
+onto a bare board from the Board tab, one at a time or as a batch. Every push runs three test layers in CI: the firmware
 simulator (`firmware/sim/`), the REPL protocol against a fake board and
 the page itself in headless Chromium (`tests/`), and a lint of every
 descriptor (`tools/check_catalog.py`). See `tests/README.md`.
@@ -31,6 +31,7 @@ descriptor (`tools/check_catalog.py`). See `tests/README.md`.
 | `tests/` | page smoke test (Playwright) and REPL protocol tests (fake board) |
 | `tools/check_catalog.py` | lint for every descriptor, defaults file and index; runs in CI |
 | `tools/hw_smoke.py` | bench script: every template on a real board, banner + bench + memory, JSON report |
+| `flasher/` | CircuitPython flashing component (esptool-js bundled; Apache-2.0, licensed separately) |
 | `tools/batch_flash.py` | headless CircuitPython batch flasher, same CSV as the Fleet tab |
 | `docs/first-hardware-session.md` | checklist for a new board, module or CircuitPython build |
 
@@ -47,4 +48,6 @@ Tests: `python3 firmware/sim/run.py` · `python3 tools/check_catalog.py` ·
 ## Licensing
 
 GPL-2.0 for the page, tools and docs (`LICENSE`). GPL-3.0-or-later for
-everything under `firmware/` (`firmware/LICENSE`). See DESIGN.md §9.
+everything under `firmware/` (`firmware/LICENSE`). Apache-2.0 for the
+flasher component under `flasher/` (`flasher/LICENSE`, `flasher/NOTICE`),
+which bundles Espressif's esptool-js. See DESIGN.md §9.

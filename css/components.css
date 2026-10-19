@@ -85,3 +85,9 @@ pre.out .ok { color: var(--ok); } pre.out .err { color: var(--err); } pre.out .w
 ol.steps { padding-left: 1.3em; } ol.steps li { margin: 4px 0; }
 .gate { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--warn); border-radius: var(--radius); background: color-mix(in srgb, var(--warn) 8%, transparent); margin: 10px 0; }
 .gate input { accent-color: var(--warn); margin-top: 4px; }
+
+/* flashing progress */
+progress { appearance: none; height: 10px; width: 100%; border: 1px solid var(--edge); border-radius: 5px; background: var(--screen); overflow: hidden; }
+progress::-webkit-progress-bar { background: transparent; }
+progress::-webkit-progress-value { background: var(--accent); }
+progress::-moz-progress-bar { background: var(--accent); }

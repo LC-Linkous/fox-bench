@@ -73,7 +73,7 @@ js/
     filetarget.js          FileTarget interface (list/read/write/delete/mkdir)
     fs-repl.js             FileTarget over the REPL (boards with no USB drive)
     fs-drive.js            FileTarget over File System Access API (CIRCUITPY) — stub in v1
-    flasher.js             esptool-js wrapper; chip from the board descriptor
+    (flasher lives in /flasher — separate Apache-2.0 component, §9)
   model/
     schema.js              fox.json: defaults merge, validation, migrations
     boards.js  modules.js  bands.js  templates.js   loaders for the descriptors
@@ -137,10 +137,18 @@ filesystem is read-only; it is a declared interface with a stub in v1 so
 nothing above it assumes the REPL path. The board descriptor's
 `has_usb_drive` selects the implementation.
 
-**`Flasher`** — esptool-js. Erase, write CircuitPython at the offset
-the board descriptor gives, read chip info (type, revision, features,
-MAC) into the fleet log. Boards with UF2 bootloaders get a different
-implementation later; the interface is the same.
+**`Flasher`** (`flasher/flasher.js`, its own Apache-2.0 component, §9) —
+esptool-js vendored in `flasher/vendor/`, loaded the first time a flash
+is requested, with the same version on jsDelivr as a fallback. Works
+offline.
+Erase, write CircuitPython at the offset the board descriptor gives
+(MD5-verified, `flasher/md5.js`), hard-reset, and read chip facts (type,
+revision, features, crystal, MAC, flash size) into the fleet log. On
+ESP32 the MAC is also `microcontroller.cpu.uid`, so flash rows and deploy
+rows for one board share the `uid` key. "Try without hardware" swaps in a
+simulated esptool so the whole flow runs in the page tests. Boards with
+UF2 bootloaders get a different implementation later; the interface is
+the same.
 
 ## 4. Descriptors
 
@@ -346,9 +354,9 @@ FOX template=composite/0.3.0 … cfg=partial(radio.freq_mhz,pins.ptt) radio=err(
 | **Plan** | Frequencies: one, or a rotating list with the `QSY` option. Each entry validated against module ∩ band. |
 | **Payload** | Depends on template. Songs: built-ins, RTTTL paste, note editor, playlist order. SSTV: drop a PNG or type a card → 40×240 grayscale → decoded preview on canvas. QRSS: dit length, waterfall preview. **Preview** plays the full transmission (ID then payload) through Web Audio from the same event stream the fox will use. |
 | **Schedule** | Fixed / popcorn / resurrection parameters. **Timeline**: the LCG run from the seed, drawn across the day, so an organizer sees every cluster and phase change in advance. |
-| **Deploy** | Diff between board and form; airtime per transmission vs `limits`; "antenna or dummy load attached?" gate; writes `fox.json`, payloads, and any out-of-date firmware files; reboots; parses the banner; pass/fail. **Flash CircuitPython** for a bare board. |
+| **Deploy** | Diff between board and form; airtime per transmission vs `limits`; "antenna or dummy load attached?" gate; writes `fox.json`, payloads, and any out-of-date firmware files (size + CRC32 verified); reboots; parses the banner; pass/fail. Export the same set as a zip. |
 | **Bench** | Capability-gated: **Key test** (key for N seconds, confirm `radio=ok`), **RSSI** (module receiver on the fox frequency), **Battery** (live voltage when `batt_sense` is set). Every action is appended to a timestamped event log that any external test procedure can line up against. |
-| **Fleet** | Profiles (save/load/export a config set) and the fleet log: board UID, MAC, chip info, which profile went on when. Batch mode: plug → click → flash → next, same CSV columns as `tools/batch_flash.py`. |
+| **Fleet** | Profiles (save/load/export a config set) and the fleet log: board UID, MAC, chip info, which profile went on when. Batch flashing: plug → click → erase → flash CircuitPython → log → next, same CSV columns as `tools/batch_flash.py`. (The single-board **Flash CircuitPython** card, with the image source and options, is on the Board tab next to the bootloader instructions.) |
 | **Console** | Raw exchange, history, log download. |
 
 Bench actions run through `exec-and-capture` after the fox is interrupted.
@@ -374,6 +382,12 @@ identical event streams for a fixed corpus.
 
 - Repository root: **GPL-2.0** — the page (`js/`, `css/`, `index.html`),
   `tools/`, docs, descriptors.
+- `flasher/`: **Apache-2.0** (`flasher/LICENSE`, `flasher/NOTICE`). A
+  separate component that bundles Espressif's esptool-js (Apache-2.0,
+  which cannot ship inside a GPL-2.0-only tree). The page imports it as
+  an ES module across that boundary; it depends on nothing outside its
+  directory. Treated as its own entity for now; the split may be
+  revisited when licensing is streamlined.
 - `firmware/`: **GPL-3.0-or-later** (`firmware/LICENSE`). The template
   runners descend from earlier GPL-3.0 fox firmware and keep their
   lineage notices. Independent modules (`morse.py`, `sstv.py`,
