@@ -26,7 +26,7 @@ function imageBadge() {
 export function blocker(app) {
   if (state.busy) return 'flashing…';
   if (!flasher.image.bytes) return 'load a CircuitPython .bin first';
-  if (app.device && app.device.kind !== 'demo') return 'disconnect from the board first (Connect tab) — the flasher opens the port itself';
+  if (app.device && app.device.kind !== 'demo') return 'disconnect from the board first (top bar) — the flasher opens the port itself';
   if (!app.device && !('serial' in navigator)) return 'Web Serial is not available in this browser';
   return '';
 }

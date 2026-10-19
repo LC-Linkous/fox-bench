@@ -39,9 +39,9 @@
 
 <div class="app">
   <nav class="rail" id="rail" aria-label="Tabs">
-    <button data-tab="connect" aria-selected="true"><span class="n">1</span>Connect<span class="flag"></span></button>
-    <button data-tab="board"><span class="n">2</span>Board &amp; pins<span class="flag"></span></button>
-    <button data-tab="radio"><span class="n">3</span>Radio<span class="flag"></span></button>
+    <button data-tab="board" aria-selected="true"><span class="n">1</span>Board<span class="flag"></span></button>
+    <button data-tab="radio"><span class="n">2</span>Radio &amp; pins<span class="flag"></span></button>
+    <button data-tab="behavior"><span class="n">3</span>Behavior<span class="flag"></span></button>
     <button data-tab="plan"><span class="n">4</span>Frequency plan<span class="flag"></span></button>
     <button data-tab="id"><span class="n">5</span>Callsign &amp; ID<span class="flag"></span></button>
     <button data-tab="payload"><span class="n">6</span>Payload<span class="flag"></span></button>
@@ -55,9 +55,9 @@
   </nav>
 
   <main class="main">
-    <section class="panel active" id="tab-connect"><h2>Connect</h2><p class="lede">Plug the fox in over USB-C and connect, or use the simulated board. Then pick a firmware template.</p><div class="body"></div></section>
-    <section class="panel" id="tab-board"><h2>Board &amp; pins</h2><p class="lede">Which microcontroller, and which pin does each job. Defaults come from the board; change them if your carrier PCB is wired differently.</p><div class="body"></div></section>
-    <section class="panel" id="tab-radio"><h2>Radio</h2><p class="lede">The radio module fitted next to the microcontroller, and its settings. If you don't know which band the module is, <b>Probe</b> will ask it.</p><div class="body"></div></section>
+    <section class="panel active" id="tab-board"><h2>Board</h2><p class="lede">Which fox is on the bench, connect to it over USB (or use the simulated one), and put CircuitPython on a bare one.</p><div class="body"></div></section>
+    <section class="panel" id="tab-radio"><h2>Radio &amp; pins</h2><p class="lede">The radio module, its settings, and how it is wired to the board. If you don't know which band the module is, <b>Probe</b> will ask it.</p><div class="body"></div></section>
+    <section class="panel" id="tab-behavior"><h2>Behavior</h2><p class="lede">What the fox does: the firmware template. It decides which payloads and schedules the next tabs offer.</p><div class="body"></div></section>
     <section class="panel" id="tab-plan"><h2>Frequency plan</h2><p class="lede">One frequency, or a list the fox rotates through. Each entry is checked against the module's range and the amateur band plan.</p><div class="body"></div></section>
     <section class="panel" id="tab-id"><h2>Callsign &amp; ID</h2><p class="lede">What the fox sends in Morse every cycle. Identifying with a licensed callsign is required; a fox with the placeholder stays silent.</p><div class="body"></div></section>
     <section class="panel" id="tab-payload"><h2>Payload</h2><p class="lede">What follows the ID. Preview plays the whole transmission from the same event stream the fox will use.</p><div class="body"></div></section>

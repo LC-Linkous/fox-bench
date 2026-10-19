@@ -14,7 +14,7 @@ import { serve } from './serve.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const SHOTS = process.env.SHOTS; if (SHOTS) mkdirSync(SHOTS, { recursive: true });
-const TABS = ['connect', 'board', 'radio', 'plan', 'id', 'payload', 'schedule', 'deploy', 'bench', 'fleet', 'about'];
+const TABS = ['board', 'radio', 'behavior', 'plan', 'id', 'payload', 'schedule', 'deploy', 'bench', 'fleet', 'about'];
 
 let failures = 0;
 const check = (cond, msg) => { if (cond) console.log('  ok   ' + msg); else { failures++; console.log('  FAIL ' + msg); } };
@@ -88,8 +88,8 @@ try {
 
   console.log('every template deploys on the demo board');
   for (const id of templates) {
-    await tab('connect');
-    await page.selectOption('#tab-connect select', id); await settle(300);
+    await tab('behavior');
+    await page.selectOption('#tab-behavior select', id); await settle(300);
     for (const t of TABS) await tab(t);
     await tab('deploy');
     await page.check('#tab-deploy .gate input');
@@ -139,14 +139,14 @@ try {
   check(/flash/.test(await text('#tab-fleet table')), 'fleet table shows the flash rows');
 
   console.log('payload: library, SSTV, spectrum');
-  await tab('connect'); await page.selectOption('#tab-connect select', 'morse-songs'); await settle(300);
+  await tab('behavior'); await page.selectOption('#tab-behavior select', 'morse-songs'); await settle(300);
   await tab('payload');
   const before = await app(() => window.foxbench.cfg.payload.playlist.length);
   await page.fill('#tab-payload input[placeholder="filter…"]', 'yank'); await settle(200);
   await page.click('#tab-payload ul.list li button:has-text("+ add")'); await settle(200);
   eq(await app(() => window.foxbench.cfg.payload.playlist.length), before + 1, 'library song added to the playlist');
   check(await page.$('#tab-payload canvas'), 'trace canvas drawn');
-  await tab('connect'); await page.selectOption('#tab-connect select', 'composite'); await settle(300);
+  await tab('behavior'); await page.selectOption('#tab-behavior select', 'composite'); await settle(300);
   await tab('payload'); await page.selectOption('#tab-payload select', 'sstv'); await settle(600);
   check((await page.$$('#tab-payload canvas')).length >= 2, 'SSTV preview draws decode canvases');
   const xs = await page.$$('#tab-payload button[title="remove"]');
@@ -156,7 +156,7 @@ try {
   check(await page.$('#tab-schedule canvas'), 'schedule timeline drawn');
 
   console.log('out-of-band override');
-  await tab('connect'); await page.selectOption('#tab-connect select', 'morse-songs'); await settle(300);
+  await tab('behavior'); await page.selectOption('#tab-behavior select', 'morse-songs'); await settle(300);
   await tab('plan');
   await page.click('#tab-plan button.btn.small:has-text("+ Add frequency")'); await settle(150);
   const inputs = await page.$$('#tab-plan .list input[type=number]');
@@ -186,7 +186,7 @@ try {
   try { const sim = await bootInSimulator(entries, 'morse-songs export'); check(/deploy set boots/.test(sim), 'exported set boots in the simulator: ' + (sim.match(/banner: (.*)/)?.[1] || '').slice(0, 90)); check(/keyed [1-9]/.test(sim), 'exported set keys the transmitter'); }
   catch (e) { check(false, e.message.split('\n').slice(0, 6).join(' | ')); }
   // an SSTV export carries the images file and boots too
-  await tab('connect'); await page.selectOption('#tab-connect select', 'morse-sstv'); await settle(300);
+  await tab('behavior'); await page.selectOption('#tab-behavior select', 'morse-sstv'); await settle(300);
   await tab('payload'); await page.click('#tab-payload button:has-text("Add test card")'); await settle(400);
   await tab('deploy'); page.removeAllListeners('dialog'); page.once('dialog', d => d.accept());
   const [dl2] = await Promise.all([page.waitForEvent('download', { timeout: 10000 }), page.click('#tab-deploy button:has-text("Export deploy set")')]);
@@ -194,7 +194,7 @@ try {
   check(entries2.some(e => e.name === 'images.bin' && e.data.length > 100), 'SSTV export contains images.bin');
   try { const sim = await bootInSimulator(entries2, 'morse-sstv export'); check(/deploy set boots/.test(sim), 'SSTV export boots in the simulator'); }
   catch (e) { check(false, e.message.split('\n').slice(0, 6).join(' | ')); }
-  await tab('connect'); await page.selectOption('#tab-connect select', 'morse-songs'); await settle(300); await tab('deploy');
+  await tab('behavior'); await page.selectOption('#tab-behavior select', 'morse-songs'); await settle(300); await tab('deploy');
   page.on('dialog', d => d.dismiss());
 
   console.log('profiles');
@@ -210,8 +210,8 @@ try {
   check(diag.page.version && diag.catalog.foxlib && diag.cfg && diag.device?.kind === 'demo', 'diagnostics carries page, catalog, cfg, device');
   check(diag.lastDeploy && diag.lastDeploy.banner && diag.bench.length >= 2 && diag.console.length > 10, 'diagnostics carries last deploy, bench events, console');
   check(JSON.stringify(diag).length < 2_000_000, 'diagnostics is a reasonable size');
-  await tab('connect');
-  const [dl3] = await Promise.all([page.waitForEvent('download', { timeout: 10000 }), page.click('#tab-connect button:has-text("Download diagnostics")')]);
+  await tab('board');
+  const [dl3] = await Promise.all([page.waitForEvent('download', { timeout: 10000 }), page.click('#tab-board button:has-text("Download diagnostics")')]);
   check(/fox-bench-diagnostics-.*\.json/.test(dl3.suggestedFilename()), 'diagnostics downloads as JSON');
 
   console.log('PicoFox (drive family)');
@@ -226,10 +226,10 @@ try {
   check(/silently dropped/.test(await text('#tab-board')) && /DUTY_CYCLE of 0/.test(await text('#tab-board')), 'firmware quirks listed on the Board tab');
   check(await page.isHidden('.rail button[data-tab="bench"]'), 'Bench tab hidden');
   eq(await text('#connectBtn'), 'Open PicoFox', 'Connect button names the drive');
-  await tab('connect');
-  const opts = await page.$$eval('#tab-connect select option', els => els.map(e => e.value));
+  await tab('behavior');
+  const opts = await page.$$eval('#tab-behavior select option', els => els.map(e => e.value));
   check(opts.length === 1 && opts[0] === 'picofox', 'template dropdown filtered to the board\'s templates (' + opts.join(',') + ')');
-  for (const t of ['radio', 'plan', 'id', 'payload', 'schedule', 'deploy', 'fleet', 'about']) await tab(t);
+  for (const t of ['radio', 'behavior', 'plan', 'id', 'payload', 'schedule', 'deploy', 'fleet', 'about']) await tab(t);
   await tab('plan');
   const fIn = await page.$('#tab-plan input[type=number]'); await fIn.fill('147.99'); await fIn.dispatchEvent('change'); await settle(200);
   check(/would stay silent/.test(await text('#tab-plan')), 'band-edge rule explained on the Frequency tab');
@@ -245,8 +245,8 @@ try {
   check(/Off/.test(await text('#tab-schedule')) && await page.$('#tab-schedule canvas'), 'duty cycle timeline drawn');
   await page.click('#demoBtn'); await settle(800);                       // demo drive
   check(/PicoFox/.test(await text('#statusText')) && /drive/.test(await text('#statusText')), 'demo drive connected: ' + await text('#statusText'));
-  await tab('connect');
-  check(/no callsign — silent/.test(await text('#tab-connect')), 'factory drive shows an empty callsign');
+  await tab('board');
+  check(/no callsign — silent/.test(await text('#tab-board')), 'factory drive shows an empty callsign');
   await tab('deploy');
   check(/settings\.txt/.test(await text('#tab-deploy')) && /\.callsign\.wav/.test(await text('#tab-deploy')) && /\.settings_crc\.bin/.test(await text('#tab-deploy')), 'deploy lists the four files');
   await page.check('#tab-deploy .gate input'); await page.click('#tab-deploy button.btn.primary'); await settle(1500);
@@ -264,7 +264,8 @@ try {
   await tab('board'); await page.selectOption('#tab-board select', 'seeed_xiao_esp32c3'); await settle(400);
   eq(await app(() => window.foxbench.family), 'foxlib', 'back to the C3: family foxlib');
   check(await page.isVisible('.rail button[data-tab="bench"]'), 'Bench tab back');
-  check((await page.$$eval('#tab-connect select option', els => els.length)) >= 7, 'template dropdown back to the foxlib set');
+  await tab('behavior');
+  check((await page.$$eval('#tab-behavior select option', els => els.length)) >= 7, 'template dropdown back to the foxlib set');
   await page.click('#demoBtn'); await settle(600);
 
   console.log('theme, disconnect');

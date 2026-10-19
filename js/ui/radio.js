@@ -1,6 +1,37 @@
 // radio.js — Radio tab: module, Probe, power, bandwidth, squelch/volume.
 // SPDX-License-Identifier: GPL-2.0-only
 import { h, badge, field, select, numInput, check } from './dom.js';
+import { REQUIRED_PINS, OPTIONAL_PINS, PIN_FLAGS } from '../model/schema.js';
+
+const ROLE_HELP = {
+  ptt: 'Push-to-talk. Low = transmit.', pd: 'Power-down. Held high keeps the module awake.', hl: 'High/low power select. Low = low power (default).',
+  uart_tx: 'Serial to the module (AT commands).', uart_rx: 'Serial from the module.', audio: 'PWM tone into the module\'s MIC input.',
+  led: 'Status LED, one blink per cycle. Optional.', batt_sense: 'ADC pin on a battery divider. Leave unset if no divider is fitted — a floating pin reads garbage.',
+};
+
+/** Role → pin table for the foxlib family: how the module is wired to the board. */
+function pinCard() {
+  const b = app.board, cfg = app.cfg, pins = cfg.pins;
+  const probs = Object.fromEntries(app.report.filter(r => r.key.startsWith('pins.')).map(r => [r.key.slice(5), r.reason]));
+  for (const i of app.issues) if (i.key.startsWith('pins.')) probs[i.key.slice(5)] = probs[i.key.slice(5)] || i.msg;
+  const used = new Map(); for (const r of [...REQUIRED_PINS, ...OPTIONAL_PINS]) if (pins[r]) used.set(pins[r], r);
+  const required = new Set(app.template.pins.required);
+  const rows = [...REQUIRED_PINS, ...OPTIONAL_PINS].map(role => {
+    const flag = PIN_FLAGS[role];
+    const opts = [['', '— none —'], ...b.pins.filter(p => !flag || p[flag]).map(p => [p.name, `${p.name}  (GPIO${p.gpio}${p.aliases?.length ? ', ' + p.aliases.join('/') : ''})${used.has(p.name) && used.get(p.name) !== role ? '  · used by ' + used.get(p.name) : ''}${p.note ? '  · ' + p.note : ''}`])];
+    const sel = select(opts, pins[role] || '', v => { cfg.pins[role] = v || null; app.changed('pins'); });
+    if (required.has(role)) sel.querySelector('option[value=""]').disabled = true;
+    const def = app.defaults.pins[role];
+    return h('tr', { class: probs[role] ? 'bad' : '' },
+      h('td.mono', {}, role, required.has(role) ? '' : h('span.hint', {}, ' optional')),
+      h('td', {}, sel),
+      h('td.mono', {}, def || '—', def !== (pins[role] || null) ? h('button.btn.small', { style: 'margin-left:8px', onclick: () => { cfg.pins[role] = def; app.changed('pins'); } }, 'reset') : null),
+      h('td', {}, probs[role] ? h('span.hint.err', {}, probs[role]) : h('span.hint', {}, ROLE_HELP[role])));
+  });
+  return h('div.card', {}, h('h3', {}, `Wiring: ${b.name} → module `, app.report.some(r => r.key.startsWith('pins.')) ? badge('check', 'err') : badge('ok', 'ok')),
+    h('p.hint', {}, 'Defaults come from the board descriptor; change them if your carrier PCB is wired differently. Written into fox.json in full. The firmware resolves each name with ', h('code', {}, 'getattr(board, name)'), ' at boot; an invalid required pin makes the fox boot silent rather than key unknown pins.'),
+    h('div.grid-wrap', {}, h('table.grid', {}, h('thead', {}, h('tr', {}, h('th', {}, 'Role'), h('th', {}, 'Pin'), h('th', {}, 'Default'), h('th', {}, ''))), h('tbody', {}, rows))));
+}
 
 let app, root, probeOut = null;
 export function init(a, el) { app = a; root = el; app.listeners.add(render); render(); }
@@ -45,6 +76,7 @@ function render() {
           field('Squelch (0–8)', numInput(r.squelch, { min: 0, max: 8, step: 1, onchange: v => { r.squelch = v; app.changed('radio'); } })),
           field('Volume (1–8)', numInput(r.volume, { min: 1, max: 8, step: 1, onchange: v => { r.volume = v; app.changed('radio'); } }))),
         h('p.hint', {}, 'Squelch and volume are receive-side settings on the module. They do not change the transmitted signal; they are here because the module\'s setup sequence sets them, and because a receive-triggered fox would use them. Transmitted audio level is the PWM on the audio pin.'))),
+    pinCard(),
     h('div.card', {}, h('h3', {}, 'Region ', badge(app.region)),
       field('Band plan used for validation', select(Object.keys(app.catalog.bands).map(k => [k, k]), app.region, v => { app.region = v; app.changed('region'); }),
         'Used only to check frequencies. Entries outside these bands are flagged in red and confirmed at deploy rather than refused, so bench and emissions testing into a load stays possible. Staying within your licence privileges is yours to confirm.')));

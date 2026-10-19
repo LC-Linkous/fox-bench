@@ -217,7 +217,7 @@ function render(source) {
   const p = app.cfg.payload, kinds = kindsForTemplate();
   previewBox = h('div.card');
   fill(root, 
-    h('div.card', {}, field('Payload kind', select(kinds.map(k => [k, KINDS[k]]), p.kind, setKind), kinds.length === 1 ? `The ${app.template.name} template reads only this kind. Switch template on the Connect tab for others, or use composite.` : 'Composite template: any kind.')),
+    h('div.card', {}, field('Payload kind', select(kinds.map(k => [k, KINDS[k]]), p.kind, setKind), kinds.length === 1 ? `The ${app.template.name} template reads only this kind. Switch template on the Behavior tab for others, or use composite.` : 'Composite template: any kind.')),
     h('div.cols', {}, p.kind === 'songs' ? songsCard() : p.kind === 'sstv' ? sstvCard() : qrssCard(), previewBox));
   renderPreview(0);
 }

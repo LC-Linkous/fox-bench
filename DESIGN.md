@@ -348,9 +348,9 @@ FOX template=composite/0.3.0 … cfg=partial(radio.freq_mhz,pins.ptt) radio=err(
 
 | Tab | Purpose |
 |---|---|
-| **Connect** | Pick port (or Demo). Detect board (`board.board_id`), read `foxlib/VERSION`, `fox.json`, boot banner. Shows what is on the board before anything is changed. |
-| **Board & Pins** | Board dropdown; role → pin table with the board's defaults; validation per §4; silkscreen SVG highlighting chosen pins. |
-| **Radio** | Module dropdown and **Probe** (retunes in receive at 146.5 and 433.5 and reports which the module accepted — nothing is transmitted). Region. Power high/low. Bandwidth, squelch, volume with the receive-side note. |
+| **Board** | Which fox is on the bench (board picker grouped by family — this choice drives every other tab), Connect / Listen only / Open drive, what is on the board before anything is changed (`board.board_id`, `foxlib/VERSION`, `fox.json`; or the drive's files), **Flash CircuitPython** for a bare ESP32 (UF2 restore for drive boards), diagnostics. |
+| **Radio & pins** | Module dropdown and **Probe** (retunes in receive at 146.5 and 433.5 and reports which the module accepted — nothing is transmitted). Region. Power high/low with measured dBm. Bandwidth, squelch, volume. The role → pin wiring table with the board's defaults. Drive family: zone, revision, attenuation, deviations; nothing to wire. |
+| **Behavior** | The firmware template, from the set the selected board can run: description, status, what it reads. Decides which payloads and schedules the next tabs offer. |
 | **Plan** | Frequencies: one, or a rotating list with the `QSY` option. Each entry validated against module ∩ band. |
 | **Payload** | Depends on template. Songs: built-ins, RTTTL paste, note editor, playlist order. SSTV: drop a PNG or type a card → 40×240 grayscale → decoded preview on canvas. QRSS: dit length, waterfall preview. **Preview** plays the full transmission (ID then payload) through Web Audio from the same event stream the fox will use. |
 | **Schedule** | Fixed / popcorn / resurrection parameters. **Timeline**: the LCG run from the seed, drawn across the day, so an organizer sees every cluster and phase change in advance. |

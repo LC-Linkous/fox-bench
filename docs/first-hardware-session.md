@@ -28,7 +28,7 @@ receiver.
 - [ ] **Connect** finds a prompt without a reset. If it needs the R button
       first, say so in the hardware report; that is a timing difference
       worth knowing per board.
-- [ ] Connect tab shows the right board id, a UID, the CircuitPython
+- [ ] Board tab shows the right board id, a UID, the CircuitPython
       version and "no fox firmware".
 
 ## First deploy (morse-songs, default frequency, real callsign)

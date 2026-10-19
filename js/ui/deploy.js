@@ -126,7 +126,7 @@ function render() {
         nameIn.addEventListener('keydown', e => { if (e.key === 'Enter') app.saveProfile(nameIn.value); });
         return h('div.tools', {}, nameIn, h('button.btn', { onclick: () => app.saveProfile(nameIn.value) }, cfg.fleet?.profile ? 'Update profile' : 'Save profile'), cfg.fleet?.profile ? h('span.hint', {}, `current: "${cfg.fleet.profile}"`) : null); })()),
     h('div.card', {}, h('h3', {}, 'No CircuitPython on the board yet?'),
-      h('p.hint', {}, 'Deploy writes files through CircuitPython, so a factory-fresh board needs it first: ', h('b', {}, 'Board & pins → Flash CircuitPython'), ' (one board), or ', h('b', {}, 'Profiles & fleet → Batch flashing'), ' (several in a row). Then come back here.')));
+      h('p.hint', {}, 'Deploy writes files through CircuitPython, so a factory-fresh board needs it first: ', h('b', {}, 'Board → Flash CircuitPython'), ' (one board), or ', h('b', {}, 'Profiles & fleet → Batch flashing'), ' (several in a row). Then come back here.')));
 }
 
 function resultBox(r) {
@@ -134,6 +134,6 @@ function resultBox(r) {
   const b = r.banner;
   const kv = b ? ['template', 'foxlib', 'cfg', 'radio', 'id', 'freq'].map(k => h('span', { class: k === 'cfg' ? (b.cfg === 'ok' ? 'ok' : 'warn') : k === 'radio' ? (b.radio === 'ok' ? 'ok' : 'err') : k === 'id' ? (b.id === 'set' ? 'ok' : 'err') : '' }, `${k}=${b[k] ?? '?'}  `)) : [h('span.err', {}, 'no FOX banner in the boot log — the firmware did not start')];
   return h('div', {}, h('p', { style: 'margin:12px 0 4px' }, r.ok ? badge('fox is up', 'ok') : badge('check the banner', 'warn'), ' ', ...kv),
-    h('p.hint', {}, 'The fox is running now. Reading the board (Connect tab) or a Bench action interrupts it; ', h('button.btn.small', { onclick: () => app.restartFox() }, 'Restart fox'), ' starts it again.'),
+    h('p.hint', {}, 'The fox is running now. Re-read board (Board tab) or a Bench action interrupts it; ', h('button.btn.small', { onclick: () => app.restartFox() }, 'Restart fox'), ' starts it again.'),
     h('details', {}, h('summary.hint', {}, 'boot log'), h('pre.out', {}, r.bootLog)));
 }

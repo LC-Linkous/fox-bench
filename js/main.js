@@ -12,9 +12,9 @@ import { DemoDevice } from './device/demo-device.js';
 import { DriveDevice, demoDrive } from './device/drive-device.js';
 import { MemDirectoryHandle } from './device/memfs.js';
 import { initConsole } from './ui/console.js';
-import * as tabConnect from './ui/connect.js';
 import * as tabBoard from './ui/board.js';
 import * as tabRadio from './ui/radio.js';
+import * as tabBehavior from './ui/behavior.js';
 import * as tabPlan from './ui/plan.js';
 import * as tabId from './ui/id.js';
 import * as tabPayload from './ui/payload.js';
@@ -24,19 +24,19 @@ import * as tabBench from './ui/bench.js';
 import * as tabFleet from './ui/fleet.js';
 import * as tabAbout from './ui/about.js';
 
-const VERSION = '0.5.0';
+const VERSION = '0.5.1';
 /** Tab subtitles that read differently per device family (null = the page's original text). */
 const LEDES = { drive: {
-  connect: 'Open the fox\'s USB drive, or use the simulated one. The vendor firmware stays; the page writes its files.',
-  board: 'A fixed design: nothing to wire. What the firmware does on its own, and how its firmware is restored.',
-  radio: 'Zone, attenuation and FM deviation for the SI5351 exciter the firmware drives.',
+  board: 'Which fox is on the bench, open its USB drive (or use the simulated one). The vendor firmware stays; the page writes its files.',
+  radio: 'Zone, attenuation and FM deviation for the SI5351 exciter the firmware drives. Nothing to wire.',
+  behavior: 'The vendor firmware has one behaviour; this is where a board with several would choose.',
   plan: 'One frequency, checked against the limits the firmware itself enforces.',
   payload: 'What goes into audio.wav. Preview plays the same events the file will carry.',
   schedule: 'The firmware\'s duty cycle, drawn with the carrier offsets and power steps it adds by itself.',
   deploy: 'Render the four files, write them to the drive and read them back; then eject and power-cycle.',
 } };
-const TABS = { connect: tabConnect, board: tabBoard, radio: tabRadio, plan: tabPlan, id: tabId, payload: tabPayload, schedule: tabSchedule, deploy: tabDeploy, bench: tabBench, fleet: tabFleet, about: tabAbout };
-const TAB_KEYS = { board: ['pins'], radio: ['radio', 'module'], plan: ['plan'], id: ['id'], payload: ['payload'], schedule: ['schedule'] };
+const TABS = { board: tabBoard, radio: tabRadio, behavior: tabBehavior, plan: tabPlan, id: tabId, payload: tabPayload, schedule: tabSchedule, deploy: tabDeploy, bench: tabBench, fleet: tabFleet, about: tabAbout };
+const TAB_KEYS = { radio: ['radio', 'module', 'pins'], plan: ['plan'], id: ['id'], payload: ['payload'], schedule: ['schedule'] };
 
 export const app = {
   version: VERSION,
@@ -299,7 +299,7 @@ async function boot() {
   window.addEventListener('unhandledrejection', e => app.pageErrors.push({ t: new Date().toISOString(), msg: String(e.reason?.message || e.reason) }));
 
   app.changed('boot');
-  showTab(localStorage.getItem('fox-bench.tab') || 'connect');
+  const savedTab = localStorage.getItem('fox-bench.tab'); showTab(savedTab && TABS[savedTab] ? savedTab : 'board');
   window.foxbench = app;   // for the console-curious
 }
 boot();

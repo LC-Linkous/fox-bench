@@ -1,60 +1,101 @@
-// board.js — Board & pins tab: board choice, role → pin table with validation.
+// board.js — Board tab: which fox is on the bench, connect to it, what is on it, flash it if bare.
 // SPDX-License-Identifier: GPL-2.0-only
 import { h, badge, field, select } from './dom.js';
-import { REQUIRED_PINS, OPTIONAL_PINS, PIN_FLAGS, findPin } from '../model/schema.js';
+import { download } from '../model/profiles.js';
 import { flashCard, onChange as onFlashChange } from './flash.js';
 
-const ROLE_HELP = {
-  ptt: 'Push-to-talk. Low = transmit.', pd: 'Power-down. Held high keeps the module awake.', hl: 'High/low power select. Low = low power (default).',
-  uart_tx: 'Serial to the module (AT commands).', uart_rx: 'Serial from the module.', audio: 'PWM tone into the module\'s MIC input.',
-  led: 'Status LED, one blink per cycle. Optional.', batt_sense: 'ADC pin on a battery divider. Leave unset if no divider is fitted — a floating pin reads garbage.',
-};
 let app, root;
 export function init(a, el) { app = a; root = el; app.listeners.add(render); onFlashChange(render); render(); }
 
-function render() {
-  const b = app.board, cfg = app.cfg, pins = cfg.pins;
-  if (app.family === 'drive') return renderDrive();
-  const probs = Object.fromEntries(app.report.filter(r => r.key.startsWith('pins.')).map(r => [r.key.slice(5), r.reason]));
-  for (const i of app.issues) if (i.key.startsWith('pins.')) probs[i.key.slice(5)] = probs[i.key.slice(5)] || i.msg;
-  const used = new Map(); for (const r of [...REQUIRED_PINS, ...OPTIONAL_PINS]) if (pins[r]) used.set(pins[r], r);
-  const required = new Set(app.template.pins.required);
+const FAMILY_LABEL = { foxlib: 'CircuitPython board + radio module (our firmware)', drive: 'Drive-configured fox (vendor firmware)' };
 
-  const rows = [...REQUIRED_PINS, ...OPTIONAL_PINS].map(role => {
-    const flag = PIN_FLAGS[role];
-    const opts = [['', '— none —'], ...b.pins.filter(p => !flag || p[flag]).map(p => [p.name, `${p.name}  (GPIO${p.gpio}${p.aliases?.length ? ', ' + p.aliases.join('/') : ''})${used.has(p.name) && used.get(p.name) !== role ? '  · used by ' + used.get(p.name) : ''}${p.note ? '  · ' + p.note : ''}`])];
-    const sel = select(opts, pins[role] || '', v => { cfg.pins[role] = v || null; app.changed('pins'); });
-    if (required.has(role)) sel.querySelector('option[value=""]').disabled = true;
-    const def = app.defaults.pins[role];
-    return h('tr', { class: probs[role] ? 'bad' : '' },
-      h('td.mono', {}, role, required.has(role) ? '' : h('span.hint', {}, ' optional')),
-      h('td', {}, sel),
-      h('td.mono', {}, def || '—', def !== (pins[role] || null) ? h('button.btn.small', { style: 'margin-left:8px', onclick: () => { cfg.pins[role] = def; app.changed('pins'); } }, 'reset') : null),
-      h('td', {}, probs[role] ? h('span.hint.err', {}, probs[role]) : h('span.hint', {}, ROLE_HELP[role])));
-  });
-
-  root.replaceChildren(
-    h('div.cols', {},
-      h('div.card', {}, h('h3', {}, 'Board'),
-        field('Microcontroller board', select(Object.values(app.catalog.boards).map(x => [x.id, x.name]), app.boardId, id => app.setBoard(id)), 'Changing the board resets the pin map to that board\'s defaults.'),
-        h('dl.kv', {}, h('dt', {}, 'CircuitPython id'), h('dd', {}, b.circuitpython.board_id), h('dt', {}, 'Flash'), h('dd', {}, `${b.flash.method} · ${b.flash.chip} @ ${b.flash.offset}`), h('dt', {}, 'USB drive'), h('dd', {}, b.has_usb_drive ? 'yes (CIRCUITPY)' : 'none — files go through the REPL'), h('dt', {}, 'Battery'), h('dd', {}, b.battery?.divider_note || '—'))),
-      flashCard(app)),
-    h('div.card', {}, h('h3', {}, 'Pin map', app.report.some(r => r.key.startsWith('pins.')) ? badge('check', 'err') : badge('ok', 'ok')),
-      h('p.hint', {}, 'Written into fox.json in full. The firmware resolves each name with ', h('code', {}, 'getattr(board, name)'), ' at boot; an invalid required pin makes the fox boot silent rather than key unknown pins.'),
-      h('div.grid-wrap', {}, h('table.grid', {}, h('thead', {}, h('tr', {}, h('th', {}, 'Role'), h('th', {}, 'Pin'), h('th', {}, 'Default'), h('th', {}, ''))), h('tbody', {}, rows)))));
+/** The board picker, grouped by family. This one choice drives every other tab. */
+function pickerCard() {
+  const groups = {};
+  for (const b of Object.values(app.catalog.boards)) (groups[b.family || 'foxlib'] ??= []).push(b);
+  const sel = h('select', { onchange: e => app.setBoard(e.target.value) });
+  for (const [fam, list] of Object.entries(groups)) {
+    const og = h('optgroup', { label: FAMILY_LABEL[fam] || fam });
+    for (const b of list) { const o = h('option', { value: b.id }, b.name); if (b.id === app.boardId) o.selected = true; og.appendChild(o); }
+    sel.appendChild(og);
+  }
+  const how = app.family === 'drive'
+    ? ['Then ', h('b', {}, `Open ${app.board.drive?.label || 'drive'}`), ' in the top bar picks its USB drive; ', h('b', {}, 'Listen only'), ' shows its serial boot messages.']
+    : ['Then ', h('b', {}, 'Connect'), ' takes its REPL over USB; ', h('b', {}, 'Listen only'), ' watches a running fox without stopping it.'];
+  return h('div.card', {}, h('h3', {}, 'Which fox is on the bench?'),
+    field('Board', sel, h('span', {}, ...how, ' Changing the board switches the template when the current one does not apply, and keeps your callsign.')));
 }
 
-/** Drive family: fixed hardware, nothing to wire; the vendor's quirks instead of a pin table. */
+function diagCard() {
+  const diag = h('div.card', {}, h('h3', {}, 'Something wrong?'),
+    h('p.hint', {}, 'Download a diagnostics file and attach it to a ', h('a', { href: 'https://github.com/LC-Linkous/fox-bench/issues/new/choose', target: '_blank', rel: 'noopener' }, 'GitHub issue'), '. It holds the page version, your form, what the board reported, the last deploy, bench results and the console — no more than you can already see on this page.'),
+    h('div.tools', {},
+      h('button.btn.small', { onclick: () => download(`fox-bench-diagnostics-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.json`, JSON.stringify(app.diagnostics(), null, 1), 'application/json') }, 'Download diagnostics'),
+      h('button.btn.small', { onclick: async e => { try { await navigator.clipboard.writeText(JSON.stringify(app.diagnostics(), null, 1)); e.target.textContent = 'Copied'; setTimeout(() => { e.target.textContent = 'Copy to clipboard'; }, 1200); } catch { app.console.err('clipboard unavailable'); } } }, 'Copy to clipboard')));
+  return diag;
+}
+
+function render() {
+  if (app.family === 'drive') return renderDrive();
+  const b = app.board, ob = app.onBoard, info = app.info;
+  const deviceCard = h('div.card', {},
+    h('h3', {}, 'Connection'),
+    ob.listening && !ob.template ? h('p.hint', {}, 'Listening only. Whatever the fox prints appears in the console below; tap the board\'s R button to watch it boot and read its FOX banner. Re-read board takes control (stops the fox).') : null,
+    !info ? h('div', {},
+        h('p.hint', {}, 'Not connected. Connect a board (Chrome or Edge) or start the simulated one from the top bar.'),
+        h('p.hint', {}, h('b', {}, 'The board must already be running CircuitPython.'), ' A bare board gets it from the Flash CircuitPython card here (hold B while plugging in, pick the port, click).'),
+        h('p.hint', {}, h('b', {}, 'Board already running fox or other firmware?'), ' Plug in normally (no B button). ', h('b', {}, 'Connect'), ' interrupts whatever is running and takes the REPL; ', h('b', {}, 'Listen only'), ' just opens the port and shows the fox\'s output without stopping it. If Connect times out waiting for a prompt, tap the board\'s R (reset) button and try again.'))
+      : h('dl.kv', {},
+        h('dt', {}, 'Board id'), h('dd', {}, info.boardId, app.catalog.boards[info.boardId] ? '' : badge('unknown to fox-bench', 'warn')),
+        h('dt', {}, 'Chip UID'), h('dd', {}, info.uid),
+        h('dt', {}, 'CircuitPython'), h('dd', {}, info.cpVersion || '?'),
+        h('dt', {}, 'foxlib on board'), h('dd', {}, ob.foxlibVersion || '—', ob.foxlibVersion && !ob.foxlibComplete ? badge(`incomplete: ${ob.foxlibMissing.length} missing`, 'err') : ob.foxlibVersion && ob.foxlibVersion !== app.catalog.foxlibVersion ? badge(`repo has ${app.catalog.foxlibVersion}`, 'warn') : ''),
+        h('dt', {}, 'Template on board'), h('dd', {}, ob.template || '—'),
+        h('dt', {}, 'fox.json'), h('dd', {}, ob.cfg ? `${ob.cfg.id?.callmessage} · ${(ob.cfg.plan?.frequencies_mhz || []).join(', ')} MHz` : ob.raw ? badge('invalid JSON', 'err') : '—'),
+        h('dt', {}, 'Files'), h('dd', {}, Object.keys(ob.files).sort().join('  ') || '(empty)')),
+    info ? h('div.tools', { style: 'margin-top:10px' },
+      ob.cfg ? h('button.btn', { onclick: async () => { await app.loadCfg(ob.cfg, { source: 'board' }); app.console.dim('working config replaced with the board\'s fox.json'); } }, 'Load the board\'s config into the form') : null,
+      h('button.btn.small', { title: 'Interrupts a running fox and lists its files again', onclick: async () => { await app.readBoard(); app.changed('reread'); } }, 'Re-read board'),
+      ob.template ? h('button.btn.small', { title: 'Soft-reboot so code.py runs (Ctrl-D)', onclick: () => app.restartFox() }, 'Restart fox') : null,
+      h('span.hint', {}, ob.cfg ? 'Otherwise the form keeps what you were editing; Deploy shows the difference.' : '')) : null);
+
+  const flow = h('div.card', {}, h('h3', {}, 'How a deploy works'),
+    h('ol.steps', {},
+      h('li', {}, 'The form on tabs 2–7 is a complete ', h('code', {}, 'fox.json'), '. Every field is validated here and again by the firmware at boot.'),
+      h('li', {}, 'Deploy writes ', h('code', {}, 'fox.json'), ', the template\'s ', h('code', {}, 'defaults.json'), ' and ', h('code', {}, 'code.py'), ', and ', h('code', {}, 'foxlib/'), ' when its version differs or files are missing — through the CircuitPython REPL, the same way Thonny saves files, each file verified by size and CRC. The board therefore has to be running CircuitPython already (Board tab → Flash CircuitPython for a bare one).'),
+      h('li', {}, 'The board soft-reboots and the page reads the ', h('code', {}, 'FOX …'), ' banner back: config status, radio status, callsign set or not.')));
+
+  const facts = h('div.card', {}, h('h3', {}, 'Board facts'),
+    h('dl.kv', {}, h('dt', {}, 'CircuitPython id'), h('dd', {}, b.circuitpython.board_id), h('dt', {}, 'Flash'), h('dd', {}, `${b.flash.method} · ${b.flash.chip} @ ${b.flash.offset}`), h('dt', {}, 'USB drive'), h('dd', {}, b.has_usb_drive ? 'yes (CIRCUITPY)' : 'none — files go through the REPL'), h('dt', {}, 'Battery'), h('dd', {}, b.battery?.divider_note || '—')),
+    h('p.hint', {}, 'Wiring between this board and the radio module is on the Radio & pins tab.'));
+  root.replaceChildren(pickerCard(), h('div.cols', {}, deviceCard, flashCard(app)), facts, flow, diagCard());
+}
+
+/** Drive family (PicoFox): the drive's files instead of a REPL. */
 function renderDrive() {
-  const b = app.board, m = app.module;
-  root.replaceChildren(
-    h('div.cols', {},
-      h('div.card', {}, h('h3', {}, 'Board'),
-        field('Board', select(Object.values(app.catalog.boards).map(x => [x.id, x.name]), app.boardId, id => app.setBoard(id)), 'Switching board also switches to a template that board can use.'),
-        h('dl.kv', {}, h('dt', {}, 'Family'), h('dd', {}, 'vendor firmware, configured by files on its USB drive'), h('dt', {}, 'Radio'), h('dd', {}, `${m.name}: ${m.ranges_mhz.map(([a, c]) => `${a}–${c} MHz`).join(', ')}`), h('dt', {}, 'Power'), h('dd', {}, `about ${m.power_dbm.high} dBm, attenuator to ${m.power_dbm.low} dBm (rev 3)`), h('dt', {}, 'Audio'), h('dd', {}, `${m.audio.sample_rate_hz} Hz ${m.audio.bits}-bit mono WAV, up to ±${m.audio.max_deviation_hz / 1000} kHz deviation`), h('dt', {}, 'USB'), h('dd', {}, `drive "${b.drive.label}" + serial (boot messages only)`), h('dt', {}, 'Battery'), h('dd', {}, b.battery?.divider_note || '—')),
-        h('p.hint', {}, 'No pin map: the hardware is fixed and the firmware is the vendor\'s. fox-bench writes the files it reads and nothing else.')),
-      flashCard(app)),
-    h('div.card', {}, h('h3', {}, 'Things this firmware does quietly'),
-      h('ul', {}, (b.notes || []).map(n => h('li', {}, n))),
-      h('p.hint', {}, 'From reading the published firmware; see ', h('code', {}, 'docs/picofox-notes.md'), ' in the repository.')));
+  const b = app.board, v = app.vendor, ob = app.onBoard, info = app.info, m = app.module;
+  const deviceCard = h('div.card', {},
+    h('h3', {}, 'Connection'),
+    !info ? h('div', {},
+        h('p.hint', {}, 'Not connected. Switch the fox ', h('b', {}, 'on'), ', plug in USB, then ', h('b', {}, `Open ${b.drive?.label || 'drive'}`), ' in the top bar and pick the drive it mounts (Chrome or Edge). Or ', h('i', {}, 'Try without hardware'), '.'),
+        h('p.hint', {}, h('b', {}, 'This board runs the vendor\'s firmware, not CircuitPython.'), ' fox-bench writes the files that firmware reads: ', b.drive.files.map(f => h('code', {}, f)).flatMap((e, i) => i ? [' ', e] : [e]), '. ', b.drive.note),
+        h('p.hint', {}, h('b', {}, 'Listen only'), ' opens the board\'s serial port and shows its boot messages after you switch it off and on — the only confirmation it gives.'))
+      : h('dl.kv', {},
+        h('dt', {}, 'Drive'), h('dd', {}, info.driveName || '—', ob.settings ? '' : badge(`no ${v.FILES.settings}`, 'warn')),
+        h('dt', {}, 'Files'), h('dd', {}, Object.entries(ob.files || {}).sort().map(([n, f]) => `${n} (${f.size} B)`).join('  ') || '(empty)'),
+        h('dt', {}, 'Settings'), h('dd', {}, ob.settings ? `${ob.settings.CALLSIGN || '(no callsign — silent)'} · ${ob.settings.FREQ_MHZ} MHz · zone ${ob.settings.ITU_ZONE} · duty ${ob.settings.DUTY_CYCLE} % · atten ${ob.settings.ATTENUATION}` : '—'),
+        h('dt', {}, 'ID audio'), h('dd', {}, ob.markerOk == null ? '—' : ob.markerOk ? badge('kept by the firmware (marker matches)', 'ok') : badge('firmware will regenerate its own at power-on', 'warn'))),
+    info ? h('div.tools', { style: 'margin-top:10px' },
+      ob.cfg ? h('button.btn', { onclick: async () => { await app.loadCfg(ob.cfg, { source: 'board' }); app.console.dim(`form replaced with the drive's ${v.FILES.settings}`); } }, 'Load the drive\'s settings into the form') : null,
+      h('button.btn.small', { onclick: async () => { await app.readDrive(); app.changed('reread'); } }, 'Re-read drive'),
+      h('span.hint', {}, 'Only settings come back: the audio on the drive is not reversible into a playlist.')) : null);
+  const notes = h('div.card', {}, h('h3', {}, 'Things this firmware does quietly'), h('ul', {}, (b.notes || []).map(n => h('li', {}, n))));
+  const flow = h('div.card', {}, h('h3', {}, 'How a deploy works here'),
+    h('ol.steps', {},
+      h('li', {}, 'The form (tabs 3–7) becomes ', h('code', {}, v.FILES.settings), ', an ', h('code', {}, v.FILES.audio), ' rendered from the payload, the Morse ID as ', h('code', {}, v.FILES.id), ' and the marker file ', h('code', {}, v.FILES.marker), ' (a byte-sum of the settings) that tells the firmware to keep our ID audio.'),
+      h('li', {}, 'Deploy writes the four files to the drive and reads each one back.'),
+      h('li', {}, 'You eject the drive and switch the fox off and on. It does not transmit while a computer has the drive mounted. ', h('b', {}, 'Listen only'), ' shows the boot messages if you want the confirmation.')));
+  const facts = h('div.card', {}, h('h3', {}, 'Board facts'),
+    h('dl.kv', {}, h('dt', {}, 'Family'), h('dd', {}, 'vendor firmware, configured by files on its USB drive'), h('dt', {}, 'Radio'), h('dd', {}, `${m.name}: ${m.ranges_mhz.map(([a, c]) => `${a}–${c} MHz`).join(', ')}`), h('dt', {}, 'Power'), h('dd', {}, `about ${m.power_dbm.high} dBm, attenuator to ${m.power_dbm.low} dBm (rev 3)`), h('dt', {}, 'Audio'), h('dd', {}, `${m.audio.sample_rate_hz} Hz ${m.audio.bits}-bit mono WAV, up to ±${m.audio.max_deviation_hz / 1000} kHz deviation`), h('dt', {}, 'USB'), h('dd', {}, `drive "${b.drive.label}" + serial (boot messages only)`), h('dt', {}, 'Battery'), h('dd', {}, b.battery?.divider_note || '—')));
+  root.replaceChildren(pickerCard(), h('div.cols', {}, deviceCard, flashCard(app)), notes, facts, flow, diagCard());
 }
