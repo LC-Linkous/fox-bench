@@ -20,6 +20,15 @@ async function run(action, args, btn, label) {
 }
 
 function render() {
+  if (app.family === 'foxlib-c') {
+    root.replaceChildren(h('div.card', {}, h('h3', {}, 'Bench over the serial console'),
+      h('p.hint', {}, `${app.board.name}: bench actions are text commands on the firmware's serial console. Click `, h('b', {}, 'Listen only'), ' in the top bar, then type in the console drawer below:'),
+      h('dl.kv', {}, h('dt', {}, h('code', {}, 'key 2')), h('dd', {}, 'unmodulated carrier for 2 s (the cycle pauses, then resumes)'), h('dt', {}, h('code', {}, 'tone 800 2')), h('dd', {}, 'carrier with an 800 Hz tone'), h('dt', {}, h('code', {}, 'id')), h('dd', {}, 'send the ID once now'),
+        h('dt', {}, h('code', {}, 'freq 146.580')), h('dd', {}, 'retune until the next reload'), h('dt', {}, h('code', {}, 'batt')), h('dd', {}, 'charging or not (no voltage sense on this board)'), h('dt', {}, h('code', {}, 'status')), h('dd', {}, 'banner, revision, measured I²C write time, drive state, files'),
+        h('dt', {}, h('code', {}, 'atten 40')), h('dd', {}, 'attenuator code now (rev 3; interface unverified — meter in hand)'), h('dt', {}, h('code', {}, 'stop · reload · bootsel')), h('dd', {}, 'stop a bench action · reload fox.json · jump to the UF2 bootloader')),
+      h('p.hint', {}, 'Every command answers with ', h('code', {}, 'ok'), ' or ', h('code', {}, 'err: …'), '. The buttons the CircuitPython foxes get here will follow once the first boards have been on the air.')));
+    return;
+  }
   if (app.family === 'drive') { root.replaceChildren(h('div.card', {}, h('p.hint', {}, `${app.board.name}: no bench. The firmware has no command interface and does not transmit while the drive is mounted. Use a receiver after the power cycle; Listen only shows the boot messages.`))); return; }
   const caps = new Set(app.template.capabilities);
   const ready = app.connected && (app.device.kind === 'demo' || app.onBoard.foxlibVersion);

@@ -44,60 +44,102 @@ def check_range(req, have, where):
         if not ok:
             bad(where, f"needs foxlib {req}, repo has {have}")
 
-# ---------------------------------------------------------------- boards
-boards = {}
-board_ids = load("boards/index.json")
+def foxlibc_validate(drel, bid):
+    """Run firmware/foxlib-c's validator (host build) on a defaults file as if it were fox.json. None when it cannot be built."""
+    import shutil, subprocess
+    binp = os.path.join(ROOT, "firmware", "foxlib-c", "tests", "build", "core_dump")
+    if not os.path.exists(binp):
+        if not shutil.which("gcc") and not shutil.which("cc"): return None
+        r = subprocess.run(["make", "-s", "-C", os.path.join(ROOT, "firmware", "foxlib-c", "tests")], capture_output=True, text=True)
+        if r.returncode != 0 or not os.path.exists(binp): return None
+    path = os.path.join(ROOT, drel)
+    r = subprocess.run([binp, "cfg", path, path, bid], capture_output=True, text=True)
+    return r.stdout if r.returncode == 0 else "status=error(%d)" % r.returncode
+
+
+# ---------------------------------------------------------------- hardware (physical facts) and boards (targets = hardware + firmware + family)
+FAMILIES = ("foxlib", "drive", "foxlib-c")
 module_ids = load("modules/index.json")
-if sorted(board_ids) != sorted(set(board_ids)): bad("boards/index.json", "duplicate entry")
-for bid in board_ids:
-    rel = f"boards/{bid}.json"
-    if not exists(rel): bad(rel, "listed in boards/index.json but missing"); continue
-    b = boards[bid] = load(rel)
-    if b.get("id") != bid: bad(rel, f"id {b.get('id')!r} != filename")
-    fam = b.get("family", "foxlib")
-    if fam not in ("foxlib", "drive"): bad(rel, f"unknown family {fam!r}")
-    for k in ("name", "flash", "has_usb_drive", "pins", "roles"):
-        if k not in b: bad(rel, f"missing {k}")
-    if fam == "foxlib":
-        if "circuitpython" not in b: bad(rel, "missing circuitpython")
-        for k in ("board_id", "download"):
-            if k not in (b.get("circuitpython") or {}): bad(rel, f"missing circuitpython.{k}")
-    else:
-        for k in ("vendor", "module_fixed", "drive", "notes"):
-            if k not in b: bad(rel, f"drive-family board missing {k}")
-        if b.get("vendor") and not exists(f"js/model/vendor/{b['vendor']}.js"): bad(rel, f"vendor model js/model/vendor/{b['vendor']}.js missing")
-        if b.get("module_fixed") and b["module_fixed"] not in module_ids: bad(rel, f"module_fixed {b['module_fixed']!r} not in modules/index.json")
-        for k in ("label", "files", "note"):
-            if k not in (b.get("drive") or {}): bad(rel, f"missing drive.{k}")
-        if b.get("flash", {}).get("method") == "uf2":
-            for k in ("drive_name", "stock_firmware_url", "note"):
-                if k not in b["flash"]: bad(rel, f"uf2 board missing flash.{k}")
+hardware = {}
+hw_ids = load("hardware/index.json")
+if sorted(hw_ids) != sorted(set(hw_ids)): bad("hardware/index.json", "duplicate entry")
+for hid in hw_ids:
+    rel = f"hardware/{hid}.json"
+    if not exists(rel): bad(rel, "listed in hardware/index.json but missing"); continue
+    hw = hardware[hid] = load(rel)
+    if hw.get("id") != hid: bad(rel, f"id {hw.get('id')!r} != filename")
+    for k in ("name", "mcu", "flash", "has_usb_drive", "usb", "pins", "roles", "battery"):
+        if k not in hw: bad(rel, f"missing {k}")
     for k in ("method", "chip", "offset", "bootloader_instructions"):
-        if k not in b.get("flash", {}): bad(rel, f"missing flash.{k}")
+        if k not in hw.get("flash", {}): bad(rel, f"missing flash.{k}")
+    if hw.get("flash", {}).get("method") == "uf2" and "drive_name" not in hw["flash"]: bad(rel, "uf2 hardware needs flash.drive_name")
+    for u in hw.get("usb", []):
+        for k in ("vid", "pid"):
+            if not re.match(r"^0x[0-9a-fA-F]{4}$", str(u.get(k, ""))): bad(rel, f"usb entry {u}: {k} must be 0xNNNN")
     names = {}
-    for p in b.get("pins", []):
+    for p in hw.get("pins", []):
         if "name" not in p: bad(rel, "pin without name"); continue
         if p["name"] in names: bad(rel, f"pin {p['name']} listed twice")
         names[p["name"]] = p
         for a in p.get("aliases", []):
             if a in names and names[a] is not p: bad(rel, f"alias {a} clashes")
             names[a] = p
-    roles = b.get("roles", {})
-    for role in (fcfg.REQUIRED_PINS + fcfg.OPTIONAL_PINS if fam == "foxlib" else ()):
-        if role not in roles: bad(rel, f"roles.{role} missing (use null if not wired)")
-    for role, pin in roles.items():
+    for role, pin in hw.get("roles", {}).items():
         if role not in fcfg.REQUIRED_PINS + fcfg.OPTIONAL_PINS: bad(rel, f"roles.{role}: unknown role")
-        if pin is None:
-            if role in fcfg.REQUIRED_PINS: bad(rel, f"roles.{role} is required but null")
-            continue
+        if pin is None: continue
         if pin not in names: bad(rel, f"roles.{role} = {pin}: no such pin"); continue
-        p = names[pin]
-        if role == "audio" and not p.get("pwm"): bad(rel, f"roles.audio = {pin} has no PWM")
-        if role == "batt_sense" and not p.get("adc"): bad(rel, f"roles.batt_sense = {pin} has no ADC")
-    used = [v for v in roles.values() if v]
+        if role == "audio" and not names[pin].get("pwm"): bad(rel, f"roles.audio = {pin} has no PWM")
+        if role == "batt_sense" and not names[pin].get("adc"): bad(rel, f"roles.batt_sense = {pin} has no ADC")
+    used = [v for v in hw.get("roles", {}).values() if v]
     if len(used) != len(set(used)): bad(rel, "two roles share a pin")
-    b["_names"] = set(names)
-    b["_family"] = fam
+    hw["_names"] = set(names)
+for n in listdir("hardware"):
+    if n.endswith(".json") and n != "index.json" and n[:-5] not in hw_ids: bad(f"hardware/{n}", "not listed in hardware/index.json")
+
+boards = {}
+board_ids = load("boards/index.json")
+if sorted(board_ids) != sorted(set(board_ids)): bad("boards/index.json", "duplicate entry")
+for bid in board_ids:
+    rel = f"boards/{bid}.json"
+    if not exists(rel): bad(rel, "listed in boards/index.json but missing"); continue
+    t = load(rel)
+    if t.get("id") != bid: bad(rel, f"id {t.get('id')!r} != filename")
+    for k in ("name", "hardware", "family", "firmware"):
+        if k not in t: bad(rel, f"missing {k}")
+    hw = hardware.get(t.get("hardware"))
+    if not hw: bad(rel, f"unknown hardware {t.get('hardware')!r}"); continue
+    fam = t.get("family")
+    if fam not in FAMILIES: bad(rel, f"unknown family {fam!r} (one of {FAMILIES})")
+    if "kind" not in t.get("firmware", {}): bad(rel, "firmware.kind missing")
+    if t.get("status") not in (None, "planned", "experimental", "stable"): bad(rel, f"status {t.get('status')!r}")
+    if fam == "foxlib":
+        if "circuitpython" not in hw: bad(rel, "foxlib target on hardware without circuitpython")
+        for k in ("board_id", "download"):
+            if k not in (hw.get("circuitpython") or {}): bad(rel, f"hardware missing circuitpython.{k}")
+        for role in fcfg.REQUIRED_PINS + fcfg.OPTIONAL_PINS:
+            if role not in hw.get("roles", {}): bad(rel, f"hardware roles.{role} missing (use null if not wired)")
+        for role in fcfg.REQUIRED_PINS:
+            if not hw.get("roles", {}).get(role): bad(rel, f"hardware roles.{role} is required but null")
+    if fam == "drive":
+        for k in ("vendor", "module_fixed", "drive"):
+            if k not in t: bad(rel, f"drive-family target missing {k}")
+        if t.get("vendor") and not exists(f"js/model/vendor/{t['vendor']}.js"): bad(rel, f"vendor model js/model/vendor/{t['vendor']}.js missing")
+        if "notes" not in hw: bad(rel, "drive-family hardware should carry the firmware's quirk notes")
+    if fam == "foxlib-c":
+        for k in ("module_fixed", "drive"):
+            if k not in t: bad(rel, f"foxlib-c target missing {k}")
+        img = t.get("firmware", {}).get("image", "")
+        # the image itself is built by CI into the site; the source tree it comes from must be in the repo
+        src = os.path.dirname(img) + "/CMakeLists.txt" if img else ""
+        if t.get("status") != "planned" and not (img and exists(src)): bad(rel, f"foxlib-c target without firmware source ({src or 'firmware.image unset'}) must be status: planned")
+        vf = t.get("firmware", {}).get("version_file")
+        if vf and not exists(vf): bad(rel, f"firmware.version_file {vf} missing")
+    if t.get("module_fixed") and t["module_fixed"] not in module_ids: bad(rel, f"module_fixed {t['module_fixed']!r} not in modules/index.json")
+    for k in ("label", "files", "note"):
+        if "drive" in t and k not in t["drive"]: bad(rel, f"missing drive.{k}")
+    merged = {**hw, **t}
+    merged["_names"] = hw["_names"]; merged["_family"] = fam; merged["_planned"] = t.get("status") == "planned"
+    boards[bid] = merged
 for n in listdir("boards"):
     if n.endswith(".json") and n != "index.json" and n[:-5] not in board_ids: bad(f"boards/{n}", "not listed in boards/index.json")
 
@@ -111,7 +153,7 @@ for mid in module_ids:
     for k in ("name", "family", "ranges_mhz", "power_dbm", "bandwidths_khz", "uart", "model"):
         if k not in m: bad(rel, f"missing {k}")
     if m.get("fixed_to_board"):
-        if m["fixed_to_board"] not in board_ids: bad(rel, f"fixed_to_board {m['fixed_to_board']!r} unknown")
+        if m["fixed_to_board"] not in hardware: bad(rel, f"fixed_to_board {m['fixed_to_board']!r} is not a hardware id")
         for k in ("audio", "zones"):
             if k not in m: bad(rel, f"built-in exciter descriptor missing {k}")
     rr = m.get("ranges_mhz", [])
@@ -152,7 +194,7 @@ for tid in fw["templates"]:
         if k not in t: bad(rel, f"missing {k}")
     fams = t.get("families", ["foxlib"])
     for f in fams:
-        if f not in ("foxlib", "drive"): bad(rel, f"unknown family {f!r}")
+        if f not in FAMILIES: bad(rel, f"unknown family {f!r}")
     if "drive" in fams and not t.get("vendor"): bad(rel, "drive-family template needs a vendor")
     is_fw = "foxlib" in fams
     if not SEMVER.match(str(t.get("version", ""))): bad(rel, f"version not semver: {t.get('version')!r}")
@@ -177,8 +219,8 @@ for tid in fw["templates"]:
     # defaults: one per board of a family the template supports; foxlib ones validate clean through the firmware
     for bid, b in boards.items():
         drel = f"{base}/defaults/{bid}.json"
-        if b["_family"] not in fams:
-            if exists(drel): bad(drel, f"defaults for a board of family {b['_family']}, which this template does not list")
+        if b["_family"] not in fams or b.get("_planned"):
+            if exists(drel) and b["_family"] not in fams: bad(drel, f"defaults for a board of family {b['_family']}, which this template does not list")
             continue
         if not exists(drel): bad(drel, f"missing — every template needs defaults for every board of the families it lists"); continue
         d = load(drel)
@@ -187,6 +229,18 @@ for tid in fw["templates"]:
             if d.get("schedule", {}).get("kind") != "duty": bad(drel, "drive-family defaults need schedule.kind = duty")
             for k in ("itu_zone", "attenuation", "revision", "id_deviation_hz", "audio_deviation_hz"):
                 if k not in d.get("radio", {}): bad(drel, f"radio.{k} missing")
+            continue
+        if b["_family"] == "foxlib-c":
+            # the C firmware's own validator (host build), fed the defaults as fox.json: must come back clean
+            if d.get("template") != tid or d.get("board") != bid or d.get("module") != b.get("module_fixed"): bad(drel, "template/board/module do not match")
+            mod = modules.get(d.get("module"))
+            if mod and d.get("radio", {}).get("ranges_mhz") != mod["ranges_mhz"]: bad(drel, "radio.ranges_mhz differs from the module descriptor")
+            for k in ("itu_zone", "attenuation", "id_deviation_hz", "audio_deviation_hz", "tone_shape", "preemphasis", "sample_rate", "tx_while_mounted"):
+                if k not in d.get("radio", {}): bad(drel, f"radio.{k} missing")
+            if d.get("pins"): bad(drel, "foxlib-c boards have no pins section to fill")
+            out = foxlibc_validate(drel, bid)
+            if out is None: pass   # no host compiler: the firmware CI job covers it
+            elif not out.startswith("status=ok") or "  cfg:" in out: bad(drel, f"foxlib-c validator: {out.splitlines()[0]}")
             continue
         if d.get("schema") != fcfg.SCHEMA: bad(drel, f"schema {d.get('schema')} != firmware SCHEMA {fcfg.SCHEMA}")
         if d.get("template") != tid: bad(drel, f"template {d.get('template')!r} != {tid}")
@@ -243,7 +297,7 @@ if "--since" in sys.argv:
             bad(f"{base}/template.json", f"template files changed since {ref} without a version bump")
 
 # ---------------------------------------------------------------- result
-n = f"{len(boards)} board(s), {len(modules)} module(s), {len([r for r in bands if not r.startswith('_')])} region(s), {len(templates)} template(s), foxlib {foxlib_version}"
+n = f"{len(hardware)} hardware, {len(boards)} target(s), {len(modules)} module(s), {len([r for r in bands if not r.startswith('_')])} region(s), {len(templates)} template(s), foxlib {foxlib_version}"
 if problems:
     print(f"catalog: {len(problems)} problem(s) in {n}")
     for p in problems: print("  " + p)

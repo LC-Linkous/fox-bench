@@ -8,10 +8,11 @@ import { packImages } from '../audio/sstv.js';
 import { fleet, download } from '../model/profiles.js';
 import { makeZip } from '../model/zip.js';
 import * as drive from './deploy-drive.js';
+import * as foxlibc from './deploy-foxlibc.js';
 
 let app, root, gateOk = false, lastResult = null, busy = false;
 const setLast = r => { lastResult = r; app.lastDeploy = r ? { ...r, at: new Date().toISOString(), template: app.templateId, uid: app.info?.uid } : null; };
-export function init(a, el) { app = a; root = el; drive.init(a); app.listeners.add(render); render(); }
+export function init(a, el) { app = a; root = el; drive.init(a); foxlibc.init(a); app.listeners.add(render); render(); }
 
 /** Flatten a config to dotted key → JSON value for diffing. */
 function flat(o, pre = '', out = {}) { for (const [k, v] of Object.entries(o || {})) { const key = pre ? `${pre}.${k}` : k; if (v && typeof v === 'object' && !Array.isArray(v)) flat(v, key, out); else out[key] = JSON.stringify(v); } return out; }
@@ -93,6 +94,7 @@ async function deploy(btn) {
 
 function render() {
   if (app.family === 'drive') return drive.render(root, render);
+  if (app.family === 'foxlib-c') return foxlibc.render(root, render);
   const cfg = app.cfg, { files, changes } = plan();
   const at = airtime(cfg, { images: app.images });
   const errs = [...app.report.map(r => ({ level: 'err', key: r.key, msg: r.reason })), ...app.issues];

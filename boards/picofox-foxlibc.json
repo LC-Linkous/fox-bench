@@ -1,0 +1,22 @@
+{
+  "id": "picofox-foxlibc",
+  "name": "AI6YM PicoFox (fox-bench firmware)",
+  "hardware": "picofox",
+  "family": "foxlib-c",
+  "module_fixed": "picofox_si5351",
+  "status": "experimental",
+  "firmware": {
+    "kind": "foxlib-c",
+    "note": "fox-bench's own firmware for the PicoFox hardware (C, Pico SDK, GPL-3.0-or-later): the fox.json contract and the same templates as the CircuitPython foxes, FM at 8 kHz with pre-emphasis, banner and bench commands on its USB serial console. Flash it from this card; the vendor firmware goes back the same way.",
+    "image": "firmware/foxlib-c/picofox/foxbench-picofox.uf2",
+    "version_file": "firmware/foxlib-c/VERSION"
+  },
+  "drive": {
+    "label": "FOXBENCH",
+    "files": [
+      "fox.json",
+      "defaults.json"
+    ],
+    "note": "By default the fox keeps transmitting with the drive mounted and reloads a second after the last write (radio.tx_while_mounted)."
+  }
+}

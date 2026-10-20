@@ -51,6 +51,7 @@ async function probe(btn) {
 function render() {
   const cfg = app.cfg, r = cfg.radio, m = app.module;
   if (app.family === 'drive') return renderDrive();
+  if (app.family === 'foxlib-c') return renderFoxlibC();
   const canProbe = app.connected && (app.device.kind === 'demo' || app.onBoard.foxlibVersion);
   root.replaceChildren(
     h('div.cols', {},
@@ -112,4 +113,41 @@ function renderDrive() {
         h('div.field', {}, h('label', {}, 'Pre-emphasis'), check('Boost highs 6 dB/octave like a voice radio\'s transmitter', r.preemphasis !== false, val => { r.preemphasis = val; app.changed('radio'); }, 'Receivers cut highs back (de-emphasis). The SA868 pre-emphasises; the PicoFox modulates straight from the samples, so without this low notes come out muffled.')))),
     h('div.card', {}, h('h3', {}, 'Region ', badge(app.region)),
       field('Band plan used for validation', select(Object.keys(app.catalog.bands).map(k => [k, k]), app.region, val => { app.region = val; app.changed('region'); }), 'The firmware\'s own limit (zone) is what matters here; the region table is shown on the Frequency tab for reference.')));
+}
+
+/** foxlib-c family (PicoFox, fox-bench firmware): zone, power, deviation, tone shape, sample rate. No module choice, no pins. */
+function renderFoxlibC() {
+  const cfg = app.cfg, r = cfg.radio, m = app.module;
+  const zoneHi = r.itu_zone === 1 ? 146.0 : 148.0;
+  const MAX_DBM = m.power_dbm.high, DB_PER_STEP = m.attenuation?.db_per_step || 0.25;
+  const dbm = MAX_DBM - (r.attenuation || 0) * DB_PER_STEP;
+  const devField = (label, key, hint) => field(label, h('div.row', {},
+    numInput(r[key], { min: 500, max: 10000, step: 100, width: '110px', onchange: val => { r[key] = Math.round(val); app.changed('radio'); } }), h('span.suffix', {}, 'Hz peak'),
+    [2500, 5000, 7000].map(d => h('button.btn.small', { 'aria-pressed': r[key] === d ? 'true' : 'false', onclick: () => { r[key] = d; app.changed('radio'); } }, `±${d / 1000} kHz`))), hint);
+  const sr = r.sample_rate || 8000;
+  root.replaceChildren(
+    h('div.cols', {},
+      h('div.card', {}, h('h3', {}, 'Transmitter'),
+        h('dl.kv', {}, h('dt', {}, 'Module'), h('dd', {}, m.name), h('dt', {}, 'Band'), h('dd', {}, `144–${zoneHi} MHz for ITU zone ${r.itu_zone}; the firmware keeps 20 kHz clear of the edges`), h('dt', {}, 'Modulation'), h('dd', {}, `FM: the firmware rewrites the PLL fraction ${sr} times a second; audio up to ${Math.floor(sr / 2) - 100} Hz`)),
+        field('ITU zone', select([[1, '1 — 144–146 MHz (Europe, Africa, Middle East, N. Asia)'], [2, '2 — 144–148 MHz (Americas)'], [3, '3 — 144–148 MHz (Asia-Pacific)']], r.itu_zone, val => { r.itu_zone = +val; app.changed('radio'); }), 'Only the upper band edge changes.'),
+        h('div.two-col', {},
+          field('FM update rate', h('div.row', {}, numInput(sr, { min: 4000, max: 10000, step: 1000, width: '110px', onchange: val => { r.sample_rate = Math.round(val); app.changed('radio'); } }), h('span.suffix', {}, 'samples/s')), '8000 is the design point (one I²C fraction write fits in 125 µs). The banner\'s console "status" shows the measured write time; drop to 5000 if the log reports late samples.'),
+          field('Reference correction', h('div.row', {}, numInput(r.correction_ppm || 0, { min: -200, max: 200, step: 0.1, width: '110px', onchange: val => { r.correction_ppm = val; app.changed('radio'); } }), h('span.suffix', {}, 'ppm')), 'The TCXO is ±2 ppm class (±300 Hz at 146 MHz). Measure the carrier with a counter or a receiver you trust and enter the correction here; 0 trusts the TCXO.')),
+        h('div.field', {}, h('label', {}, 'While a computer has the drive'), check('Keep transmitting while the FOXBENCH drive is mounted', r.tx_while_mounted !== false, val => { r.tx_while_mounted = val; app.changed('radio'); }, 'On: the fox runs its cycle on the bench with USB plugged in (a dummy load, please), and reloads a second after each deploy. Off: it stays silent until the drive is ejected or unplugged, like the vendor firmware.'))),
+      h('div.card', {}, h('h3', {}, 'Power'),
+        field('Attenuation', h('div.row', {}, Object.assign(numInput(r.attenuation, { min: 0, max: 127, step: 1, width: '90px', onchange: val => { r.attenuation = Math.round(val); app.changed('radio'); } }), { style: 'width:90px;flex:0 0 auto' }), h('span.suffix', {}, `× ${DB_PER_STEP} dB = −${((r.attenuation || 0) * DB_PER_STEP).toFixed(2)} dB`),
+          [0, 20, 40, 80, 127].map(a => h('button.btn.small', { 'aria-pressed': r.attenuation === a ? 'true' : 'false', onclick: () => { r.attenuation = a; app.changed('radio'); } }, String(a)))),
+          `About ${dbm.toFixed(1)} dBm out (${(Math.pow(10, dbm / 10)).toFixed(dbm > 10 ? 0 : 1)} mW) from the ${MAX_DBM} dBm the hardware gives at attenuation 0. Rev 2 boards have no attenuator; the firmware detects the revision and ignores this on them.`),
+        r.attenuation ? h('p.hint.warn', {}, 'The attenuator\'s serial interface in this firmware is written from the datasheet and not yet confirmed on a board: check the power with a meter the first time. Attenuation 0 never touches it.') : null,
+        field('Measured power', h('div.row', {}, numInput(r.power_dbm ?? '', { min: -40, max: 40, step: 'any', width: '110px', onchange: val => { r.power_dbm = val; app.changed('radio'); } }), h('span.suffix', {}, 'dBm'), r.power_dbm != null ? h('button.btn.small', { onclick: () => { r.power_dbm = null; app.changed('radio'); } }, 'clear') : null), 'Optional: what your meter says at this attenuation; kept with the profile and the fleet log.'))),
+    h('div.card', {}, h('h3', {}, 'Deviation and tone'),
+      h('div.two-col', {},
+        devField('Morse ID', 'id_deviation_hz', '±5 kHz is standard narrowband FM. The carrier does not wander between segments with this firmware.'),
+        devField('Audio payload', 'audio_deviation_hz', 'Peak deviation of the songs or message.')),
+      h('div.two-col', {},
+        field('Tone shape', select([['bright', 'Bright — odd harmonics, like the ESP32\'s PWM tone'], ['sine', 'Sine — pure tone']], r.tone_shape || 'bright', val => { r.tone_shape = val; app.changed('radio'); }), 'Synthesised in the firmware per sample; the same renderer the Payload preview uses.'),
+        h('div.field', {}, h('label', {}, 'Pre-emphasis'), check('Boost highs 6 dB/octave like a voice radio\'s transmitter', r.preemphasis !== false, val => { r.preemphasis = val; app.changed('radio'); }, 'Receivers cut highs back (de-emphasis); without this low notes come out muffled.'))),
+      h('p.hint', {}, `Channel width for the record: ${r.bandwidth_khz} kHz. Above ±5 kHz deviation a 12.5 kHz receiver distorts.`)),
+    h('div.card', {}, h('h3', {}, 'Region ', badge(app.region)),
+      field('Band plan used for validation', select(Object.keys(app.catalog.bands).map(k => [k, k]), app.region, val => { app.region = val; app.changed('region'); }), 'Used only to check frequencies; the zone above is what the firmware enforces.')));
 }

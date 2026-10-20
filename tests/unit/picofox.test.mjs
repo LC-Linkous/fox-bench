@@ -6,8 +6,8 @@ import { readFileSync } from 'node:fs';
 import * as pf from '../../js/model/vendor/picofox.js';
 import { parseWav, renderPcm, wavBytes, levels } from '../../js/audio/wav.js';
 
-const defaults = JSON.parse(readFileSync(new URL('../../firmware/templates/picofox/defaults/picofox.json', import.meta.url)));
-const board = JSON.parse(readFileSync(new URL('../../boards/picofox.json', import.meta.url)));
+const defaults = JSON.parse(readFileSync(new URL('../../firmware/templates/picofox/defaults/picofox-vendor.json', import.meta.url)));
+const board = JSON.parse(readFileSync(new URL('../../boards/picofox-vendor.json', import.meta.url)));
 const fixture = readFileSync(new URL('../fixtures/picofox/settings.txt', import.meta.url), 'utf8');
 
 test('settings.txt round-trips byte for byte through parse → serialize (same layout the firmware writes)', () => {

@@ -29,7 +29,7 @@ const char *cfg_report_status(const cfg_report_t *rep, char *buf, int n) {
 }
 
 bool cfg_id_ok(const fox_cfg_t *cfg) { return cfg->id.placeholder[0] && !strstr(cfg->id.callmessage, cfg->id.placeholder); }
-bool cfg_freq_in_ranges(const fox_cfg_t *cfg, float f) {
+bool cfg_freq_in_ranges(const fox_cfg_t *cfg, double f) {
     for (int i = 0; i < cfg->radio.n_ranges; i++) if (cfg->radio.ranges_mhz[i][0] <= f && f <= cfg->radio.ranges_mhz[i][1]) return true;
     return false;
 }
@@ -91,8 +91,8 @@ static void apply_plan(fox_cfg_t *cfg, const json_doc *d, int p, cfg_report_t *r
     int k;
     if ((k = json_get(d, p, "frequencies_mhz")) >= 0) {
         bool ok = json_is(d, k, J_ARR) && json_len(d, k) >= 1 && json_len(d, k) <= CFG_MAX_FREQS;
-        float tmp[CFG_MAX_FREQS]; int n = 0;
-        for (int x = ok ? json_index(d, k, 0) : -1; x >= 0 && ok; x = d->nodes[x].next) { ok = json_is_num(d, x); if (ok) tmp[n++] = (float)json_num(d, x, 0); }
+        double tmp[CFG_MAX_FREQS]; int n = 0;
+        for (int x = ok ? json_index(d, k, 0) : -1; x >= 0 && ok; x = d->nodes[x].next) { ok = json_is_num(d, x); if (ok) tmp[n++] = json_num(d, x, 0); }
         if (ok) { memcpy(cfg->plan.frequencies_mhz, tmp, sizeof tmp); cfg->plan.n = n; } else cfg_report_bad(rep, "plan.frequencies_mhz", "non-empty list");
     }
     if ((k = json_get(d, p, "announce_qsy")) >= 0) { if (json_is(d, k, J_BOOL)) cfg->plan.announce_qsy = json_bool(d, k, false); else cfg_report_bad(rep, "plan.announce_qsy", "bool"); }
@@ -255,7 +255,7 @@ bool cfg_load_defaults(fox_cfg_t *cfg, const json_doc *d, int root) {
     cfg->radio.ranges_mhz[0][0] = 144; cfg->radio.ranges_mhz[0][1] = 148; cfg->radio.n_ranges = 1;
     cfg->radio.bandwidth_khz = 12.5f; cfg->radio.itu_zone = 2; cfg->radio.id_deviation_hz = 5000; cfg->radio.audio_deviation_hz = 5000;
     cfg->radio.tone_shape = SHAPE_BRIGHT; cfg->radio.preemphasis = true; cfg->radio.sample_rate = 8000; cfg->radio.tx_while_mounted = true;
-    cfg->plan.frequencies_mhz[0] = 146.565f; cfg->plan.n = 1;
+    cfg->plan.frequencies_mhz[0] = 146.565; cfg->plan.n = 1;
     strcpy(cfg->id.callmessage, "N0CALL DECOY DECOY N0CALL"); strcpy(cfg->id.placeholder, "N0CALL"); cfg->id.wpm = 12; cfg->id.tone_hz = 800;
     cfg->payload.kind = PAYLOAD_NONE;
     cfg->schedule.kind = SCHED_FIXED; cfg->schedule.delay_ms = 30000;

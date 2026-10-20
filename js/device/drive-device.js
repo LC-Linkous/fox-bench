@@ -82,3 +82,12 @@ export async function demoDrive(board, { MemDirectoryHandle }) {
   const d = new DriveDevice(handle, { board }); d.kind = 'demo'; d.demo = true;
   return d;
 }
+
+/** The demo board for the foxlib-c family: an in-memory FOXBENCH drive as the firmware seeds it at first boot. */
+export async function demoFoxbenchDrive(board, defaults, { MemDirectoryHandle }) {
+  const text = JSON.stringify(defaults, null, 2) + '\n';
+  const readme = 'fox-bench PicoFox firmware\n\nfox.json      what this fox does\ndefaults.json the template\'s known-good values; fox.json overrides them\n';
+  const handle = new MemDirectoryHandle(board?.drive?.label || 'FOXBENCH', { 'fox.json': text, 'defaults.json': text, 'README.txt': readme });
+  const d = new DriveDevice(handle, { board }); d.kind = 'demo'; d.demo = true;
+  return d;
+}

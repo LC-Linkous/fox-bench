@@ -35,3 +35,15 @@ Anything that needs a real board: USB enumeration, Web Serial permission,
 timing of the real CircuitPython VM, RF. `tools/hw_smoke.py` covers that
 from the bench, and `docs/first-hardware-session.md` is the manual
 checklist.
+
+## foxlib-c (the native firmware)
+
+`make -C firmware/foxlib-c/tests check` builds the portable core and the
+PicoFox runner for the host and runs two suites: `parity.py` (C encoders,
+scheduler and validator against foxlib and against the page's validator) and
+`sim.py` (the runner through `firmware/sim/scenarios.json`, judged by the
+simulator's decoder). The page smoke test boots a deploy set exported for the
+`picofox-foxlibc` target in the same host simulation, so a page change that
+breaks what the firmware reads fails CI. The firmware itself is cross-compiled
+in the `foxlib-c` job of `firmware.yml` (UF2 as an artifact) and by the Pages
+workflow into the site.

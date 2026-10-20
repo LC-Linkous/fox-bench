@@ -33,9 +33,11 @@ export function mergeAndValidate(user, defaults, board) {
   if (u.template !== undefined && u.template !== defaults.template) return { cfg, report: [{ key: 'template', reason: 'does not match firmware' }], fatal: null, status: 'default(template)' };
   if (u.board !== undefined && board && u.board !== board.id) return { cfg, report: [{ key: 'board', reason: 'config is for another board' }], fatal: null, status: 'default(board)' };
   if (u.module !== undefined) { if (typeof u.module === 'string') cfg.module = u.module; else bad('module', 'string'); }
+  // foxlib-c targets (fox-bench's native firmware) have no pins section: the radio is wired on the board
+  const pinless = board?.family === 'foxlib-c';
 
   // ---- pins
-  const pins = u.pins && typeof u.pins === 'object' ? u.pins : {};
+  const pins = !pinless && u.pins && typeof u.pins === 'object' ? u.pins : {};
   for (const role of [...REQUIRED_PINS, ...OPTIONAL_PINS]) {
     if (!(role in pins)) continue;
     const v = pins[role];
@@ -54,7 +56,7 @@ export function mergeAndValidate(user, defaults, board) {
     if (seen.has(v)) { bad(`pins.${role}`, `shares ${v} with ${seen.get(v)}`); cfg.pins[role] = defaults.pins[role]; if (cfg.pins[role] === v) { if (REQUIRED_PINS.includes(role)) fatal = fatal || `pins.${role}`; else cfg.pins[role] = null; } }
     else seen.set(v, role);
   }
-  for (const role of REQUIRED_PINS) if (!findPin(board, cfg.pins[role])) fatal = fatal || `pins.${role}`;
+  if (!pinless) for (const role of REQUIRED_PINS) if (!findPin(board, cfg.pins[role])) fatal = fatal || `pins.${role}`;
 
   // ---- radio
   const r = u.radio || {};
@@ -65,6 +67,16 @@ export function mergeAndValidate(user, defaults, board) {
   if ('squelch' in r) { if (isInt(r.squelch) && inRange(r.squelch, 0, 8)) cfg.radio.squelch = r.squelch; else bad('radio.squelch', '0–8'); }
   if ('volume' in r) { if (isInt(r.volume) && inRange(r.volume, 1, 8)) cfg.radio.volume = r.volume; else bad('radio.volume', '1–8'); }
   if ('high_power' in r) { if (typeof r.high_power === 'boolean') cfg.radio.high_power = r.high_power; else bad('radio.high_power', 'bool'); }
+  if (pinless) {   // si5351fm keys, the same rules as firmware/foxlib-c/core/cfg.c
+    if ('itu_zone' in r) { if (isInt(r.itu_zone) && inRange(r.itu_zone, 1, 3)) cfg.radio.itu_zone = r.itu_zone; else bad('radio.itu_zone', '1-3'); }
+    if ('attenuation' in r) { if (isInt(r.attenuation) && inRange(r.attenuation, 0, 127)) cfg.radio.attenuation = r.attenuation; else bad('radio.attenuation', '0-127'); }
+    for (const k of ['id_deviation_hz', 'audio_deviation_hz']) if (k in r) { if (isInt(r[k]) && inRange(r[k], 500, 10000)) cfg.radio[k] = r[k]; else bad(`radio.${k}`, '500-10000'); }
+    if ('tone_shape' in r) { if (r.tone_shape === 'sine' || r.tone_shape === 'bright') cfg.radio.tone_shape = r.tone_shape; else bad('radio.tone_shape', 'sine|bright'); }
+    if ('preemphasis' in r) { if (typeof r.preemphasis === 'boolean') cfg.radio.preemphasis = r.preemphasis; else bad('radio.preemphasis', 'bool'); }
+    if ('correction_ppm' in r) { if (isNum(r.correction_ppm) && inRange(r.correction_ppm, -200, 200)) cfg.radio.correction_ppm = r.correction_ppm; else bad('radio.correction_ppm', '-200..200'); }
+    if ('sample_rate' in r) { if (isInt(r.sample_rate) && inRange(r.sample_rate, 4000, 10000)) cfg.radio.sample_rate = r.sample_rate; else bad('radio.sample_rate', '4000-10000'); }
+    if ('tx_while_mounted' in r) { if (typeof r.tx_while_mounted === 'boolean') cfg.radio.tx_while_mounted = r.tx_while_mounted; else bad('radio.tx_while_mounted', 'bool'); }
+  }
 
   // ---- plan
   const p = u.plan || {};
@@ -112,7 +124,7 @@ export function mergeAndValidate(user, defaults, board) {
       }
       cfg.payload = out;
     }
-  } else if (pl !== undefined) bad('payload', 'object');
+  } else if (pl !== undefined && pl !== null) bad('payload', 'object');   // null: section left to the defaults, as the firmware treats it
 
   // ---- schedule
   const s = u.schedule;
@@ -132,7 +144,7 @@ export function mergeAndValidate(user, defaults, board) {
         dead_song: typeof s.dead_song === 'boolean' ? s.dead_song : false };
       for (const [a, b] of [['alive_min_ms', 'alive_max_ms'], ['dit_min_ms', 'dit_max_ms']]) if (cfg.schedule[a] > cfg.schedule[b]) { bad(`schedule.${a}`, 'min > max'); cfg.schedule[a] = cfg.schedule[b]; }
     } else bad('schedule.kind', 'fixed | popcorn | resurrection');
-  } else if (s !== undefined) bad('schedule', 'object');
+  } else if (s !== undefined && s !== null) bad('schedule', 'object');
 
   // ---- battery
   const b = u.battery || {};
@@ -156,7 +168,7 @@ export function mergeAndValidate(user, defaults, board) {
 }
 
 /** Page-side checks that go beyond the firmware: callsign set, band plan, Morse characters. */
-export function pageChecks(cfg, { bands, region, morseTable, templateManifest, module }) {
+export function pageChecks(cfg, { bands, region, morseTable, templateManifest, module, pinless = false }) {
   const issues = [];   // { level: 'err'|'warn', key, msg }
   if (cfg.id.callmessage.includes(cfg.id.placeholder)) issues.push({ level: 'err', key: 'id.callmessage', msg: `callsign not set (still contains ${cfg.id.placeholder})` });
   const unsendable = [...new Set(cfg.id.callmessage.toLowerCase().split('').filter(c => c !== ' ' && !(c in morseTable)))];
@@ -169,7 +181,16 @@ export function pageChecks(cfg, { bands, region, morseTable, templateManifest, m
   }
   if (module?.bandwidths_khz && !module.bandwidths_khz.includes(cfg.radio.bandwidth_khz)) issues.push({ level: 'warn', key: 'radio.bandwidth_khz', msg: `${cfg.radio.bandwidth_khz} kHz is not a width the ${module.name} offers (${module.bandwidths_khz.join(' / ')}); the firmware will use the nearest` });
   if (cfg.plan.frequencies_mhz.length > 1 && !cfg.plan.announce_qsy) issues.push({ level: 'info', key: 'plan.announce_qsy', msg: 'silent rotation: hunters must find each new frequency themselves' });
-  if (templateManifest?.pins) for (const role of templateManifest.pins.required) if (!cfg.pins[role]) issues.push({ level: 'err', key: `pins.${role}`, msg: `${role} is required by ${templateManifest.id}` });
-  if (cfg.id.telemetry.includes('batt') && !cfg.pins.batt_sense) issues.push({ level: 'info', key: 'id.telemetry', msg: 'battery telemetry requested but no batt_sense pin — ignored by the firmware' });
+  if (templateManifest?.pins && !pinless) for (const role of templateManifest.pins.required) if (!cfg.pins[role]) issues.push({ level: 'err', key: `pins.${role}`, msg: `${role} is required by ${templateManifest.id}` });
+  if (cfg.id.telemetry.includes('batt') && !pinless && !cfg.pins.batt_sense) issues.push({ level: 'info', key: 'id.telemetry', msg: 'battery telemetry requested but no batt_sense pin — ignored by the firmware' });
+  if (pinless) {
+    if (cfg.payload.kind === 'sstv') issues.push({ level: 'err', key: 'payload.kind', msg: 'SSTV is not in the fox-bench PicoFox firmware yet (the fox would send its ID only)' });
+    if (cfg.id.telemetry.includes('batt')) issues.push({ level: 'info', key: 'id.telemetry', msg: 'this board has no battery voltage sense; telemetry is ignored' });
+    const maxTone = Math.floor((cfg.radio.sample_rate || 8000) / 2) - 100;
+    if (cfg.id.tone_hz > maxTone) issues.push({ level: 'warn', key: 'id.tone_hz', msg: `${cfg.id.tone_hz} Hz is above what ${cfg.radio.sample_rate || 8000} samples/s can carry (${maxTone} Hz); the firmware folds it down an octave` });
+    if ((cfg.radio.id_deviation_hz || 0) > 5000 || (cfg.radio.audio_deviation_hz || 0) > 5000) issues.push({ level: 'warn', key: 'radio.id_deviation_hz', msg: 'deviation above ±5 kHz is wider than a 12.5 kHz channel; receivers will distort' });
+    const margin = 0.02, zoneHi = cfg.radio.itu_zone === 1 ? 146.0 : 148.0;
+    for (const f of cfg.plan.frequencies_mhz) if (f < 144.0 + margin || f > zoneHi - margin) issues.push({ level: 'err', key: 'plan.frequencies_mhz', msg: `${f} MHz is within 20 kHz of the band edge for ITU zone ${cfg.radio.itu_zone} (144–${zoneHi} MHz)` });
+  }
   return issues;
 }

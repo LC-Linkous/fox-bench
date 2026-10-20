@@ -10,8 +10,15 @@ const get = async (path, type = 'json') => {
 };
 
 export async function loadCatalog() {
-  const [boardIds, moduleIds, bands, fw] = await Promise.all([get('boards/index.json'), get('modules/index.json'), get('bands.json'), get('firmware/index.json')]);
-  const boards = Object.fromEntries(await Promise.all(boardIds.map(async id => [id, await get(`boards/${id}.json`)])));
+  const [boardIds, hwIds, moduleIds, bands, fw] = await Promise.all([get('boards/index.json'), get('hardware/index.json'), get('modules/index.json'), get('bands.json'), get('firmware/index.json')]);
+  const hardware = Object.fromEntries(await Promise.all(hwIds.map(async id => [id, await get(`hardware/${id}.json`)])));
+  // A board entry is a *target*: hardware + firmware + family. Merge the physical facts in so the rest of the page
+  // reads one object (board.pins, board.flash, board.notes …); target keys win where both have one.
+  const boards = Object.fromEntries(await Promise.all(boardIds.map(async id => {
+    const t = await get(`boards/${id}.json`), hw = hardware[t.hardware];
+    if (!hw) throw new Error(`boards/${id}.json: unknown hardware ${t.hardware}`);
+    return [id, { ...hw, ...t, flash: { ...hw.flash, ...(t.flash || {}) }, hw }];
+  })));
   const modules = Object.fromEntries(await Promise.all(moduleIds.map(async id => [id, await get(`modules/${id}.json`)])));
   const templates = Object.fromEntries(await Promise.all(fw.templates.map(async id => [id, await get(`firmware/templates/${id}/template.json`)])));
   const foxlibVersion = (await get('firmware/foxlib/VERSION', 'text')).trim();
@@ -24,7 +31,7 @@ export async function loadCatalog() {
   // vendor models for drive-configured boards (js/model/vendor/<id>.js), loaded once
   const vendors = {};
   for (const b of Object.values(boards)) if (b.vendor && !vendors[b.vendor]) vendors[b.vendor] = await import(new URL(`./vendor/${b.vendor}.js`, import.meta.url));
-  return { boards, modules, bands, templates, foxlibFiles: fw.foxlib, foxlibVersion, songLibraries, vendors };
+  return { boards, hardware, modules, bands, templates, foxlibFiles: fw.foxlib, foxlibVersion, songLibraries, vendors };
 }
 
 export const loadDefaults = (templateId, boardId) => get(`firmware/templates/${templateId}/defaults/${boardId}.json`);

@@ -95,6 +95,24 @@ pattern, because keying unknown pins is worse than not keying.
 | `high_power` | bool | | `hl` pin high. Default `false`. The DMO modules have exactly two levels; this is the only power control the firmware has. |
 | `power_dbm` | number or null | 0–40 | the measured or nominal output of the selected level, recorded for profiles and the fleet log. The firmware ignores it. |
 
+### `radio` for the `si5351fm` family (foxlib-c targets: the PicoFox with fox-bench firmware)
+
+Boards of the `foxlib-c` device family have the radio on the board, so there
+is no `pins` section (the validators skip it) and the `radio` keys describe
+the Si5351 exciter. `squelch`, `volume` and `high_power` have no meaning there.
+
+| key | type | range | notes |
+|---|---|---|---|
+| `family` | string | `si5351fm` | |
+| `itu_zone` | int | 1–3 | zone 1 is 144–146 MHz, 2 and 3 are 144–148. The firmware also refuses to key within 20 kHz of a band edge (`radio=band_edge`) |
+| `attenuation` | int | 0–127 | BVA1761 steps of 0.25 dB on rev 3 boards; ignored on rev 2 (the firmware detects the revision) |
+| `id_deviation_hz`, `audio_deviation_hz` | int | 500–10000 | peak FM deviation of the Morse ID and of the payload |
+| `tone_shape` | `sine` \| `bright` | | `bright` adds the odd harmonics a PWM square wave has |
+| `preemphasis` | bool | | 6 dB/octave boost of the highs relative to the highest tone of the stream, like a voice transmitter |
+| `correction_ppm` | number | −200…200 | reference (TCXO) correction applied to every frequency |
+| `sample_rate` | int | 4000–10000 | FM update rate: PLL fraction writes per second. 8000 is the design point |
+| `tx_while_mounted` | bool | | `true` (default): the fox runs with the FOXBENCH drive mounted and reloads ~1.5 s after the host's last write. `false`: silent until the drive is ejected or unplugged |
+
 ## `plan`
 
 ```json

@@ -30,6 +30,16 @@ function zipEntries(buf) {
   }
   return out;
 }
+/** Unpack a foxlib-c deploy set (fox.json + defaults.json) and boot it in the C firmware's host simulation (built with make). */
+async function bootInFoxlibC(entries, label) {
+  const { mkdtemp, writeFile } = await import('node:fs/promises'); const { tmpdir } = await import('node:os'); const { execFile } = await import('node:child_process');
+  const dir = await mkdtemp(join(tmpdir(), 'fox-bench-foxlibc-'));
+  for (const e of entries) await writeFile(join(dir, e.name), e.data);
+  const bin = join(ROOT, 'firmware/foxlib-c/tests/build/host_sim');
+  await new Promise((res, rej) => execFile('make', ['-s', '-C', join(ROOT, 'firmware/foxlib-c/tests'), 'build/host_sim'], { timeout: 120000 }, (err, so, se) => err ? rej(new Error(`${label}: host_sim build failed\n${so}${se}`)) : res()));
+  return new Promise((res, rej) => execFile(bin, [dir, '--cap-ms', '120000', '--stop-after-unkeys', '2'], { timeout: 60000 }, (err, stdout, stderr) => err ? rej(new Error(`${label}: host_sim failed\n${stdout}${stderr}`)) : res(stdout)));
+}
+
 /** Unpack a deploy-set zip into a temp dir and boot it in the firmware simulator. Returns the sim's stdout, or throws. */
 async function bootInSimulator(entries, label) {
   const { mkdtemp, writeFile, mkdir } = await import('node:fs/promises');
@@ -217,7 +227,7 @@ try {
   console.log('PicoFox (drive family)');
   await page.click('#demoBtn'); await settle(300);                       // leave the C3 demo
   await tab('board');
-  await page.selectOption('#tab-board select', 'picofox'); await settle(400);
+  await page.selectOption('#tab-board select', 'picofox-vendor'); await settle(400);
   eq(await app(() => window.foxbench.family), 'drive', 'family switches with the board');
   eq(await app(() => window.foxbench.templateId), 'picofox', 'template switched to the board\'s only template');
   eq(await app(() => window.foxbench.cfg.id.callmessage), 'W1ABC FOX DE W1ABC', 'callsign carried across the board switch');
@@ -258,8 +268,56 @@ try {
   const pfNames = zipEntries(new Uint8Array(await (await import('node:fs/promises')).readFile(await dlp.path()))).map(e => e.name);
   check(['settings.txt', 'audio.wav', '.callsign.wav', '.settings_crc.bin', 'README.txt'].every(n => pfNames.includes(n)), 'PicoFox zip has the four files + README');
   page.on('dialog', d => d.dismiss());
-  const row = await app(() => JSON.parse(localStorage.getItem('fox-bench.fleet') || '[]').filter(r => r.board === 'picofox' && r.action === 'deploy').pop());
+  const row = await app(() => JSON.parse(localStorage.getItem('fox-bench.fleet') || '[]').filter(r => r.board === 'picofox-vendor' && r.action === 'deploy').pop());
   check(row && row.result === 'written' && /dBm/.test(row.power), 'fleet row for the PicoFox deploy');
+  await page.click('#demoBtn'); await settle(300);
+
+  console.log('PicoFox with fox-bench firmware (foxlib-c family)');
+  await tab('board');
+  await page.selectOption('#tab-board select', 'picofox-foxlibc'); await settle(400);
+  eq(await app(() => window.foxbench.family), 'foxlib-c', 'family switches to foxlib-c');
+  eq(await app(() => window.foxbench.templateId), 'morse-songs', 'template switched to the first template of the family (keeps morse-songs)');
+  eq(await app(() => window.foxbench.cfg.id.callmessage), 'KY4ZR FOX DE KY4ZR', 'callsign carried across the board switch');
+  check(/does not run CircuitPython/.test(await text('#tab-board')) && /Get fox-bench firmware/.test(await text('#tab-board')), 'Board tab offers the hosted fox-bench firmware');
+  check(/Open FOXBENCH/.test(await text('#connectBtn')), 'Connect button names the FOXBENCH drive');
+  check(await page.isVisible('.rail button[data-tab="bench"]'), 'Bench tab shown (console commands)');
+  await tab('behavior');
+  const optsC = await page.$$eval('#tab-behavior select option', els => els.map(e => e.value));
+  check(optsC.includes('morse-songs') && optsC.includes('popcorn') && optsC.includes('resurrection') && !optsC.includes('morse-sstv') && !optsC.includes('picofox'), 'template dropdown filtered to the foxlib-c set (' + optsC.join(',') + ')');
+  for (const t of ['radio', 'plan', 'id', 'payload', 'schedule', 'deploy', 'bench', 'fleet', 'about']) await tab(t);
+  await tab('radio');
+  check(/FM update rate/.test(await text('#tab-radio')) && /Pre-emphasis/.test(await text('#tab-radio')) && !/Board revision/.test(await text('#tab-radio')), 'Radio tab shows the foxlib-c controls, no vendor revision picker');
+  eq(await app(() => window.foxbench.cfg.radio.sample_rate), 8000, 'sample rate default 8000');
+  eq(await app(() => window.foxbench.report.length), 0, 'no pin complaints for a pinless board');
+  await tab('plan');
+  const fInC = await page.$('#tab-plan input[type=number]'); await fInC.fill('147.99'); await fInC.dispatchEvent('change'); await settle(200);
+  check((await app(() => window.foxbench.issues.some(i => /band edge/.test(i.msg)))), 'band-edge check flags 147.99 for the foxlib-c family');
+  const fInC2 = await page.$('#tab-plan input[type=number]'); await fInC2.fill('146.565'); await fInC2.dispatchEvent('change'); await settle(200);
+  await tab('bench');
+  check(/key 2/.test(await text('#tab-bench')) && /bootsel/.test(await text('#tab-bench')), 'Bench tab lists the console commands');
+  await page.click('#demoBtn'); await settle(800);                       // demo FOXBENCH drive
+  check(/FOXBENCH/.test(await text('#statusText')), 'demo FOXBENCH drive connected: ' + await text('#statusText'));
+  await tab('board');
+  check(/Template on board/.test(await text('#tab-board')) && /morse-songs/.test(await text('#tab-board')), 'drive\'s fox.json read: template shown');
+  await tab('deploy');
+  check(/fox\.json/.test(await text('#tab-deploy')) && /defaults\.json/.test(await text('#tab-deploy')) && !/code\.py/.test(await text('#tab-deploy')), 'deploy lists fox.json + defaults.json, no code.py');
+  await page.check('#tab-deploy .gate input'); await page.click('#tab-deploy button.btn.primary'); await settle(1500);
+  check(/files written and read back/.test(await text('#tab-deploy')), 'files written to the demo FOXBENCH drive');
+  const onDriveC = await app(async () => { const d = window.foxbench.device; const l = await d.list(''); const f = JSON.parse(await d.readText('fox.json')); return { names: Object.keys(l).sort(), f }; });
+  check(onDriveC.names.join() === 'README.txt,defaults.json,fox.json' && onDriveC.f.template === 'morse-songs' && onDriveC.f.board === 'picofox-foxlibc' && onDriveC.f.id.callmessage === 'KY4ZR FOX DE KY4ZR' && !('ptt' in (onDriveC.f.pins || {})), 'drive holds fox.json for this board and template');
+  page.removeAllListeners('dialog'); page.once('dialog', d => d.accept());
+  const [dlc] = await Promise.all([page.waitForEvent('download', { timeout: 10000 }), page.click('#tab-deploy button:has-text("Export files")')]);
+  const cEntries = zipEntries(new Uint8Array(await (await import('node:fs/promises')).readFile(await dlc.path())));
+  check(['fox.json', 'defaults.json', 'README.txt'].every(n => cEntries.map(e => e.name).includes(n)), 'foxlib-c zip has fox.json + defaults.json + README');
+  page.on('dialog', d => d.dismiss());
+  // the exported set boots in the C firmware's host simulation (same scenarios machinery as firmware/foxlib-c/tests/sim.py)
+  try {
+    const out = await bootInFoxlibC(cEntries, 'foxlib-c export');
+    const rec = JSON.parse(out);
+    check(/FOX template=morse-songs/.test(rec.prints) && /cfg=ok/.test(rec.prints) && /id=set/.test(rec.prints) && rec.ptt.length >= 2, 'exported set boots in the foxlib-c host sim: ' + (rec.prints.match(/FOX [^\n]*/) || [''])[0]);
+  } catch (e) { check(false, 'foxlib-c host sim: ' + e.message.split('\n')[0]); }
+  const rowC = await app(() => JSON.parse(localStorage.getItem('fox-bench.fleet') || '[]').filter(r => r.board === 'picofox-foxlibc' && r.action === 'deploy').pop());
+  check(rowC && rowC.result === 'written' && /dBm/.test(rowC.power), 'fleet row for the foxlib-c deploy');
   await page.click('#demoBtn'); await settle(300);
   await tab('board'); await page.selectOption('#tab-board select', 'seeed_xiao_esp32c3'); await settle(400);
   eq(await app(() => window.foxbench.family), 'foxlib', 'back to the C3: family foxlib');

@@ -7,7 +7,7 @@
 
 import foxlib
 
-fox = foxlib.Fox("fox.json", defaults="defaults.json", version="1.0.0")
+fox = foxlib.Fox("fox.json", defaults="defaults.json", version="1.1.0")
 for tx in fox.cycles():          # dead-phase wakes never reach this body
     tx.morse(tx.id_message)
     if not (tx.low_battery and fox.cfg["payload"]["skip_on_low_battery"]):

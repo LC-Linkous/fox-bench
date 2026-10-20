@@ -10,14 +10,18 @@ to install.
 **Use it:** https://lc-linkous.github.io/fox-bench/ — *Try without
 hardware* runs the whole page against a simulated board.
 
-Status: **v0.5 — two device families.** All seven templates have been
+Status: **v0.6 — three device families.** All seven templates have been
 deployed from the page to a XIAO ESP32-C3 + SA868 and run on both 2 m and
 70 cm (`tools/hw_smoke.py` reports); CircuitPython itself can be flashed
 onto a bare board from the Board tab, one at a time or as a batch. The
-AI6YM PicoFox (vendor firmware, configured by files on its USB drive) is
-supported as a second family: the page writes its settings, renders its
-audio and Morse-ID files, and draws the cycle its firmware runs —
-untested on the unit as of this writing (`docs/picofox-notes.md`). Every push runs three test layers in CI: the firmware
+AI6YM PicoFox is supported two ways: with its **vendor firmware** (the page
+writes its settings, renders its audio and Morse-ID files, and draws the
+cycle that firmware runs — verified on air, `docs/picofox-notes.md`), and
+with **fox-bench's own firmware** (`firmware/foxlib-c/`, GPL-3.0-or-later:
+`fox.json`, the same templates as the CircuitPython foxes, FM at 8 kHz with
+pre-emphasis, banner and bench commands on its serial console; flashed from
+the Board tab as a UF2 — builds and passes the simulations, first on-air
+test pending). Every push runs three test layers in CI: the firmware
 simulator (`firmware/sim/`), the REPL protocol against a fake board and
 the page itself in headless Chromium (`tests/`), and a lint of every
 descriptor (`tools/check_catalog.py`). See `tests/README.md`.
@@ -28,7 +32,7 @@ descriptor (`tools/check_catalog.py`). See `tests/README.md`.
 | `CONFIG.md` | the `fox.json` contract, validated by the page and the firmware |
 | `PROTOCOL.md` | the raw-REPL exchange, byte by byte |
 | `index.html`, `css/`, `js/` | the page (no build step, ES modules) |
-| `boards/`, `modules/`, `bands.json` | descriptors the page renders from |
+| `hardware/`, `boards/`, `modules/`, `bands.json` | descriptors: physical designs, targets (hardware + firmware + family), radio modules, band plans |
 | `firmware/foxlib/` | shared firmware library |
 | `firmware/templates/<id>/` | one `code.py`, manifest and per-board defaults per fox behaviour |
 | `firmware/sim/` | simulator: mocked hardware, virtual clock, scenarios, Python/JS parity |
@@ -39,7 +43,8 @@ descriptor (`tools/check_catalog.py`). See `tests/README.md`.
 | `flasher/` | CircuitPython flashing component (esptool-js bundled; Apache-2.0, licensed separately) |
 | `tools/batch_flash.py` | headless CircuitPython batch flasher, same CSV as the Fleet tab |
 | `docs/first-hardware-session.md` | checklist for a new board, module or CircuitPython build |
-| `docs/picofox-notes.md` | what the PicoFox's firmware reads and does; the basis of the drive family |
+| `docs/picofox-notes.md` | what the PicoFox's vendor firmware reads and does; the basis of the drive family |
+| `docs/picofox-hardware.md`, `firmware/foxlib-c/` | the PicoFox hardware from its schematic, and fox-bench's own firmware for it (the foxlib-c family) |
 
 ## Running locally
 

@@ -1,0 +1,24 @@
+{
+  "id": "picofox-vendor",
+  "name": "AI6YM PicoFox (vendor firmware)",
+  "hardware": "picofox",
+  "family": "drive",
+  "vendor": "picofox",
+  "module_fixed": "picofox_si5351",
+  "firmware": {
+    "kind": "vendor",
+    "note": "The PicoFox runs the vendor's own Arduino firmware (CC BY-NC-SA 4.0), not CircuitPython. fox-bench only writes the files that firmware reads. Restoring stock firmware is a UF2 copy.",
+    "stock_firmware_url": "https://github.com/ai6ym/PicoFox/tree/main/releases"
+  },
+  "drive": {
+    "label": "PicoFox",
+    "usb_id": "AI6YM PicoFox 2.0",
+    "files": [
+      "settings.txt",
+      "audio.wav",
+      ".callsign.wav",
+      ".settings_crc.bin"
+    ],
+    "note": "The fox does not transmit while a computer has the drive mounted. After writing: eject the drive, then switch the PicoFox off and on."
+  }
+}

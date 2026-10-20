@@ -7,7 +7,7 @@
 
 import foxlib
 
-fox = foxlib.Fox("fox.json", defaults="defaults.json", version="1.0.0")
+fox = foxlib.Fox("fox.json", defaults="defaults.json", version="1.1.0")
 p = fox.cfg["payload"]
 for tx in fox.cycles():
     tx.morse(p["message"] or tx.id_message, dit_s=p["dit_s"])

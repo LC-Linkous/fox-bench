@@ -7,14 +7,14 @@ import { DriveDevice, demoDrive } from '../../js/device/drive-device.js';
 import { MemDirectoryHandle } from '../../js/device/memfs.js';
 import * as pf from '../../js/model/vendor/picofox.js';
 
-const board = JSON.parse(readFileSync(new URL('../../boards/picofox.json', import.meta.url)));
-const defaults = JSON.parse(readFileSync(new URL('../../firmware/templates/picofox/defaults/picofox.json', import.meta.url)));
+const board = JSON.parse(readFileSync(new URL('../../boards/picofox-vendor.json', import.meta.url)));
+const defaults = JSON.parse(readFileSync(new URL('../../firmware/templates/picofox/defaults/picofox-vendor.json', import.meta.url)));
 
 test('connect lists the drive and warns when it does not look like the board\'s drive', async () => {
   const logs = [];
   const d = new DriveDevice(new MemDirectoryHandle('PicoFox', { 'settings.txt': 'CALLSIGN=X\n', 'audio.wav': new Uint8Array(100) }), { board }); d.onLog = (t, c) => logs.push([c, t]);
   const info = await d.connect();
-  assert.equal(info.boardId, 'picofox'); assert.equal(info.driveName, 'PicoFox'); assert.equal(info.files['audio.wav'].size, 100);
+  assert.equal(info.boardId, 'picofox-vendor'); assert.equal(info.driveName, 'PicoFox'); assert.equal(info.files['audio.wav'].size, 100);
   assert.ok(!logs.some(([c]) => c === 'err'));
   const other = new DriveDevice(new MemDirectoryHandle('USB STICK', { 'holiday.jpg': new Uint8Array(3) }), { board }); const l2 = []; other.onLog = (t, c) => l2.push([c, t]);
   await other.connect();

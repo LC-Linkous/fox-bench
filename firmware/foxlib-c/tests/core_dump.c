@@ -62,7 +62,7 @@ int main(int argc, char **argv) {
         cfg_report_t rep; cfg_report_init(&rep);
         size_t n2; char *t2 = slurp(argv[3], &n2); int root2 = json_parse(&DOC2, t2, n2);
         if (root2 < 0) { CFG = DEF; strcpy(rep.mode, "default(parse)"); } else cfg_apply_user(&CFG, &DEF, &DOC2, root2, argv[4], &rep);
-        char st[128]; printf("status=%s\n", cfg_report_status(&rep, st, sizeof st));
+        char st[256]; printf("status=%s\n", cfg_report_status(&rep, st, sizeof st));
         for (int i = 0; i < rep.n_items; i++) printf("  cfg: %s -> default (%s)\n", rep.items[i].key, rep.items[i].reason);
         printf("template=%s callmessage=%s wpm=%d tone=%d id_ok=%d\n", CFG.template_id, CFG.id.callmessage, CFG.id.wpm, CFG.id.tone_hz, cfg_id_ok(&CFG));
         printf("freqs="); for (int i = 0; i < CFG.plan.n; i++) printf("%s%g", i ? "," : "", CFG.plan.frequencies_mhz[i]); printf(" qsy=%d\n", CFG.plan.announce_qsy);

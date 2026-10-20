@@ -9,8 +9,14 @@ HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(os.pat
 spec = importlib.util.spec_from_file_location("foxcfg", os.path.join(ROOT, "firmware/foxlib/cfg.py"))
 cfg = importlib.util.module_from_spec(spec); spec.loader.exec_module(cfg)
 
+def load_board(bid):
+    """A target (boards/) merged with its hardware (hardware/), as the page's loader does."""
+    t = json.load(open(os.path.join(ROOT, "boards", bid + ".json")))
+    hw = json.load(open(os.path.join(ROOT, "hardware", t["hardware"] + ".json"))) if "hardware" in t else {}
+    return {**hw, **t}
+
 def board_names(bid):
-    b = json.load(open(os.path.join(ROOT, "boards", bid + ".json")))
+    b = load_board(bid)
     names = set()
     for p in b["pins"]:
         names.add(p["name"]); names.update(p.get("aliases", []))
@@ -18,7 +24,7 @@ def board_names(bid):
 
 def canon_pin(bid, name):
     """The firmware stores the name as given (board.A3 and board.D3 are the same pin); the page stores the canonical name. Normalise for comparison."""
-    b = json.load(open(os.path.join(ROOT, "boards", bid + ".json")))
+    b = load_board(bid)
     for p in b["pins"]:
         if name == p["name"] or name in p.get("aliases", []): return p["name"]
     return name

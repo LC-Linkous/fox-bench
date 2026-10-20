@@ -7,7 +7,7 @@
 
 import foxlib
 
-fox = foxlib.Fox("fox.json", defaults="defaults.json", version="0.1.0")
+fox = foxlib.Fox("fox.json", defaults="defaults.json", version="0.2.0")
 p = fox.cfg["payload"]
 
 for tx in fox.cycles():

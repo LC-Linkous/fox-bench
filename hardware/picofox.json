@@ -1,0 +1,101 @@
+{
+  "id": "picofox",
+  "name": "AI6YM PicoFox (RP2040 + SI5351, 2 m FM)",
+  "mcu": "RP2040",
+  "radio": "SI5351 clock generator (TCXO) + amplifier; FM by retuning the PLL per audio sample",
+  "design": {
+    "by": "AI6YM.radio (Giorgi Enterprises LLC)",
+    "source": "https://github.com/ai6ym/PicoFox",
+    "license": "CC BY-NC-SA 4.0 (hardware and vendor firmware; not included here)"
+  },
+  "flash": {
+    "method": "uf2",
+    "chip": "rp2040",
+    "offset": "0x0",
+    "flash_mb": 16,
+    "bootloader_instructions": "Switch the PicoFox on. Hold BOOTSEL while plugging in USB; a drive called RPI-RP2 appears.",
+    "drive_name": "RPI-RP2"
+  },
+  "has_usb_drive": true,
+  "usb": [
+    {
+      "vid": "0x2e8a",
+      "pid": "0x0003",
+      "when": "RP2040 bootloader (RPI-RP2)"
+    },
+    {
+      "vid": "0x2e8a",
+      "pid": "0x000a",
+      "when": "vendor firmware: TinyUSB MSC + CDC 'PicoFox'"
+    }
+  ],
+  "pins": [
+    {
+      "name": "GP0",
+      "gpio": 0,
+      "note": "I2C SDA to SI5351 (shared with the attenuator data line)"
+    },
+    {
+      "name": "GP1",
+      "gpio": 1,
+      "note": "I2C SCL"
+    },
+    {
+      "name": "GP2",
+      "gpio": 2,
+      "note": "amplifier enable, active low"
+    },
+    {
+      "name": "GP4",
+      "gpio": 4,
+      "note": "attenuator latch (rev 3)"
+    },
+    {
+      "name": "GP14",
+      "gpio": 14,
+      "note": "test-mode strap"
+    },
+    {
+      "name": "GP22",
+      "gpio": 22,
+      "note": "board revision ID0"
+    },
+    {
+      "name": "GP23",
+      "gpio": 23,
+      "note": "ID1"
+    },
+    {
+      "name": "GP24",
+      "gpio": 24,
+      "note": "ID2"
+    },
+    {
+      "name": "GP25",
+      "gpio": 25,
+      "note": "ID3"
+    }
+  ],
+  "roles": {},
+  "revisions": {
+    "r2": "no attenuator \u2014 ATTENUATION is ignored",
+    "r3": "BVA1761 attenuator, 0\u2013127 steps of about 0.25 dB"
+  },
+  "battery": {
+    "charger": true,
+    "divider_note": "Internal LiPo; about five hours at 100 % duty. Charges over USB only with the power switch ON. No battery telemetry is available to the page."
+  },
+  "notes": [
+    "The firmware's Morse table is A\u2013Z and 0\u20139 only: anything else in the callsign (/, -, space) is silently dropped from the ID it generates. fox-bench writes its own ID audio instead, so the full message is sent, but the CALLSIGN setting is still reduced to those characters.",
+    "A DUTY_CYCLE of 0, an empty callsign, or a frequency within 20 kHz of a band edge does not produce an error on the board \u2014 the fox just stays silent.",
+    "Each segment (audio, then ID) goes out on a different carrier offset: 0, +1, +3, +5, +3, +1, 0, \u22121, \u22123, \u22125, \u22123, \u22121 kHz in turn. With a duty cycle under 100 %, rev 3 boards also step the attenuation base / +10 dB / +5 dB each cycle. Both are firmware behaviour, not settings.",
+    "Silence inside audio.wav is an unmodulated carrier, still on the air. Only the duty-cycle gap is actually off.",
+    "Firmware updates and the stock-firmware restore are UF2 files copied to the RPI-RP2 drive. The PicoFox does not run CircuitPython."
+  ],
+  "serial": {
+    "baud": 115200,
+    "boot_ok": "si5351 setup complete",
+    "notes": "USB serial prints boot messages only: 'Revision: N', 'Detected settings change, generating new callsign audio', 'si5351 setup complete.' There is no command interface."
+  },
+  "silkscreen": null
+}

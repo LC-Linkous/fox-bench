@@ -181,6 +181,56 @@ def main():
     for f in tmpfiles:
         os.unlink(f)
 
+    print("cfg: JS validator (js/model/schema.js, pinless board) vs C")
+    import shutil
+    node = shutil.which("node")
+    if not node:
+        print("  skip: node not installed")
+    else:
+        js_cases = []
+        for t in sorted(os.listdir(TEMPLATES)):
+            dp = os.path.join(TEMPLATES, t, "defaults", "picofox-foxlibc.json")
+            if os.path.exists(dp):
+                js_cases.append((t + "/defaults", dp, dp))
+        base_c = os.path.join(TEMPLATES, "morse-songs", "defaults", "picofox-foxlibc.json")
+        bad_c = dict(bad)
+        bad_c.update({
+            "si5351-bad": {"radio": {"attenuation": 200, "tone_shape": "square", "sample_rate": 100, "preemphasis": "yes", "itu_zone": 9, "id_deviation_hz": 20000, "correction_ppm": 1000, "tx_while_mounted": 1}},
+            "si5351-ok": {"radio": {"attenuation": 40, "tone_shape": "sine", "sample_rate": 5000, "preemphasis": False, "itu_zone": 1, "id_deviation_hz": 2500, "audio_deviation_hz": 7000, "correction_ppm": -1.5, "tx_while_mounted": False}, "id": {"callmessage": "KY4ZR FOX"}},
+            "pins-ignored": {"pins": {"ptt": "GP99"}, "id": {"callmessage": "KY4ZR FOX"}},
+            "rotator": {"plan": {"frequencies_mhz": [146.565, 147.42, 147.445], "announce_qsy": True}, "schedule": {"kind": "resurrection", "seed": 5, "id_every": 2, "alive_min_ms": 5, "alive_max_ms": 1}},
+        })
+        tmp2 = []
+        for name, u in bad_c.items():
+            tf = tempfile.NamedTemporaryFile("w", suffix=".json", delete=False); json.dump(u, tf); tf.close(); tmp2.append(tf.name)
+            js_cases.append(("bad/" + name, base_c, tf.name))
+        script = """
+import { mergeAndValidate } from %r;
+import fs from 'node:fs';
+const [dp, up] = process.argv.slice(2);
+const d = JSON.parse(fs.readFileSync(dp, 'utf8'));
+let u; try { u = JSON.parse(fs.readFileSync(up, 'utf8')); } catch { console.log(JSON.stringify({ status: 'default(parse)', keys: [] })); process.exit(0); }
+const r = mergeAndValidate(u, d, { id: d.board, family: 'foxlib-c', pins: [] });
+console.log(JSON.stringify({ status: r.status, keys: r.report.map(x => x.key) }));
+""" % os.path.join(REPO, "js", "model", "schema.js")
+        sp = tempfile.NamedTemporaryFile("w", suffix=".mjs", delete=False); sp.write(script); sp.close()
+        for name, dpath, upath in js_cases:
+            board = json.load(open(dpath)).get("board")
+            cout = run(b, "cfg", dpath, upath, board).splitlines()
+            c_status = cout[0].split("=", 1)[1]
+            c_keys = [ln.split("cfg: ", 1)[1].split(" ->")[0] for ln in cout if ln.startswith("  cfg:")]
+            r = subprocess.run([node, sp.name, dpath, upath], capture_output=True, text=True)
+            try:
+                js = json.loads(r.stdout.strip().splitlines()[-1])
+            except Exception:
+                js = {"status": "node-error: " + r.stderr[-200:], "keys": []}
+            js_status = js["status"]
+            # JS reports 'default(...)' with a single-item report and the C side with none; compare status + keys for partial only
+            ok = js_status == c_status and (not c_status.startswith("partial") or js["keys"] == c_keys)
+            check("%-44s %s" % (name, c_status), ok, "js=%s %s c=%s" % (js_status, js["keys"], c_keys))
+        for f in tmp2 + [sp.name]:
+            os.unlink(f)
+
     print("synth")
     for sr, shape, pre, level, tone in ((8000, "bright", 1, 0.5, 800), (8000, "sine", 0, 0.5, 800), (5000, "bright", 1, 0.7, 600), (8000, "bright", 1, 1.0, 2400), (8000, "sine", 1, 0.3, 300)):
         out = run(b, "synth", sr, shape, pre, level, 12, tone, "KY4ZR", "FOX", "DE", "KY4ZR").split()

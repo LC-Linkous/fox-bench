@@ -120,30 +120,46 @@ export function batchCard(app) {
     ...statusBlock());
 }
 
-/** UF2 boards (PicoFox): no CircuitPython; the only flash operation is copying a vendor .uf2 to the bootloader drive. */
-let uf2 = { name: '', bytes: null, busy: false, last: null };
+/** UF2 boards (PicoFox): no CircuitPython. Firmware is a .uf2 copied to the bootloader drive: the vendor's (a file you
+ * load) or fox-bench's own (fetched from this site for foxlib-c targets). The same card restores the vendor firmware. */
+let uf2 = { name: '', bytes: null, busy: false, last: null, source: '', fetching: false };
+async function fetchHosted(app) {
+  const b = app.board, url = b.firmware?.image; if (!url) return;
+  uf2.fetching = true; uf2.last = null; notify();
+  try {
+    const r = await fetch(url, { cache: 'no-cache' });
+    if (!r.ok) throw new Error(`HTTP ${r.status} for ${url} — the site builds this file in CI; a local checkout has it only after a firmware build`);
+    const bytes = new Uint8Array(await r.arrayBuffer());
+    if (bytes.length < 512 || bytes[0] !== 0x55 || bytes[1] !== 0x46 || bytes[2] !== 0x32 || bytes[3] !== 0x0A) throw new Error('not a UF2 file');
+    uf2 = { ...uf2, name: url.split('/').pop(), bytes, source: 'fox-bench', last: null };
+    app.console.dim(`fetched ${uf2.name} (${(bytes.length / 1024).toFixed(0)} kB)`);
+  } catch (e) { uf2.last = { ok: false, text: String(e.message || e) }; app.console.err('firmware fetch failed: ' + uf2.last.text); }
+  uf2.fetching = false; notify();
+}
 function uf2Card(app) {
-  const b = app.board;
+  const b = app.board, ours = b.family === 'foxlib-c';
   const fileIn = h('input', { type: 'file', accept: '.uf2', hidden: true });
-  fileIn.addEventListener('change', async () => { const f = fileIn.files[0]; if (!f) return; uf2 = { ...uf2, name: f.name, bytes: new Uint8Array(await f.arrayBuffer()), last: null }; notify(); fileIn.value = ''; });
+  fileIn.addEventListener('change', async () => { const f = fileIn.files[0]; if (!f) return; uf2 = { ...uf2, name: f.name, bytes: new Uint8Array(await f.arrayBuffer()), source: 'file', last: null }; notify(); fileIn.value = ''; });
   const copy = async () => {
     uf2.busy = true; uf2.last = null; notify();
     try {
       if (!('showDirectoryPicker' in window)) throw new Error('this browser cannot open a drive folder (Chrome or Edge needed)');
       const dir = await window.showDirectoryPicker({ id: 'fox-bench-uf2', mode: 'readwrite' });
-      if (dir.name && b.flash.drive_name && dir.name.toUpperCase() !== b.flash.drive_name && !confirm(`The folder is "${dir.name}", not ${b.flash.drive_name}. Copy the UF2 there anyway?`)) throw new Error('cancelled');
+      if (dir.name && b.flash.drive_name && dir.name.toUpperCase() !== b.flash.drive_name && !/^[\\/]*$/.test(dir.name) && !confirm(`The folder is "${dir.name}", not ${b.flash.drive_name}. Copy the UF2 there anyway?`)) throw new Error('cancelled');
       const h2 = await dir.getFileHandle(uf2.name, { create: true }); const w = await h2.createWritable(); await w.write(uf2.bytes); await w.close();
-      uf2.last = { ok: true, text: `${uf2.name} copied (${(uf2.bytes.length / 1024).toFixed(0)} kB). The board reboots into the new firmware by itself and the ${b.flash.drive_name} drive disappears.` };
+      uf2.last = { ok: true, text: `${uf2.name} copied (${(uf2.bytes.length / 1024).toFixed(0)} kB). The board reboots into the new firmware by itself and the ${b.flash.drive_name} drive disappears${uf2.source === 'fox-bench' ? `; a ${b.drive?.label || 'FOXBENCH'} drive and a serial port appear in its place` : ''}.` };
       app.console.line(`UF2 ${uf2.name} copied to ${dir.name}`, 'ok');
-      fleet.append({ board_number: '', uid: '', board: b.id, action: 'flash', template: '', profile: '', callsign: '', freq: '', power: '', seed: '', result: 'ok', notes: uf2.name + ' (uf2)' });
+      fleet.append({ board_number: '', uid: '', board: b.id, action: 'flash', template: '', profile: '', callsign: '', freq: '', power: '', seed: '', result: 'ok', notes: uf2.name + ' (uf2' + (uf2.source === 'fox-bench' ? ', fox-bench firmware' : '') + ')' });
     } catch (e) { if (e.name !== 'AbortError' && e.message !== 'cancelled') { uf2.last = { ok: false, text: String(e.message || e) }; app.console.err('UF2 copy failed: ' + uf2.last.text); } }
     uf2.busy = false; notify(); app.changed('flash');
   };
   return h('div.card', {}, h('h3', {}, 'Firmware ', badge('no CircuitPython', 'warn')),
-    h('p.hint', {}, h('b', {}, `This fox board does not run CircuitPython.`), ' ', b.flash.note),
-    h('p.hint', {}, h('b', {}, 'Bootloader: '), b.flash.bootloader_instructions, ' Firmware is a .uf2 file copied onto that drive; the board reboots when the copy finishes. The vendor\'s releases are at ', h('a', { href: b.flash.stock_firmware_url, target: '_blank', rel: 'noopener' }, 'their GitHub'), '.'),
-    h('div.tools', {}, h('button.btn.small', { onclick: () => fileIn.click() }, 'Load .uf2…'), fileIn, h('span.hint', {}, uf2.name ? `${uf2.name} · ${(uf2.bytes.length / 1024).toFixed(0)} kB` : 'nothing loaded'),
-      h('button.btn', { disabled: !uf2.bytes || uf2.busy, onclick: copy }, uf2.busy ? 'Copying…' : `Copy to ${b.flash.drive_name}…`)),
+    h('p.hint', {}, h('b', {}, `This fox board does not run CircuitPython.`), ' ', b.firmware?.note || ''),
+    h('p.hint', {}, h('b', {}, 'Bootloader: '), b.flash.bootloader_instructions, ' Firmware is a .uf2 file copied onto that drive; the board reboots when the copy finishes.', b.firmware?.stock_firmware_url ? [' The vendor\'s releases are at ', h('a', { href: b.firmware.stock_firmware_url, target: '_blank', rel: 'noopener' }, 'their GitHub'), '.'] : null),
+    ours ? h('div.tools', {}, h('button.btn', { disabled: uf2.fetching || uf2.busy, onclick: () => fetchHosted(app) }, uf2.fetching ? 'Fetching…' : 'Get fox-bench firmware'), h('span.hint', {}, `foxbench-picofox.uf2 built from this site\'s source (firmware/foxlib-c/picofox). Or load any .uf2 — the vendor\'s to go back.`)) : null,
+    h('div.tools', {}, h('button.btn.small', { onclick: () => fileIn.click() }, 'Load .uf2…'), fileIn, h('span.hint', {}, uf2.name ? `${uf2.name} · ${(uf2.bytes.length / 1024).toFixed(0)} kB${uf2.source === 'fox-bench' ? ' · fox-bench firmware' : ''}` : 'nothing loaded'),
+      h('button.btn' + (ours && uf2.source === 'fox-bench' ? '.primary' : ''), { disabled: !uf2.bytes || uf2.busy, onclick: copy }, uf2.busy ? 'Copying…' : `Copy to ${b.flash.drive_name}…`)),
     uf2.last ? h('p.hint' + (uf2.last.ok ? '.ok' : '.err'), {}, uf2.last.text) : null,
+    ours ? h('p.hint', {}, 'Already running fox-bench firmware and Listening? Type ', h('code', {}, 'bootsel'), ' in the console: the board jumps to the bootloader without touching the button.') : h('p.hint', {}, 'Want fox-bench\'s own firmware on this board instead (fox.json, the same templates as the CircuitPython foxes, bench over serial)? Pick the "(fox-bench firmware)" entry of this board above.'),
     h('p.hint', {}, 'There is no "flash CircuitPython" here on purpose; the batch-flashing card on the Fleet tab is for the ESP32 family.'));
 }

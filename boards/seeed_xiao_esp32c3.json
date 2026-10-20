@@ -1,28 +1,10 @@
 {
   "id": "seeed_xiao_esp32c3",
-  "name": "Seeed Studio XIAO ESP32-C3",
-  "circuitpython": { "board_id": "seeed_xiao_esp32c3",
-                     "download": "https://circuitpython.org/board/seeed_xiao_esp32c3/",
-                     "latest_known": "10.2.1" },
-  "flash": { "method": "esptool", "chip": "esp32c3", "offset": "0x0",
-             "bootloader_instructions": "Unplug. Hold B (BOOT), plug in USB, hold one more second, release. Already plugged in: hold B, tap R, release B." },
-  "has_usb_drive": false,
-  "pins": [
-    { "name": "D0",  "gpio": 2,  "adc": true, "pwm": true, "aliases": ["A0"] },
-    { "name": "D1",  "gpio": 3,  "adc": true, "pwm": true, "aliases": ["A1"] },
-    { "name": "D2",  "gpio": 4,  "adc": true, "pwm": true, "aliases": ["A2"] },
-    { "name": "D3",  "gpio": 5,  "adc": true, "pwm": true, "aliases": ["A3"] },
-    { "name": "D4",  "gpio": 6,  "pwm": true, "aliases": ["SDA"] },
-    { "name": "D5",  "gpio": 7,  "pwm": true, "aliases": ["SCL"] },
-    { "name": "D6",  "gpio": 21, "pwm": true, "uart_tx": true, "aliases": ["TX"] },
-    { "name": "D7",  "gpio": 20, "pwm": true, "uart_rx": true, "aliases": ["RX"] },
-    { "name": "D8",  "gpio": 8,  "pwm": true, "aliases": ["SCK"] },
-    { "name": "D9",  "gpio": 9,  "pwm": true, "aliases": ["MISO"], "note": "shares the BOOT button; avoid" },
-    { "name": "D10", "gpio": 10, "pwm": true, "aliases": ["MOSI"] }
-  ],
-  "roles": { "ptt": "D3", "pd": "D4", "hl": "D5", "uart_tx": "D6", "uart_rx": "D7",
-             "audio": "D1", "led": "D10", "batt_sense": null },
-  "battery": { "charger": true,
-               "divider_note": "BAT+ -> 200k -> ADC -> 200k -> GND. Known layouts use D2/A2 (carrier PCB) or D0/A0 (Seeed wiki). Leave batt_sense null if no divider is fitted." },
-  "silkscreen": null
+  "name": "Seeed Studio XIAO ESP32-C3 + SA868",
+  "hardware": "seeed_xiao_esp32c3",
+  "family": "foxlib",
+  "firmware": {
+    "kind": "circuitpython+foxlib",
+    "note": "CircuitPython on the board, fox-bench's foxlib and a template deployed over the REPL."
+  }
 }

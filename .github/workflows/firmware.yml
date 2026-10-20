@@ -39,3 +39,27 @@ jobs:
           python3 firmware/sim/schema_parity.py > /tmp/spy.json
           node firmware/sim/schema_parity.mjs > /tmp/sjs.json
           node firmware/sim/schema_parity.mjs --compare /tmp/spy.json /tmp/sjs.json
+
+  foxlib-c:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: Host build of the portable core + parity against foxlib (Morse, songs, schedules, cfg, synth)
+        run: make -C firmware/foxlib-c/tests check
+      - name: Arm toolchain + Pico SDK
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q gcc-arm-none-eabi libnewlib-arm-none-eabi cmake ninja-build
+          git clone -q --depth 1 --branch 2.1.1 https://github.com/raspberrypi/pico-sdk.git /tmp/pico-sdk
+          git -C /tmp/pico-sdk submodule update -q --init --depth 1 lib/tinyusb
+      - name: Build the PicoFox UF2
+        env: { PICO_SDK_PATH: /tmp/pico-sdk }
+        run: |
+          cmake -S firmware/foxlib-c/picofox -B /tmp/fxbuild -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build /tmp/fxbuild
+          arm-none-eabi-size /tmp/fxbuild/foxbench-picofox.elf
+      - uses: actions/upload-artifact@v4
+        with:
+          name: foxbench-picofox-uf2
+          path: /tmp/fxbuild/foxbench-picofox.uf2

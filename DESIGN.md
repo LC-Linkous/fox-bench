@@ -152,7 +152,23 @@ the same.
 
 ## 4. Descriptors
 
-**`boards/<board_id>.json`** — the microcontroller board.
+Two layers describe what is on the bench. **`hardware/<id>.json`** is the
+physical design — MCU, pins and their capabilities, default role wiring,
+flash method and bootloader, USB vendor/product IDs, battery notes, and
+for vendor-firmware designs the quirks their firmware has. **`boards/<id>.json`**
+is a *target*: one hardware entry plus one firmware and therefore one
+family — `foxlib` (CircuitPython + our foxlib), `drive` (the vendor's
+firmware, configured by files on its USB drive) or `foxlib-c` (our native
+firmware as a UF2). The Board tab lists targets, grouped by family, with
+the firmware named in the tag: "AI6YM PicoFox (vendor firmware)" and
+"AI6YM PicoFox (fox-bench firmware)" share `hardware/picofox.json`. A
+target with `"status": "planned"` is listed greyed out. The loader merges
+hardware under target, so the page reads one object. Templates list the
+families they apply to; the lint requires defaults for every target of
+those families.
+
+The example below shows the merged shape for the XIAO (hardware fields and
+target fields together).
 
 ```json
 {
@@ -405,20 +421,24 @@ a `dmo`-dialect radio module, files written through the REPL, behaviour
 from `foxlib`. Some foxes are built differently and still belong on the
 bench. A *device family* is the unit that varies:
 
-| | foxlib | drive |
-|---|---|---|
-| example | XIAO ESP32-C3 + SA868 | AI6YM PicoFox (RP2040 + SI5351, 2 m FM) |
-| firmware | ours, deployed by the page | the vendor's, left alone (CC BY-NC-SA; not in this repo) |
-| transport | `repl-device.js` (raw REPL) | `drive-device.js` (File System Access API on the USB drive) |
-| config contract | `CONFIG.md` → `fox.json` | the vendor's files, modelled in `js/model/vendor/<id>.js` |
-| payload | event stream played by `foxlib/tones.py` | `audio.wav` the page **renders from the same event stream** (`js/audio/wav.js`), plus its own Morse-ID file |
-| validation | `schema.js` + `cfg.py` (parity-tested) | the vendor module's `validate()`, which knows what makes that firmware fall silent |
-| bench | `exec-and-capture` | none (no REPL); serial boot log on Listen only |
-| flashing | esptool (`flasher/`) | UF2 copy to the bootloader drive |
+| | foxlib | drive | foxlib-c |
+|---|---|---|---|
+| example | XIAO ESP32-C3 + SA868 | AI6YM PicoFox with its vendor firmware | AI6YM PicoFox with fox-bench firmware |
+| firmware | ours (CircuitPython + foxlib), deployed by the page | the vendor's, left alone (CC BY-NC-SA; not in this repo) | ours (C, Pico SDK, `firmware/foxlib-c/`), flashed as a UF2 from the Board tab |
+| transport | `repl-device.js` (raw REPL) | `drive-device.js` (File System Access API on the USB drive) | `drive-device.js` for the files; the serial console for banner, log and bench |
+| config contract | `CONFIG.md` → `fox.json` | the vendor's files, modelled in `js/model/vendor/<id>.js` | `CONFIG.md` → `fox.json`, no `pins`, `si5351fm` radio keys |
+| payload | event stream played by `foxlib/tones.py` | `audio.wav` the page **renders from the same event stream** (`js/audio/wav.js`), plus its own Morse-ID file | the same event stream, synthesised in the firmware per sample (`core/synth.c`) into FM |
+| validation | `schema.js` + `cfg.py` (parity-tested) | the vendor module's `validate()`, which knows what makes that firmware fall silent | `schema.js` (pinless) + `core/cfg.c`, parity-tested against both |
+| bench | `exec-and-capture` | none (no REPL); serial boot log on Listen only | text commands on the console (`key`, `tone`, `id`, `batt`, `status`, …) |
+| flashing | esptool (`flasher/`) | UF2 copy to the bootloader drive | the site-built UF2 copied to the bootloader drive; `bootsel` from the console gets there |
+| reboot after deploy | soft reboot, banner read back | eject + power cycle | the firmware reloads itself ~1.5 s after the last write |
 
-`boards/<id>.json` names its `family`, `vendor` and `module_fixed`;
-templates list the `families` they apply to, and the page shows only
-those. The working config keeps the `fox.json` shape for both families
+`boards/<id>.json` (a *target*: hardware + firmware + family) names its
+`family`, `vendor` or firmware image, and `module_fixed`; templates list
+the `families` they apply to, and the page shows only those. One piece of
+hardware can be several targets — the PicoFox is `picofox-vendor` (drive)
+and `picofox-foxlibc` (foxlib-c) — and the user switches between them by
+flashing. The working config keeps the `fox.json` shape for both families
 (so profiles, the fleet log, the ID and payload tabs are shared) with
 family-specific `radio` and `schedule` contents. `docs/picofox-notes.md`
 records what was learnt from the PicoFox's drive and published firmware.

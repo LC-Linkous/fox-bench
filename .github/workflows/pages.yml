@@ -18,11 +18,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Arm toolchain + Pico SDK (the PicoFox UF2 is built into the site)
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q gcc-arm-none-eabi libnewlib-arm-none-eabi cmake ninja-build
+          git clone -q --depth 1 --branch 2.1.1 https://github.com/raspberrypi/pico-sdk.git /tmp/pico-sdk
+          git -C /tmp/pico-sdk submodule update -q --init --depth 1 lib/tinyusb
+      - name: Build firmware/foxlib-c/picofox -> foxbench-picofox.uf2
+        env: { PICO_SDK_PATH: /tmp/pico-sdk }
+        run: |
+          cmake -S firmware/foxlib-c/picofox -B /tmp/fxbuild -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build /tmp/fxbuild
       - name: Stage site (page, descriptors, firmware the page deploys, docs)
         run: |
           mkdir -p _site
-          cp -r index.html css js flasher boards modules songs bands.json firmware docs DESIGN.md CONFIG.md PROTOCOL.md _site/
-          rm -rf _site/firmware/sim
+          cp -r index.html css js flasher hardware boards modules songs bands.json firmware docs DESIGN.md CONFIG.md PROTOCOL.md _site/
+          rm -rf _site/firmware/sim _site/firmware/foxlib-c/tests/build
+          cp /tmp/fxbuild/foxbench-picofox.uf2 _site/firmware/foxlib-c/picofox/
           touch _site/.nojekyll   # Jekyll would drop foxlib/__init__.py (leading underscore)
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

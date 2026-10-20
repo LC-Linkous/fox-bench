@@ -36,7 +36,7 @@ typedef struct {
         int sample_rate;                                 /* FM update rate, Hz */
         bool tx_while_mounted;
     } radio;
-    struct { float frequencies_mhz[CFG_MAX_FREQS]; int n; bool announce_qsy; } plan;
+    struct { double frequencies_mhz[CFG_MAX_FREQS]; int n; bool announce_qsy; } plan;   /* double: 146.565f * 1e6 is 2 Hz off */
     struct { char callmessage[65]; char placeholder[17]; int wpm; int tone_hz; bool telemetry_batt; bool tx_without_callsign; } id;
     struct {
         payload_kind_t kind;
@@ -67,6 +67,6 @@ void cfg_report_bad(cfg_report_t *rep, const char *key, const char *reason);
 /* "ok" | "partial(a,b)" | "default(schema)" | "fatal(x)" into buf */
 const char *cfg_report_status(const cfg_report_t *rep, char *buf, int n);
 bool cfg_id_ok(const fox_cfg_t *cfg);
-bool cfg_freq_in_ranges(const fox_cfg_t *cfg, float mhz);
+bool cfg_freq_in_ranges(const fox_cfg_t *cfg, double mhz);
 
 #endif

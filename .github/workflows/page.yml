@@ -19,7 +19,7 @@ jobs:
       - name: Unit tests (REPL protocol, device layer, model)
         working-directory: tests
         run: npm run unit
-      - name: Page smoke test (every tab × every template on the demo board; exported zips booted in the firmware simulator)
+      - name: Page smoke test (every tab × every template on the demo board; exported zips booted in the firmware simulator and, for the foxlib-c target, in the C runner's host build)
         working-directory: tests
         run: SHOTS=../_shots npm run smoke
       - uses: actions/upload-artifact@v4

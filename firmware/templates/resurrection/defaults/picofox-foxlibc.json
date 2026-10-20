@@ -1,0 +1,207 @@
+{
+  "schema": 1,
+  "template": "resurrection",
+  "board": "picofox-foxlibc",
+  "module": "picofox_si5351",
+  "pins": {},
+  "radio": {
+    "family": "si5351fm",
+    "ranges_mhz": [
+      [
+        144.0,
+        148.0
+      ]
+    ],
+    "itu_zone": 2,
+    "attenuation": 0,
+    "id_deviation_hz": 5000,
+    "audio_deviation_hz": 5000,
+    "tone_shape": "bright",
+    "preemphasis": true,
+    "correction_ppm": 0,
+    "sample_rate": 8000,
+    "tx_while_mounted": true,
+    "bandwidth_khz": 12.5,
+    "power_dbm": null
+  },
+  "plan": {
+    "frequencies_mhz": [
+      146.565
+    ],
+    "announce_qsy": false
+  },
+  "id": {
+    "callmessage": "N0CALL DECOY DECOY N0CALL",
+    "placeholder": "N0CALL",
+    "wpm": 12,
+    "tone_hz": 800,
+    "telemetry": [],
+    "tx_without_callsign": false
+  },
+  "payload": {
+    "kind": "songs",
+    "articulation": 0.875,
+    "skip_on_low_battery": true,
+    "playlist": [
+      {
+        "name": "Auld Lang Syne",
+        "tempo": 90,
+        "notes": [
+          [
+            55,
+            8
+          ],
+          [
+            60,
+            12
+          ],
+          [
+            60,
+            4
+          ],
+          [
+            60,
+            8
+          ],
+          [
+            64,
+            8
+          ],
+          [
+            62,
+            12
+          ],
+          [
+            60,
+            4
+          ],
+          [
+            62,
+            8
+          ],
+          [
+            64,
+            4
+          ],
+          [
+            62,
+            4
+          ],
+          [
+            60,
+            12
+          ],
+          [
+            60,
+            4
+          ],
+          [
+            64,
+            8
+          ],
+          [
+            67,
+            8
+          ],
+          [
+            69,
+            16
+          ],
+          [
+            0,
+            8
+          ],
+          [
+            69,
+            8
+          ],
+          [
+            67,
+            12
+          ],
+          [
+            64,
+            4
+          ],
+          [
+            64,
+            8
+          ],
+          [
+            60,
+            8
+          ],
+          [
+            62,
+            12
+          ],
+          [
+            60,
+            4
+          ],
+          [
+            62,
+            8
+          ],
+          [
+            64,
+            4
+          ],
+          [
+            62,
+            4
+          ],
+          [
+            60,
+            12
+          ],
+          [
+            57,
+            4
+          ],
+          [
+            57,
+            8
+          ],
+          [
+            55,
+            8
+          ],
+          [
+            60,
+            16
+          ]
+        ]
+      }
+    ]
+  },
+  "schedule": {
+    "kind": "resurrection",
+    "seed": 1,
+    "delay_ms": 30000,
+    "alive_min_ms": 1800000,
+    "alive_max_ms": 3600000,
+    "dead_ms": 3600000,
+    "dit_min_ms": 180000,
+    "dit_max_ms": 300000,
+    "id_every": 3,
+    "dead_song": false
+  },
+  "battery": {
+    "divider_ratio": 2.0,
+    "calibration": 1.0,
+    "samples": 8,
+    "low_v": 3.5,
+    "critical_v": 3.3,
+    "recovery_v": 3.4
+  },
+  "limits": {
+    "max_keydown_s": null
+  },
+  "fleet": {
+    "profile": "",
+    "number": null,
+    "event": "",
+    "notes": ""
+  }
+}

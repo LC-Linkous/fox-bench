@@ -68,3 +68,24 @@ and call `fox.radio.probe(...)`, `fox.radio.key(n)`, `fox.radio.rssi()`,
 
 See CONFIG.md. The page parses the first line matching `^FOX ` into
 `key=value` pairs; parenthesised values (`cfg=partial(a,b)`) are kept whole.
+
+## foxlib-c console (fox-bench's native firmware, e.g. the PicoFox)
+
+Boards of the `foxlib-c` family have no REPL. The page configures them by
+writing `fox.json` and `defaults.json` to their `FOXBENCH` USB drive
+(`js/device/drive-device.js`, every write read back); the firmware reloads
+about 1.5 s after the host's last write. Their USB serial port is a plain
+text console (115200, rate ignored):
+
+- The `FOX …` banner (same fields as foxlib's, `foxlib=c-<version>`,
+  `board=picofox-foxlibc`, `uid=` the RP2040 unique id) is printed at boot,
+  whenever a terminal opens the port, and after every reload, followed by
+  the `cfg:` notes and the fox log (`cycle N @ f`, `morse: …`, `song: …`).
+  **Listen only** parses it like any other banner.
+- Commands are lines; every command is answered with `ok` or `err: …`:
+  `help`, `status`, `key <s>`, `tone <hz> <s>`, `id`, `freq <mhz>`,
+  `atten <0-127>`, `batt`, `files`, `reload`, `stop`, `uid`, `version`,
+  `reboot`, `bootsel` (jump to the UF2 bootloader). Ctrl-C stops a bench
+  action. A bench action pauses the cycle and the cycle resumes a second
+  after it ends. The console drawer sends what you type as such a line
+  when a foxlib-c board is selected.
