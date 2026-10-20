@@ -12,6 +12,8 @@
     "revision": "r3",
     "id_deviation_hz": 5000,
     "audio_deviation_hz": 5000,
+    "tone_shape": "bright",
+    "preemphasis": true,
     "bandwidth_khz": 12.5,
     "power_dbm": null
   },

@@ -100,3 +100,19 @@ test('renderPcm: tone frequency and silence are right, high notes fold down an o
   assert.ok(Math.abs(pcm[0]) < 1000 && Math.abs(pcm[499]) < 1000, 'ramped edges');
   const w = parseWav(wavBytes(pcm, 5000)); assert.equal(w.pcm.length, pcm.length); assert.equal(w.pcm[300], pcm[300]);
 });
+
+test('renderPcm: bright shape keeps the requested peak; pre-emphasis lowers tones below the top one, never below the floor', async () => {
+  const { renderPcm, levels } = await import('../../js/audio/wav.js');
+  const sine = renderPcm([[500, 200]], { level: 0.5 }), bright = renderPcm([[500, 200]], { level: 0.5, shape: 'bright' });
+  assert.ok(Math.abs(levels(sine).peak - 0.5) < 0.05 && Math.abs(levels(bright).peak - 0.5) < 0.05, 'peak normalised for both shapes (a sampled 500 Hz tone at 5 kHz never lands exactly on its crest)');
+  assert.ok(levels(bright).rms < levels(sine).rms * 0.95 || levels(bright).rms > levels(sine).rms * 1.05, 'bright differs from sine');
+  const pre = renderPcm([[2000, 200], [1000, 200], [250, 200]], { level: 1, preemphasis: true });
+  const seg = (a, b) => levels(pre.subarray(a * 5, b * 5)).peak;
+  const top = seg(0, 200);
+  assert.ok(top > 0.9, `2 kHz (top) near full level (${top.toFixed(3)}; a tone sampled at 5 kHz rarely lands on its crest)`);
+  assert.ok(Math.abs(seg(200, 400) / top - 0.5) < 0.06, '1 kHz one octave down = −6 dB relative to the top tone');
+  assert.ok(Math.abs(seg(400, 600) / top - 0.4) < 0.06, '250 Hz floored at 0.4 of the top tone');
+  const cfg = pf.validate({ id: { callmessage: 'KY4ZR' }, radio: { tone_shape: 'sine', preemphasis: false } }, defaults, board).cfg;
+  assert.equal(cfg.radio.tone_shape, 'sine'); assert.equal(cfg.radio.preemphasis, false);
+  assert.match(pf.files(pf.validate({ id: { callmessage: 'KY4ZR' } }, defaults, board).cfg)[1].why, /bright \+ pre-emphasis/);
+});

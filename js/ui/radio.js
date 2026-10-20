@@ -106,7 +106,10 @@ function renderDrive() {
       h('div.two-col', {},
         devField('Morse ID', 'id_deviation_hz', `The firmware's own ID runs at ±7 kHz (MORSE_TONE_VOL 70). ±5 kHz is standard narrowband FM.`),
         devField('Audio payload', 'audio_deviation_hz', 'Peak deviation of the songs or message. The factory audio peaks at about ±5 kHz.')),
-      h('p.hint', {}, `Deviation is the WAV level: full scale is ±${v.MAX_DEVIATION_HZ / 1000} kHz. Above ±5 kHz the signal is wider than a 12.5/25 kHz channel expects. The carrier itself also steps ±5 kHz segment by segment (firmware behaviour, see the Schedule tab), so a receiver sees up to ±10 kHz of movement in total.`)),
+      h('p.hint', {}, `Deviation is the WAV level: full scale is ±${v.MAX_DEVIATION_HZ / 1000} kHz. Above ±5 kHz the signal is wider than a 12.5/25 kHz channel expects. The carrier itself also steps ±5 kHz segment by segment (firmware behaviour, see the Schedule tab), so a receiver sees up to ±10 kHz of movement in total.`),
+      h('div.two-col', {},
+        field('Tone shape', select([['bright', 'Bright — odd harmonics, like the ESP32\'s PWM tone'], ['sine', 'Sine — pure tone']], r.tone_shape || 'bright', val => { r.tone_shape = val; app.changed('radio'); }), 'The SA868 fox plays a square wave; a pure sine through the same receiver sounds duller.'),
+        h('div.field', {}, h('label', {}, 'Pre-emphasis'), check('Boost highs 6 dB/octave like a voice radio\'s transmitter', r.preemphasis !== false, val => { r.preemphasis = val; app.changed('radio'); }, 'Receivers cut highs back (de-emphasis). The SA868 pre-emphasises; the PicoFox modulates straight from the samples, so without this low notes come out muffled.')))),
     h('div.card', {}, h('h3', {}, 'Region ', badge(app.region)),
       field('Band plan used for validation', select(Object.keys(app.catalog.bands).map(k => [k, k]), app.region, val => { app.region = val; app.changed('region'); }), 'The firmware\'s own limit (zone) is what matters here; the region table is shown on the Frequency tab for reference.')));
 }

@@ -118,6 +118,8 @@ export function validate(user, defaults, board) {
   if ('attenuation' in r) { if (Number.isInteger(r.attenuation) && num(r.attenuation, 0, 127)) cfg.radio.attenuation = r.attenuation; else bad('radio.attenuation', '0–127'); }
   if ('revision' in r) { if (['r2', 'r3'].includes(r.revision)) cfg.radio.revision = r.revision; else bad('radio.revision', 'r2 | r3'); }
   for (const k of ['id_deviation_hz', 'audio_deviation_hz']) if (k in r) { if (num(r[k], 500, MAX_DEVIATION_HZ)) cfg.radio[k] = r[k]; else bad('radio.' + k, `500–${MAX_DEVIATION_HZ} Hz`); }
+  if ('tone_shape' in r) { if (['sine', 'bright'].includes(r.tone_shape)) cfg.radio.tone_shape = r.tone_shape; else bad('radio.tone_shape', 'sine | bright'); }
+  if ('preemphasis' in r) { if (typeof r.preemphasis === 'boolean') cfg.radio.preemphasis = r.preemphasis; else bad('radio.preemphasis', 'bool'); }
   if ('bandwidth_khz' in r) { if (num(r.bandwidth_khz, 1, 100)) cfg.radio.bandwidth_khz = r.bandwidth_khz; else bad('radio.bandwidth_khz', '1–100'); }
   if ('power_dbm' in r) cfg.radio.power_dbm = r.power_dbm === null || num(r.power_dbm, -40, 40) ? r.power_dbm : (bad('radio.power_dbm', 'null or dBm'), null);
   const p = u.plan || {};
@@ -171,11 +173,12 @@ export function validate(user, defaults, board) {
 /** The four files, as { path, data (Uint8Array|string), why }. */
 export function files(cfg) {
   const settings = serializeSettings(settingsFromCfg(cfg));
-  const idPcm = renderPcm(idEvents(cfg), { sampleRate: SAMPLE_RATE, level: (cfg.radio.id_deviation_hz || 5000) / MAX_DEVIATION_HZ, maxHz: MAX_AUDIO_HZ - 100 });
-  const auPcm = renderPcm(audioEvents(cfg), { sampleRate: SAMPLE_RATE, level: (cfg.radio.audio_deviation_hz || 5000) / MAX_DEVIATION_HZ, maxHz: MAX_AUDIO_HZ - 100 });
+  const tone = { shape: cfg.radio.tone_shape || 'sine', preemphasis: cfg.radio.preemphasis !== false };
+  const idPcm = renderPcm(idEvents(cfg), { sampleRate: SAMPLE_RATE, level: (cfg.radio.id_deviation_hz || 5000) / MAX_DEVIATION_HZ, maxHz: MAX_AUDIO_HZ - 100, ...tone });
+  const auPcm = renderPcm(audioEvents(cfg), { sampleRate: SAMPLE_RATE, level: (cfg.radio.audio_deviation_hz || 5000) / MAX_DEVIATION_HZ, maxHz: MAX_AUDIO_HZ - 100, ...tone });
   return [
     { path: FILES.settings, data: settings, why: 'frequency, zone, duty, attenuation, callsign' },
-    { path: FILES.audio, data: wavBytes(auPcm, SAMPLE_RATE), why: `payload audio, ${(auPcm.length / SAMPLE_RATE).toFixed(1)} s, ±${cfg.radio.audio_deviation_hz || 5000} Hz` },
+    { path: FILES.audio, data: wavBytes(auPcm, SAMPLE_RATE), why: `payload audio, ${(auPcm.length / SAMPLE_RATE).toFixed(1)} s, ±${cfg.radio.audio_deviation_hz || 5000} Hz, ${tone.shape}${tone.preemphasis ? ' + pre-emphasis' : ''}` },
     { path: FILES.id, data: wavBytes(idPcm, SAMPLE_RATE), why: `Morse ID "${cfg.id.callmessage}", ${(idPcm.length / SAMPLE_RATE).toFixed(1)} s, ±${cfg.radio.id_deviation_hz || 5000} Hz` },
     { path: FILES.marker, data: markerBytes(byteSum(settings)), why: 'byte-sum of settings.txt so the firmware keeps our ID audio' },
   ];

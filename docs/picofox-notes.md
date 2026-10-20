@@ -93,6 +93,19 @@ The firmware's ID generator: dit = 1.2/WPM s, inter-character gap =
 one dit of silence between elements, leading and trailing inter-character
 gaps.
 
+## Audio rendering notes (from the first on-air test)
+
+- The segment-by-segment carrier offsets are audible on a 12.5 kHz
+  receiver: segments on the ±5 kHz steps sound off-tune/distorted until
+  the next segment. Firmware behaviour; a 25 kHz receiver hears it flat.
+- The firmware applies **no pre-emphasis**: deviation is proportional to
+  the sample. A receiver's de-emphasis then makes low notes dull compared
+  with the SA868 fox (which pre-emphasises and plays a PWM square wave).
+  The page renders with 6 dB/octave pre-emphasis relative to the highest
+  tone in the stream (floored at −8 dB) and a "bright" tone shape (odd
+  harmonics within 2.4 kHz) by default; both are switchable on the Radio
+  tab.
+
 ## What fox-bench can and cannot do with it
 
 Can: set every key with validation stronger than the firmware's

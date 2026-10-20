@@ -7,7 +7,7 @@ import { flashCard, onChange as onFlashChange } from './flash.js';
 let app, root;
 export function init(a, el) { app = a; root = el; app.listeners.add(render); onFlashChange(render); render(); }
 
-const FAMILY_LABEL = { foxlib: 'CircuitPython board + radio module (our firmware)', drive: 'Drive-configured fox (vendor firmware)' };
+const FAMILY_LABEL = { foxlib: 'CircuitPython board + radio module', drive: 'Drive-configured fox (vendor firmware)' };
 
 /** The board picker, grouped by family. This one choice drives every other tab. */
 function pickerCard() {
