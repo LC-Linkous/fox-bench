@@ -288,7 +288,10 @@ for lib in songs.get("libraries", []):
 if "--since" in sys.argv:
     ref = sys.argv[sys.argv.index("--since") + 1]
     def changed(path):
-        return subprocess.run(["git", "diff", "--quiet", ref, "HEAD", "--", path], cwd=ROOT).returncode != 0
+        """True when content under `path` differs between ref and HEAD. Pure renames (a defaults file renamed for a new
+        target id, say) do not count: only added, deleted or modified files do."""
+        out = subprocess.run(["git", "diff", "--name-status", "-M100%", ref, "HEAD", "--", path], cwd=ROOT, capture_output=True, text=True).stdout
+        return any(line and not line.startswith("R100") for line in out.splitlines())
     if changed("firmware/foxlib") and not changed("firmware/foxlib/VERSION"):
         bad("firmware/foxlib/VERSION", f"foxlib changed since {ref} without a version bump")
     for tid in fw["templates"]:
