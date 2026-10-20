@@ -87,5 +87,10 @@ text console (115200, rate ignored):
   `atten <0-127>`, `batt`, `files`, `reload`, `stop`, `uid`, `version`,
   `reboot`, `bootsel` (jump to the UF2 bootloader). Ctrl-C stops a bench
   action. A bench action pauses the cycle and the cycle resumes a second
-  after it ends. The console drawer sends what you type as such a line
-  when a foxlib-c board is selected.
+  after it ends; `stop` releases a running action with `ok (stopped)`
+  before its own `ok`. The page's `js/device/console-device.js` sends one
+  command at a time and treats every line up to the `ok`/`err:` as that
+  command's output (`tests/unit/console-device.test.mjs`, against a fake
+  console); the Bench tab's buttons and the Board tab's "Enter UF2
+  bootloader" go through it. The console drawer sends what you type as
+  such a line when a foxlib-c board is selected.
