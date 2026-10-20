@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* host stub: a virtual clock the simulator advances */
 #pragma once
 #include <stdint.h>

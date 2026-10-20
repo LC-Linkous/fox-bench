@@ -1,0 +1,18 @@
+fox-bench foxlib-c firmware
+Copyright (C) 2026 Lauren Linkous
+
+Licensed under the GNU General Public License v3.0 or later (../LICENSE).
+WITHOUT ANY WARRANTY. Source: https://github.com/LC-Linkous/fox-bench
+
+A built image (foxbench-picofox.uf2) also contains:
+
+- FatFs R0.16, Copyright (C) 2025 ChaN — FatFs licence (third_party/fatfs/LICENSE.txt)
+- Raspberry Pi Pico SDK, Copyright (c) 2020 Raspberry Pi (Trading) Ltd. — BSD-3-Clause
+  https://github.com/raspberrypi/pico-sdk/blob/master/LICENSE.TXT
+- TinyUSB, Copyright (c) 2018 hathach (tinyusb.org) — MIT
+  https://github.com/hathach/tinyusb/blob/master/LICENSE
+
+Hardware: the AI6YM PicoFox is designed by Giorgi Enterprises LLC dba
+AI6YM.radio (CC BY-NC-SA 4.0). This firmware was written from the published
+schematic and component datasheets; it contains no part of the vendor's
+firmware and grants no rights to the hardware design.

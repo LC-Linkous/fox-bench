@@ -58,7 +58,10 @@ Tests: `python3 firmware/sim/run.py` · `python3 tools/check_catalog.py` ·
 
 ## Licensing
 
-GPL-2.0 for the page, tools and docs (`LICENSE`). GPL-3.0-or-later for
-everything under `firmware/` (`firmware/LICENSE`). Apache-2.0 for the
-flasher component under `flasher/` (`flasher/LICENSE`, `flasher/NOTICE`),
-which bundles Espressif's esptool-js. See DESIGN.md §9.
+Three pieces, three licences: the page **GPL-2.0-only** (`LICENSE`),
+everything under `firmware/` — foxlib and foxlib-c — **GPL-3.0-or-later**
+(`firmware/LICENSE`), the flasher under `flasher/` **Apache-2.0**
+(`flasher/LICENSE`). What each bundles (esptool-js, FatFs, the Pico SDK
+and TinyUSB in the built UF2) and what is deliberately *not* here (the
+PicoFox hardware and vendor firmware, CC BY-NC-SA 4.0) is listed in
+`LICENSES.md`.

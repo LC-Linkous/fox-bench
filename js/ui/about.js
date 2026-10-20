@@ -50,5 +50,5 @@ function render() {
           li('Boards that mount a CIRCUITPY drive (ESP32-S3, SAMD) via the File System Access API.'),
           li('Wi-Fi beacon payload on ESP32 (2.4 GHz, no radio module).'),
           li('A testing procedure for the bench, independent of this page.')))),
-    h('p.hint', {}, 'fox-bench ', h('span.mono', {}, 'v' + app.version), ' · page GPL-2.0, firmware GPL-3.0-or-later · ', h('a', { href: 'DESIGN.md' }, 'design'), ' · ', h('a', { href: 'CONFIG.md' }, 'fox.json contract'), ' · ', h('a', { href: 'PROTOCOL.md' }, 'REPL protocol'), ' · ', h('a', { href: 'https://github.com/LC-Linkous/fox-bench' }, 'source'), ' · ', h('a', { href: 'https://lc-linkous.github.io/tools' }, 'other tools')));
+    h('p.hint', {}, 'fox-bench ', h('span.mono', {}, 'v' + app.version), ' · page GPL-2.0, firmware GPL-3.0-or-later, flasher Apache-2.0 (', h('a', { href: 'LICENSES.md' }, 'licences'), ') · ', h('a', { href: 'DESIGN.md' }, 'design'), ' · ', h('a', { href: 'CONFIG.md' }, 'fox.json contract'), ' · ', h('a', { href: 'PROTOCOL.md' }, 'REPL protocol'), ' · ', h('a', { href: 'https://github.com/LC-Linkous/fox-bench' }, 'source'), ' · ', h('a', { href: 'https://lc-linkous.github.io/tools' }, 'other tools')));
 }

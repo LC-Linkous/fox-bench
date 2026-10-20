@@ -31,7 +31,7 @@ jobs:
       - name: Stage site (page, descriptors, firmware the page deploys, docs)
         run: |
           mkdir -p _site
-          cp -r index.html css js flasher hardware boards modules songs bands.json firmware docs DESIGN.md CONFIG.md PROTOCOL.md _site/
+          cp -r index.html css js flasher hardware boards modules songs bands.json firmware docs DESIGN.md CONFIG.md PROTOCOL.md LICENSES.md LICENSE _site/
           rm -rf _site/firmware/sim _site/firmware/foxlib-c/tests/build
           cp /tmp/fxbuild/foxbench-picofox.uf2 _site/firmware/foxlib-c/picofox/
           touch _site/.nojekyll   # Jekyll would drop foxlib/__init__.py (leading underscore)

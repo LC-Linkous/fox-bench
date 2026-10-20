@@ -402,17 +402,24 @@ identical event streams for a fixed corpus.
   separate component that bundles Espressif's esptool-js (Apache-2.0,
   which cannot ship inside a GPL-2.0-only tree). The page imports it as
   an ES module across that boundary; it depends on nothing outside its
-  directory. Treated as its own entity for now; the split may be
-  revisited when licensing is streamlined.
-- `firmware/`: **GPL-3.0-or-later** (`firmware/LICENSE`). The template
-  runners descend from earlier GPL-3.0 fox firmware and keep their
-  lineage notices. Independent modules (`morse.py`, `sstv.py`,
-  `battery.py`, `schedule.py`, the simulator) carry the author's own
-  copyright under the same licence.
-- Every file carries an `SPDX-License-Identifier` line.
+  directory.
+- `firmware/`: **GPL-3.0-or-later** (`firmware/LICENSE`) for foxlib, the
+  template runners, the simulator and foxlib-c. The template runners
+  descend from earlier GPL-3.0 fox firmware and keep their lineage
+  notices; everything else is new work under the same licence. foxlib-c
+  vendors FatFs (`firmware/foxlib-c/third_party/fatfs`, its own
+  permissive licence) and its built UF2 links the Pico SDK (BSD-3-Clause)
+  and TinyUSB (MIT): `firmware/foxlib-c/NOTICE` is what travels with the
+  binary.
+- The PicoFox hardware and vendor firmware (CC BY-NC-SA 4.0) are
+  credited, never included; `docs/picofox-hardware.md` is the clean-room
+  boundary for foxlib-c.
+- Every file carries an `SPDX-License-Identifier` line. `LICENSES.md` at
+  the root is the one-page map.
 
-The page ships the firmware as data it writes to a board; it does not
-link against it. The two halves are an aggregation, not one program.
+The page ships the firmware as data it writes to a board and imports the
+flasher across a directory boundary; it links against neither. The three
+pieces are an aggregation, not one program.
 
 ## 10. Device families
 
