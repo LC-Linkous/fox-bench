@@ -57,6 +57,16 @@ long fs_read(const char *path, char *buf, size_t cap) {
     return (long)n;
 }
 
+long fs_read_at(const char *path, uint32_t off, void *buf, size_t n) {
+    FIL f; UINT got = 0;
+    if (!mounted) return -1;
+    if (f_open(&f, path, FA_READ) != FR_OK) return -1;
+    FRESULT r = f_lseek(&f, off);
+    if (r == FR_OK) r = f_read(&f, buf, (UINT)n, &got);
+    f_close(&f);
+    return r == FR_OK ? (long)got : -1;
+}
+
 bool fs_write(const char *path, const void *data, size_t len) {
     FIL f; UINT n = 0;
     if (!mounted) return false;

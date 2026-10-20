@@ -40,10 +40,6 @@ def applicable(scen):
     exp = scen.get("expect", {})
     if "uart_contains" in exp:
         return False
-    if any(t == "sstv" for t in exp.get("kinds", [])):
-        return False
-    if (fox.get("payload") or {}).get("kind") == "sstv":
-        return False
     return True
 
 
@@ -102,7 +98,7 @@ def check(scen, rec, eff):
         if k in kinds:
             fails.append("%s heard but should not be" % k)
     if "max_keyed_ms" in exp:
-        worst = max((e - s) for s, e in keyed if e) if keyed else 0
+        worst = max([(e - s) for s, e in keyed if e] or [0])
         if worst > exp["max_keyed_ms"]:
             fails.append("longest keydown %.0f ms > %d" % (worst, exp["max_keyed_ms"]))
     if "retunes_min" in exp and len(rec["retunes"]) < exp["retunes_min"]:

@@ -24,8 +24,14 @@ typedef struct {
     float level;            /* peak amplitude 0..1 of full scale (32767) */
 } synth_params_t;
 
+/* An event source: fills *out with the next (hz, ms) and returns true, or returns false at the end.
+ * events_t is the usual one; SSTV images stream from sstv_next. */
+typedef bool (*event_src_fn)(void *ctx, event_t *out);
+
 typedef struct {
-    const events_t *ev;
+    const events_t *ev;     /* array mode (NULL in source mode) */
+    int ev_i;
+    event_src_fn src; void *src_ctx;
     synth_params_t p;
     int max_hz;
     float f_top;
@@ -46,6 +52,9 @@ typedef struct {
 
 void synth_params_default(synth_params_t *p);
 void synth_prepare(synth_t *s, const events_t *ev, const synth_params_t *p);
+/* Streamed events. f_top is the highest tone the stream will contain (pre-emphasis reference; pass 0 to disable
+ * pre-emphasis for the stream). total_ms, when known, lets synth_total_samples() answer; 0 = unknown. */
+void synth_prepare_src(synth_t *s, event_src_fn src, void *ctx, const synth_params_t *p, float f_top, double total_ms);
 int16_t synth_next(synth_t *s);           /* next sample; 0 once done */
 static inline bool synth_done(const synth_t *s) { return s->done; }
 uint32_t synth_total_samples(const synth_t *s);

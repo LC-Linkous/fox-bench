@@ -184,7 +184,6 @@ export function pageChecks(cfg, { bands, region, morseTable, templateManifest, m
   if (templateManifest?.pins && !pinless) for (const role of templateManifest.pins.required) if (!cfg.pins[role]) issues.push({ level: 'err', key: `pins.${role}`, msg: `${role} is required by ${templateManifest.id}` });
   if (cfg.id.telemetry.includes('batt') && !pinless && !cfg.pins.batt_sense) issues.push({ level: 'info', key: 'id.telemetry', msg: 'battery telemetry requested but no batt_sense pin — ignored by the firmware' });
   if (pinless) {
-    if (cfg.payload.kind === 'sstv') issues.push({ level: 'err', key: 'payload.kind', msg: 'SSTV is not in the fox-bench PicoFox firmware yet (the fox would send its ID only)' });
     if (cfg.id.telemetry.includes('batt')) issues.push({ level: 'info', key: 'id.telemetry', msg: 'this board has no battery voltage sense; telemetry is ignored' });
     const maxTone = Math.floor((cfg.radio.sample_rate || 8000) / 2) - 100;
     if (cfg.id.tone_hz > maxTone) issues.push({ level: 'warn', key: 'id.tone_hz', msg: `${cfg.id.tone_hz} Hz is above what ${cfg.radio.sample_rate || 8000} samples/s can carry (${maxTone} Hz); the firmware folds it down an octave` });

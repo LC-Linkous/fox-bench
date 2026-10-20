@@ -1,8 +1,8 @@
 {
   "id": "morse-sstv",
   "name": "Morse ID + SSTV image",
-  "version": "1.0.0",
-  "families": ["foxlib"],
+  "version": "1.1.0",
+  "families": ["foxlib", "foxlib-c"],
   "status": "stable",
   "description": "Morse ID, then one or more SSTV images (Robin 36 / Scottie), on a fixed interval. Hunters decode the picture to confirm the find.",
   "foxlib": ">=1.0.0 <2.0.0",

@@ -28,7 +28,7 @@ set(FATFS ${CMAKE_CURRENT_LIST_DIR}/../third_party/fatfs)
 
 add_executable(foxbench-picofox
     main.c console.c fox.c player.c si5351.c flash_disk.c msc_disk.c fatfs_diskio.c fs.c usb_descriptors.c
-    ${CORE}/json.c ${CORE}/morse.c ${CORE}/melody.c ${CORE}/schedule.c ${CORE}/synth.c ${CORE}/cfg.c
+    ${CORE}/json.c ${CORE}/morse.c ${CORE}/melody.c ${CORE}/schedule.c ${CORE}/synth.c ${CORE}/sstv.c ${CORE}/cfg.c
     ${FATFS}/ff.c ${FATFS}/ffunicode.c
     ${DEFAULTS_H})
 

@@ -7,6 +7,7 @@ import { h, badge, field, numInput } from './dom.js';
 import { fleet, download } from '../model/profiles.js';
 import { makeZip } from '../model/zip.js';
 import { airtime, fmtDuration } from '../model/airtime.js';
+import { packImages } from '../audio/sstv.js';
 
 let app, gateOk = false, busy = false, last = null;
 export function init(a) { app = a; }
@@ -14,13 +15,16 @@ const setLast = r => { last = r; app.lastDeploy = r ? { ...r, at: new Date().toI
 const safe = s => s.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'fox';
 function flat(o, pre = '', out = {}) { for (const [k, v] of Object.entries(o || {})) { const key = pre ? `${pre}.${k}` : k; if (v && typeof v === 'object' && !Array.isArray(v)) flat(v, key, out); else out[key] = JSON.stringify(v); } return out; }
 
-/** The two files, as the page writes them. */
+/** The files, as the page writes them: fox.json, defaults.json and, for an SSTV payload, the images. */
 export function files(cfg) {
-  return [
+  const out = [
     { path: 'fox.json', data: JSON.stringify(cfg, null, 1) + '\n', why: 'configuration' },
     { path: 'defaults.json', data: JSON.stringify(app.defaults, null, 1) + '\n', why: `${app.templateId} ${app.template.version} defaults for ${app.boardId}` },
   ];
+  if (cfg.payload.kind === 'sstv') out.push({ path: cfg.payload.images_file, data: packImages(app.images), why: app.images.length ? `${app.images.length} image${app.images.length === 1 ? '' : 's'} (${app.images.map(im => im.name).join(', ')})` : 'no images — the firmware sends its test card' });
+  return out;
 }
+const size = f => typeof f.data === 'string' ? f.data.length : f.data.length;
 const powerText = cfg => `${(app.module.power_dbm.high - (cfg.radio.attenuation || 0) * (app.module.attenuation?.db_per_step || 0.25)).toFixed(1)} dBm (attenuation ${cfg.radio.attenuation || 0})`;
 
 async function write(btn, render) {
@@ -29,8 +33,8 @@ async function write(btn, render) {
   busy = true; setLast(null); render();
   try {
     const fs = files(cfg);
-    for (const f of fs) await d.writeText(f.path, f.data);
-    setLast({ ok: true, files: fs.map(f => ({ path: f.path, size: f.data.length })) });
+    for (const f of fs) { if (typeof f.data === 'string') await d.writeText(f.path, f.data); else await d.writeBytes(f.path, f.data); }
+    setLast({ ok: true, files: fs.map(f => ({ path: f.path, size: size(f) })) });
     await app.readDrive();
     app.setStatus(`${d.kind === 'demo' ? 'Demo · ' : ''}${app.board.name} · fox.json written — the fox reloads by itself`, d.kind === 'demo' ? 'demo' : 'ok');
     fleet.append({ board_number: '', uid: app.info?.uid || '', board: app.boardId, action: 'deploy', template: `${app.templateId}/${app.template.version}`, profile: cfg.fleet?.profile || '', callsign: cfg.id.callmessage, freq: cfg.plan.frequencies_mhz.join(' '), power: powerText(cfg), seed: cfg.schedule.seed ?? '', result: 'written', notes: [app.info?.driveName, d.kind === 'demo' ? 'demo' : ''].filter(Boolean).join(' · ') });
@@ -43,7 +47,7 @@ function exportZip() {
   const cfg = app.validCfg, fs = files(cfg);
   const readme = [
     `fox-bench deploy set for the ${app.board.name} — ${cfg.id.callmessage} · ${cfg.plan.frequencies_mhz.join(', ')} MHz · template ${app.templateId} ${app.template.version} · exported ${new Date().toISOString()}`,
-    '', 'Copy both files to the root of the FOXBENCH drive (replace what is there). The fox reloads them by itself about a second',
+    '', 'Copy the files to the root of the FOXBENCH drive (replace what is there). The fox reloads them by itself about a second',
     'after the last write and prints a new FOX banner on its serial console. No eject or power cycle is needed unless',
     'radio.tx_while_mounted is false, in which case it transmits once the drive is ejected.',
     '', 'No FOXBENCH drive? The board is not running fox-bench firmware: hold BOOTSEL while plugging in and copy',
@@ -60,7 +64,7 @@ export function render(root, rerender) {
   const blocking = errs.filter(e => e.level === 'err' && e.blocking !== false);
   const overrides = errs.filter(e => e.level === 'err' && e.blocking === false);
   const ready = app.connected && !app.onBoard.listening && !blocking.length && gateOk && !busy;
-  const at = airtime(cfg, { images: [] });
+  const at = airtime(cfg, { images: app.images });
   const lim = cfg.limits;
   const fs = files(cfg);
   const cur = app.onBoard.cfg ? flat(app.onBoard.cfg) : null, next = flat(cfg);
@@ -75,7 +79,7 @@ export function render(root, rerender) {
         field('Keydown limit', h('div.row', {}, numInput(lim.max_keydown_s ?? '', { min: 1, max: 7200, step: 1, width: '120px', onchange: v => { lim.max_keydown_s = v; app.changed('limits'); } }), h('span.suffix', {}, 's'), h('button.btn.small', { onclick: () => { lim.max_keydown_s = null; app.changed('limits'); } }, 'no limit')),
           lim.max_keydown_s ? `The firmware unkeys at ${lim.max_keydown_s} s and logs it.` : 'None set (default).'))),
     h('div.card', {}, h('h3', {}, 'What will be written'),
-      h('ul.diff', {}, fs.map(f => h('li.file', {}, h('span', {}, f.path), h('span.to', {}, f.why), h('span.mono', {}, `${(f.data.length / 1024).toFixed(1)} kB`)))),
+      h('ul.diff', {}, fs.map(f => h('li.file', {}, h('span', {}, f.path), h('span.to', {}, f.why), h('span.mono', {}, `${(size(f) / 1024).toFixed(1)} kB`)))),
       changes.length ? h('details', { open: changes.length < 12, style: 'margin-top:10px' }, h('summary', { class: 'hint' }, `${changes.length} field${changes.length === 1 ? '' : 's'} differ from the drive's fox.json`), h('ul.diff', {}, changes.map(c => h('li', {}, h('span', {}, c.key), h('span.from', {}, c.from ?? '—'), h('span.to', {}, c.to ?? '—')))))
         : app.onBoard.cfg ? h('p.hint', {}, 'fox.json matches what is on the drive.') : h('p.hint', {}, app.connected && !app.onBoard.listening ? 'No fox.json on the drive yet.' : `Open the ${b.drive?.label || 'drive'} to see the difference.`)),
     h('div.card', {}, h('h3', {}, 'Deploy'),

@@ -46,7 +46,7 @@ function render() {
           li('A fox whose callsign is unset stays silent by design; the page will not deploy one.'))),
       h('div.card', {}, h('h3', {}, 'Next'),
         h('ul', { style: 'margin:0;padding-left:1.2em' },
-          li('foxlib-c: SSTV payloads, bench buttons over the console, the attenuator and amplifier-enable verified on a board; more boards of the drive and foxlib-c families.'),
+          li('foxlib-c: the attenuator and amplifier-enable verified on a board, then a battery-charge indication in the ID; more boards of the drive and foxlib-c families.'),
           li('Boards that mount a CIRCUITPY drive (ESP32-S3, SAMD) via the File System Access API.'),
           li('Wi-Fi beacon payload on ESP32 (2.4 GHz, no radio module).'),
           li('A testing procedure for the bench, independent of this page.')))),

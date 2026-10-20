@@ -41,14 +41,24 @@ void synth_params_default(synth_params_t *p) {
 
 static float fold(float hz, int max_hz) { while (hz > (float)max_hz) hz *= 0.5f; return hz; }
 
-static void start_event(synth_t *s) {
-    const event_t *e = &s->ev->e[s->idx];
+static bool array_src(void *ctx, event_t *out) {
+    synth_t *s = ctx;
+    if (s->ev_i >= s->ev->n) return false;
+    *out = s->ev->e[s->ev_i++];
+    return true;
+}
+
+/* Pull the next event; false at the end of the stream. */
+static bool start_event(synth_t *s) {
+    event_t cur;
+    if (!s->src(s->src_ctx, &cur)) return false;
+    const event_t *e = &cur;
     s->ev_start = s->ev_end;
     s->ms_acc += e->ms;
     s->ev_end = (uint32_t)lrint(s->ms_acc * s->p.sample_rate / 1000.0);
     if (s->ev_end < s->ev_start) s->ev_end = s->ev_start;
     float hz = fold(e->hz, s->max_hz);
-    if (hz <= 0) { s->silent = true; s->phase = 0; s->step = 0; return; }
+    if (hz <= 0) { s->silent = true; s->phase = 0; s->step = 0; return true; }
     s->silent = false;
     s->step = (uint32_t)((double)hz * 4294967296.0 / s->p.sample_rate);
     int h = 1;
@@ -57,21 +67,36 @@ static void start_event(synth_t *s) {
     float g = s->p.preemphasis ? fmaxf(s->p.pre_floor, hz / s->f_top) : 1.0f;
     float lvl = fminf(1.0f, fmaxf(0.0f, s->p.level));
     s->gain_q15 = (int32_t)lrintf(lvl * g * 32768.0f * 32767.0f / (float)PEAK_Q15[h]);
+    return true;
+}
+
+static void prepare_common(synth_t *s, const synth_params_t *p) {
+    tables();
+    memset(s, 0, sizeof *s);
+    s->p = *p;
+    s->max_hz = p->sample_rate / 2 - 100;
+    s->ramp = (uint32_t)lrintf(p->ramp_ms * p->sample_rate / 1000.0f); if (s->ramp < 1) s->ramp = 1;
+    s->idx = -1; s->ev_end = 0; s->ms_acc = 0;
 }
 
 void synth_prepare(synth_t *s, const events_t *ev, const synth_params_t *p) {
-    tables();
-    memset(s, 0, sizeof *s);
-    s->ev = ev; s->p = *p;
-    s->max_hz = p->sample_rate / 2 - 100;
-    s->ramp = (uint32_t)lrintf(p->ramp_ms * p->sample_rate / 1000.0f); if (s->ramp < 1) s->ramp = 1;
+    prepare_common(s, p);
+    s->ev = ev; s->ev_i = 0; s->src = array_src; s->src_ctx = s;
     float top = 0;
     double ms = 0;
     for (int i = 0; i < ev->n; i++) { float f = fold(ev->e[i].hz, s->max_hz); if (f > top) top = f; ms += ev->e[i].ms; }
     s->f_top = top > 0 ? top : 1;
     s->total = (uint32_t)lrint(ms * p->sample_rate / 1000.0);
-    s->idx = -1; s->ev_end = 0; s->ms_acc = 0;
     s->done = ev->n == 0 || s->total == 0;
+}
+
+void synth_prepare_src(synth_t *s, event_src_fn src, void *ctx, const synth_params_t *p, float f_top, double total_ms) {
+    prepare_common(s, p);
+    s->src = src; s->src_ctx = ctx;
+    if (f_top <= 0) { s->p.preemphasis = false; f_top = 1; }
+    s->f_top = f_top;
+    s->total = total_ms > 0 ? (uint32_t)lrint(total_ms * p->sample_rate / 1000.0) : 0;
+    s->done = false;
 }
 
 static inline int32_t env_q15(const synth_t *s, uint32_t i, uint32_t n) {
@@ -87,8 +112,7 @@ int16_t synth_next(synth_t *s) {
     if (s->done) return 0;
     while (s->idx < 0 || s->pos >= s->ev_end) {
         s->idx++;
-        if (s->idx >= s->ev->n) { s->done = true; return 0; }
-        start_event(s);
+        if (!start_event(s)) { s->done = true; return 0; }
     }
     int32_t out = 0;
     if (!s->silent) {
@@ -100,7 +124,7 @@ int16_t synth_next(synth_t *s) {
         s->phase += s->step;
     }
     s->pos++;
-    if (s->pos >= s->total) s->done = true;
+    if (s->total && s->pos >= s->total) s->done = true;
     if (out > 32767) out = 32767;
     if (out < -32767) out = -32767;
     return (int16_t)out;

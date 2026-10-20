@@ -18,10 +18,10 @@ AI6YM PicoFox is supported two ways: with its **vendor firmware** (the page
 writes its settings, renders its audio and Morse-ID files, and draws the
 cycle that firmware runs — verified on air, `docs/picofox-notes.md`), and
 with **fox-bench's own firmware** (`firmware/foxlib-c/`, GPL-3.0-or-later:
-`fox.json`, the same templates as the CircuitPython foxes, FM at 8 kHz with
-pre-emphasis, banner and bench commands on its serial console; flashed from
-the Board tab as a UF2 — builds and passes the simulations, first on-air
-test pending). Every push runs three test layers in CI: the firmware
+`fox.json`, every template the CircuitPython foxes have including SSTV, FM
+at 8 kHz with pre-emphasis, banner and bench buttons over its serial
+console; flashed from the Board tab as a UF2 — builds and passes the
+simulations, first on-air test pending). Every push runs three test layers in CI: the firmware
 simulator (`firmware/sim/`), the REPL protocol against a fake board and
 the page itself in headless Chromium (`tests/`), and a lint of every
 descriptor (`tools/check_catalog.py`). See `tests/README.md`.

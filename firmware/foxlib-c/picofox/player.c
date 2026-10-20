@@ -75,7 +75,8 @@ static void key(bool on) {
 
 static void play_loop(volatile play_req_t *req) {
     synth_t s;
-    synth_prepare(&s, req->ev, (const synth_params_t *)&req->params);
+    if (req->src) synth_prepare_src(&s, req->src, req->src_ctx, (const synth_params_t *)&req->params, req->f_top, req->total_ms);
+    else synth_prepare(&s, req->ev, (const synth_params_t *)&req->params);
     uint64_t period = 1000000ull / (uint64_t)req->params.sample_rate;
     uint64_t deadline = time_us_64();
     uint32_t n = 0;
@@ -146,7 +147,7 @@ void player_set_attenuation(int code) { call1(CMD_ATTEN, (uint32_t)code); }
 void player_play(play_req_t *req) {
     req->done = false; req->cut = false; req->played = 0; req->late = 0;
     if (player_busy()) player_stop();
-    if (!req->ev || req->ev->n == 0) { req->done = true; return; }
+    if (!req->src && (!req->ev || req->ev->n == 0)) { req->done = true; return; }
     call1(CMD_PLAY, (uint32_t)req);
 }
 

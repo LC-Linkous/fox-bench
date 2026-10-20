@@ -11,7 +11,8 @@
 #include "synth.h"
 
 typedef struct {
-    const events_t *ev;
+    const events_t *ev;          /* array mode; or */
+    event_src_fn src; void *src_ctx; float f_top; double total_ms;   /* streamed mode (SSTV) */
     synth_params_t params;
     int32_t dev_counts;          /* PLL fraction counts at full-scale sample (±32767) */
     uint32_t max_samples;        /* 0 = unlimited; otherwise cut after this many */

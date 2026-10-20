@@ -24,7 +24,7 @@ def load(name):
     return m
 
 
-morse, melody, schedule = load("morse"), load("melody"), load("schedule")
+morse, melody, schedule, sstv = load("morse"), load("melody"), load("schedule"), load("sstv")
 fails = 0
 
 
@@ -119,6 +119,32 @@ def main():
         now += w + 5000
     c = run(b, "sched", tf.name, 60).strip().splitlines()
     check("resurrection short alive/dead cycling: %d dead wakes" % sum(1 for x in py if x.startswith("dead")), py == c and any(x.startswith("dead") for x in py), "py=%s c=%s" % (py[:8], c[:8]))
+    os.unlink(tf.name)
+
+    print("sstv")
+    import random, struct
+    tc = sstv.test_card()
+    py = [(float(h), float(ms)) for h, ms in sstv.events(tc)]
+    out = run(b, "sstv", "testcard").splitlines()
+    c = parse_events("\n".join(out[1:]))
+    check("test card: %d events, %.1f s" % (len(py), sum(ms for _, ms in py) / 1000), same(py, c, 0.001) and out[0] == "# test_card 40 240", "py=%d c=%d first=%s" % (len(py), len(c), c[:3]))
+    check("duration_ms agrees", abs(sstv.duration_ms() - sum(ms for _, ms in c)) < 0.5)
+    # an images.bin with three images: random noise, a short image (padded with black), a 1-px-wide one
+    rnd = random.Random(7)
+    imgs = [{"name": "noise", "width": 40, "height": 240, "pixels": bytes(rnd.randrange(256) for _ in range(40 * 240))},
+            {"name": "short-img", "width": 40, "height": 100, "pixels": bytes((x * 6) & 255 for x in range(40 * 100))},
+            {"name": "thin", "width": 1, "height": 240, "pixels": bytes(range(240))}]
+    blob = bytes([len(imgs)])
+    for im in imgs:
+        nm = im["name"].encode(); blob += bytes([im["width"], im["height"], len(nm)]) + nm + im["pixels"]
+    with tempfile.NamedTemporaryFile("wb", suffix=".bin", delete=False) as tf:
+        tf.write(blob)
+    loaded = sstv.load_images(tf.name)
+    for i, im in enumerate(imgs):
+        py = [(float(h), float(ms)) for h, ms in sstv.events(loaded[i])]
+        out = run(b, "sstv", tf.name, i).splitlines()
+        c = parse_events("\n".join(out[1:]))
+        check("images.bin[%d] %s %dx%d: %d events" % (i, im["name"], im["width"], im["height"], len(py)), same(py, c, 0.001) and out[0] == "# %s %d %d" % (im["name"], im["width"], im["height"]), "hdr=%s py=%d c=%d" % (out[0], len(py), len(c)))
     os.unlink(tf.name)
 
     print("cfg")

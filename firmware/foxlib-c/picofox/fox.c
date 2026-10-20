@@ -25,6 +25,7 @@
 #include "player.h"
 #include "schedule.h"
 #include "si5351.h"
+#include "sstv.h"
 
 #define GAP_MS 750.0f
 #define HOLD_UNCONFIGURED_MS 20000
@@ -37,8 +38,16 @@ static bool have_cfg, id_ok, loaded_defaults_from_flash;
 static char radio_status[24] = "skipped";
 static sched_t sched;
 static playlist_t playlist;
-static events_t stream;
+static events_t stream, stream2;     /* the keyed section before and after a streamed (SSTV) segment */
 static play_req_t req;
+/* A keyed section is up to three segments played back to back on one carrier: [events][sstv image][events]. */
+typedef struct { enum { SEG_NONE, SEG_EVENTS, SEG_SSTV } kind; events_t *ev; } segment_t;
+static segment_t segs[3]; static int seg_n, seg_i; static uint32_t keyed_budget_ms, keyed_start_ms;
+/* SSTV: the images.bin index and the pixels of the image being sent */
+#define IMG_MAX_BYTES (SSTV_PIXELS_PER_LINE * SSTV_LINES * 2)
+static sstv_entry_t images[SSTV_MAX_IMAGES]; static int img_n, img_i;
+static uint8_t img_px[IMG_MAX_BYTES]; static int img_w, img_h;
+static sstv_gen_t sstv_gen;
 static fox_state_t state = FOX_HOLD;
 static uint32_t hold_until;
 static bool hold_logged;
@@ -112,7 +121,6 @@ void fox_print_banner(void) {
     for (int i = 0; i < report.n_items; i++) con_printf("  cfg: %s -> default (%s)\r\n", report.items[i].key, report.items[i].reason);
     if (report.fatal[0]) con_printf("** fatal: %s -- staying silent **\r\n", report.fatal);
     else if (!id_ok) con_printf("** callsign not set: %s **\r\n", cfg.id.tx_without_callsign ? "transmitting anyway (tx_without_callsign)" : "staying silent (id.tx_without_callsign=false)");
-    if (have_cfg && cfg.payload.kind == PAYLOAD_SSTV) con_puts("** payload.sstv is not in this firmware yet: ID only **\r\n");
     if (!loaded_defaults_from_flash) con_puts("  defaults.json not usable: using the compiled-in morse-songs defaults\r\n");
 }
 
@@ -127,9 +135,68 @@ static void start_play(float dev_hz_id, uint32_t max_ms) {
     req.params.sample_rate = cfg.radio.sample_rate; req.params.shape = cfg.radio.tone_shape; req.params.preemphasis = cfg.radio.preemphasis;
     req.params.level = 1.0f;                               /* deviation is set through dev_counts */
     req.dev_counts = (int32_t)si5351_counts_for_deviation(dev_hz_id);   /* pure arithmetic on the current divider */
-    req.ev = &stream;
+    req.ev = &stream; req.src = NULL; req.src_ctx = NULL;
     req.max_samples = max_ms ? (uint32_t)((uint64_t)max_ms * (uint64_t)cfg.radio.sample_rate / 1000) : 0;
     player_play(&req);
+}
+
+static uint32_t keydown_budget_ms(void);
+
+/* ---- SSTV images (payload.sstv): index read at reload, one image's pixels loaded per cycle */
+static long img_read(void *ctx, uint32_t off, void *buf, uint32_t n) { (void)ctx; return fs_read_at(cfg.payload.images_file, off, buf, n); }
+static void load_images(void) {
+    img_n = sstv_index(img_read, NULL, images, SSTV_MAX_IMAGES); img_i = 0;
+    int kept = 0;
+    for (int i = 0; i < img_n; i++) { if (images[i].w * images[i].h <= IMG_MAX_BYTES) images[kept++] = images[i]; else con_printf("  %s: image %s is %dx%d, larger than this firmware holds (%d px); skipped\r\n", cfg.payload.images_file, images[i].name, images[i].w, images[i].h, IMG_MAX_BYTES); }
+    img_n = kept;
+    if (!img_n) con_printf("  %s: no images — the test card will be sent\r\n", cfg.payload.images_file);
+}
+/* Load the next image into img_px (or the test card); returns its name. */
+static const char *next_image(void) {
+    if (!img_n) { img_w = SSTV_PIXELS_PER_LINE; img_h = SSTV_LINES; sstv_test_card(img_px, img_w, img_h); return "test_card"; }
+    sstv_entry_t *e = &images[img_i]; img_i = (img_i + 1) % img_n;
+    long got = fs_read_at(cfg.payload.images_file, e->offset, img_px, (size_t)(e->w * e->h));
+    if (got != e->w * e->h) { con_printf("  %s: could not read image %s; test card instead\r\n", cfg.payload.images_file, e->name); img_w = SSTV_PIXELS_PER_LINE; img_h = SSTV_LINES; sstv_test_card(img_px, img_w, img_h); return "test_card"; }
+    img_w = e->w; img_h = e->h;
+    return e->name;
+}
+static bool sstv_src(void *ctx, event_t *out) { return sstv_next((sstv_gen_t *)ctx, out); }
+
+/* ---- segments: start the next one on the keyed carrier; false when the section is finished */
+static bool start_segment(void) {
+    while (seg_i < seg_n) {
+        segment_t *sg = &segs[seg_i++];
+        uint32_t budget = 0;
+        if (keyed_budget_ms) { uint32_t used = now_ms() - keyed_start_ms; if (used >= keyed_budget_ms) { req.cut = true; return false; } budget = keyed_budget_ms - used; }
+        if (sg->kind == SEG_EVENTS) {
+            if (!sg->ev->n) continue;
+            req.ev = sg->ev; req.src = NULL;
+            synth_params_default(&req.params);
+            req.params.sample_rate = cfg.radio.sample_rate; req.params.shape = cfg.radio.tone_shape; req.params.preemphasis = cfg.radio.preemphasis; req.params.level = 1.0f;
+            req.dev_counts = (int32_t)si5351_counts_for_deviation((float)cfg.radio.id_deviation_hz);
+        } else {
+            /* SSTV: pure tones, flat deviation (decoders measure frequency), the audio deviation */
+            sstv_init(&sstv_gen, img_px, img_w, img_h);
+            req.ev = NULL; req.src = sstv_src; req.src_ctx = &sstv_gen; req.f_top = 0; req.total_ms = sstv_duration_ms();
+            synth_params_default(&req.params);
+            req.params.sample_rate = cfg.radio.sample_rate; req.params.shape = SHAPE_SINE; req.params.preemphasis = false; req.params.level = 1.0f;
+            req.dev_counts = (int32_t)si5351_counts_for_deviation((float)cfg.radio.audio_deviation_hz);
+        }
+        req.max_samples = budget ? (uint32_t)((uint64_t)budget * (uint64_t)cfg.radio.sample_rate / 1000) : 0;
+        player_play(&req);
+        return true;
+    }
+    return false;
+}
+static void begin_section(void) {
+    seg_i = 0; keyed_budget_ms = keydown_budget_ms(); req.cut = false; req.late = 0;
+    player_key(true); keyed_start_ms = now_ms();
+    state = FOX_KEYED;
+    if (!start_segment()) req.done = true;
+}
+static void add_morse2(events_t *ev, const char *text, float dit_s) {
+    con_printf("morse: %s\r\n", text);
+    morse_events(ev, text, cfg.id.wpm, (float)cfg.id.tone_hz, dit_s > 0 ? dit_s * 1000 : 0);
 }
 
 static uint32_t keydown_budget_ms(void) { return cfg.limits.set ? (uint32_t)(cfg.limits.max_keydown_s * 1000) : 0; }
@@ -149,25 +216,32 @@ static void begin_cycle(void) {
             if (cfg.schedule.dead_song && cfg.payload.kind == PAYLOAD_SONGS && playlist.n) { events_push(&stream, 0, GAP_MS); const song_t *s = playlist_next(&playlist, &stream); con_printf("song: %s\r\n", s->name); }
         } else add_morse("e", 0);
         con_printf("dead-phase wake: %s\r\n", kind == WAKE_ID ? "id" : "dit");
-        player_key(true);
-        start_play((float)cfg.radio.id_deviation_hz, keydown_budget_ms());
-        state = FOX_KEYED;
+        segs[0] = (segment_t){ SEG_EVENTS, &stream }; seg_n = 1;
+        begin_section();
         return;
     }
     con_printf("cycle %d @ %.4f MHz\r\n", cycle_n, (double)cfg.plan.frequencies_mhz[freq_index]);
     next_index = rotating ? (freq_index + 1) % cfg.plan.n : freq_index;
+    events_clear(&stream2); seg_n = 0;
+    events_t *tail = &stream;            /* where events after the payload go */
     events_push(&stream, 0, GAP_MS);
     if (cfg.payload.kind == PAYLOAD_NONE) {
         add_morse(cfg.payload.message_set && cfg.payload.message[0] ? cfg.payload.message : cfg.id.callmessage, cfg.payload.dit_set ? cfg.payload.dit_s : 0);
+        segs[seg_n++] = (segment_t){ SEG_EVENTS, &stream };
     } else {
         add_morse(cfg.id.callmessage, 0);
         if (cfg.payload.kind == PAYLOAD_SONGS && playlist.n) { events_push(&stream, 0, GAP_MS); const song_t *s = playlist_next(&playlist, &stream); con_printf("song: %s\r\n", s->name); }
+        segs[seg_n++] = (segment_t){ SEG_EVENTS, &stream };
+        if (cfg.payload.kind == PAYLOAD_SSTV) {
+            events_push(&stream, 0, GAP_MS);
+            const char *name = next_image(); con_printf("sstv: %s (%dx%d)\r\n", name, img_w, img_h);
+            segs[seg_n++] = (segment_t){ SEG_SSTV, NULL };
+            tail = &stream2;
+        }
     }
-    if (rotating && cfg.plan.announce_qsy) { char q[32]; snprintf(q, sizeof q, "QSY %.3f", (double)cfg.plan.frequencies_mhz[next_index]); events_push(&stream, 0, GAP_MS); add_morse(q, 0); }
-    if (stream.overflow) con_puts("  (stream truncated: too many events)\r\n");
-    player_key(true);
-    start_play((float)cfg.radio.id_deviation_hz, keydown_budget_ms());
-    state = FOX_KEYED;
+    if (rotating && cfg.plan.announce_qsy) { char q[32]; snprintf(q, sizeof q, "QSY %.3f", (double)cfg.plan.frequencies_mhz[next_index]); events_push(tail, 0, GAP_MS); add_morse2(tail, q, 0); if (tail == &stream2) segs[seg_n++] = (segment_t){ SEG_EVENTS, &stream2 }; }
+    if (stream.overflow || stream2.overflow) con_puts("  (stream truncated: too many events)\r\n");
+    begin_section();
 }
 
 static void end_cycle(void) {
@@ -198,7 +272,7 @@ void fox_poll(void) {
             begin_cycle();
             return;
         case FOX_KEYED:
-            if (req.done) end_cycle();
+            if (req.done && (req.cut || !start_segment())) end_cycle();   /* cut, or no segment left: unkey; else the next segment on the same carrier */
             return;
         case FOX_BENCH:
             if (req.done || !bench_active) { bench_active = false; player_key(false); con_puts("ok\r\n"); hold(1000); }
@@ -225,6 +299,8 @@ void fox_reload(const char *why) {
         sched_init(&sched, &cfg.schedule);
         if (cfg.payload.kind == PAYLOAD_SONGS) playlist_init(&playlist, cfg.payload.songs, cfg.payload.n_songs, cfg.payload.articulation);
         else playlist_init(&playlist, NULL, 0, 0.875f);
+        img_n = 0;
+        if (cfg.payload.kind == PAYLOAD_SSTV) load_images();
     }
     cycle_n = 0; cut_warned = 0;
     fox_print_banner();

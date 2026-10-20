@@ -15,7 +15,7 @@ static int alloc(P *p, int type, int parent) {
     if (p->d->n_nodes >= JSON_MAX_NODES) return fail(p, "too many values");
     int i = p->d->n_nodes++;
     json_node *nd = &p->d->nodes[i];
-    nd->type = (uint8_t)type; nd->is_int = 0; nd->parent = (int16_t)parent; nd->next = -1; nd->first = -1; nd->key = -1; nd->count = 0; nd->v.num = 0;
+    nd->type = (uint8_t)type; nd->is_int = 0; nd->parent = (int16_t)parent; nd->next = -1; nd->first = -1; nd->key = -1; nd->count = 0; nd->v.i = 0;
     return i;
 }
 
@@ -94,8 +94,13 @@ static int number(P *p, int parent) {
     memcpy(buf, p->s + st, len); buf[len] = 0;
     int idx = alloc(p, J_NUM, parent); if (idx < 0) return -1;
     double v = strtod(buf, NULL);
-    p->d->nodes[idx].v.num = v;
-    p->d->nodes[idx].is_int = (!frac || (isfinite(v) && v == floor(v) && fabs(v) < 2147483648.0)) ? 1 : 0;
+    bool integral = isfinite(v) && v == floor(v) && fabs(v) < 2147483648.0;
+    if (integral) { p->d->nodes[idx].is_int = 1; p->d->nodes[idx].v.i = (int32_t)v; }   /* "3.0" is 3, like foxlib's intify */
+    else {
+        if (p->d->n_dbls >= JSON_MAX_DOUBLES) return fail(p, "too many fractional numbers");
+        p->d->dbls[p->d->n_dbls] = v; p->d->nodes[idx].v.dbl = p->d->n_dbls++;
+    }
+    (void)frac;
     return idx;
 }
 
@@ -137,7 +142,7 @@ static int value(P *p, int parent) {
 }
 
 int json_parse(json_doc *d, const char *text, size_t len) {
-    d->n_nodes = 0; d->n_strs = 0; d->err = NULL; d->err_pos = 0;
+    d->n_nodes = 0; d->n_strs = 0; d->n_dbls = 0; d->err = NULL; d->err_pos = 0;
     P p = { d, text, len, 0, 0 };
     int root = value(&p, -1);
     if (root < 0) return -1;
@@ -164,7 +169,7 @@ const char *json_str(const json_doc *d, int idx) { return (idx < 0 || d->nodes[i
 bool json_is(const json_doc *d, int idx, json_type t) { return idx >= 0 && d->nodes[idx].type == t; }
 bool json_is_int(const json_doc *d, int idx) { return idx >= 0 && d->nodes[idx].type == J_NUM && d->nodes[idx].is_int; }
 bool json_is_num(const json_doc *d, int idx) { return idx >= 0 && d->nodes[idx].type == J_NUM; }
-double json_num(const json_doc *d, int idx, double dflt) { return json_is_num(d, idx) ? d->nodes[idx].v.num : dflt; }
-int json_int(const json_doc *d, int idx, int dflt) { return json_is_num(d, idx) ? (int)d->nodes[idx].v.num : dflt; }
+double json_num(const json_doc *d, int idx, double dflt) { if (!json_is_num(d, idx)) return dflt; const json_node *n = &d->nodes[idx]; return n->is_int ? (double)n->v.i : d->dbls[n->v.dbl]; }
+int json_int(const json_doc *d, int idx, int dflt) { return json_is_num(d, idx) ? (int)json_num(d, idx, 0) : dflt; }
 bool json_bool(const json_doc *d, int idx, bool dflt) { return json_is(d, idx, J_BOOL) ? d->nodes[idx].v.b : dflt; }
 bool json_is_null(const json_doc *d, int idx) { return json_is(d, idx, J_NULL); }

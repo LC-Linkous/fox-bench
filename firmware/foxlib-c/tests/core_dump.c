@@ -6,6 +6,7 @@
  *   sched <json-file> <steps>                 -> wait_ms sequence (+ phase for resurrection)
  *   cfg <defaults.json> <fox.json> <board>    -> status line + key fields
  *   synth <sr> <shape> <pre> <level> <wpm> <tone> <text> -> peak/rms/samples of the rendered ID
+ *   sstv testcard | sstv <images.bin> <index>   -> "hz ms" per line for the image, "# name w h" first
  */
 #include <math.h>
 #include <stdio.h>
@@ -15,6 +16,7 @@
 #include "../core/melody.h"
 #include "../core/morse.h"
 #include "../core/schedule.h"
+#include "../core/sstv.h"
 #include "../core/synth.h"
 
 static json_doc DOC, DOC2;
@@ -68,6 +70,21 @@ int main(int argc, char **argv) {
         printf("freqs="); for (int i = 0; i < CFG.plan.n; i++) printf("%s%g", i ? "," : "", CFG.plan.frequencies_mhz[i]); printf(" qsy=%d\n", CFG.plan.announce_qsy);
         printf("payload=%d songs=%d dit_s=%g schedule=%s delay=%d seed=%u\n", CFG.payload.kind, CFG.payload.n_songs, CFG.payload.dit_set ? CFG.payload.dit_s : 0, sched_kind_name(CFG.schedule.kind), CFG.schedule.delay_ms, CFG.schedule.seed);
         printf("radio: dev=%d/%d shape=%d pre=%d sr=%d att=%d\n", CFG.radio.id_deviation_hz, CFG.radio.audio_deviation_hz, CFG.radio.tone_shape, CFG.radio.preemphasis, CFG.radio.sample_rate, CFG.radio.attenuation);
+        return 0;
+    }
+    if (!strcmp(argv[1], "sstv")) {
+        static uint8_t px[255 * 255]; int w = SSTV_PIXELS_PER_LINE, h = SSTV_LINES; const char *name = "test_card";
+        static sstv_entry_t idx[SSTV_MAX_IMAGES];
+        if (strcmp(argv[2], "testcard")) {
+            FILE *f = fopen(argv[2], "rb"); if (!f) { perror(argv[2]); return 2; }
+            long rd(void *ctx, uint32_t off, void *buf, uint32_t n) { FILE *ff = ctx; fseek(ff, (long)off, SEEK_SET); return (long)fread(buf, 1, n, ff); }
+            int n = sstv_index(rd, f, idx, SSTV_MAX_IMAGES), i = argc > 3 ? atoi(argv[3]) : 0;
+            if (i >= n) { fprintf(stderr, "only %d images\n", n); return 2; }
+            w = idx[i].w; h = idx[i].h; name = idx[i].name; fseek(f, (long)idx[i].offset, SEEK_SET); if (fread(px, 1, (size_t)(w * h), f) != (size_t)(w * h)) return 2; fclose(f);
+        } else sstv_test_card(px, w, h);
+        printf("# %s %d %d\n", name, w, h);
+        sstv_gen_t g; event_t e; sstv_init(&g, px, w, h);
+        while (sstv_next(&g, &e)) printf("%.6g %.6g\n", e.hz, e.ms);
         return 0;
     }
     if (!strcmp(argv[1], "synth")) {

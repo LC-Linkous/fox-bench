@@ -34,14 +34,18 @@ VERSION      firmware version (the banner's foxlib=c-<version>)
 - **Behaviour**: foxlib's cycle (`foxlib/cycle.py`) as a state machine:
   Morse ID, songs, QRSS message, fixed / popcorn / resurrection schedules
   (same seeded LCG), plan rotation with QSY announcements, keydown limit,
-  dead-phase wakes. Templates: morse-songs, morse-qrss, popcorn,
-  resurrection, freq-rotator, composite. **Not yet**: SSTV payloads.
+  dead-phase wakes, SSTV (Robot 36 grayscale, streamed from `images.bin`
+  one image per cycle, the test card when there are none). Every template:
+  morse-songs, morse-sstv, morse-qrss, popcorn, resurrection, freq-rotator,
+  composite.
 - **Radio**: core 1 owns the Si5351. The carrier is PLLA × (a + b/c) with
   MultiSynth0 an integer /6; FM is done by rewriting the PLLA fraction once
   per sample at `radio.sample_rate` (8000 default), deviation from
   `radio.id_deviation_hz` / `radio.audio_deviation_hz`, with pre-emphasis and
   the `bright` tone shape synthesised in integer math (`core/synth.c`, the
-  same renderer as the page's WAV preview). Keying = CLK0 output enable +
+  same renderer as the page's WAV preview); SSTV segments are pure tones at
+  flat deviation (`audio_deviation_hz`), played back to back with the ID on
+  one carrier. Keying = CLK0 output enable +
   amplifier enable. Attenuation (rev 3) through the BVA1761 serial interface
   — written from the datasheet, **unverified on hardware**, never touched at
   attenuation 0.
@@ -73,8 +77,8 @@ RPI-RP2).
 make -C firmware/foxlib-c/tests check
 ```
 
-- `parity.py`: the C core against foxlib (Python) — identical Morse and song
-  event streams, identical schedule sequences, identical `cfg=` status lines
+- `parity.py`: the C core against foxlib (Python) — identical Morse, song and
+  SSTV event streams, identical schedule sequences, identical `cfg=` status lines
   for every template default and a set of bad `fox.json` files; and against
   the page's validator for the pinless family; synth sanity.
 - `sim.py`: `picofox/fox.c` built for the host against stubbed hardware

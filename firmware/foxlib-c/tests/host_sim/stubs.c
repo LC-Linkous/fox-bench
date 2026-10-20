@@ -16,7 +16,7 @@ const char *sim_dir = ".";
 int sim_host_drive = 0;
 
 /* ---- record */
-#define MAXREC 20000
+#define MAXREC 60000   /* an SSTV image alone is ~11 000 tones */
 static struct { double t; int on; } ptt[MAXREC]; static int n_ptt;
 static struct { double s, e; float hz; } tones[MAXREC]; static int n_tones;
 static double retunes[256]; static int n_retunes;
@@ -34,12 +34,15 @@ void player_key(bool on) { if (on == keyed) return; keyed = on; rec_ptt(on); if 
 void player_set_attenuation(int code) { (void)code; }
 void player_play(play_req_t *req) {
     req->done = false; req->cut = false; req->played = 0; req->late = 0;
-    if (!req->ev || !req->ev->n) { req->done = true; return; }
+    if (!req->src && (!req->ev || !req->ev->n)) { req->done = true; return; }
     double t = sim_now_us / 1000.0, budget = req->max_samples ? req->max_samples * 1000.0 / req->params.sample_rate : 1e18, used = 0;
-    for (int i = 0; i < req->ev->n; i++) {
-        float ms = req->ev->e[i].ms;
+    event_t ev; int i = 0;
+    for (;;) {
+        if (req->src) { if (!req->src(req->src_ctx, &ev)) break; }
+        else { if (i >= req->ev->n) break; ev = req->ev->e[i++]; }
+        float ms = ev.ms;
         if (used + ms > budget) { ms = (float)(budget - used); req->cut = true; }
-        if (req->ev->e[i].hz > 0 && ms > 0 && n_tones < MAXREC) { tones[n_tones].s = t; tones[n_tones].e = t + ms; tones[n_tones].hz = req->ev->e[i].hz; n_tones++; }
+        if (ev.hz > 0 && ms > 0 && n_tones < MAXREC) { tones[n_tones].s = t; tones[n_tones].e = t + ms; tones[n_tones].hz = ev.hz; n_tones++; }
         t += ms; used += ms;
         if (req->cut) break;
     }
@@ -61,6 +64,7 @@ bool fs_mounted(void) { return true; }
 const char *fs_error(void) { return ""; }
 static FILE *openp(const char *path, const char *mode) { char p[512]; snprintf(p, sizeof p, "%s/%s", sim_dir, path); return fopen(p, mode); }
 long fs_read(const char *path, char *buf, size_t cap) { FILE *f = openp(path, "rb"); if (!f) return -1; size_t n = fread(buf, 1, cap - 1, f); fclose(f); buf[n] = 0; return (long)n; }
+long fs_read_at(const char *path, uint32_t off, void *buf, size_t n) { FILE *f = openp(path, "rb"); if (!f) return -1; fseek(f, (long)off, SEEK_SET); size_t got = fread(buf, 1, n, f); fclose(f); return (long)got; }
 bool fs_write(const char *path, const void *data, size_t len) { FILE *f = openp(path, "wb"); if (!f) return false; fwrite(data, 1, len, f); fclose(f); return true; }
 bool fs_exists(const char *path) { FILE *f = openp(path, "rb"); if (f) fclose(f); return f != NULL; }
 int fs_seed(void) { return 0; }

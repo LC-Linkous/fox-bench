@@ -18,6 +18,9 @@
 #ifndef JSON_STR_BYTES
 #define JSON_STR_BYTES 8192
 #endif
+#ifndef JSON_MAX_DOUBLES
+#define JSON_MAX_DOUBLES 256     /* numbers with a fractional part (frequencies, thresholds); integers live in the node */
+#endif
 
 typedef enum { J_NULL, J_BOOL, J_NUM, J_STR, J_ARR, J_OBJ } json_type;
 
@@ -29,13 +32,14 @@ typedef struct {
     int16_t first;         /* first child (arrays/objects), -1 if empty */
     int16_t key;           /* for object members: index of the key string in the string buffer; -1 otherwise */
     int16_t count;         /* children count */
-    union { double num; int32_t str; bool b; } v;   /* str: offset into the string buffer */
-} json_node;
+    union { int32_t i; int32_t dbl; int32_t str; bool b; } v;   /* i: integral number; dbl: index into dbls; str: offset into strs */
+} json_node;                                                    /* 16 bytes: 4096 of them fit an RP2040 alongside everything else */
 
 typedef struct {
     json_node nodes[JSON_MAX_NODES];
     char strs[JSON_STR_BYTES];
-    int n_nodes, n_strs;
+    double dbls[JSON_MAX_DOUBLES];
+    int n_nodes, n_strs, n_dbls;
     const char *err;       /* NULL on success */
     int err_pos;
 } json_doc;

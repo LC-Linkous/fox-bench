@@ -37,7 +37,7 @@ async function bootInFoxlibC(entries, label) {
   for (const e of entries) await writeFile(join(dir, e.name), e.data);
   const bin = join(ROOT, 'firmware/foxlib-c/tests/build/host_sim');
   await new Promise((res, rej) => execFile('make', ['-s', '-C', join(ROOT, 'firmware/foxlib-c/tests'), 'build/host_sim'], { timeout: 120000 }, (err, so, se) => err ? rej(new Error(`${label}: host_sim build failed\n${so}${se}`)) : res()));
-  return new Promise((res, rej) => execFile(bin, [dir, '--cap-ms', '120000', '--stop-after-unkeys', '2'], { timeout: 60000 }, (err, stdout, stderr) => err ? rej(new Error(`${label}: host_sim failed\n${stdout}${stderr}`)) : res(stdout)));
+  return new Promise((res, rej) => execFile(bin, [dir, '--cap-ms', '120000', '--stop-after-unkeys', '2'], { timeout: 60000, maxBuffer: 32 * 1024 * 1024 }, (err, stdout, stderr) => err ? rej(new Error(`${label}: host_sim failed\n${stdout}${stderr}`)) : res(stdout)));
 }
 
 /** Unpack a deploy-set zip into a temp dir and boot it in the firmware simulator. Returns the sim's stdout, or throws. */
@@ -283,7 +283,7 @@ try {
   check(await page.isVisible('.rail button[data-tab="bench"]'), 'Bench tab shown (console commands)');
   await tab('behavior');
   const optsC = await page.$$eval('#tab-behavior select option', els => els.map(e => e.value));
-  check(optsC.includes('morse-songs') && optsC.includes('popcorn') && optsC.includes('resurrection') && !optsC.includes('morse-sstv') && !optsC.includes('picofox'), 'template dropdown filtered to the foxlib-c set (' + optsC.join(',') + ')');
+  check(optsC.includes('morse-songs') && optsC.includes('popcorn') && optsC.includes('resurrection') && optsC.includes('morse-sstv') && !optsC.includes('picofox'), 'template dropdown filtered to the foxlib-c set (' + optsC.join(',') + ')');
   for (const t of ['radio', 'plan', 'id', 'payload', 'schedule', 'deploy', 'bench', 'fleet', 'about']) await tab(t);
   await tab('radio');
   check(/FM update rate/.test(await text('#tab-radio')) && /Pre-emphasis/.test(await text('#tab-radio')) && !/Board revision/.test(await text('#tab-radio')), 'Radio tab shows the foxlib-c controls, no vendor revision picker');
@@ -327,6 +327,20 @@ try {
     const rec = JSON.parse(out);
     check(/FOX template=morse-songs/.test(rec.prints) && /cfg=ok/.test(rec.prints) && /id=set/.test(rec.prints) && rec.ptt.length >= 2, 'exported set boots in the foxlib-c host sim: ' + (rec.prints.match(/FOX [^\n]*/) || [''])[0]);
   } catch (e) { check(false, 'foxlib-c host sim: ' + e.message.split('\n')[0]); }
+  // SSTV on the foxlib-c target: images.bin is part of the set and the C runner sends the image
+  await tab('behavior'); await page.selectOption('#tab-behavior select', 'morse-sstv'); await settle(500);
+  await tab('deploy');
+  check(/images\.bin/.test(await text('#tab-deploy')), 'SSTV deploy lists images.bin for the foxlib-c target');
+  page.removeAllListeners('dialog'); page.once('dialog', d => d.accept());
+  const [dls] = await Promise.all([page.waitForEvent('download', { timeout: 10000 }), page.click('#tab-deploy button:has-text("Export files")')]);
+  const sEntries = zipEntries(new Uint8Array(await (await import('node:fs/promises')).readFile(await dls.path())));
+  check(sEntries.some(e => e.name === 'images.bin'), 'SSTV zip carries images.bin');
+  page.on('dialog', d => d.dismiss());
+  try {
+    const rec = JSON.parse(await bootInFoxlibC(sEntries, 'foxlib-c sstv export'));
+    check(/sstv: /.test(rec.prints) && rec.tones.some(([, , hz]) => hz === 1200) && rec.tones.filter(([, , hz]) => hz >= 1500 && hz <= 2300).length > 200, 'exported SSTV set boots in the C runner and sends an image: ' + (rec.prints.match(/sstv: [^\n]*/) || [''])[0]);
+  } catch (e) { check(false, 'foxlib-c sstv host sim: ' + e.message.split('\n')[0]); }
+  await tab('behavior'); await page.selectOption('#tab-behavior select', 'morse-songs'); await settle(400);
   const rowC = await app(() => JSON.parse(localStorage.getItem('fox-bench.fleet') || '[]').filter(r => r.board === 'picofox-foxlibc' && r.action === 'deploy').pop());
   check(rowC && rowC.result === 'written' && /dBm/.test(rowC.power), 'fleet row for the foxlib-c deploy');
   await page.click('#demoBtn'); await settle(300);
