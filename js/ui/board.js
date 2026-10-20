@@ -124,7 +124,11 @@ function renderFoxlibC() {
     info && !ob.listening ? h('div.tools', { style: 'margin-top:10px' },
       ob.cfg ? h('button.btn', { onclick: async () => { await app.loadCfg(ob.cfg, { source: 'board' }); app.console.dim('working config replaced with the drive\'s fox.json'); } }, 'Load the drive\'s config into the form') : null,
       h('button.btn.small', { onclick: async () => { await app.readDrive(); app.changed('reread'); } }, 'Re-read drive'),
-      h('span.hint', {}, ob.cfg ? 'Otherwise the form keeps what you were editing; Deploy shows the difference.' : '')) : null);
+      h('span.hint', {}, ob.cfg ? 'Otherwise the form keeps what you were editing; Deploy shows the difference.' : '')) : null,
+    app.consoleDevice() ? h('div.tools', { style: 'margin-top:10px' },
+      h('button.btn.small', { onclick: async e => { if (!confirm('Jump to the UF2 bootloader? The fox stops, this port disappears and an RPI-RP2 drive appears. Copy a .uf2 there to come back (fox-bench or the vendor\'s).')) return; e.currentTarget.disabled = true; const ok = await app.consoleDevice().bootsel(); app.console.line(ok ? 'bootsel sent — look for the RPI-RP2 drive' : 'bootsel: no reply', ok ? 'ok' : 'err'); } }, 'Enter UF2 bootloader (bootsel)'),
+      h('button.btn.small', { onclick: () => app.consoleDevice().send('status') }, 'Status'),
+      h('span.hint', {}, 'The firmware card on the right then copies a .uf2 onto that drive.')) : null);
   const flow = h('div.card', {}, h('h3', {}, 'How a deploy works here'),
     h('ol.steps', {},
       h('li', {}, 'The form on tabs 2–7 is a complete ', h('code', {}, 'fox.json'), ', the same contract the CircuitPython foxes use. Validated here and again by the firmware when it loads.'),

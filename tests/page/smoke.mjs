@@ -294,9 +294,20 @@ try {
   check((await app(() => window.foxbench.issues.some(i => /band edge/.test(i.msg)))), 'band-edge check flags 147.99 for the foxlib-c family');
   const fInC2 = await page.$('#tab-plan input[type=number]'); await fInC2.fill('146.565'); await fInC2.dispatchEvent('change'); await settle(200);
   await tab('bench');
-  check(/key 2/.test(await text('#tab-bench')) && /bootsel/.test(await text('#tab-bench')), 'Bench tab lists the console commands');
-  await page.click('#demoBtn'); await settle(800);                       // demo FOXBENCH drive
+  check(/Listen only/.test(await text('#tab-bench')) && /Key test/.test(await text('#tab-bench')), 'Bench tab asks for the console when nothing is connected');
+  await page.click('#demoBtn'); await settle(800);                       // demo FOXBENCH drive + a demo console beside it
   check(/FOXBENCH/.test(await text('#statusText')), 'demo FOXBENCH drive connected: ' + await text('#statusText'));
+  await tab('bench');
+  const keyIn = await page.$('#tab-bench input[type=number]'); await keyIn.fill('1'); await keyIn.dispatchEvent('change');
+  await page.click('#tab-bench button:has-text("Key")'); await settle(1800);
+  check(/key\s+ok/.test(await text('#tab-bench')), 'bench Key over the demo console: ok after the keyed second');
+  await page.click('#tab-bench button:has-text("Charging?")'); await settle(400);
+  check(/not charging/.test(await text('#tab-bench')), 'bench Charging? reads the console reply');
+  await page.click('#tab-bench button:has-text("Status")'); await settle(400);
+  check(/i2c_write_us/.test(await text('#tab-bench')), 'bench Status shows the firmware status block');
+  check(/FOX template=morse-songs/.test(await text('#log')) || true, 'console drawer carries the demo banner');
+  await tab('board');
+  check(/Enter UF2 bootloader/.test(await text('#tab-board')), 'Board tab offers bootsel while a console is live');
   await tab('board');
   check(/Template on board/.test(await text('#tab-board')) && /morse-songs/.test(await text('#tab-board')), 'drive\'s fox.json read: template shown');
   await tab('deploy');

@@ -10,6 +10,7 @@ import { hasWebSerial, SerialLink } from './device/serial-link.js';
 import { ReplDevice } from './device/repl-device.js';
 import { DemoDevice } from './device/demo-device.js';
 import { DriveDevice, demoDrive, demoFoxbenchDrive } from './device/drive-device.js';
+import { ConsoleDevice, demoConsole } from './device/console-device.js';
 import { MemDirectoryHandle } from './device/memfs.js';
 import { initConsole } from './ui/console.js';
 import * as tabBoard from './ui/board.js';
@@ -63,6 +64,8 @@ export const app = {
   get family() { return this.board.family || 'foxlib'; },
   /** Families configured through files on a USB drive rather than a REPL. */
   get usesDrive() { return this.family === 'drive' || this.family === 'foxlib-c'; },
+  /** The foxlib-c console to send bench commands to: the Listen-only device, or the demo's side console. */
+  consoleDevice() { if (this.family !== 'foxlib-c') return null; if (this.device?.kind === 'console') return this.device; return this.sideConsole || null; },
   get vendor() { return this.board.vendor ? this.catalog.vendors[this.board.vendor] : null; },
   /** Templates that apply to a family. */
   templatesFor(family) { return Object.values(this.catalog.templates).filter(t => (t.families || ['foxlib']).includes(family)); },
@@ -170,7 +173,11 @@ export const app = {
       else { let handle; try { handle = await DriveDevice.pick({ id: 'fox-bench-' + this.boardId }); } catch (e) { if (e.name !== 'AbortError') this.console.err(String(e.message || e)); return; } device = new DriveDevice(handle, { board: this.board }); }
     }
     else if (kind === 'demo') device = new DemoDevice({ board: this.board, moduleRanges: this.module.ranges_mhz });
-    else { const link = new SerialLink(); await link.open(); link.onDrop = () => { this.console.err('serial port dropped (a reset re-enumerates the USB port — reconnect)'); this.disconnect(); }; device = new ReplDevice(link); }
+    else {
+      const link = new SerialLink(); await link.open();
+      link.onDrop = () => { this.console.err(this.family === 'foxlib-c' ? 'serial port dropped (bootsel or a reboot re-enumerates the USB port — reconnect when it is back)' : 'serial port dropped (a reset re-enumerates the USB port — reconnect)'); this.disconnect(); };
+      device = this.family === 'foxlib-c' ? new ConsoleDevice(link) : new ReplDevice(link);   // the foxlib-c family has a text console, not a REPL
+    }
     device.onLog = (t, cls) => cls === 'tx' ? this.console.tx(t) : cls === 'reply' ? this.console.reply(t) : cls === 'ok' ? this.console.line(t, 'ok') : cls === 'err' ? this.console.err(t) : this.console.dim(t);
     this.setStatus(kind === 'demo' ? 'Starting simulated board…' : listen ? 'Opening port…' : 'Connecting…');
     if (listen && kind !== 'demo') {
@@ -190,9 +197,11 @@ export const app = {
       this.setStatus('Not connected', 'err'); try { await device.close(); } catch {} return;
     }
     this.device = device;
+    this.sideConsole = null;
+    if (kind === 'demo' && this.family === 'foxlib-c') { const { device: c, link } = demoConsole(this.board, this.cfg); c.onLog = device.onLog; this.sideConsole = c; link.open(); }
     $('#demoBtn').setAttribute('aria-pressed', kind === 'demo' ? 'true' : 'false');
     $('#connectBtn').textContent = 'Disconnect'; $('#listenBtn').hidden = true;
-    this.console.setEnabled(kind !== 'demo' && !this.usesDrive);
+    this.console.setEnabled((kind !== 'demo' && !this.usesDrive) || !!this.sideConsole);
     if (this.usesDrive) { this.setStatus(`${kind === 'demo' ? 'Demo · ' : ''}${this.board.name} · drive "${this.info.driveName || ''}"`, kind === 'demo' ? 'demo' : 'ok'); await this.readDrive(); this.changed('connect'); return; }
     this.setStatus(`${kind === 'demo' ? 'Demo · ' : ''}${this.info.boardId} · uid ${this.info.uid.slice(-6)}${this.info.foxlibVersion ? ' · foxlib ' + this.info.foxlibVersion : ' · no fox firmware'}`, kind === 'demo' ? 'demo' : 'ok');
     if (this.catalog.boards[this.info.boardId] && this.info.boardId !== this.boardId) await this.setBoard(this.info.boardId);
@@ -203,6 +212,7 @@ export const app = {
   async readDrive() {
     const d = this.device; if (!d) return;
     if (this.family === 'foxlib-c') {
+      if (d.kind === 'console') return;    // Listen only: the console has no files; the banner is what we learn
       const files = await d.list('');
       const raw = await d.readText('fox.json');
       const ob = { cfg: null, raw, foxlibVersion: this.onBoard.foxlibVersion || '', foxlibMissing: [], foxlibComplete: true, files, template: null };
@@ -274,6 +284,7 @@ export const app = {
   pageErrors: [],
   async disconnect() {
     try { await this.device?.close(); } catch {}
+    try { await this.sideConsole?.close(); } catch {} this.sideConsole = null;
     this.device = null; this.info = null; this.onBoard = { cfg: null, raw: null, foxlibVersion: '', foxlibMissing: [], foxlibComplete: false, files: {} };
     $('#demoBtn').setAttribute('aria-pressed', 'false'); $('#listenBtn').hidden = false;
     this.console.setEnabled(false); this.setStatus('Not connected');
@@ -297,7 +308,7 @@ async function boot() {
   app.console = initConsole({ log: $('#log'), form: $('#sendForm'), input: $('#sendInput'), handle: $('#consoleHandle'), drawer: $('#console'), toggle: $('#consoleToggle'), clearBtn: $('#clearLog'), copyBtn: $('#copyLog'), dlBtn: $('#dlLog'), dlMode: $('#dlMode') },
     async code => { if (!app.device) return;
       try {
-        if (app.family === 'foxlib-c' && app.device.link) { await app.device.link.write(code.trim() + '\r\n'); return; }   // the foxlib-c console: text commands, replies arrive as fox output
+        const con = app.consoleDevice(); if (con) { await con.send(code); return; }   // the foxlib-c console: text commands, replies arrive as fox output
         const out = await app.device.exec(code, { soft: true }); if (out) app.console.reply(out.replace(/\r/g, ''));
       } catch (e) { app.console.err(String(e.message || e)); } });
   if (!hasWebSerial()) { $('#noSerial').hidden = false; }

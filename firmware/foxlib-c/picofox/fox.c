@@ -272,6 +272,7 @@ bool fox_bench_freq(double mhz) {
 }
 
 void fox_bench_stop(void) {
+    if (state == FOX_BENCH) con_puts("ok (stopped)\r\n");     /* the interrupted action's reply, so a waiting host is released */
     if (state == FOX_BENCH || state == FOX_KEYED) { player_stop(); player_key(false); }
     bench_active = false; hold(500);
 }
