@@ -145,17 +145,34 @@ function uf2Card(app) {
     try {
       if (!('showDirectoryPicker' in window)) throw new Error('this browser cannot open a drive folder (Chrome or Edge needed)');
       const dir = await window.showDirectoryPicker({ id: 'fox-bench-uf2', mode: 'readwrite' });
-      if (dir.name && b.flash.drive_name && dir.name.toUpperCase() !== b.flash.drive_name && !/^[\\/]*$/.test(dir.name) && !confirm(`The folder is "${dir.name}", not ${b.flash.drive_name}. Copy the UF2 there anyway?`)) throw new Error('cancelled');
+      // The RP2040 bootloader drive holds exactly INFO_UF2.TXT and INDEX.HTM. Its name is no use (a Windows drive root
+      // is called "\"), and a .uf2 copied onto any other drive — the fox's own FOXBENCH/PicoFox volume, say — is just a
+      // file: the board keeps running what it ran. So the folder is checked by content, not by name.
+      const names = []; for await (const e of dir.values()) names.push(e.name.toUpperCase());
+      const isBootloader = names.includes('INFO_UF2.TXT');
+      if (!isBootloader) {
+        const looksLikeFox = names.some(n => ['FOX.JSON', 'SETTINGS.TXT', 'AUDIO.WAV', 'DEFAULTS.JSON'].includes(n));
+        throw new Error(`that folder is not the ${b.flash.drive_name} bootloader drive (no INFO_UF2.TXT; it holds ${names.filter(n => !n.startsWith('.') && n !== 'SYSTEM VOLUME INFORMATION').slice(0, 5).join(', ') || 'nothing'})${looksLikeFox ? ' — it is the fox\'s own drive, where a .uf2 would only sit as a file' : ''}. ${b.flash.bootloader_instructions} Then pick that drive.`);
+      }
+      let info = ''; try { info = await (await (await dir.getFileHandle('INFO_UF2.TXT')).getFile()).text(); } catch {}
+      if (info && !/RP2040|RPI-RP2/i.test(info)) throw new Error(`the bootloader drive says "${info.split('\n')[0].trim()}", not an RP2040 — wrong board?`);
       const h2 = await dir.getFileHandle(uf2.name, { create: true }); const w = await h2.createWritable(); await w.write(uf2.bytes); await w.close();
-      uf2.last = { ok: true, text: `${uf2.name} copied (${(uf2.bytes.length / 1024).toFixed(0)} kB). The board reboots into the new firmware by itself and the ${b.flash.drive_name} drive disappears${uf2.source === 'fox-bench' ? `; a ${b.drive?.label || 'FOXBENCH'} drive and a serial port appear in its place` : ''}.` };
-      app.console.line(`UF2 ${uf2.name} copied to ${dir.name}`, 'ok');
-      fleet.append({ board_number: '', uid: '', board: b.id, action: 'flash', template: '', profile: '', callsign: '', freq: '', power: '', seed: '', result: 'ok', notes: uf2.name + ' (uf2' + (uf2.source === 'fox-bench' ? ', fox-bench firmware' : '') + ')' });
+      app.console.line(`UF2 ${uf2.name} written to the bootloader drive — waiting for the board to reboot`, 'dim');
+      // Verify: the bootloader drive must go away (the board rebooted into the new firmware). Listing it should fail.
+      let gone = false;
+      for (let i = 0; i < 12 && !gone; i++) { await new Promise(r => setTimeout(r, 500)); try { for await (const _ of dir.values()) { void _; break; } } catch { gone = true; } }
+      uf2.last = gone
+        ? { ok: true, text: `${uf2.name} flashed (${(uf2.bytes.length / 1024).toFixed(0)} kB): the ${b.flash.drive_name} drive went away, so the board rebooted into it${uf2.source === 'fox-bench' ? `. A ${b.drive?.label || 'FOXBENCH'} drive and a serial port appear in its place; Listen only shows the FOX banner` : ''}.` }
+        : { ok: false, text: `${uf2.name} was written but the ${b.flash.drive_name} drive is still there after 6 s — the bootloader did not accept it. A .uf2 for another chip, or a copy that did not complete; try again.` };
+      app.console.line(uf2.last.text, gone ? 'ok' : 'err');
+      fleet.append({ board_number: '', uid: '', board: b.id, action: 'flash', template: '', profile: '', callsign: '', freq: '', power: '', seed: '', result: gone ? 'ok' : 'not accepted', notes: uf2.name + ' (uf2' + (uf2.source === 'fox-bench' ? ', fox-bench firmware' : '') + ')' });
     } catch (e) { if (e.name !== 'AbortError' && e.message !== 'cancelled') { uf2.last = { ok: false, text: String(e.message || e) }; app.console.err('UF2 copy failed: ' + uf2.last.text); } }
     uf2.busy = false; notify(); app.changed('flash');
   };
   return h('div.card', {}, h('h3', {}, 'Firmware ', badge('no CircuitPython', 'warn')),
     h('p.hint', {}, h('b', {}, `This fox board does not run CircuitPython.`), ' ', b.firmware?.note || ''),
     h('p.hint', {}, h('b', {}, 'Bootloader: '), b.flash.bootloader_instructions, ' Firmware is a .uf2 file copied onto that drive; the board reboots when the copy finishes.', b.firmware?.stock_firmware_url ? [' The vendor\'s releases are at ', h('a', { href: b.firmware.stock_firmware_url, target: '_blank', rel: 'noopener' }, 'their GitHub'), '.'] : null),
+    h('p.hint', {}, h('b', {}, 'Order: '), 'switch the fox on → hold BOOTSEL → plug in USB → a drive with just ', h('code', {}, 'INFO_UF2.TXT'), ' and ', h('code', {}, 'INDEX.HTM'), ' appears → pick ', h('i', {}, 'that'), ' drive below. The page checks for INFO_UF2.TXT, because a .uf2 copied onto the fox\'s own drive is only a file and the board keeps running what it ran.'),
     ours ? h('div.tools', {}, h('button.btn', { disabled: uf2.fetching || uf2.busy, onclick: () => fetchHosted(app) }, uf2.fetching ? 'Fetching…' : 'Get fox-bench firmware'), h('span.hint', {}, `foxbench-picofox.uf2 built from this site\'s source (firmware/foxlib-c/picofox). Or load any .uf2 — the vendor\'s to go back.`)) : null,
     h('div.tools', {}, h('button.btn.small', { onclick: () => fileIn.click() }, 'Load .uf2…'), fileIn, h('span.hint', {}, uf2.name ? `${uf2.name} · ${(uf2.bytes.length / 1024).toFixed(0)} kB${uf2.source === 'fox-bench' ? ' · fox-bench firmware' : ''}` : 'nothing loaded'),
       h('button.btn' + (ours && uf2.source === 'fox-bench' ? '.primary' : ''), { disabled: !uf2.bytes || uf2.busy, onclick: copy }, uf2.busy ? 'Copying…' : `Copy to ${b.flash.drive_name}…`)),

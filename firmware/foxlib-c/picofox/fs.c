@@ -41,6 +41,9 @@ bool fs_mount(bool allow_format) {
     }
     if (r != FR_OK) { snprintf(fs_last_err, sizeof fs_last_err, "mount %d", r); return false; }
     mounted = true;
+    /* a volume inherited from other firmware (the vendor's "PicoFox") keeps its files but takes our name,
+       so the drive the computer shows says which firmware is running */
+    if (allow_format) { char label[34] = ""; DWORD sn; if (f_getlabel("", label, &sn) == FR_OK && strcmp(label, FS_LABEL)) f_setlabel(FS_LABEL); }
     return true;
 }
 

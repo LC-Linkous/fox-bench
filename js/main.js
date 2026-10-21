@@ -218,6 +218,7 @@ export const app = {
       const ob = { cfg: null, raw, foxlibVersion: this.onBoard.foxlibVersion || '', foxlibMissing: [], foxlibComplete: true, files, template: null };
       if (raw != null) { try { ob.cfg = JSON.parse(raw); ob.template = ob.cfg.template || null; } catch { this.console.err('fox.json on the drive is not valid JSON (the fox falls back to defaults.json and says cfg=default(parse) in its banner)'); } }
       this.onBoard = ob;
+      if (!raw && ('settings.txt' in files || 'audio.wav' in files)) this.console.err('this drive holds the vendor firmware\'s files (settings.txt, audio.wav) and no fox.json: the board is still running the vendor firmware. Flash fox-bench\'s from the Board tab (hold BOOTSEL while plugging in; pick the RPI-RP2 drive), or select the "(vendor firmware)" target to keep using it.');
       this.console.dim(ob.cfg ? `fox.json read from the drive: template ${ob.cfg.template}, call "${ob.cfg.id?.callmessage}"` : `no fox.json on the drive (the firmware writes one from its built-in defaults at power-on)`);
       return;
     }
