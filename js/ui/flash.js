@@ -122,20 +122,23 @@ export function batchCard(app) {
 
 /** UF2 boards (PicoFox): no CircuitPython. Firmware is a .uf2 copied to the bootloader drive: the vendor's (a file you
  * load) or fox-bench's own (fetched from this site for foxlib-c targets). The same card restores the vendor firmware. */
-let uf2 = { name: '', bytes: null, busy: false, last: null, source: '', fetching: false, touching: false };
-async function fetchHosted(app) {
-  const b = app.board, url = b.firmware?.image; if (!url) return;
+let uf2 = { name: '', bytes: null, busy: false, last: null, source: '', fetching: false, touching: false, forBoard: '' };
+/** A loaded image belongs to the target it was loaded for: switching targets forgets it, so the vendor target can never
+ * flash the fox-bench image by accident (or the other way round). */
+function uf2For(app) { if (uf2.forBoard !== app.boardId) uf2 = { ...uf2, name: '', bytes: null, last: null, source: '', forBoard: app.boardId }; return uf2; }
+async function fetchImage(app, url, source, label) {
   uf2.fetching = true; uf2.last = null; notify();
   try {
     const r = await fetch(url, { cache: 'no-cache' });
-    if (!r.ok) throw new Error(`HTTP ${r.status} for ${url} — the site builds this file in CI; a local checkout has it only after a firmware build`);
+    if (!r.ok) throw new Error(`HTTP ${r.status} for ${url}` + (source === 'fox-bench' ? ' — the site builds this file in CI; a local checkout has it only after a firmware build' : ''));
     const bytes = new Uint8Array(await r.arrayBuffer());
     if (bytes.length < 512 || bytes[0] !== 0x55 || bytes[1] !== 0x46 || bytes[2] !== 0x32 || bytes[3] !== 0x0A) throw new Error('not a UF2 file');
-    uf2 = { ...uf2, name: url.split('/').pop(), bytes, source: 'fox-bench', last: null };
-    app.console.dim(`fetched ${uf2.name} (${(bytes.length / 1024).toFixed(0)} kB)`);
+    uf2 = { ...uf2, name: url.split('/').pop(), bytes, source, last: null, forBoard: app.boardId };
+    app.console.dim(`fetched ${uf2.name} (${(bytes.length / 1024).toFixed(0)} kB) — ${label}`);
   } catch (e) { uf2.last = { ok: false, text: String(e.message || e) }; app.console.err('firmware fetch failed: ' + uf2.last.text); }
   uf2.fetching = false; notify();
 }
+const fetchHosted = app => fetchImage(app, app.board.firmware?.image, 'fox-bench', 'fox-bench firmware built from this site\'s source');
 /** The Arduino "1200-baud touch": open the board's serial port at 1200 baud, drop DTR, close. Firmware built on the
  * Arduino RP2040 core (the PicoFox vendor's) and fox-bench's own both reboot into the UF2 bootloader on it. The only
  * way into the bootloader on a board whose BOOTSEL is inside the case. */
@@ -156,8 +159,9 @@ async function touch1200(app) {
 }
 function uf2Card(app) {
   const b = app.board, ours = b.family === 'foxlib-c';
+  uf2For(app);
   const fileIn = h('input', { type: 'file', accept: '.uf2', hidden: true });
-  fileIn.addEventListener('change', async () => { const f = fileIn.files[0]; if (!f) return; uf2 = { ...uf2, name: f.name, bytes: new Uint8Array(await f.arrayBuffer()), source: 'file', last: null }; notify(); fileIn.value = ''; });
+  fileIn.addEventListener('change', async () => { const f = fileIn.files[0]; if (!f) return; uf2 = { ...uf2, name: f.name, bytes: new Uint8Array(await f.arrayBuffer()), source: 'file', last: null, forBoard: app.boardId }; notify(); fileIn.value = ''; });
   const copy = async () => {
     uf2.busy = true; uf2.last = null; notify();
     try {
@@ -179,8 +183,10 @@ function uf2Card(app) {
       // Verify: the bootloader drive must go away (the board rebooted into the new firmware). Listing it should fail.
       let gone = false;
       for (let i = 0; i < 12 && !gone; i++) { await new Promise(r => setTimeout(r, 500)); try { for await (const _ of dir.values()) { void _; break; } } catch { gone = true; } }
+      const after = uf2.source === 'fox-bench' ? ' The fox\'s drive and a serial port come back; Listen only prints the FOX banner. (The drive keeps the name it was formatted with — PicoFox if the vendor firmware made it — the files on it are what changed.)'
+        : uf2.source === 'vendor' ? ' The fox\'s drive and a serial port come back; Listen only shows "Revision: N … si5351 setup complete" after a power cycle. Select the "(vendor firmware)" target to write its files.' : '';
       uf2.last = gone
-        ? { ok: true, text: `${uf2.name} flashed (${(uf2.bytes.length / 1024).toFixed(0)} kB): the ${b.flash.drive_name} drive went away, so the board rebooted into it${uf2.source === 'fox-bench' ? `. A ${b.drive?.label || 'FOXBENCH'} drive and a serial port appear in its place; Listen only shows the FOX banner` : ''}.` }
+        ? { ok: true, text: `${uf2.name} flashed (${(uf2.bytes.length / 1024).toFixed(0)} kB): the ${b.flash.drive_name} drive went away, so the board rebooted into it.${after}` }
         : { ok: false, text: `${uf2.name} was written but the ${b.flash.drive_name} drive is still there after 6 s — the bootloader did not accept it. A .uf2 for another chip, or a copy that did not complete; try again.` };
       app.console.line(uf2.last.text, gone ? 'ok' : 'err');
       fleet.append({ board_number: '', uid: '', board: b.id, action: 'flash', template: '', profile: '', callsign: '', freq: '', power: '', seed: '', result: gone ? 'ok' : 'not accepted', notes: uf2.name + ' (uf2' + (uf2.source === 'fox-bench' ? ', fox-bench firmware' : '') + ')' });
@@ -192,9 +198,10 @@ function uf2Card(app) {
     h('p.hint', {}, h('b', {}, 'Bootloader: '), b.flash.bootloader_instructions, ' Firmware is a .uf2 file copied onto that drive; the board reboots when the copy finishes.', b.firmware?.stock_firmware_url ? [' The vendor\'s releases are at ', h('a', { href: b.firmware.stock_firmware_url, target: '_blank', rel: 'noopener' }, 'their GitHub'), '.'] : null),
     h('p.hint', {}, h('b', {}, 'Order: '), 'fox on, plugged in → ', h('b', {}, '1. Reboot into bootloader'), ' (pick the fox\'s serial port) → a drive with just ', h('code', {}, 'INFO_UF2.TXT'), ' and ', h('code', {}, 'INDEX.HTM'), ' appears → ', h('b', {}, '2. Copy'), ' and pick ', h('i', {}, 'that'), ' drive. The page checks for INFO_UF2.TXT, because a .uf2 copied onto the fox\'s own drive is only a file and the board keeps running what it ran.'),
     b.flash.touch_1200 ? h('div.tools', {}, h('button.btn', { disabled: uf2.touching || uf2.busy, onclick: () => touch1200(app) }, uf2.touching ? 'Touching…' : '1. Reboot into bootloader'), h('span.hint', {}, 'Opens the serial port at 1200 baud and closes it: the Arduino way into the bootloader, no button needed.')) : null,
-    ours ? h('div.tools', {}, h('button.btn', { disabled: uf2.fetching || uf2.busy, onclick: () => fetchHosted(app) }, uf2.fetching ? 'Fetching…' : 'Get fox-bench firmware'), h('span.hint', {}, `foxbench-picofox.uf2 built from this site\'s source (firmware/foxlib-c/picofox). Or load any .uf2 — the vendor\'s to go back.`)) : null,
+    ours ? h('div.tools', {}, h('button.btn', { disabled: uf2.fetching || uf2.busy, onclick: () => fetchHosted(app) }, uf2.fetching ? 'Fetching…' : 'Get fox-bench firmware'), h('span.hint', {}, `foxbench-picofox.uf2 built from this site\'s source (firmware/foxlib-c/picofox). To go back to the vendor firmware, select the "(vendor firmware)" target: its card fetches the vendor\'s .uf2.`)) : null,
+    !ours && b.firmware?.stock_firmware_files?.length ? h('div', {}, ...b.firmware.stock_firmware_files.map(f => h('div.tools', {}, h('button.btn', { disabled: uf2.fetching || uf2.busy, onclick: () => fetchImage(app, f.url, 'vendor', f.note) }, uf2.fetching ? 'Fetching…' : `Get ${f.name}`), h('span.hint', {}, f.note, ' — fetched from the vendor\'s GitHub into this browser.')))) : null,
     h('div.tools', {}, h('button.btn.small', { onclick: () => fileIn.click() }, 'Load .uf2…'), fileIn, h('span.hint', {}, uf2.name ? `${uf2.name} · ${(uf2.bytes.length / 1024).toFixed(0)} kB${uf2.source === 'fox-bench' ? ' · fox-bench firmware' : ''}` : 'nothing loaded'),
-      h('button.btn' + (ours && uf2.source === 'fox-bench' ? '.primary' : ''), { disabled: !uf2.bytes || uf2.busy, onclick: copy }, uf2.busy ? 'Copying…' : `2. Copy to ${b.flash.drive_name}…`)),
+      h('button.btn' + (uf2.source === 'fox-bench' || uf2.source === 'vendor' ? '.primary' : ''), { disabled: !uf2.bytes || uf2.busy, onclick: copy }, uf2.busy ? 'Copying…' : `2. Copy to ${b.flash.drive_name}…`)),
     uf2.last ? h('p.hint' + (uf2.last.ok ? '.ok' : '.err'), {}, uf2.last.text) : null,
     ours ? h('p.hint', {}, 'Running fox-bench firmware and Listening? ', h('code', {}, 'bootsel'), ' in the console (or the button on the Board tab) does the same as the touch.') : h('p.hint', {}, 'Want fox-bench\'s own firmware on this board instead (fox.json, the same templates as the CircuitPython foxes, bench over serial)? Pick the "(fox-bench firmware)" entry of this board above.'),
     h('p.hint', {}, 'There is no "flash CircuitPython" here on purpose; the batch-flashing card on the Fleet tab is for the ESP32 family.'));

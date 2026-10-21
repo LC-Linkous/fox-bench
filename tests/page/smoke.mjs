@@ -233,6 +233,7 @@ try {
   eq(await app(() => window.foxbench.cfg.id.callmessage), 'W1ABC FOX DE W1ABC', 'callsign carried across the board switch');
   check(/does not run CircuitPython/.test(await text('#tab-board')), 'Board tab says no CircuitPython');
   check(!(await page.$('#tab-board button:has-text("Flash CircuitPython")')), 'no Flash CircuitPython button for the PicoFox');
+  check(/Get pfoxr3v1\.uf2/.test(await text('#tab-board')) && /Reboot into bootloader/.test(await text('#tab-board')) && !/Get fox-bench firmware/.test(await text('#tab-board')), 'vendor target offers the vendor UF2 and the bootloader touch, not the fox-bench image');
   check(/silently dropped/.test(await text('#tab-board')) && /DUTY_CYCLE of 0/.test(await text('#tab-board')), 'firmware quirks listed on the Board tab');
   check(await page.isHidden('.rail button[data-tab="bench"]'), 'Bench tab hidden');
   eq(await text('#connectBtn'), 'Open PicoFox', 'Connect button names the drive');

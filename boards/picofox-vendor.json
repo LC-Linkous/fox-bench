@@ -7,8 +7,20 @@
   "module_fixed": "picofox_si5351",
   "firmware": {
     "kind": "vendor",
-    "note": "The PicoFox runs the vendor's own Arduino firmware (CC BY-NC-SA 4.0), not CircuitPython. fox-bench only writes the files that firmware reads. Restoring stock firmware is a UF2 copy.",
-    "stock_firmware_url": "https://github.com/ai6ym/PicoFox/tree/main/releases"
+    "note": "The PicoFox runs the vendor's own Arduino firmware (CC BY-NC-SA 4.0), not CircuitPython. fox-bench only writes the files that firmware reads. The firmware itself is fetched from the vendor's GitHub into your browser when you ask for it; nothing of it is hosted here.",
+    "stock_firmware_url": "https://github.com/ai6ym/PicoFox/tree/main/releases",
+    "stock_firmware_files": [
+      {
+        "name": "pfoxr3v1.uf2",
+        "url": "https://raw.githubusercontent.com/ai6ym/PicoFox/main/releases/pfoxr3v1.uf2",
+        "note": "the vendor firmware (rev 2 and rev 3 boards; it detects the revision)"
+      },
+      {
+        "name": "pfoxr3-forceformat.uf2",
+        "url": "https://raw.githubusercontent.com/ai6ym/PicoFox/main/releases/pfoxr3-forceformat.uf2",
+        "note": "same firmware, but it reformats the drive at boot (wipes every file, including fox-bench's); flash pfoxr3v1 afterwards"
+      }
+    ]
   },
   "drive": {
     "label": "PicoFox",

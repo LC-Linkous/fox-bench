@@ -36,6 +36,11 @@ that way.
   is opened at 1200 baud and DTR dropped — the page's "Reboot into
   bootloader" button. `pfoxr3-forceformat.uf2` reformats the filesystem.
 
+Switching to fox-bench's own firmware and back is a page operation
+(`firmware/foxlib-c/README.md`, "Switching between the two firmwares");
+the vendor's `.uf2` is fetched from their GitHub by the browser, never
+hosted here.
+
 ## Files on the drive
 
 | file | written by | meaning |

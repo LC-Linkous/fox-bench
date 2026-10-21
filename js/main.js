@@ -229,6 +229,7 @@ export const app = {
     const ob = { cfg: null, raw, foxlibVersion: '', foxlibMissing: [], foxlibComplete: true, files, template: raw != null ? this.templatesFor('drive')[0]?.id : null, settings: raw != null ? v.parseSettings(raw) : null, markerOk: null };
     if (raw != null) { ob.cfg = v.cfgFromSettings(ob.settings, this.defaults); ob.markerOk = marker ? v.readMarker(marker) === v.byteSum(raw) : false; }
     this.onBoard = ob;
+    if (raw == null && 'fox.json' in files) this.console.err('this drive holds fox.json and no settings.txt: the board is running fox-bench firmware, which ignores the vendor\'s files. Select the "(fox-bench firmware)" target, or put the vendor firmware back from the Board tab (Get pfoxr3v1.uf2 → Reboot into bootloader → Copy).');
     this.console.dim(raw != null ? `${v.FILES.settings}: ${Object.entries(ob.settings).map(([k, x]) => k + '=' + x).join(' ')}` : `no ${v.FILES.settings} on the drive (a factory board writes one at power-on)`);
   },
   /** Read what is on the board. Interrupts a running fox; call restartFox() afterwards if it should keep running. */

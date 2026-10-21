@@ -88,6 +88,24 @@ make -C firmware/foxlib-c/tests check
 - The page smoke test boots a deploy set exported for this target in the
   same host simulation.
 
+## Switching between the two firmwares
+
+Both live in the first 1 MB of flash and share the FAT volume above it, so
+a swap keeps the files. Board tab, firmware card, either direction:
+
+1. select the target you want to end up on — "(fox-bench firmware)" or
+   "(vendor firmware)" — and fetch its image (`Get fox-bench firmware`, or
+   `Get pfoxr3v1.uf2`, which comes from the vendor's GitHub into the browser);
+2. **Reboot into bootloader** (the 1200-baud touch on the serial port; both
+   firmwares answer it — BOOTSEL is inside the case);
+3. **Copy to RPI-RP2**. The page verifies the bootloader drive disappears.
+
+The loaded image belongs to the target it was loaded for; switching targets
+forgets it. The drive keeps the name it was formatted with (`PicoFox` on a
+unit the vendor firmware formatted), and each firmware ignores the other's
+files: `fox.json`/`defaults.json` for ours, `settings.txt` and the WAVs for
+theirs. Opening a drive whose files belong to the other firmware says so.
+
 ## First hardware session
 
 `docs/first-hardware-session.md` has the general checklist. For this target:
