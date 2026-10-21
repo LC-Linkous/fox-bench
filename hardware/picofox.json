@@ -13,8 +13,9 @@
     "chip": "rp2040",
     "offset": "0x0",
     "flash_mb": 16,
-    "bootloader_instructions": "Switch the PicoFox on. Hold BOOTSEL while plugging in USB; a drive called RPI-RP2 appears.",
-    "drive_name": "RPI-RP2"
+    "bootloader_instructions": "The PicoFox's BOOTSEL button (SW2) is inside the enclosure; the switch on the side is power. With the fox on and plugged in, use \"Reboot into bootloader\" here (the Arduino 1200-baud touch on its serial port, which both the vendor firmware and fox-bench's answer): a drive called RPI-RP2 appears.",
+    "drive_name": "RPI-RP2",
+    "touch_1200": true
   },
   "has_usb_drive": true,
   "usb": [

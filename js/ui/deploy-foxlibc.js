@@ -50,7 +50,7 @@ function exportZip() {
     '', 'Copy the files to the root of the FOXBENCH drive (replace what is there). The fox reloads them by itself about a second',
     'after the last write and prints a new FOX banner on its serial console. No eject or power cycle is needed unless',
     'radio.tx_while_mounted is false, in which case it transmits once the drive is ejected.',
-    '', 'No FOXBENCH drive? The board is not running fox-bench firmware: hold BOOTSEL while plugging in and copy',
+    '', 'No FOXBENCH drive? The board is not running fox-bench firmware: use "Reboot into bootloader" on the Board tab (BOOTSEL is inside the case) and copy',
     'foxbench-picofox.uf2 (Board tab → Firmware) onto the RPI-RP2 drive first.',
   ].join('\n');
   download(`picofox-foxbench-${safe(cfg.id.callmessage.split(' ')[0])}-${app.templateId}.zip`, makeZip([...fs, { path: 'README.txt', data: readme }]));

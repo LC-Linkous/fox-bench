@@ -92,6 +92,16 @@ static void dispatch(char *cmd) {
     else if (*cmd) con_printf("err: unknown command '%s' (help)\r\n", cmd);
 }
 
+/* The Arduino "1200-baud touch": a host that opens the port at 1200 baud and then drops DTR wants the UF2
+ * bootloader. The vendor firmware (Arduino core) answers it; so do we, so the two can be swapped from the
+ * page on a board whose BOOTSEL button is inside the case. */
+static bool touch_armed;
+void tud_cdc_line_coding_cb(uint8_t itf, const cdc_line_coding_t *coding) { (void)itf; touch_armed = coding->bit_rate == 1200; }
+void tud_cdc_line_state_cb(uint8_t itf, bool dtr, bool rts) {
+    (void)itf; (void)rts;
+    if (touch_armed && !dtr) { flash_disk_flush(); reset_usb_boot(0, 0); }
+}
+
 void con_poll(void) {
     while (tud_cdc_available()) {
         char c = (char)tud_cdc_read_char();

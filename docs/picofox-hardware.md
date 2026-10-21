@@ -38,7 +38,7 @@ RP2040 ──I2C0──► SI5351A-B-GT (25 MHz TCXO on XA) ──CLK0──► 
 | 28 | `GPIO28_ADC2` | | IO header J3 (free ADC) |
 | 29 | `CC2Sense` | ADC3 | USB-C CC2 |
 | — | `RUN` | | SW1 reset button; on J3 |
-| — | `USB_BOOT` | | SW2 BOOTSEL (QSPI_SS) |
+| — | `USB_BOOT` | | SW2 BOOTSEL (QSPI_SS) — **inside the enclosure**; the side switch is SW3 power. Firmware is changed through the Arduino 1200-baud touch on the serial port instead (both firmwares answer it) |
 
 There is **no LED on a GPIO**: D2 "LED" is on +3V3 via R12 (power indicator),
 D5 is the regulator's, D4 the charger's. There is **no battery-voltage divider

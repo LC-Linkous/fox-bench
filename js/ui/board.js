@@ -110,7 +110,7 @@ function renderFoxlibC() {
     h('h3', {}, 'Connection'),
     !info ? h('div', {},
         h('p.hint', {}, 'Not connected. Switch the fox ', h('b', {}, 'on'), ', plug in USB, then ', h('b', {}, `Open ${b.drive?.label || 'drive'}`), ' in the top bar and pick the ', h('code', {}, b.drive?.label || 'FOXBENCH'), ' drive (Chrome or Edge). Or ', h('i', {}, 'Try without hardware'), '.'),
-        h('p.hint', {}, h('b', {}, 'No ', h('code', {}, b.drive?.label || 'FOXBENCH'), ' drive?'), ' The board still runs other firmware. Flash fox-bench\'s from the card on the right (hold BOOTSEL while plugging in). The vendor firmware can be put back the same way at any time.'),
+        h('p.hint', {}, h('b', {}, 'No ', h('code', {}, b.drive?.label || 'FOXBENCH'), ' drive?'), ' The board still runs other firmware. Flash fox-bench\'s from the card on the right ("Reboot into bootloader", then copy; BOOTSEL itself is inside the case). The vendor firmware can be put back the same way at any time.'),
         h('p.hint', {}, h('b', {}, 'Listen only'), ' opens the serial console: the ', h('code', {}, 'FOX …'), ' banner appears at once, the log streams while the fox runs, and the console below takes commands (', h('code', {}, 'help'), ').'))
       : ob.listening ? h('dl.kv', {},
         h('dt', {}, 'Console'), h('dd', {}, 'listening', ob.template ? '' : badge('no banner yet — it prints when the port opens and after every reload', 'warn')),

@@ -122,7 +122,7 @@ export function batchCard(app) {
 
 /** UF2 boards (PicoFox): no CircuitPython. Firmware is a .uf2 copied to the bootloader drive: the vendor's (a file you
  * load) or fox-bench's own (fetched from this site for foxlib-c targets). The same card restores the vendor firmware. */
-let uf2 = { name: '', bytes: null, busy: false, last: null, source: '', fetching: false };
+let uf2 = { name: '', bytes: null, busy: false, last: null, source: '', fetching: false, touching: false };
 async function fetchHosted(app) {
   const b = app.board, url = b.firmware?.image; if (!url) return;
   uf2.fetching = true; uf2.last = null; notify();
@@ -135,6 +135,24 @@ async function fetchHosted(app) {
     app.console.dim(`fetched ${uf2.name} (${(bytes.length / 1024).toFixed(0)} kB)`);
   } catch (e) { uf2.last = { ok: false, text: String(e.message || e) }; app.console.err('firmware fetch failed: ' + uf2.last.text); }
   uf2.fetching = false; notify();
+}
+/** The Arduino "1200-baud touch": open the board's serial port at 1200 baud, drop DTR, close. Firmware built on the
+ * Arduino RP2040 core (the PicoFox vendor's) and fox-bench's own both reboot into the UF2 bootloader on it. The only
+ * way into the bootloader on a board whose BOOTSEL is inside the case. */
+async function touch1200(app) {
+  const b = app.board;
+  uf2.touching = true; uf2.last = null; notify();
+  try {
+    if (!('serial' in navigator)) throw new Error('Web Serial is not available in this browser (Chrome or Edge on a laptop or desktop)');
+    if (app.device && app.device.link) { app.console.dim('closing the console first'); await app.disconnect(); }
+    const port = await navigator.serial.requestPort();
+    await port.open({ baudRate: 1200 });
+    try { await port.setSignals({ dataTerminalReady: true, requestToSend: true }); await new Promise(r => setTimeout(r, 100)); await port.setSignals({ dataTerminalReady: false, requestToSend: false }); await new Promise(r => setTimeout(r, 100)); } catch {}
+    try { await port.close(); } catch {}
+    uf2.last = { ok: true, text: `1200-baud touch sent. The serial port goes away and a ${b.flash.drive_name} drive appears within a few seconds — then Copy below and pick that drive. If nothing appears, the firmware on the board does not answer the touch; the BOOTSEL button (SW2, inside the case) is the fallback.` };
+    app.console.line('1200-baud touch sent — look for the RPI-RP2 drive', 'ok');
+  } catch (e) { if (e.name !== 'NotFoundError') { uf2.last = { ok: false, text: 'bootloader touch failed: ' + String(e.message || e) }; app.console.err(uf2.last.text); } }
+  uf2.touching = false; notify();
 }
 function uf2Card(app) {
   const b = app.board, ours = b.family === 'foxlib-c';
@@ -172,11 +190,12 @@ function uf2Card(app) {
   return h('div.card', {}, h('h3', {}, 'Firmware ', badge('no CircuitPython', 'warn')),
     h('p.hint', {}, h('b', {}, `This fox board does not run CircuitPython.`), ' ', b.firmware?.note || ''),
     h('p.hint', {}, h('b', {}, 'Bootloader: '), b.flash.bootloader_instructions, ' Firmware is a .uf2 file copied onto that drive; the board reboots when the copy finishes.', b.firmware?.stock_firmware_url ? [' The vendor\'s releases are at ', h('a', { href: b.firmware.stock_firmware_url, target: '_blank', rel: 'noopener' }, 'their GitHub'), '.'] : null),
-    h('p.hint', {}, h('b', {}, 'Order: '), 'switch the fox on → hold BOOTSEL → plug in USB → a drive with just ', h('code', {}, 'INFO_UF2.TXT'), ' and ', h('code', {}, 'INDEX.HTM'), ' appears → pick ', h('i', {}, 'that'), ' drive below. The page checks for INFO_UF2.TXT, because a .uf2 copied onto the fox\'s own drive is only a file and the board keeps running what it ran.'),
+    h('p.hint', {}, h('b', {}, 'Order: '), 'fox on, plugged in → ', h('b', {}, '1. Reboot into bootloader'), ' (pick the fox\'s serial port) → a drive with just ', h('code', {}, 'INFO_UF2.TXT'), ' and ', h('code', {}, 'INDEX.HTM'), ' appears → ', h('b', {}, '2. Copy'), ' and pick ', h('i', {}, 'that'), ' drive. The page checks for INFO_UF2.TXT, because a .uf2 copied onto the fox\'s own drive is only a file and the board keeps running what it ran.'),
+    b.flash.touch_1200 ? h('div.tools', {}, h('button.btn', { disabled: uf2.touching || uf2.busy, onclick: () => touch1200(app) }, uf2.touching ? 'Touching…' : '1. Reboot into bootloader'), h('span.hint', {}, 'Opens the serial port at 1200 baud and closes it: the Arduino way into the bootloader, no button needed.')) : null,
     ours ? h('div.tools', {}, h('button.btn', { disabled: uf2.fetching || uf2.busy, onclick: () => fetchHosted(app) }, uf2.fetching ? 'Fetching…' : 'Get fox-bench firmware'), h('span.hint', {}, `foxbench-picofox.uf2 built from this site\'s source (firmware/foxlib-c/picofox). Or load any .uf2 — the vendor\'s to go back.`)) : null,
     h('div.tools', {}, h('button.btn.small', { onclick: () => fileIn.click() }, 'Load .uf2…'), fileIn, h('span.hint', {}, uf2.name ? `${uf2.name} · ${(uf2.bytes.length / 1024).toFixed(0)} kB${uf2.source === 'fox-bench' ? ' · fox-bench firmware' : ''}` : 'nothing loaded'),
-      h('button.btn' + (ours && uf2.source === 'fox-bench' ? '.primary' : ''), { disabled: !uf2.bytes || uf2.busy, onclick: copy }, uf2.busy ? 'Copying…' : `Copy to ${b.flash.drive_name}…`)),
+      h('button.btn' + (ours && uf2.source === 'fox-bench' ? '.primary' : ''), { disabled: !uf2.bytes || uf2.busy, onclick: copy }, uf2.busy ? 'Copying…' : `2. Copy to ${b.flash.drive_name}…`)),
     uf2.last ? h('p.hint' + (uf2.last.ok ? '.ok' : '.err'), {}, uf2.last.text) : null,
-    ours ? h('p.hint', {}, 'Already running fox-bench firmware and Listening? Type ', h('code', {}, 'bootsel'), ' in the console: the board jumps to the bootloader without touching the button.') : h('p.hint', {}, 'Want fox-bench\'s own firmware on this board instead (fox.json, the same templates as the CircuitPython foxes, bench over serial)? Pick the "(fox-bench firmware)" entry of this board above.'),
+    ours ? h('p.hint', {}, 'Running fox-bench firmware and Listening? ', h('code', {}, 'bootsel'), ' in the console (or the button on the Board tab) does the same as the touch.') : h('p.hint', {}, 'Want fox-bench\'s own firmware on this board instead (fox.json, the same templates as the CircuitPython foxes, bench over serial)? Pick the "(fox-bench firmware)" entry of this board above.'),
     h('p.hint', {}, 'There is no "flash CircuitPython" here on purpose; the batch-flashing card on the Fleet tab is for the ESP32 family.'));
 }

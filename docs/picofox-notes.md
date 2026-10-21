@@ -30,8 +30,11 @@ that way.
   power cycle. The page therefore cannot observe a transmission while
   it is connected; it can only write files and, over CDC, watch the
   boot log after the user power-cycles.
-- Firmware updates are UF2 (`releases/pfoxr3v1.uf2`; hold BOOTSEL →
-  `RPI-RP2` drive). `pfoxr3-forceformat.uf2` reformats the filesystem.
+- Firmware updates are UF2 (`releases/pfoxr3v1.uf2` → `RPI-RP2` drive).
+  BOOTSEL (SW2) is inside the enclosure; the Arduino core the vendor
+  firmware is built on reboots into the bootloader when the serial port
+  is opened at 1200 baud and DTR dropped — the page's "Reboot into
+  bootloader" button. `pfoxr3-forceformat.uf2` reformats the filesystem.
 
 ## Files on the drive
 

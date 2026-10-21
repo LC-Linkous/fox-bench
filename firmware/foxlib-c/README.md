@@ -91,7 +91,8 @@ make -C firmware/foxlib-c/tests check
 ## First hardware session
 
 `docs/first-hardware-session.md` has the general checklist. For this target:
-Board tab → "Get fox-bench firmware" → hold BOOTSEL, plug in, copy. A
+Board tab → "Get fox-bench firmware" → "Reboot into bootloader" (the
+1200-baud touch; BOOTSEL is inside the case) → copy to RPI-RP2. A
 `FOXBENCH` drive and a serial port appear. Listen only shows the banner;
 `status` shows the measured I²C write time (must be well under 125 µs at
 8 kHz) and the detected revision; `key 2` with a power meter checks the
