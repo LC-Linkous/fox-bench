@@ -62,6 +62,9 @@ static void help(void) {
              "  files | reload | stop | uid | version | reboot | bootsel\r\n");
 }
 
+/* A greppable version string in the image: the page reads it out of a UF2 before copying it, so an old download loaded
+ * by hand cannot pass for the current build. The `version` command prints from it so the linker keeps it. */
+static const char VERSION_TAG[] = "FOXLIBC-VERSION:" FOXLIBC_VERSION;
 static const char *reset_reason = "?";
 void con_set_reset_reason(const char *why) { reset_reason = why; }
 
@@ -80,7 +83,7 @@ static void dispatch(char *cmd) {
     if (!strcmp(cmd, "help") || !strcmp(cmd, "?")) { help(); con_puts("ok\r\n"); }
     else if (!strcmp(cmd, "status")) { status(); con_puts("ok\r\n"); }
     else if (!strcmp(cmd, "uid")) { char b[400]; const char *p = strstr(fox_banner_line(b, sizeof b), "uid="); con_printf("%.*s\r\nok\r\n", p ? (int)(strchr(p, ' ') - p) : 0, p ? p : ""); }
-    else if (!strcmp(cmd, "version")) { con_printf("foxlib-c %s board=%s\r\nok\r\n", FOXLIBC_VERSION, BOARD_ID); }
+    else if (!strcmp(cmd, "version")) { con_printf("foxlib-c %s board=%s\r\nok\r\n", VERSION_TAG + 16, BOARD_ID); }
     else if (!strcmp(cmd, "batt")) { con_printf("batt charging=%s volts=none note=%s\r\nok\r\n", player_charging() ? "yes" : "no", player_charging() ? "charger_active" : "charger_idle(full_or_no_usb_power)"); }
     else if (!strcmp(cmd, "files")) { char files[256]; fs_list(files, sizeof files); con_printf("%s\r\nok\r\n", files); }
     else if (!strcmp(cmd, "key")) { double s = arg ? atof(arg) : 2; if (s <= 0 || s > 60) con_puts("err: 0 < s <= 60\r\n"); else if (fox_bench_key((uint32_t)(s * 1000))) con_printf("keyed %.1f s\r\n", s); }

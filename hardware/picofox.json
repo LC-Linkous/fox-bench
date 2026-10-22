@@ -25,9 +25,14 @@
       "when": "RP2040 bootloader (RPI-RP2)"
     },
     {
+      "vid": "0x239a",
+      "pid": "0xcafe",
+      "when": "vendor firmware (Arduino RP2040 core: Adafruit's generic TinyUSB ids), drive 'PicoFox' + serial — seen on a rev 3 board"
+    },
+    {
       "vid": "0x2e8a",
       "pid": "0x000a",
-      "when": "vendor firmware: TinyUSB MSC + CDC 'PicoFox'"
+      "when": "fox-bench firmware (foxlib-c): drive FOXBENCH + serial console"
     }
   ],
   "pins": [
@@ -79,17 +84,17 @@
   ],
   "roles": {},
   "revisions": {
-    "r2": "no attenuator \u2014 ATTENUATION is ignored",
-    "r3": "BVA1761 attenuator, 0\u2013127 steps of about 0.25 dB"
+    "r2": "no attenuator — ATTENUATION is ignored",
+    "r3": "BVA1761 attenuator, 0–127 steps of about 0.25 dB"
   },
   "battery": {
     "charger": true,
     "divider_note": "Internal LiPo; about five hours at 100 % duty. Charges over USB only with the power switch ON. No battery telemetry is available to the page."
   },
   "notes": [
-    "The firmware's Morse table is A\u2013Z and 0\u20139 only: anything else in the callsign (/, -, space) is silently dropped from the ID it generates. fox-bench writes its own ID audio instead, so the full message is sent, but the CALLSIGN setting is still reduced to those characters.",
-    "A DUTY_CYCLE of 0, an empty callsign, or a frequency within 20 kHz of a band edge does not produce an error on the board \u2014 the fox just stays silent.",
-    "Each segment (audio, then ID) goes out on a different carrier offset: 0, +1, +3, +5, +3, +1, 0, \u22121, \u22123, \u22125, \u22123, \u22121 kHz in turn. With a duty cycle under 100 %, rev 3 boards also step the attenuation base / +10 dB / +5 dB each cycle. Both are firmware behaviour, not settings.",
+    "The firmware's Morse table is A–Z and 0–9 only: anything else in the callsign (/, -, space) is silently dropped from the ID it generates. fox-bench writes its own ID audio instead, so the full message is sent, but the CALLSIGN setting is still reduced to those characters.",
+    "A DUTY_CYCLE of 0, an empty callsign, or a frequency within 20 kHz of a band edge does not produce an error on the board — the fox just stays silent.",
+    "Each segment (audio, then ID) goes out on a different carrier offset: 0, +1, +3, +5, +3, +1, 0, −1, −3, −5, −3, −1 kHz in turn. With a duty cycle under 100 %, rev 3 boards also step the attenuation base / +10 dB / +5 dB each cycle. Both are firmware behaviour, not settings.",
     "Silence inside audio.wav is an unmodulated carrier, still on the air. Only the duty-cycle gap is actually off.",
     "Firmware updates and the stock-firmware restore are UF2 files copied to the RPI-RP2 drive. The PicoFox does not run CircuitPython."
   ],

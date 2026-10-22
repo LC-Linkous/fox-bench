@@ -1,7 +1,8 @@
 // flash.js — the Flash CircuitPython card (Board tab) and the batch card (Fleet tab).
 // Both drive flasher/flasher.js (separate Apache-2.0 component) and write the same fleet-log rows as tools/batch_flash.py.
 // SPDX-License-Identifier: GPL-2.0-only
-import { checkImage } from '../model/uf2.js';
+import { checkImage, foxlibcVersionIn } from '../model/uf2.js';
+import { cmpVersion } from '../model/compat.js';
 import { h, badge, field, select, check } from './dom.js';
 import { fleet } from '../model/profiles.js';
 import * as flasher from '../../flasher/flasher.js';   // separate component, Apache-2.0 (flasher/LICENSE)
@@ -206,7 +207,7 @@ async function fetchImage(app, url, source, label, expect = {}) {
     const bytes = new Uint8Array(await r.arrayBuffer());
     const chk = await checkImage(bytes, expect);
     if (!chk.ok) throw new Error(`${url.split('/').pop()} rejected: ${chk.problems.join('; ')}` + (expect.sha256 ? (source === 'fox-bench' ? ' (the site may be mid-deploy: reload the page and try again)' : ' (the vendor\'s file differs from the one this page was checked against; nothing was loaded)') : ''));
-    uf2 = { ...uf2, name: url.split('/').pop(), bytes, source, last: null, forBoard: app.boardId, sha256: chk.sha256 };
+    uf2 = { ...uf2, name: url.split('/').pop(), bytes, source, last: null, forBoard: app.boardId, sha256: chk.sha256, version: source === 'fox-bench' ? foxlibcVersionIn(bytes) : null };
     app.console.dim(`fetched ${uf2.name} (${(bytes.length / 1024).toFixed(0)} kB, ${chk.blocks} blocks, RP2040, sha256 ${chk.sha256.slice(0, 12)}…${expect.sha256 ? ' = pinned' : ''}) — ${label}`);
   } catch (e) { uf2.last = { ok: false, text: String(e.message || e) }; app.console.err('firmware fetch failed: ' + uf2.last.text); }
   uf2.fetching = false; notify();
@@ -256,7 +257,10 @@ function uf2Card(app) {
     const f = fileIn.files[0]; if (!f) return; fileIn.value = '';
     const bytes = new Uint8Array(await f.arrayBuffer()); const chk = await checkImage(bytes);
     if (!chk.ok) { uf2 = { ...uf2, name: '', bytes: null, source: '', last: { ok: false, text: `${f.name} rejected: ${chk.problems.join('; ')}` }, forBoard: app.boardId }; notify(); return; }
-    uf2 = { ...uf2, name: f.name, bytes, source: 'file', last: null, forBoard: app.boardId, sha256: chk.sha256 }; app.console.dim(`loaded ${f.name} (${chk.blocks} blocks, RP2040, sha256 ${chk.sha256.slice(0, 12)}…)`); notify();
+    const version = app.family === 'foxlib-c' ? foxlibcVersionIn(bytes) : null;
+    uf2 = { ...uf2, name: f.name, bytes, source: 'file', last: null, forBoard: app.boardId, sha256: chk.sha256, version }; app.console.dim(`loaded ${f.name} (${chk.blocks} blocks, RP2040, sha256 ${chk.sha256.slice(0, 12)}…${app.family === 'foxlib-c' ? ', ' + (version ? 'foxlib-c ' + version : 'no version tag: a fox-bench build before 0.1.9, or not fox-bench firmware') : ''})`);
+    if (app.family === 'foxlib-c' && app.catalog.foxlibcVersion && (!version || cmpVersion(version, app.catalog.foxlibcVersion) < 0)) app.console.err(`${f.name} is ${version ? 'foxlib-c ' + version : 'an untagged build'}; this site builds ${app.catalog.foxlibcVersion} — an old download? "Get fox-bench firmware" fetches the current one.`);
+    notify();
   });
   if (ours) loadBuildInfo(app);
   const copy = async () => {
@@ -306,7 +310,8 @@ function uf2Card(app) {
     !ours && b.firmware?.stock_firmware_files?.length ? h('div', {},
       ...b.firmware.stock_firmware_files.filter(f => !f.recovery).map(f => h('div.tools', {}, h('button.btn', { disabled: uf2.fetching || uf2.busy, onclick: () => fetchImage(app, f.url, 'vendor', f.note, { sha256: f.sha256, size: f.size }) }, uf2.fetching ? 'Fetching…' : `Get ${f.name}`), h('span.hint', {}, f.note, ` — fetched from the vendor\'s GitHub into this browser${b.firmware.stock_firmware_pinned_commit ? ` at commit ${b.firmware.stock_firmware_pinned_commit.slice(0, 7)} and checked against sha256 ${(f.sha256 || '').slice(0, 12)}…` : ''}.`))),
       ...b.firmware.stock_firmware_files.filter(f => f.recovery).map(f => h('details', { style: 'margin-top:6px' }, h('summary.hint', {}, 'Recovery image (wipes the drive)'), h('div.tools', {}, h('button.btn.small.danger', { disabled: uf2.fetching || uf2.busy, onclick: () => fetchImage(app, f.url, 'vendor-recovery', f.note, { sha256: f.sha256, size: f.size }) }, uf2.fetching ? 'Fetching…' : `Get ${f.name}`), h('span.hint.warn', {}, f.note))))) : null,
-    h('div.tools', {}, h('button.btn.small', { onclick: () => fileIn.click() }, 'Load .uf2…'), fileIn, h('span.hint', {}, uf2.name ? `${uf2.name} · ${(uf2.bytes.length / 1024).toFixed(0)} kB${uf2.source === 'fox-bench' ? ' · fox-bench firmware' : ''}${uf2.sha256 ? ' · sha256 ' + uf2.sha256.slice(0, 12) + '…' : ''}` : 'nothing loaded'),
+    h('div.tools', {}, h('button.btn.small', { onclick: () => fileIn.click() }, 'Load .uf2…'), fileIn, h('span.hint', {}, uf2.name ? `${uf2.name} · ${(uf2.bytes.length / 1024).toFixed(0)} kB${uf2.source === 'fox-bench' ? ' · fox-bench firmware' : ''}${uf2.version ? ' · foxlib-c ' + uf2.version : uf2.source === 'file' && app.family === 'foxlib-c' ? ' · no version tag' : ''}${uf2.sha256 ? ' · sha256 ' + uf2.sha256.slice(0, 12) + '…' : ''}` : 'nothing loaded'),
+      uf2.bytes && app.family === 'foxlib-c' && app.catalog.foxlibcVersion && (!uf2.version || cmpVersion(uf2.version, app.catalog.foxlibcVersion) < 0) ? badge(uf2.version ? `older than this site's ${app.catalog.foxlibcVersion}` : 'untagged build', 'warn') : null,
       h('button.btn' + (uf2.source === 'fox-bench' || uf2.source === 'vendor' ? '.primary' : uf2.source === 'vendor-recovery' ? '.danger' : ''), { disabled: !uf2.bytes || uf2.busy, onclick: copy }, uf2.busy ? 'Copying…' : `2. Copy to ${b.flash.drive_name}…`)),
     uf2.last ? h('p.hint' + (uf2.last.ok ? '.ok' : '.err'), {}, uf2.last.text) : null,
     ours ? h('p.hint', {}, 'Running fox-bench firmware and Listening? ', h('code', {}, 'bootsel'), ' in the console (or the button on the Board tab) does the same as the touch.') : h('p.hint', {}, 'Want fox-bench\'s own firmware on this board instead (fox.json, the same templates as the CircuitPython foxes, bench over serial)? Pick the "(fox-bench firmware)" entry of this board above.'),

@@ -48,3 +48,23 @@ export async function checkImage(bytes, expect = {}) {
   if (expect.sha256 && sha256 !== String(expect.sha256).toLowerCase()) problems.push(`sha256 ${sha256.slice(0, 12)}… does not match the pinned ${String(expect.sha256).slice(0, 12)}…`);
   return { ok: !problems.length, problems, sha256, blocks: ins.blocks };
 }
+
+/** The flash payload of a UF2 as one byte array, in block order (block headers stripped). */
+export function uf2Payload(bytes) {
+  const blocks = Math.floor(bytes.length / 512), dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const parts = []; let total = 0;
+  for (let i = 0; i < blocks; i++) { const o = i * 512, n = Math.min(dv.getUint32(o + 16, true), 476); parts.push(bytes.subarray(o + 32, o + 32 + n)); total += n; }
+  const out = new Uint8Array(total); let p = 0; for (const x of parts) { out.set(x, p); p += x.length; }
+  return out;
+}
+
+/** The foxlib-c version a fox-bench UF2 carries ("FOXLIBC-VERSION:<v>" in its image, 0.1.9+), or null when absent. */
+export function foxlibcVersionIn(bytes) {
+  const tag = 'FOXLIBC-VERSION:', data = uf2Payload(bytes);
+  outer: for (let i = 0; i + tag.length < data.length; i++) {
+    for (let k = 0; k < tag.length; k++) if (data[i + k] !== tag.charCodeAt(k)) continue outer;
+    let s = ''; for (let j = i + tag.length; j < data.length && data[j] && j < i + tag.length + 24; j++) s += String.fromCharCode(data[j]);
+    return /^\d+\.\d+\.\d+/.test(s) ? s : null;
+  }
+  return null;
+}

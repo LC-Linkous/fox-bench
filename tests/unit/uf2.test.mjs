@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { inspectUf2, checkImage, RP2040_FAMILY, sha256hex } from '../../js/model/uf2.js';
+import { inspectUf2, checkImage, RP2040_FAMILY, sha256hex, uf2Payload, foxlibcVersionIn } from '../../js/model/uf2.js';
 
 function block(i, n, { family = RP2040_FAMILY, withFamily = true } = {}) {
   const b = new Uint8Array(512), dv = new DataView(b.buffer);
@@ -50,4 +50,20 @@ test('the vendor descriptor pins a commit, a sha256 and a size for every file', 
   const pin = b.firmware.stock_firmware_pinned_commit;
   assert.match(pin, /^[0-9a-f]{40}$/);
   for (const f of b.firmware.stock_firmware_files) { assert.ok(f.url.includes(pin), f.url); assert.match(f.sha256, /^[0-9a-f]{64}$/); assert.equal(f.size % 512, 0); }
+});
+
+test('the firmware version tag is read across block boundaries; an untagged image gives null', () => {
+  const img = image(3);
+  assert.equal(foxlibcVersionIn(img), null);
+  // the tag straddles the end of block 0's payload and the start of block 1's: byte 32+250 … 32+256 then block 1
+  const tag = new TextEncoder().encode('FOXLIBC-VERSION:0.1.9\0');
+  const payload = uf2Payload(img); payload.set(tag, 250);
+  const out = new Uint8Array(img);
+  for (let i = 0; i < 3; i++) out.set(payload.subarray(i * 256, (i + 1) * 256), i * 512 + 32);
+  assert.equal(uf2Payload(out).length, 768);
+  assert.equal(foxlibcVersionIn(out), '0.1.9');
+  // a tag followed by junk instead of a version is not a version
+  const bad = new Uint8Array(img), p2 = uf2Payload(img); p2.set(new TextEncoder().encode('FOXLIBC-VERSION:dev\0'), 250);
+  for (let i = 0; i < 3; i++) bad.set(p2.subarray(i * 256, (i + 1) * 256), i * 512 + 32);
+  assert.equal(foxlibcVersionIn(bad), null);
 });

@@ -14,6 +14,24 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.7.5 · foxlib 1.0.4 · foxlib-c 0.1.9
+
+A bench session that swapped the PicoFox between the vendor firmware and
+fox-bench's, both ways, and loaded an old UF2 by hand.
+
+- foxlib-c 0.1.9 carries `FOXLIBC-VERSION:<v>` in its image; the Board tab
+  reads it out of a loaded UF2 and flags an image older than the site's
+  build (an old download cannot pass for the current one). CMake re-runs
+  when `VERSION` changes.
+- The vendor firmware's USB ids are `239a:cafe` (the Arduino RP2040 core's
+  generic TinyUSB ids), not `2e8a:000a`; the descriptor and the touch's
+  port check are corrected.
+- `*.crswap` leftovers on the drive (an editor's temporaries) are named on
+  the console with a one-call removal; a `board.json` that disagrees with
+  the banner is called stale and the banner wins.
+- The console drawer waits for a quiet line before sending, so a command
+  typed while the fox is still printing is not lost.
+
 ### Page 0.7.3 · foxlib 1.0.4 · foxlib-c 0.1.8
 
 foxlib 1.0.4: `payload.images_file` must be a plain file name (no paths,

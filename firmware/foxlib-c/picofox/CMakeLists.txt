@@ -15,6 +15,7 @@ set(CMAKE_C_STANDARD 11)
 pico_sdk_init()
 
 file(STRINGS ${CMAKE_CURRENT_LIST_DIR}/../VERSION FOXLIBC_VERSION LIMIT_COUNT 1)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${CMAKE_CURRENT_LIST_DIR}/../VERSION)  # a VERSION bump reconfigures
 
 # Compiled-in defaults: the morse-songs template's defaults for this board, embedded as a C string.
 set(DEFAULTS_JSON ${CMAKE_CURRENT_LIST_DIR}/../../templates/morse-songs/defaults/picofox-foxlibc.json)

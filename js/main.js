@@ -27,7 +27,7 @@ import * as tabBench from './ui/bench.js';
 import * as tabFleet from './ui/fleet.js';
 import * as tabAbout from './ui/about.js';
 
-const VERSION = '0.7.4';
+const VERSION = '0.7.5';
 /** Tab subtitles that read differently per device family (null = the page's original text). */
 const LEDES = { drive: {
   board: 'Which fox is on the bench, open its USB drive (or use the simulated one). The vendor firmware stays; the page writes its files.',
@@ -286,15 +286,27 @@ export const app = {
     }
   },
   /** Drive families: list the drive and read what configures the fox (the vendor's settings file, or fox.json) into onBoard. */
+  /** Chrome writes a file as <name>.crswap and renames it on close; an interrupted write (a disconnect, a reboot, the
+   *  stale-handle error) leaves the temporary behind. The firmwares ignore it, but it should not sit there unexplained. */
+  async _noteCrswap(d, files) {
+    const left = Object.keys(files).filter(n => /\.crswap$/i.test(n));
+    if (!left.length) return;
+    this.console.err(`${left.join(', ')}: Chrome's half-written temporar${left.length === 1 ? 'y' : 'ies'} from an interrupted write — the fox ignores ${left.length === 1 ? 'it' : 'them'}, and the real file is whatever was written last. Remove with: window.foxbench.removeCrswap() in the browser console, or delete by hand.`);
+    this.removeCrswap = async () => { for (const n of left) await d.remove(n); this.console.line(`removed ${left.join(', ')}`, 'ok'); await this.readDrive(); this.changed('reread'); };
+  },
   async readDrive() {
     const d = this.device; if (!d) return;
     if (this.family === 'foxlib-c') {
       if (d.kind === 'console') return;    // Listen only: the console has no files; the banner is what we learn
       const files = await d.list('');
+      await this._noteCrswap(d, files);
       const raw = await d.readText('fox.json');
       // board.json: the firmware's own identity card (0.1.4+) — the UID the fleet log and audit key on, since a drive has none
       let ident = null; try { const bj = await d.readText('board.json'); if (bj) ident = JSON.parse(bj); } catch { this.console.err('board.json on the drive is not valid JSON'); }
       if (ident?.uid) this.info = { ...this.info, uid: String(ident.uid), boardId: ident.board || this.info.boardId };
+      // board.json is rewritten by the firmware at boot (0.1.4+) — a firmware that predates it leaves an old one behind.
+      // The banner, when one was seen, is the truth about what runs now.
+      if (ident?.foxlib && this.lastBanner?.foxlib && this.lastBanner.foxlib !== ident.foxlib) { this.console.err(`board.json says ${ident.foxlib} but the fox's banner said ${this.lastBanner.foxlib}: the file is stale (that firmware does not write it). Going by the banner.`); ident.foxlib = this.lastBanner.foxlib; }
       const ob = { cfg: null, raw, foxlibVersion: ident?.foxlib || this.onBoard.foxlibVersion || '', foxlibMissing: [], foxlibComplete: true, files, template: null, ident };
       if (raw != null) { try { ob.cfg = JSON.parse(raw); ob.template = ob.cfg.template || null; } catch { this.console.err('fox.json on the drive is not valid JSON (the fox falls back to defaults.json and says cfg=default(parse) in its banner)'); } }
       this.onBoard = ob;
@@ -306,6 +318,7 @@ export const app = {
     }
     const v = this.vendor; if (!v) return;
     const files = await d.list('');
+    await this._noteCrswap(d, files);
     const raw = await d.readText(v.FILES.settings);
     const marker = await d.readBytes(v.FILES.marker);
     const ob = { cfg: null, raw, foxlibVersion: '', foxlibMissing: [], foxlibComplete: true, files, template: raw != null ? this.templatesFor('drive')[0]?.id : null, settings: raw != null ? v.parseSettings(raw) : null, markerOk: null };

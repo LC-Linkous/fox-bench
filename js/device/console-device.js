@@ -14,7 +14,7 @@ const dec = new TextDecoder();
 export class ConsoleDevice extends Device {
   constructor(link) {
     super(); this.kind = 'console'; this.transport = 'console'; this.link = link; this.listening = true;
-    this._buf = ''; this._pending = null; this._queue = Promise.resolve();
+    this._buf = ''; this._pending = null; this._queue = Promise.resolve(); this._lastRx = 0;
     link.onData = bytes => this._onData(bytes);
   }
   _run(fn) { const p = this._queue.then(fn, fn); this._queue = p.catch(() => {}); return p; }
@@ -28,6 +28,7 @@ export class ConsoleDevice extends Device {
     }
   }
   _line(line) {
+    this._lastRx = Date.now();
     if (!line) return;
     this.log(line, 'reply');                          // everything the fox says is shown, command replies included
     const p = this._pending; if (!p) return;
@@ -51,7 +52,15 @@ export class ConsoleDevice extends Device {
     }));
   }
   /** Console drawer: send a line without waiting; replies show up as fox output. */
-  async send(text) { this.log(text, 'tx'); await this.link.write(text.trim() + '\r\n'); }
+  /** Console drawer: send a line without waiting for its reply — but after whatever command is in flight, and once the
+   *  fox has been quiet for a moment (a line typed into the middle of the boot banner was lost on a real board). */
+  async send(text) {
+    return this._run(async () => {
+      const t0 = Date.now();
+      while (Date.now() - this._lastRx < 150 && Date.now() - t0 < 2000) await new Promise(r => setTimeout(r, 50));
+      this.log(text, 'tx'); await this.link.write(text.trim() + '\r\n');
+    });
+  }
 
   /** The page's bench actions, in the console's words. Returns the strings the Bench tab shows. */
   async bench(action, args = {}) {
