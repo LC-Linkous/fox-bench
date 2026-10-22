@@ -34,7 +34,7 @@ that way.
   BOOTSEL (SW2) is inside the enclosure; the Arduino core the vendor
   firmware is built on reboots into the bootloader when the serial port
   is opened at 1200 baud and DTR dropped — the page's "Reboot into
-  bootloader" button. `pfoxr3-forceformat.uf2` reformats the filesystem.
+  bootloader" button. `pfoxr3-forceformat.uf2` reformats the filesystem **at every boot** — files written to it vanish at the next power cycle (and an empty CALLSIGN means silence); flash `pfoxr3v1.uf2` after it before writing anything.
 
 Switching to fox-bench's own firmware and back is a page operation
 (`firmware/foxlib-c/README.md`, "Switching between the two firmwares");

@@ -18,7 +18,8 @@
       {
         "name": "pfoxr3-forceformat.uf2",
         "url": "https://raw.githubusercontent.com/ai6ym/PicoFox/main/releases/pfoxr3-forceformat.uf2",
-        "note": "same firmware, but it reformats the drive at boot (wipes every file, including fox-bench's); flash pfoxr3v1 afterwards"
+        "recovery": true,
+        "note": "recovery only: reformats the drive at EVERY boot, so files written to it vanish at the next power cycle and the fox stays silent. Use it to wipe a corrupt volume, then flash pfoxr3v1 before writing any files."
       }
     ]
   },
