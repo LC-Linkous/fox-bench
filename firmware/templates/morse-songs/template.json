@@ -12,5 +12,5 @@
   "files": ["code.py"],
   "payloads": [],
   "capabilities": ["keytest", "rssi", "batt"],
-  "boards_tested": ["seeed_xiao_esp32c3"]
+  "boards_tested": ["seeed_xiao_esp32c3", "picofox-foxlibc"]
 }

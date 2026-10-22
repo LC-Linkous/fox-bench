@@ -12,7 +12,8 @@ hardware* runs the whole page against a simulated board.
 
 Status: **v0.6 — three device families.** All seven templates have been
 deployed from the page to a XIAO ESP32-C3 + SA868 and run on both 2 m and
-70 cm (`tools/hw_smoke.py` reports); CircuitPython itself can be flashed
+70 cm (checked with `tools/hw_smoke.py`; the hardware notes in `docs/`
+record what was verified on which board); CircuitPython itself can be flashed
 onto a bare board from the Board tab, one at a time or as a batch. The
 AI6YM PicoFox is supported two ways: with its **vendor firmware** (the page
 writes its settings, renders its audio and Morse-ID files, and draws the

@@ -34,6 +34,11 @@ VERSION      firmware version (the banner's foxlib=c-<version>)
   foxlib does (`core/cfg.c` is tested against `foxlib/cfg.py` and
   `js/model/schema.js`). Compiled-in morse-songs defaults are the last resort.
   About 1.5 s after the host's last write to the drive the fox reloads.
+  Fixed pools: a 24 KB file buffer, 4096 JSON values, 16 songs × 256 notes,
+  16 frequencies, 4 ranges; past them the banner says
+  `cfg=default(too_large)` (file or value count) or `partial(...)` (a list
+  cut short), and the page's checks refuse to write such a file
+  (`js/model/foxlibc-limits.js`, held equal to the headers by `tests/parity.py`).
 - **Behaviour**: foxlib's cycle (`foxlib/cycle.py`) as a state machine:
   Morse ID, songs, QRSS message, fixed / popcorn / resurrection schedules
   (same seeded LCG), plan rotation with QSY announcements, keydown limit,

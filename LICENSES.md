@@ -8,6 +8,7 @@ applies to it; this page is the map.
 |---|---|---|---|
 | **The page**: `index.html`, `css/`, `js/`, descriptors (`hardware/`, `boards/`, `modules/`, `bands.json`, `songs/`), `tools/`, `tests/`, docs | repository root | **GPL-2.0-only** | `LICENSE` |
 | **Firmware**: foxlib (CircuitPython), the template runners, the simulator, and **foxlib-c** (C, Pico SDK) | `firmware/` | **GPL-3.0-or-later** | `firmware/LICENSE` |
+| (two exceptions under `firmware/sim/`: `parity.mjs` and `schema_parity.mjs` import the page's `js/` and are GPL-2.0-only test code, as their SPDX lines say) | | | |
 | **Flasher**: CircuitPython flashing from the page | `flasher/` | **Apache-2.0** | `flasher/LICENSE`, `flasher/NOTICE` |
 
 The page writes the firmware to a board as data and imports the flasher as

@@ -9,8 +9,11 @@ board, module, band, template and song descriptors have the fields the
 page and firmware read, with sane values; that every template has a
 defaults file for every board and that file validates clean through the
 firmware's own cfg.validate(); that a template's foxlib requirement is met
-by foxlib/VERSION; and (with --since) that foxlib/VERSION and template
-versions were bumped when their files changed.
+by foxlib/VERSION; that README's "v0.x" matches js/main.js VERSION; that
+vendor firmware files are pinned (commit URL, sha256, size); and (with
+--since) that foxlib/VERSION, template versions, firmware/foxlib-c/VERSION
+(its sources and the defaults file compiled into the UF2) and js/main.js
+VERSION (anything the page serves) were bumped when their files changed.
 
 This is the check that would have caught a stale foxlib file in the tree,
 a template defaults file naming a module that is not in modules/, or a
@@ -307,6 +310,31 @@ if "--since" in sys.argv:
         base = f"firmware/templates/{tid}"
         if (changed(base + "/code.py") or changed(base + "/defaults")) and not changed(base + "/template.json"):
             bad(f"{base}/template.json", f"template files changed since {ref} without a version bump")
+    # foxlib-c: the firmware a user flashes. Its sources, and the defaults file compiled into the UF2 (the last-resort
+    # config), need firmware/foxlib-c/VERSION bumped; the host tests do not.
+    EMBEDDED_DEFAULTS = "firmware/templates/morse-songs/defaults/picofox-foxlibc.json"
+    if (changed("firmware/foxlib-c/core") or changed("firmware/foxlib-c/picofox") or changed(EMBEDDED_DEFAULTS)) and not changed("firmware/foxlib-c/VERSION"):
+        bad("firmware/foxlib-c/VERSION", f"foxlib-c firmware changed since {ref} without a version bump")
+    # the page: anything it serves to the browser needs js/main.js VERSION bumped (the About tab, the saved form's stamp)
+    if (changed("js") or changed("css") or changed("index.html") or changed("flasher")) and not changed("js/main.js"):
+        bad("js/main.js", f"page files changed since {ref} without a VERSION bump in js/main.js")
+    elif changed("js/main.js"):
+        a = subprocess.run(["git", "show", f"{ref}:js/main.js"], cwd=ROOT, capture_output=True, text=True).stdout
+        va = re.search(r"const VERSION = '([^']+)'", a); vb = re.search(r"const VERSION = '([^']+)'", open(os.path.join(ROOT, "js/main.js")).read())
+        if va and vb and va.group(1) == vb.group(1) and (changed("js") or changed("css") or changed("index.html") or changed("flasher")):
+            bad("js/main.js", f"page files changed since {ref} but VERSION is still {vb.group(1)}")
+
+# ---------------------------------------------------------------- a "stable" target has been seen by a template
+for tid, t in boards.items():
+    if t.get("status") == "stable" and not any(tid in tp.get("boards_tested", []) for tp in templates.values()):
+        bad(f"boards/{tid}.json", "status: stable, but no template lists it in boards_tested (the Behavior tab would say it was tested on something else)")
+
+# ---------------------------------------------------------------- versions named in prose
+page_version = re.search(r"const VERSION = '([^']+)'", open(os.path.join(ROOT, "js/main.js")).read())
+readme = open(os.path.join(ROOT, "README.md")).read()
+m = re.search(r"Status: \*\*v(\d+\.\d+)", readme)
+if page_version and m and not page_version.group(1).startswith(m.group(1) + "."):
+    bad("README.md", f"says v{m.group(1)} but js/main.js VERSION is {page_version.group(1)}")
 
 # ---------------------------------------------------------------- result
 n = f"{len(hardware)} hardware, {len(boards)} target(s), {len(modules)} module(s), {len([r for r in bands if not r.startswith('_')])} region(s), {len(templates)} template(s), foxlib {foxlib_version}"

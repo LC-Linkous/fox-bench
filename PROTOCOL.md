@@ -44,8 +44,9 @@ a dropped final prompt, a slow first `import foxlib`.
 
 CircuitPython's REPL can write the filesystem only when no host has the
 USB drive mounted. On the XIAO ESP32-C3 there is no drive, so this always
-works. Boards that mount `CIRCUITPY` need `fs-drive.js` (File System
-Access API), declared in DESIGN.md and not yet implemented.
+works. Boards that mount `CIRCUITPY` would need their files written
+through `drive-device.js` (File System Access API) instead; that wiring
+for the foxlib family is not done (DESIGN.md §11).
 
 ## Identity
 

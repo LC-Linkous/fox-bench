@@ -3,6 +3,7 @@
 // no reboot: the firmware reloads by itself a second after the last write and prints its banner on
 // the serial console (Listen only).
 // SPDX-License-Identifier: GPL-2.0-only
+import { stringifyFoxJson } from '../model/foxlibc-limits.js';
 import { h, badge, field, numInput } from './dom.js';
 import { fleet, download } from '../model/profiles.js';
 import { makeZip } from '../model/zip.js';
@@ -18,8 +19,8 @@ function flat(o, pre = '', out = {}) { for (const [k, v] of Object.entries(o || 
 /** The files, as the page writes them: fox.json, defaults.json and, for an SSTV payload, the images. */
 export function files(cfg) {
   const out = [
-    { path: 'fox.json', data: JSON.stringify(cfg, null, 1) + '\n', why: 'configuration' },
-    { path: 'defaults.json', data: JSON.stringify(app.defaults, null, 1) + '\n', why: `${app.templateId} ${app.template.version} defaults for ${app.boardId}` },
+    { path: 'fox.json', data: stringifyFoxJson(cfg), why: 'configuration' },
+    { path: 'defaults.json', data: stringifyFoxJson(app.defaults), why: `${app.templateId} ${app.template.version} defaults for ${app.boardId}` },
   ];
   if (cfg.payload.kind === 'sstv') out.push({ path: cfg.payload.images_file, data: packImages(app.images), why: app.images.length ? `${app.images.length} image${app.images.length === 1 ? '' : 's'} (${app.images.map(im => im.name).join(', ')})` : 'no images — the firmware sends its test card' });
   return out;

@@ -6,6 +6,7 @@ import { mergeAndValidate, pageChecks } from './model/schema.js';
 import { parseBanner } from './device/device.js';
 import { profiles } from './model/profiles.js';
 import { deployBlocker } from './model/transport.js';
+import { foxlibcCompat, cmpVersion } from './model/compat.js';
 import { TABLE as MORSE } from './audio/morse.js';
 import { hasWebSerial, SerialLink } from './device/serial-link.js';
 import { ReplDevice } from './device/repl-device.js';
@@ -26,7 +27,7 @@ import * as tabBench from './ui/bench.js';
 import * as tabFleet from './ui/fleet.js';
 import * as tabAbout from './ui/about.js';
 
-const VERSION = '0.6.1';
+const VERSION = '0.6.2';
 /** Tab subtitles that read differently per device family (null = the page's original text). */
 const LEDES = { drive: {
   board: 'Which fox is on the bench, open its USB drive (or use the simulated one). The vendor firmware stays; the page writes its files.',
@@ -91,6 +92,7 @@ export const app = {
       const r = mergeAndValidate(this.cfg, this.defaults, this.board);
       this.report = r.report; this.status = r.status;
       this.issues = pageChecks(r.cfg, { bands: this.catalog.bands, region: this.region, morseTable: MORSE, templateManifest: this.template, module: this.module, pinless: this.family === 'foxlib-c' });
+      if (this.family === 'foxlib-c') this.issues.push(...foxlibcCompat(r.cfg, { foxVersion: this.device ? this.onBoard?.foxlibVersion : '', hostedVersion: this.catalog.foxlibcVersion }));
       this.validCfg = r.cfg;
     }
     if (document.body.dataset.family !== this.family) {
@@ -100,7 +102,7 @@ export const app = {
     }
     $('.rail button[data-tab="bench"]').hidden = this.family === 'drive';
     if (!this.device) { $('#connectBtn').textContent = this.usesDrive ? `Open ${this.board.drive?.label || 'drive'}` : 'Connect'; $('#connectBtn').disabled = this.usesDrive ? !('showDirectoryPicker' in window) : !hasWebSerial(); }
-    try { localStorage.setItem('fox-bench.working', JSON.stringify({ cfg: this.cfg, boardId: this.boardId, templateId: this.templateId, moduleId: this.moduleId, region: this.region })); } catch {}
+    try { localStorage.setItem('fox-bench.working', JSON.stringify({ version: VERSION, cfg: this.cfg, boardId: this.boardId, templateId: this.templateId, moduleId: this.moduleId, region: this.region })); } catch {}
     for (const [tab, keys] of Object.entries(TAB_KEYS)) {
       const bad = [...this.report.map(x => ({ level: 'err', key: x.key })), ...this.issues].filter(i => keys.some(k => i.key === k || i.key.startsWith(k + '.')));
       setFlag(tab, bad.some(i => i.level === 'err') ? 'err' : bad.some(i => i.level === 'warn') ? 'warn' : '');
@@ -358,12 +360,23 @@ async function boot() {
   try { app.catalog = await loadCatalog(); }
   catch (e) { app.console.err('could not load descriptors: ' + e.message + ' (serve the folder over http, not file://)'); return; }
 
-  // restore the working config, else template defaults
+  // restore the working config, else template defaults. The saved form is run through the validator like a loaded
+  // profile: a key renamed since it was saved, or a truncated write, must not wedge every later page load.
   let restored = null; try { restored = JSON.parse(localStorage.getItem('fox-bench.working')); } catch {}
-  if (restored?.cfg && app.catalog.templates[restored.templateId] && app.catalog.boards[restored.boardId]) {
-    app.templateId = restored.templateId; app.boardId = restored.boardId; app.moduleId = restored.moduleId || app.moduleId; app.region = restored.region || app.region;
-    app.defaults = await loadDefaults(app.templateId, app.boardId); app.cfg = restored.cfg;
-  } else { await app.setTemplate(app.templateId, { carry: false }); }
+  let restoredOk = false;
+  if (restored?.cfg && Object.hasOwn(app.catalog.templates, restored.templateId) && Object.hasOwn(app.catalog.boards, restored.boardId) && app.catalog.boards[restored.boardId].status !== 'planned') {
+    try {
+      app.templateId = restored.templateId; app.boardId = restored.boardId;
+      if (restored.moduleId && Object.hasOwn(app.catalog.modules, restored.moduleId)) app.moduleId = restored.moduleId;
+      if (restored.region && Object.hasOwn(app.catalog.bands || {}, restored.region)) app.region = restored.region;
+      if (app.board.module_fixed) app.moduleId = app.board.module_fixed;
+      app.defaults = await loadDefaults(app.templateId, app.boardId);
+      const r = app.family === 'drive' ? app.vendor.validate(restored.cfg, app.defaults, app.board) : mergeAndValidate(restored.cfg, app.defaults, app.board);
+      app.cfg = r.cfg; restoredOk = true;
+      if (r.report?.length && restored.version !== VERSION) app.console.dim(`saved form from page ${restored.version || '< 0.6.1'}: ${r.report.length} value(s) reset to defaults (${r.report.map(x => x.key).join(', ')})`);
+    } catch (e) { app.console.err(`saved form could not be restored (${e.message || e}); starting from the template defaults`); }
+  }
+  if (!restoredOk) { try { localStorage.removeItem('fox-bench.working'); } catch {} await app.setTemplate(app.templateId, { carry: false }); }
 
   for (const [name, mod] of Object.entries(TABS)) mod.init(app, $(`#tab-${name} .body`));
   $$('.rail button').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));

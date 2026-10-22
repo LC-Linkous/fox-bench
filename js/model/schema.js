@@ -5,6 +5,7 @@
 // is the browser's implementation of the contract in CONFIG.md. The firmware
 // (foxlib/cfg.py) implements the same document independently; the demo
 // device uses this one to produce its boot banner.
+import { foxlibcLimitIssues } from './foxlibc-limits.js';
 
 export const SCHEMA = 1;
 export const REQUIRED_PINS = ['ptt', 'pd', 'hl', 'uart_tx', 'uart_rx', 'audio'];
@@ -96,7 +97,7 @@ export function mergeAndValidate(user, defaults, board) {
   if ('placeholder' in d) { if (typeof d.placeholder === 'string' && d.placeholder) cfg.id.placeholder = d.placeholder; else bad('id.placeholder', 'string'); }
   if ('wpm' in d) { if (isInt(d.wpm) && inRange(d.wpm, 5, 40)) cfg.id.wpm = d.wpm; else bad('id.wpm', '5–40'); }
   if ('tone_hz' in d) { if (isInt(d.tone_hz) && inRange(d.tone_hz, 300, 3000)) cfg.id.tone_hz = d.tone_hz; else bad('id.tone_hz', '300–3000'); }
-  if ('telemetry' in d) { if (Array.isArray(d.telemetry) && d.telemetry.every(t => t === 'batt' || t === 'chg')) cfg.id.telemetry = d.telemetry.slice(); else bad('id.telemetry', 'subset of ["batt"]'); }
+  if ('telemetry' in d) { if (Array.isArray(d.telemetry) && d.telemetry.every(t => t === 'batt' || t === 'chg')) cfg.id.telemetry = d.telemetry.slice(); else bad('id.telemetry', 'subset of ["batt","chg"]'); }
   if ('tx_without_callsign' in d) { if (typeof d.tx_without_callsign === 'boolean') cfg.id.tx_without_callsign = d.tx_without_callsign; else bad('id.tx_without_callsign', 'bool'); }
 
   // ---- payload
@@ -191,6 +192,7 @@ export function pageChecks(cfg, { bands, region, morseTable, templateManifest, m
     if ((cfg.radio.id_deviation_hz || 0) > 5000 || (cfg.radio.audio_deviation_hz || 0) > 5000) issues.push({ level: 'warn', key: 'radio.id_deviation_hz', msg: 'deviation above ±5 kHz is wider than a 12.5 kHz channel; receivers will distort' });
     const margin = 0.02, zoneHi = cfg.radio.itu_zone === 1 ? 146.0 : 148.0;
     for (const f of cfg.plan.frequencies_mhz) if (f < 144.0 + margin || f > zoneHi - margin) issues.push({ level: 'err', key: 'plan.frequencies_mhz', msg: `${f} MHz is within 20 kHz of the band edge for ITU zone ${cfg.radio.itu_zone} (144–${zoneHi} MHz)` });
+    issues.push(...foxlibcLimitIssues(cfg));   // what the C firmware's fixed pools can hold
   }
   return issues;
 }

@@ -22,6 +22,8 @@ export async function loadCatalog() {
   const modules = Object.fromEntries(await Promise.all(moduleIds.map(async id => [id, await get(`modules/${id}.json`)])));
   const templates = Object.fromEntries(await Promise.all(fw.templates.map(async id => [id, await get(`firmware/templates/${id}/template.json`)])));
   const foxlibVersion = (await get('firmware/foxlib/VERSION', 'text')).trim();
+  // foxlib-c: the version this site builds (the Board tab compares a connected fox against it); a site without the file has no C targets
+  const foxlibcVersion = await get('firmware/foxlib-c/VERSION', 'text').then(t => t.trim()).catch(() => '');
   delete bands._note;
   let songLibraries = [];
   try {
@@ -31,7 +33,7 @@ export async function loadCatalog() {
   // vendor models for drive-configured boards (js/model/vendor/<id>.js), loaded once
   const vendors = {};
   for (const b of Object.values(boards)) if (b.vendor && !vendors[b.vendor]) vendors[b.vendor] = await import(new URL(`./vendor/${b.vendor}.js`, import.meta.url));
-  return { boards, hardware, modules, bands, templates, foxlibFiles: fw.foxlib, foxlibVersion, songLibraries, vendors };
+  return { boards, hardware, modules, bands, templates, foxlibFiles: fw.foxlib, foxlibVersion, foxlibcVersion, songLibraries, vendors };
 }
 
 export const loadDefaults = (templateId, boardId) => get(`firmware/templates/${templateId}/defaults/${boardId}.json`);

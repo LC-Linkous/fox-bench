@@ -31,7 +31,7 @@
 #define HOLD_UNCONFIGURED_MS 20000
 
 static json_doc doc;                 /* one arena, reused for defaults then fox.json */
-static char filebuf[12288];
+static char filebuf[24576];   /* fox.json / defaults.json as read from the drive; js/model/foxlibc-limits.js FILE_MAX_BYTES = this - 1 */
 static fox_cfg_t defaults, cfg;
 static cfg_report_t report;
 static bool have_cfg, id_ok, loaded_defaults_from_flash;
@@ -79,9 +79,16 @@ static bool load(void) {
     }
     n = fs_read("fox.json", filebuf, sizeof filebuf);
     if (n < 0) { cfg = defaults; strcpy(report.mode, "default(missing)"); }
+    else if (n >= (long)sizeof filebuf - 1) { cfg = defaults; strcpy(report.mode, "default(too_large)"); con_printf("fox.json: longer than %u bytes, not read\r\n", (unsigned)(sizeof filebuf - 1)); }
     else {
         root = json_parse(&doc, filebuf, (size_t)n);
-        if (root < 0) { cfg = defaults; strcpy(report.mode, "default(parse)"); }
+        if (root < 0) {
+            cfg = defaults;
+            /* too many values for the parser's pool is a size problem, not a syntax one: say so, the page checks the same limit */
+            bool pool = doc.err && strstr(doc.err, "too many");
+            strcpy(report.mode, pool ? "default(too_large)" : "default(parse)");
+            con_printf("fox.json: %s at byte %d\r\n", doc.err ? doc.err : "parse error", doc.err_pos);
+        }
         else cfg_apply_user(&cfg, &defaults, &doc, root, BOARD_ID, &report);
     }
     have_cfg = true;

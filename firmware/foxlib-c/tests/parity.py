@@ -257,6 +257,30 @@ console.log(JSON.stringify({ status: r.status, keys: r.report.map(x => x.key) })
         for f in tmp2 + [sp.name]:
             os.unlink(f)
 
+    print("limits: js/model/foxlibc-limits.js vs the C headers")
+    import re as _re
+    hdr = {}
+    for rel in ("core/json.h", "core/cfg.h", "core/melody.h", "picofox/fox.c"):
+        hdr[rel] = open(os.path.join(REPO, "firmware", "foxlib-c", rel)).read()
+    def cdef(name, text):
+        m = _re.search(r"#define\s+%s\s+(\d+)" % name, text); return int(m.group(1)) if m else None
+    expected = {
+        "JSON_MAX_NODES": cdef("JSON_MAX_NODES", hdr["core/json.h"]),
+        "JSON_MAX_DOUBLES": cdef("JSON_MAX_DOUBLES", hdr["core/json.h"]),
+        "PLAYLIST_MAX": cdef("PLAYLIST_MAX", hdr["core/melody.h"]),
+        "SONG_MAX_NOTES": cdef("SONG_MAX_NOTES", hdr["core/melody.h"]),
+        "SONG_NAME_MAX": int(_re.search(r"char name\[(\d+)\]", hdr["core/melody.h"]).group(1)) - 1,
+        "CFG_MAX_FREQS": cdef("CFG_MAX_FREQS", hdr["core/cfg.h"]),
+        "CFG_MAX_RANGES": cdef("CFG_MAX_RANGES", hdr["core/cfg.h"]),
+        "CALLMESSAGE_MAX": int(_re.search(r"char callmessage\[(\d+)\]", hdr["core/cfg.h"]).group(1)) - 1,
+        "FILE_MAX_BYTES": int(_re.search(r"static char filebuf\[(\d+)\]", hdr["picofox/fox.c"]).group(1)) - 1,
+    }
+    js_text = open(os.path.join(REPO, "js", "model", "foxlibc-limits.js")).read()
+    for k, v in expected.items():
+        m = _re.search(r"\b%s:\s*(\d+)" % k, js_text)
+        got = int(m.group(1)) if m else None
+        check("%-44s %s" % (k, v), got == v, "js has %s" % got)
+
     print("synth")
     for sr, shape, pre, level, tone in ((8000, "bright", 1, 0.5, 800), (8000, "sine", 0, 0.5, 800), (5000, "bright", 1, 0.7, 600), (8000, "bright", 1, 1.0, 2400), (8000, "sine", 1, 0.3, 300)):
         out = run(b, "synth", sr, shape, pre, level, 12, tone, "KY4ZR", "FOX", "DE", "KY4ZR").split()

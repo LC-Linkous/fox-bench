@@ -59,6 +59,8 @@ jobs:
           else
             python3 tools/check_catalog.py
           fi
+      - name: Docs name only files that exist
+        run: python3 tools/check_docs.py
       - name: Simulator — every template, every scenario
         run: python3 firmware/sim/run.py
       - name: Bench script against the simulated board on a pty (tools/hw_smoke.py end to end)

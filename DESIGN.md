@@ -59,60 +59,82 @@ before changing any of them.
 
 ## 2. Repository layout
 
+(What is in the tree; `tools/check_docs.py` fails CI when a file named here
+is missing.)
+
 ```
 index.html                 markup only
 css/                       theme, layout, components
 js/
-  main.js                  app state, tab wiring
+  main.js                  app state (board/template/config, connect/disconnect/listen, tab wiring), VERSION
   device/
     link.js                Link interface (open/close/read/write)
     serial-link.js         Web Serial implementation
-    demo-link.js           simulated board: REPL + fox, for use without hardware
-    repl-link.js           raw-REPL protocol over a Link: interrupt, enter raw,
-                           exec-and-capture, soft reboot, boot-log capture
-    filetarget.js          FileTarget interface (list/read/write/delete/mkdir)
-    fs-repl.js             FileTarget over the REPL (boards with no USB drive)
-    fs-drive.js            FileTarget over File System Access API (CIRCUITPY) — stub in v1
+    repl-link.js           raw-REPL protocol over a Link: interrupt, enter raw, exec-and-capture, soft reboot
+    device.js              Device interface + the FOX banner parser
+    repl-device.js         files, identity and bench over the REPL (foxlib family)
+    drive-device.js        files over the File System Access API (drive and foxlib-c families; demo drives)
+    console-device.js      the foxlib-c serial console: commands, bench, bootsel; a fake console for the demo
+    demo-device.js         simulated CircuitPython board: REPL + fox, for use without hardware
+    memfs.js               in-memory directory handles for the demo drives and the tests
     (flasher lives in /flasher — separate Apache-2.0 component, §9)
   model/
-    schema.js              fox.json: defaults merge, validation, migrations
-    boards.js  modules.js  bands.js  templates.js   loaders for the descriptors
-    profiles.js            saved configs + fleet log (localStorage, import/export)
+    loaders.js             fetch the descriptors (boards, hardware, modules, bands, templates, versions)
+    schema.js              fox.json: defaults merge, validation, page checks
+    foxlibc-limits.js      the C firmware's pools as page checks; fox.json serialisation for that family
+    compat.js              fox firmware version vs the page (foxlib-c)
+    transport.js           which connected device may receive a deploy for which family
+    uf2.js                 UF2 structure / family id / sha256 checks before a copy
+    audit.js               the connected fox against the fleet log
+    profiles.js            saved configs + fleet log (localStorage, CSV export)
     airtime.js             computed keydown per transmission, duty check
+    zip.js                 deploy-set export
+    vendor/picofox.js      the vendor PicoFox firmware's files, modelled
   audio/
-    events.js              shared event-stream helpers
-    morse.js  melody.js  rtttl.js  sstv.js  qrss.js   JS twins of foxlib encoders
+    morse.js  melody.js  rtttl.js  sstv.js  schedule.js   JS twins of foxlib encoders
     player.js              Web Audio renderer for an event stream
-    sstv-decode.js         event stream → canvas (what a hunter's app shows)
-    waterfall.js           event stream → spectrogram (QRSS preview)
-    schedule.js            LCG twin of foxlib/schedule.py → timeline
-  ui/                      one module per tab
-boards/      <board_id>.json          see §4
-songs/       index.json + libraries   song libraries the Payload tab browses; quick:true = one-click add
+    spectrum.js            event stream → spectrogram (QRSS preview)
+    wav.js                 event stream → WAV (the vendor PicoFox's audio file)
+  ui/                      one module per tab (board, radio, behavior, plan, id, payload, schedule,
+                           deploy / deploy-drive / deploy-foxlibc, bench, fleet, about), console drawer, flash card, dom helpers
+flasher/                   esptool-js wrapper + vendored esptool-js (Apache-2.0)
+hardware/    <hardware_id>.json       the physical board, see §4
+boards/      <target_id>.json         hardware + firmware + family, see §4
 modules/     <module_id>.json         see §4
+songs/       index.json + libraries   song libraries the Payload tab browses; quick:true = one-click add
 bands.json                            amateur allocations by region
 firmware/
   LICENSE                             GPL-3.0-or-later (see §9)
-  foxlib/                             shared firmware library
+  index.json                          foxlib file list, template list
+  foxlib/                             shared CircuitPython firmware library
   templates/<id>/
-    code.py                           the behaviour file
+    code.py                           the behaviour file (CircuitPython)
     template.json                     manifest, see §5
-    defaults/<board_id>.json          complete known-good config per board
-    scenarios.json                    sim scenarios and expectations
-  sim/                                desktop simulator (mocked hardware, virtual clock)
+    defaults/<target_id>.json         complete known-good config per target
+  sim/                                desktop simulator (mocked hardware, virtual clock), scenarios.json,
+                                      pty board, Python↔JS parity (encoders, validator corpus)
+  foxlib-c/                           the C firmware (§10): core/ portable, picofox/ Pico SDK app,
+                                      tests/ host build + parity + runner, VERSION
 tools/
+  check_catalog.py                    lint for every descriptor, defaults file, index and version bump
+  check_docs.py                       every file path named in the *.md files exists
+  build_info.py                       fingerprint JSON beside the UF2, RAM budget
   batch_flash.py                      headless batch flasher (same CSV as the Fleet tab)
-docs/
+  hw_smoke.py                         bench script against a real (or pty-simulated) board
+tests/                                unit (node:test) and page smoke (Playwright), see tests/README.md
+docs/                                 first-hardware-session, adding-a-target, picofox hardware/notes, project audit
 CONFIG.md                             fox.json schema — the contract
-PROTOCOL.md                           REPL exchange, byte by byte
+PROTOCOL.md                           REPL exchange byte by byte; the foxlib-c console
+LICENSES.md                           which licence covers what
 DESIGN.md                             this file
 ```
 
 ## 3. Transport layers
 
-**`Link`** — a byte stream. `serial-link.js` (Web Serial) and
-`demo-link.js` (simulated). Nothing above this layer knows which is in
-use.
+**`Link`** — a byte stream. `serial-link.js` (Web Serial); the demo
+board and the fake console implement the same interface in memory
+(`demo-device.js`, `console-device.js`). Nothing above this layer knows
+which is in use.
 
 **`ReplLink`** — the CircuitPython raw-REPL protocol on top of a Link.
 It is what Thonny does, made explicit:
@@ -129,13 +151,14 @@ It is what Thonny does, made explicit:
 `fox.json`, writing files in chunks, `board.board_id`,
 `microcontroller.cpu.uid`, and the bench commands (§7).
 
-**`FileTarget`** — list/read/write/delete on the board. `fs-repl.js`
-implements it with `open().write()` through the REPL, base64-chunked,
-with a size-and-hash readback after each file. `fs-drive.js` will use the
-File System Access API for boards that mount `CIRCUITPY`, where the REPL
-filesystem is read-only; it is a declared interface with a stub in v1 so
-nothing above it assumes the REPL path. The board descriptor's
-`has_usb_drive` selects the implementation.
+**`Device`** (`device.js`) — list/read/write/delete on the board plus
+identity and bench. `repl-device.js` implements it with `open().write()`
+through the REPL, base64-chunked, with a size-and-CRC32 readback after
+each file. `drive-device.js` implements the file part over the File System
+Access API (the drive families, §10; every write read back). Boards of the
+foxlib family that mount `CIRCUITPY`, where the REPL filesystem is
+read-only, would use `drive-device.js` for files and the REPL for the rest;
+that wiring is not done (§11).
 
 **`Flasher`** (`flasher/flasher.js`, its own Apache-2.0 component, §9) —
 esptool-js vendored in `flasher/vendor/`, loaded the first time a flash
@@ -399,12 +422,18 @@ the log says it is".
 `firmware/sim/` is the desktop harness from the earlier foxes, generalised:
 mocked `board`/`busio`/`digitalio`/`pwmio`/`analogio`, a virtual clock,
 and decoders for the event stream (Morse back to text, SSTV back to
-pixels, schedule back to a timeline). Each template's `scenarios.json`
-lists battery schedules and expected behaviour. CI runs every template
-through every scenario on every push, checks that each template's deploy
-set contains exactly the manifest's files, and checks that the JS
-encoders in `js/audio/` and the Python encoders in `foxlib/` produce
-identical event streams for a fixed corpus.
+pixels, schedule back to a timeline). `firmware/sim/scenarios.json`
+lists battery schedules and expected behaviour per template. CI
+(`.github/workflows/ci.yml`) runs on every push: the `sim` job — every
+template through every scenario, the bench script against a pty-simulated
+board, the catalog lint, Python↔JS parity of the encoders and of the
+`fox.json` validator on a shared corpus; the `foxlib-c` job — the C core's
+parity with foxlib and the C runner through the same scenarios, then the
+UF2 with a pinned toolchain and its fingerprint; the `page` job — unit tests
+and the Playwright smoke walk, which also boots exported deploy sets in the
+Python simulator and the C host build. The `deploy` job (Pages, `main`
+only) needs all three. `tools/check_docs.py` keeps the file names in these
+documents honest.
 
 ## 9. Licensing
 
@@ -461,6 +490,18 @@ flashing. The working config keeps the `fox.json` shape for both families
 (so profiles, the fleet log, the ID and payload tabs are shared) with
 family-specific `radio` and `schedule` contents. `docs/picofox-notes.md`
 records what was learnt from the PicoFox's drive and published firmware.
+
+Firmware and page can drift apart for this family (the firmware is baked
+into a UF2, not reinstalled by Deploy as foxlib is): the page fetches the
+version it builds (`firmware/foxlib-c/VERSION` → `catalog.foxlibcVersion`),
+reads the fox's from `board.json` or the banner, and `js/model/compat.js`
+turns the difference into Board-tab badges and Deploy-tab issues — a
+warning when the fox is older than the site, a blocking error when the
+config uses a feature the fox's firmware predates (`FOXLIBC_SINCE`, one
+line per feature with the version that introduced it), an info when the
+fox is newer than the page. `tools/check_catalog.py --since` requires a
+`foxlib-c/VERSION` bump when its sources or the compiled-in defaults change
+and a `js/main.js` VERSION bump when anything the page serves changes.
 
 The transport belongs to the family, not to the connection: selecting a
 board of another family while a device is connected disconnects it first

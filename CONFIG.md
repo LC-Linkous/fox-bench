@@ -13,6 +13,12 @@ Rules that apply everywhere:
   in the banner. The fox still runs.
 - A file that fails to parse → every default, `cfg=default(parse)`.
 - No file → every default, `cfg=default(missing)`.
+- On the C firmware (`foxlib-c`), a file longer than its buffer (24 575
+  bytes) or with more JSON values than its parser holds (4096; a note is
+  three values) → every default, `cfg=default(too_large)`. The page checks
+  the same limits before it writes (`js/model/foxlibc-limits.js`, kept equal
+  to the C headers by `firmware/foxlib-c/tests/parity.py`): at most 16 songs
+  of 256 notes, 16 frequencies, 4 ranges, a 64-byte callsign.
 - Types are strict: `146.565` not `"146.565"`; `true` not `1`. JSON has
   one number type, so an integer field accepts `3.0` as `3`.
 - A top-level value that is not an object (a list, `null`) is treated as

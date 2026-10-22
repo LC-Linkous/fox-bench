@@ -11,7 +11,26 @@ the live site as it was.
 | REPL protocol and device layer against a fake CircuitPython board | `tests/unit/` | `cd tests && npm run unit` |
 | The page itself, every tab × every template on the demo board, in headless Chromium; the zips it exports are unpacked and booted in the firmware simulator (`run.py --deploy-set`) | `tests/page/` | `cd tests && npm run smoke` |
 
-Setup for the Node tests (once): `cd tests && npm ci && npx playwright install chromium`.
+Setup for the Node tests (once): `cd tests && npm ci && npx playwright
+install --with-deps chromium` (`--with-deps` pulls Chromium's system
+libraries on a fresh Linux box; on macOS and Windows plain `install
+chromium` is enough). The smoke test also needs `gcc`, `make` and
+`python3`: it boots the exported foxlib-c deploy set in the C host build
+(`make -C firmware/foxlib-c/tests build/host_sim`) and the Python one in
+`firmware/sim/run.py`. Chromium can be pointed at an existing build with
+`CHROMIUM=/path/to/chrome npm run smoke`.
+
+Everything CI runs, locally, from the repository root:
+
+```
+python3 tools/check_catalog.py && python3 tools/check_docs.py
+python3 firmware/sim/run.py
+make -C firmware/foxlib-c/tests check
+cd tests && npm run unit && npm run smoke
+```
+
+(The firmware itself needs the Arm toolchain named in
+`firmware/foxlib-c/README.md`; the tests above do not.)
 
 `SHOTS=/some/dir npm run smoke` also saves a screenshot of every tab, which
 CI keeps as an artifact for a week — useful for seeing what a failure looked

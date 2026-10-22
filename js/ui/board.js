@@ -1,5 +1,6 @@
 // board.js — Board tab: which fox is on the bench, connect to it, what is on it, flash it if bare.
 // SPDX-License-Identifier: GPL-2.0-only
+import { cmpVersion } from '../model/compat.js';
 import { h, badge, field, select } from './dom.js';
 import { download } from '../model/profiles.js';
 import { flashCard, onChange as onFlashChange } from './flash.js';
@@ -35,6 +36,14 @@ function diagCard() {
       h('button.btn.small', { onclick: () => download(`fox-bench-diagnostics-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.json`, JSON.stringify(app.diagnostics(), null, 1), 'application/json') }, 'Download diagnostics'),
       h('button.btn.small', { onclick: async e => { try { await navigator.clipboard.writeText(JSON.stringify(app.diagnostics(), null, 1)); e.target.textContent = 'Copied'; setTimeout(() => { e.target.textContent = 'Copy to clipboard'; }, 1200); } catch { app.console.err('clipboard unavailable'); } } }, 'Copy to clipboard')));
   return diag;
+}
+
+/** The fox's foxlib-c version against the one this site builds. */
+function fwBadge(app, v) {
+  const fox = String(v || '').replace(/^c-/, ''), hosted = app.catalog.foxlibcVersion;
+  if (!fox || !hosted || fox === 'demo') return '';
+  const c = cmpVersion(fox, hosted);
+  return c === 0 ? badge('matches this site', 'ok') : c < 0 ? badge(`this site builds ${hosted} — update from the firmware card`, 'warn') : badge(`newer than this page (${hosted})`, 'info');
 }
 
 function render() {
@@ -115,9 +124,10 @@ function renderFoxlibC() {
       : ob.listening ? h('dl.kv', {},
         h('dt', {}, 'Console'), h('dd', {}, 'listening', ob.template ? '' : badge('no banner yet — it prints when the port opens and after every reload', 'warn')),
         h('dt', {}, 'Board id'), h('dd', {}, info.boardId || '—'), h('dt', {}, 'Chip UID'), h('dd', {}, info.uid || '—'),
-        h('dt', {}, 'Firmware'), h('dd', {}, ob.foxlibVersion ? `foxlib-${ob.foxlibVersion}` : '—'), h('dt', {}, 'Template on board'), h('dd', {}, ob.template || '—'))
+        h('dt', {}, 'Firmware'), h('dd', {}, ob.foxlibVersion ? `foxlib-${ob.foxlibVersion}` : '—', fwBadge(app, ob.foxlibVersion)), h('dt', {}, 'Template on board'), h('dd', {}, ob.template || '—'))
       : h('dl.kv', {},
         h('dt', {}, 'Drive'), h('dd', {}, info.driveName || '—', ob.cfg ? '' : badge('no fox.json', 'warn')),
+        h('dt', {}, 'Firmware'), h('dd', {}, ob.foxlibVersion ? `foxlib-${ob.foxlibVersion}` : '— (no board.json: firmware before 0.1.4)', fwBadge(app, ob.foxlibVersion)),
         h('dt', {}, 'Files'), h('dd', {}, Object.entries(ob.files || {}).sort().map(([n, f]) => `${n} (${f.size} B)`).join('  ') || '(empty)'),
         h('dt', {}, 'Template on board'), h('dd', {}, ob.template || '—'),
         h('dt', {}, 'fox.json'), h('dd', {}, ob.cfg ? `${ob.cfg.id?.callmessage} · ${(ob.cfg.plan?.frequencies_mhz || []).join(', ')} MHz` : ob.raw ? badge('invalid JSON', 'err') : '—')),
