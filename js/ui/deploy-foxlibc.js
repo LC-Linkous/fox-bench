@@ -30,6 +30,7 @@ const powerText = cfg => `${(app.module.power_dbm.high - (cfg.radio.attenuation 
 async function write(btn, render) {
   if (busy) return;
   const d = app.device, cfg = app.validCfg, log = app.console;
+  { const why = app.deployBlocker(); if (why) { log.err(`deploy refused: ${why}`); return; } }
   busy = true; setLast(null); render();
   try {
     const fs = files(cfg);
@@ -63,7 +64,8 @@ export function render(root, rerender) {
   const errs = [...app.report.map(r => ({ level: 'err', key: r.key, msg: r.reason })), ...app.issues];
   const blocking = errs.filter(e => e.level === 'err' && e.blocking !== false);
   const overrides = errs.filter(e => e.level === 'err' && e.blocking === false);
-  const ready = app.connected && !app.onBoard.listening && !blocking.length && gateOk && !busy;
+  const transportWhy = app.deployBlocker();
+  const ready = !transportWhy && !blocking.length && gateOk && !busy;
   const at = airtime(cfg, { images: app.images });
   const lim = cfg.limits;
   const fs = files(cfg);
@@ -86,7 +88,7 @@ export function render(root, rerender) {
       h('label.gate', {}, h('input', { type: 'checkbox', checked: gateOk, onchange: e => { gateOk = e.target.checked; rerender(); } }), h('span', {}, h('b', {}, 'An antenna or dummy load is on the fox.'), cfg.radio.tx_while_mounted === false ? ' It transmits once the drive is ejected.' : ' It transmits within seconds of the reload, with the drive still mounted.')),
       h('div.tools', {}, h('button.btn.primary', { disabled: !ready, onclick: e => write(e.currentTarget, rerender) }, busy ? 'Writing…' : `Write to the ${b.drive?.label || 'drive'}`),
         h('button.btn', { disabled: !!blocking.length || busy, title: 'The same two files, to copy onto the drive by hand', onclick: exportZip }, 'Export files (.zip)'),
-        !app.connected || app.onBoard.listening ? h('span.hint', {}, `Open the ${b.drive?.label || 'drive'} to write (Listen only is the serial console, not the drive), or export the zip.`) : blocking.length ? h('span.hint.err', {}, 'Fix the blocking checks above.') : overrides.length ? h('span.hint.err', {}, `${overrides.length} out-of-band override${overrides.length === 1 ? '' : 's'} — you will be asked to confirm.`) : null),
+        !app.connected || app.onBoard.listening ? h('span.hint', {}, `Open the ${b.drive?.label || 'drive'} to write (Listen only is the serial console, not the drive), or export the zip.`) : transportWhy ? h('span.hint.err', {}, transportWhy) : blocking.length ? h('span.hint.err', {}, 'Fix the blocking checks above.') : overrides.length ? h('span.hint.err', {}, `${overrides.length} out-of-band override${overrides.length === 1 ? '' : 's'} — you will be asked to confirm.`) : null),
       last ? resultBox(last) : null),
     h('div.card', {}, h('h3', {}, 'Save as profile'),
       h('p.hint', {}, 'Keep this whole configuration under a name (Profiles & fleet tab). Saving here writes nothing to the drive.'),

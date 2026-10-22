@@ -19,6 +19,7 @@ function powerText(cfg) {
 async function write(btn, render) {
   if (busy) return;
   const d = app.device, v = app.vendor, cfg = app.validCfg, log = app.console;
+  { const why = app.deployBlocker(); if (why) { log.err(`deploy refused: ${why}`); return; } }
   busy = true; setLast(null); render();
   try {
     const files = v.files(cfg);
@@ -51,7 +52,8 @@ export function render(root, rerender) {
   const v = app.vendor, cfg = app.validCfg || app.cfg, b = app.board;
   const errs = [...app.report.map(r => ({ level: 'err', key: r.key, msg: r.reason })), ...app.issues];
   const blocking = errs.filter(e => e.level === 'err');
-  const ready = app.connected && !blocking.length && gateOk && !busy;
+  const transportWhy = app.deployBlocker();
+  const ready = !transportWhy && !blocking.length && gateOk && !busy;
   const files = v.files(cfg), cyc = v.cycle(cfg, 3600000);
   const sizes = files.map(f => typeof f.data === 'string' ? f.data.length : f.data.length);
   const ob = app.onBoard, cur = ob.settings, next = v.parseSettings(files[0].data);
@@ -72,7 +74,7 @@ export function render(root, rerender) {
       h('label.gate', {}, h('input', { type: 'checkbox', checked: gateOk, onchange: e => { gateOk = e.target.checked; rerender(); } }), h('span', {}, h('b', {}, 'An antenna or dummy load will be on the fox when it is switched back on.'), ' It transmits within seconds of booting with the drive unmounted.')),
       h('div.tools', {}, h('button.btn.primary', { disabled: !ready, onclick: e => write(e.currentTarget, rerender) }, busy ? 'Writing…' : `Write files to the ${b.drive?.label || 'drive'}`),
         h('button.btn', { disabled: !!blocking.length || busy, title: 'The same four files, to copy onto the drive by hand', onclick: exportZip }, 'Export files (.zip)'),
-        !app.connected ? h('span.hint', {}, `Open the ${b.drive?.label || 'drive'} to write, or export the zip and copy by hand.`) : blocking.length ? h('span.hint.err', {}, 'Fix the blocking checks above.') : null),
+        !app.connected ? h('span.hint', {}, `Open the ${b.drive?.label || 'drive'} to write, or export the zip and copy by hand.`) : transportWhy ? h('span.hint.err', {}, transportWhy) : blocking.length ? h('span.hint.err', {}, 'Fix the blocking checks above.') : null),
       last ? resultBox(last) : null),
     h('div.card', {}, h('h3', {}, 'Save as profile'),
       h('p.hint', {}, 'Keep this whole configuration under a name (Profiles & fleet tab). Saving here writes nothing to the drive.'),

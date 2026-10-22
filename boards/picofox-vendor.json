@@ -12,16 +12,22 @@
     "stock_firmware_files": [
       {
         "name": "pfoxr3v1.uf2",
-        "url": "https://raw.githubusercontent.com/ai6ym/PicoFox/main/releases/pfoxr3v1.uf2",
-        "note": "the vendor firmware (rev 2 and rev 3 boards; it detects the revision)"
+        "url": "https://raw.githubusercontent.com/ai6ym/PicoFox/c69af3a6079e42637678bccb91373134535c4ce6/releases/pfoxr3v1.uf2",
+        "note": "the vendor firmware (rev 2 and rev 3 boards; it detects the revision)",
+        "sha256": "dfd60ffda02bc7b71fbcd1ecf6a5cc8e0477cda512b95885655244a94bacf5e6",
+        "size": 354304
       },
       {
         "name": "pfoxr3-forceformat.uf2",
-        "url": "https://raw.githubusercontent.com/ai6ym/PicoFox/main/releases/pfoxr3-forceformat.uf2",
+        "url": "https://raw.githubusercontent.com/ai6ym/PicoFox/c69af3a6079e42637678bccb91373134535c4ce6/releases/pfoxr3-forceformat.uf2",
         "recovery": true,
-        "note": "recovery only: reformats the drive at EVERY boot, so files written to it vanish at the next power cycle and the fox stays silent. Use it to wipe a corrupt volume, then flash pfoxr3v1 before writing any files."
+        "note": "recovery only: reformats the drive at EVERY boot, so files written to it vanish at the next power cycle and the fox stays silent. Use it to wipe a corrupt volume, then flash pfoxr3v1 before writing any files.",
+        "sha256": "d078b4a4cee121a8c68bf8b09454adda5f4028d393cb37353e79e6a463cc260d",
+        "size": 354304
       }
-    ]
+    ],
+    "stock_firmware_pinned_commit": "c69af3a6079e42637678bccb91373134535c4ce6",
+    "stock_firmware_pin_note": "The files below are fetched at a fixed commit of the vendor's repository and checked against the sha256 recorded here before they can be copied, so a change on the vendor's branch is seen, never flashed unseen. To take a newer vendor release: update the commit, the url, size and sha256 together (sha256sum of the downloaded file)."
   },
   "drive": {
     "label": "PicoFox",

@@ -5,6 +5,7 @@ import { loadCatalog, loadDefaults } from './model/loaders.js';
 import { mergeAndValidate, pageChecks } from './model/schema.js';
 import { parseBanner } from './device/device.js';
 import { profiles } from './model/profiles.js';
+import { deployBlocker } from './model/transport.js';
 import { TABLE as MORSE } from './audio/morse.js';
 import { hasWebSerial, SerialLink } from './device/serial-link.js';
 import { ReplDevice } from './device/repl-device.js';
@@ -25,7 +26,7 @@ import * as tabBench from './ui/bench.js';
 import * as tabFleet from './ui/fleet.js';
 import * as tabAbout from './ui/about.js';
 
-const VERSION = '0.6.0';
+const VERSION = '0.6.1';
 /** Tab subtitles that read differently per device family (null = the page's original text). */
 const LEDES = { drive: {
   board: 'Which fox is on the bench, open its USB drive (or use the simulated one). The vendor firmware stays; the page writes its files.',
@@ -62,6 +63,9 @@ export const app = {
   /** Device family of the selected board: 'foxlib' (CircuitPython + our firmware, REPL), 'drive' (vendor firmware, files on a USB
    *  drive) or 'foxlib-c' (fox-bench's native firmware: fox.json on its FOXBENCH drive, banner and bench on its serial console). */
   get family() { return this.board.family || 'foxlib'; },
+  /** Null when the connected device can take a deploy for the selected board; otherwise the reason, in words
+   *  (js/model/transport.js). Deploy modules refuse anything else, whatever the top bar says. */
+  deployBlocker() { return deployBlocker({ device: this.device, board: this.board, onBoard: this.onBoard }); },
   /** Families configured through files on a USB drive rather than a REPL. */
   get usesDrive() { return this.family === 'drive' || this.family === 'foxlib-c'; },
   /** The foxlib-c console to send bench commands to: the Listen-only device, or the demo's side console. */
@@ -122,8 +126,19 @@ export const app = {
     this.cfg = next;
     this.changed('template');
   },
-  async setBoard(id) {
+  /** Selecting a board of another family while a device is connected: that device speaks the old family's protocol
+   *  (REPL vs drive vs console), so it is disconnected first — a deploy must never go out over the wrong transport.
+   *  _followBanner passes keepDevice: it swaps the device itself. */
+  async _leaveFamilyFor(id, keepDevice) {
+    const next = this.catalog.boards[id]; if (!next || keepDevice || !this.device) return;
+    if ((next.family || 'foxlib') === this.family) return;
+    const was = this.board.name;
+    await this.disconnect();
+    this.console.line(`disconnected from the ${was}: ${next.name} is a different kind of board (${(next.family || 'foxlib') === 'foxlib' ? 'REPL' : 'USB drive'}), connect it when you are ready to deploy`, 'ok');
+  },
+  async setBoard(id, { keepDevice = false } = {}) {
     if (this.catalog.boards[id]?.status === 'planned') { this.console.err(`${this.catalog.boards[id].name} is not available yet`); this.changed('board'); return; }
+    await this._leaveFamilyFor(id, keepDevice);
     const prevFamily = this.family, prev = this.cfg;
     this.boardId = id;
     if (this.board.module_fixed) this.moduleId = this.board.module_fixed;
@@ -147,7 +162,7 @@ export const app = {
   /** Load a complete config (from the board or a profile) into the working copy. */
   async loadCfg(cfg, { source = 'load' } = {}) {
     if (cfg.template && this.catalog.templates[cfg.template]) this.templateId = cfg.template;
-    if (cfg.board && this.catalog.boards[cfg.board]) this.boardId = cfg.board;
+    if (cfg.board && this.catalog.boards[cfg.board]) { await this._leaveFamilyFor(cfg.board, false); this.boardId = cfg.board; }
     if (cfg.module && this.catalog.modules[cfg.module]) this.moduleId = cfg.module;
     this.defaults = await loadDefaults(this.templateId, this.boardId);
     this.cfg = this.family === 'drive' ? this.vendor.validate(cfg, this.defaults, this.board).cfg : mergeAndValidate(cfg, this.defaults, this.board).cfg;
@@ -215,7 +230,7 @@ export const app = {
     if (!this.device?.listening || !b.board || b.board === this.boardId || !this.catalog.boards[b.board] || this.catalog.boards[b.board].status === 'planned') return;
     const wasFamily = this.family;
     this.console.dim(`banner says ${b.board}: selecting that board`);
-    await this.setBoard(b.board);
+    await this.setBoard(b.board, { keepDevice: true });
     const wantConsole = this.family === 'foxlib-c';
     if (wantConsole !== (this.device.kind === 'console') && this.device.link) {
       const link = this.device.link, onLog = this.device.onLog;

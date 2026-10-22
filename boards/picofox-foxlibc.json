@@ -9,7 +9,9 @@
     "kind": "foxlib-c",
     "note": "fox-bench's own firmware for the PicoFox hardware (C, Pico SDK, GPL-3.0-or-later): the fox.json contract and the same templates as the CircuitPython foxes, FM at 8 kHz with pre-emphasis, banner and bench commands on its USB serial console. On air since October 2026 (rev 3 board). Flash it from this card; the vendor firmware goes back the same way.",
     "image": "firmware/foxlib-c/picofox/foxbench-picofox.uf2",
-    "version_file": "firmware/foxlib-c/VERSION"
+    "version_file": "firmware/foxlib-c/VERSION",
+    "build_info": "firmware/foxlib-c/picofox/foxbench-picofox.json",
+    "build_info_note": "written by CI beside the UF2: {version, commit, pico_sdk, gcc, sha256, size, text, bss, built}; the Board tab shows it and checks a fetched image against sha256/size"
   },
   "drive": {
     "label": "FOXBENCH",

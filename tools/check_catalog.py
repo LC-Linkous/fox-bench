@@ -125,6 +125,15 @@ for bid in board_ids:
             if k not in t: bad(rel, f"drive-family target missing {k}")
         if t.get("vendor") and not exists(f"js/model/vendor/{t['vendor']}.js"): bad(rel, f"vendor model js/model/vendor/{t['vendor']}.js missing")
         if "notes" not in hw: bad(rel, "drive-family hardware should carry the firmware's quirk notes")
+        # vendor images the page fetches live must be pinned: a commit in the URL, and the sha256/size the page checks
+        fw = t.get("firmware", {})
+        pin = fw.get("stock_firmware_pinned_commit", "")
+        for f in fw.get("stock_firmware_files", []):
+            n = f.get("name", "?")
+            if not re.fullmatch(r"[0-9a-f]{40}", pin): bad(rel, f"stock_firmware_files ({n}): firmware.stock_firmware_pinned_commit must be a 40-hex commit")
+            elif pin not in f.get("url", ""): bad(rel, f"stock_firmware_files ({n}): url does not contain the pinned commit (a branch name would move under the page)")
+            if not re.fullmatch(r"[0-9a-f]{64}", str(f.get("sha256", ""))): bad(rel, f"stock_firmware_files ({n}): sha256 missing or not 64 hex")
+            if not isinstance(f.get("size"), int) or f["size"] <= 0 or f["size"] % 512: bad(rel, f"stock_firmware_files ({n}): size must be a positive multiple of 512 (UF2 blocks)")
     if fam == "foxlib-c":
         for k in ("module_fixed", "drive"):
             if k not in t: bad(rel, f"foxlib-c target missing {k}")

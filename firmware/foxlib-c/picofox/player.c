@@ -25,6 +25,12 @@ static volatile player_status_t st;
 static volatile play_req_t *volatile cur;   /* the pointer itself is shared across cores: core 0 spins on it in player_stop */
 static volatile uint32_t keyed_at_ms;
 static volatile bool core1_ready;
+static volatile bool hold_req, held;        /* core 0 asks the FM loop to step off the bus; core 1 says it has */
+static volatile bool dead;                  /* core 1 missed a deadline: never wait on it again */
+
+#define CALL_TIMEOUT_US 1000000             /* a command is acknowledged within one sample period; this is 8000x that */
+#define STOP_TIMEOUT_US 200000
+#define HOLD_TIMEOUT_US 5000
 
 /* ---------------- core 1 side ---------------- */
 
@@ -54,17 +60,19 @@ static void atten_write(int code) {
 }
 
 static void core1_setup(void) {
-    gpio_init(PICOFOX_PIN_AMP_EN); gpio_set_dir(PICOFOX_PIN_AMP_EN, true); amp_enable(false);
+    /* amp enable: drive the latch high (off) before the pin becomes an output -- gpio_init leaves it at 0 (= on) */
+    gpio_init(PICOFOX_PIN_AMP_EN); amp_enable(false); gpio_set_dir(PICOFOX_PIN_AMP_EN, true);
     gpio_init(PICOFOX_PIN_ATTN_LE); gpio_set_dir(PICOFOX_PIN_ATTN_LE, true); gpio_put(PICOFOX_PIN_ATTN_LE, 0);
     const uint ids[] = { PICOFOX_PIN_ID0, PICOFOX_PIN_ID1, PICOFOX_PIN_ID2, PICOFOX_PIN_ID3 };
     for (int i = 0; i < 4; i++) { gpio_init(ids[i]); gpio_set_dir(ids[i], false); gpio_pull_down(ids[i]); }
     gpio_init(PICOFOX_PIN_CHG_SENSE); gpio_set_dir(PICOFOX_PIN_CHG_SENSE, false); gpio_pull_up(PICOFOX_PIN_CHG_SENSE);
     sleep_ms(2);
     st.revision = gpio_get(PICOFOX_PIN_ID0) ? 3 : 2;
+    si5351_bus_clear(PICOFOX_PIN_SDA, PICOFOX_PIN_SCL);   /* a reset mid-transfer can leave the Si5351 holding SDA */
     i2c_init(i2c0, I2C_HZ);
     gpio_set_function(PICOFOX_PIN_SDA, GPIO_FUNC_I2C); gpio_set_function(PICOFOX_PIN_SCL, GPIO_FUNC_I2C);
-    st.si5351_ok = si5351_init(i2c0, 25e6);
-    st.keyed = false; st.carrier_hz = 0; st.attenuation = 0;
+    st.si5351_ok = si5351_init(i2c0, 25e6, PICOFOX_PIN_SDA, PICOFOX_PIN_SCL);
+    st.keyed = false; st.carrier_hz = 0; st.attenuation = 0; st.core1_alive = true;
 }
 
 static void key(bool on) {
@@ -89,6 +97,10 @@ static void play_loop(volatile play_req_t *req) {
             if (c == CMD_STOP) { req->cut = true; break; }
         }
         if (req->max_samples && n >= req->max_samples) { req->cut = true; break; }
+        if (hold_req) {                 /* core 0 is about to write flash: wait here, off the bus, until it is done */
+            held = true; while (hold_req) tight_loop_contents(); held = false;
+            deadline = time_us_64(); req->late++;
+        }
         int16_t smp = synth_next(&s);
         int32_t counts = (int32_t)(((int64_t)smp * req->dev_counts) >> 15);
         deadline += period;
@@ -99,6 +111,7 @@ static void play_loop(volatile play_req_t *req) {
         n++; req->played = n;
     }
     si5351_set_offset(0);
+    st.i2c_errors = si5351_bus_errors();
     req->done = true;
 }
 
@@ -126,10 +139,19 @@ static void core1_main(void) {
 
 /* ---------------- core 0 side ---------------- */
 
+/* Core 1 stopped answering: the transmitter must not depend on it. The amplifier enable is a GPIO,
+ * so core 0 switches it off itself; the Si5351 output stays as it was until the next reboot
+ * (si5351_init disables it first thing), which the watchdog brings about if core 1 is hung. */
+void player_emergency_unkey(void) { gpio_put(PICOFOX_PIN_AMP_EN, 1); st.keyed = false; keyed_at_ms = 0; }
+static void core1_lost(void) { if (!dead) { dead = true; st.core1_alive = false; player_emergency_unkey(); } }
+bool player_alive(void) { return !dead; }
+
 static uint32_t call1(uint32_t cmd, uint32_t arg) {
+    if (dead) return RESP_FAIL;
     uint32_t seq = mbox.seq + 1;
     mbox.cmd = cmd; mbox.arg = arg; __dmb(); mbox.seq = seq;
-    while (mbox.ack_seq != seq) tight_loop_contents();
+    uint64_t t0 = time_us_64();
+    while (mbox.ack_seq != seq) { if (time_us_64() - t0 > CALL_TIMEOUT_US) { core1_lost(); return RESP_FAIL; } tight_loop_contents(); }
     __dmb();
     return mbox.result;
 }
@@ -152,11 +174,24 @@ void player_play(play_req_t *req) {
 }
 
 void player_stop(void) {
-    if (!cur) return;
-    call(CMD_STOP);
-    while (cur) tight_loop_contents();   /* core 1 clears it when play_loop has returned */
+    if (!cur || dead) return;
+    if (call(CMD_STOP) != RESP_OK && dead) return;
+    uint64_t t0 = time_us_64();
+    while (cur) { if (time_us_64() - t0 > STOP_TIMEOUT_US) { core1_lost(); return; } tight_loop_contents(); }   /* core 1 clears it when play_loop has returned */
     __dmb();
 }
+
+/* Flash writes park core 1 wherever it is (flash_safe_execute). Parked inside an I2C write, the SDK's
+ * timeout then abandons the transfer without a STOP (si5351.c recovers, but at the cost of a bad
+ * sample and a full register rewrite). So before each flash write core 0 asks the FM loop to wait
+ * between two samples; an idle core 1 is not on the bus anyway. */
+void player_bus_hold(void) {
+    if (dead || !cur) return;
+    hold_req = true;
+    uint64_t t0 = time_us_64();
+    while (!held && cur && time_us_64() - t0 < HOLD_TIMEOUT_US) tight_loop_contents();
+}
+void player_bus_release(void) { hold_req = false; }
 
 bool player_busy(void) { return cur != NULL; }
 

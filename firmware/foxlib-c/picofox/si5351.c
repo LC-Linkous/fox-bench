@@ -21,16 +21,52 @@ static uint32_t out_div = 6;
 static uint32_t pll_a, pll_b;          /* nominal PLL multiplier a + b/c for the current carrier */
 static bool present;
 static uint8_t last_regs[6];
+static bool regs_valid;                /* the chip is known to hold last_regs in 28..33 (false after any bus error) */
+static uint32_t bus_errors;
+static uint sda_pin, scl_pin;
+
+/* Nine clocks with SDA released, then a STOP: frees a slave left holding SDA low by a reset
+ * or an aborted transfer (the Si5351 has no reset pin). Done with the pins as GPIO. */
+void si5351_bus_clear(unsigned sda, unsigned scl) {
+    gpio_set_function(sda, GPIO_FUNC_SIO); gpio_set_function(scl, GPIO_FUNC_SIO);
+    gpio_set_dir(sda, false); gpio_pull_up(sda);                       /* SDA released (input, pulled up) */
+    gpio_put(scl, 1); gpio_set_dir(scl, true); gpio_pull_up(scl); busy_wait_us(5);
+    for (int i = 0; i < 9 && !gpio_get(sda); i++) { gpio_put(scl, 0); busy_wait_us(5); gpio_put(scl, 1); busy_wait_us(5); }
+    /* STOP: SDA low -> high while SCL high */
+    gpio_put(sda, 0); gpio_set_dir(sda, true); busy_wait_us(5); gpio_set_dir(sda, false); busy_wait_us(5);
+    gpio_set_function(sda, GPIO_FUNC_I2C); gpio_set_function(scl, GPIO_FUNC_I2C);
+}
+
+/* A write that timed out (core 1 was parked by a flash write mid-transfer, or the chip stopped
+ * answering) leaves the controller's transfer open: the SDK issues no STOP on a timeout, and the
+ * next write's bytes would be appended to the open transfer -- the Si5351 would take the register
+ * address as data. Abort the controller (which issues the STOP and flushes the FIFO); if that does
+ * not come back, clear the bus by hand and re-init. Either way the chip's 28..33 are unknown now. */
+static void recover(void) {
+    bus_errors++; regs_valid = false;
+    i2c_hw_t *hw = bus->hw;
+    hw->enable |= I2C_IC_ENABLE_ABORT_BITS;
+    uint64_t t0 = time_us_64();
+    while ((hw->enable & I2C_IC_ENABLE_ABORT_BITS) && time_us_64() - t0 < 2000) tight_loop_contents();
+    (void)hw->clr_tx_abrt; (void)hw->clr_intr;
+    bus->restart_on_next = false;
+    if (hw->enable & I2C_IC_ENABLE_ABORT_BITS) {    /* controller stuck: the slave holds the bus */
+        uint baud = 1000000;
+        i2c_deinit(bus); si5351_bus_clear(sda_pin, scl_pin); i2c_init(bus, baud);
+    }
+}
 
 static bool wr(uint8_t reg, const uint8_t *data, int n) {
     uint8_t buf[12]; buf[0] = reg; memcpy(buf + 1, data, (size_t)n);
-    return i2c_write_timeout_us(bus, ADDR, buf, n + 1, false, 2000) == n + 1;
+    if (i2c_write_timeout_us(bus, ADDR, buf, n + 1, false, 2000) == n + 1) return true;
+    recover();
+    return false;
 }
 static bool wr1(uint8_t reg, uint8_t v) { return wr(reg, &v, 1); }
 static int rd1(uint8_t reg) {
     uint8_t v;
-    if (i2c_write_timeout_us(bus, ADDR, &reg, 1, true, 2000) != 1) return -1;
-    if (i2c_read_timeout_us(bus, ADDR, &v, 1, false, 2000) != 1) return -1;
+    if (i2c_write_timeout_us(bus, ADDR, &reg, 1, true, 2000) != 1) { recover(); return -1; }
+    if (i2c_read_timeout_us(bus, ADDR, &v, 1, false, 2000) != 1) { recover(); return -1; }
     return v;
 }
 
@@ -42,13 +78,15 @@ static void encode(uint32_t a, uint32_t b, uint32_t c, uint8_t out[8]) {
     out[5] = (uint8_t)(((p3 >> 12) & 0xF0) | ((p2 >> 16) & 0x0F)); out[6] = (uint8_t)(p2 >> 8); out[7] = (uint8_t)p2;
 }
 
-bool si5351_init(i2c_inst_t *i2c, double ref_hz) {
-    bus = i2c; xtal_hz = ref_hz; present = false;
+bool si5351_init(i2c_inst_t *i2c, double ref_hz, unsigned sda, unsigned scl) {
+    bus = i2c; xtal_hz = ref_hz; present = false; regs_valid = false; sda_pin = sda; scl_pin = scl;
     /* wait for SYS_INIT to clear (reg 0 bit 7), up to 100 ms */
     for (int i = 0; i < 20; i++) { int s = rd1(0); if (s >= 0 && !(s & 0x80)) { present = true; break; } sleep_ms(5); }
-    if (!present) return false;
-    wr1(3, 0xFF);                                   /* all outputs disabled */
+    /* Outputs off first, whatever the status read said: a reset (bootsel, watchdog) does not touch
+     * this chip, so it may still be running the last carrier. Try even when it looks absent. */
+    bool off = wr1(3, 0xFF);                        /* all outputs disabled */
     for (uint8_t r = 16; r <= 23; r++) wr1(r, 0x80); /* all drivers powered down */
+    if (!present) { present = off && rd1(0) >= 0; if (!present) return false; }
     wr1(183, 0x52);                                 /* XTAL_CL: 6 pF (external CMOS reference on XA) */
     wr1(15, 0x00);                                  /* PLLA/PLLB from XTAL input */
     wr1(149, 0x00);                                 /* spread spectrum off */
@@ -79,11 +117,11 @@ bool si5351_set_carrier(double hz) {
     pll_b = (uint32_t)((mult - pll_a) * C_DEN + 0.5);
     if (pll_b >= C_DEN) { pll_b = 0; pll_a++; }
     uint8_t regs[8]; encode(pll_a, pll_b, C_DEN, regs);
-    wr(26, regs, 8);
-    memcpy(last_regs, regs + 2, 6);
-    if (div_changed) { uint8_t ms[8]; encode(out_div, 0, 1, ms); wr(42, ms, 8); }
-    wr1(177, 0x20);                                 /* PLLA reset after an integer-part / divider change */
-    return true;
+    bool ok = wr(26, regs, 8);
+    memcpy(last_regs, regs + 2, 6); regs_valid = ok;
+    if (div_changed) { uint8_t ms[8]; encode(out_div, 0, 1, ms); ok &= wr(42, ms, 8); }
+    ok &= wr1(177, 0x20);                           /* PLLA reset after an integer-part / divider change */
+    return ok;
 }
 
 double si5351_carrier_hz(void) { return xtal_hz * (pll_a + (double)pll_b / C_DEN) / out_div; }
@@ -98,16 +136,19 @@ void si5351_set_offset(int32_t counts) {
     while (b < 0) { b += C_DEN; a--; }
     while (b >= (int64_t)C_DEN) { b -= C_DEN; a++; }
     uint8_t regs[8]; encode(a, (uint32_t)b, C_DEN, regs);
-    /* only P1/P2 change: write registers 28..33 (6 bytes). Skip the bus when nothing changed. */
-    if (!memcmp(last_regs, regs + 2, 6)) return;
+    /* only P1/P2 change: write registers 28..33 (6 bytes). Skip the bus when nothing changed. After a
+     * bus error the chip's registers are unknown: rewrite the whole 26..33 block once. */
+    if (regs_valid && !memcmp(last_regs, regs + 2, 6)) return;
     memcpy(last_regs, regs + 2, 6);
-    wr(28, regs + 2, 6);
+    regs_valid = regs_valid ? wr(28, regs + 2, 6) : wr(26, regs, 8);
 }
 
-void si5351_output(bool on) {
-    if (!present) return;
-    wr1(3, on ? 0xFE : 0xFF);     /* bit 0 = CLK0 output disable */
+bool si5351_output(bool on) {
+    if (!present) return false;
+    return wr1(3, on ? 0xFE : 0xFF);     /* bit 0 = CLK0 output disable */
 }
+
+uint32_t si5351_bus_errors(void) { return bus_errors; }
 
 void si5351_drive(uint8_t ma) {
     uint8_t v = 0x4C | (ma >= 8 ? 3 : ma >= 6 ? 2 : ma >= 4 ? 1 : 0);

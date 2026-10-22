@@ -235,9 +235,13 @@ try {
   check(/fox-bench-diagnostics-.*\.json/.test(dl3.suggestedFilename()), 'diagnostics downloads as JSON');
 
   console.log('PicoFox (drive family)');
-  await page.click('#demoBtn'); await settle(300);                       // leave the C3 demo
+  // switching to another family while the C3 demo is connected disconnects it: that device speaks the REPL, and a
+  // deploy for the PicoFox must never go out over it
+  eq(await app(() => window.foxbench.connected), true, 'C3 demo still connected before the family switch');
   await tab('board');
   await page.selectOption('#tab-board select', 'picofox-vendor'); await settle(400);
+  eq(await app(() => window.foxbench.connected), false, 'selecting a board of another family disconnects the old device');
+  check(/different kind of board/.test(await text('#log')), 'the console says why it disconnected');
   eq(await app(() => window.foxbench.family), 'drive', 'family switches with the board');
   eq(await app(() => window.foxbench.templateId), 'picofox', 'template switched to the board\'s only template');
   eq(await app(() => window.foxbench.cfg.id.callmessage), 'W1ABC FOX DE W1ABC', 'callsign carried across the board switch');
@@ -290,6 +294,8 @@ try {
   eq(await app(() => window.foxbench.templateId), 'morse-songs', 'template switched to the first template of the family (keeps morse-songs)');
   eq(await app(() => window.foxbench.cfg.id.callmessage), 'KY4ZR FOX DE KY4ZR', 'callsign carried across the board switch');
   check(/does not run CircuitPython/.test(await text('#tab-board')) && /Get fox-bench firmware/.test(await text('#tab-board')), 'Board tab offers the hosted fox-bench firmware');
+  await settle(300);
+  check(/Hosted build:.*no build info on this site/.test(await text('#tab-board')), 'without CI\'s fingerprint file the card says the image is checked as a UF2 only');
   check(/Open FOXBENCH/.test(await text('#connectBtn')), 'Connect button names the FOXBENCH drive');
   check(await page.isVisible('.rail button[data-tab="bench"]'), 'Bench tab shown (console commands)');
   await tab('behavior');
@@ -378,7 +384,8 @@ try {
 } catch (e) {
   failures++; console.log('  FAIL exception: ' + (e.stack || e));
 } finally {
-  const real = [...new Set(errors)].filter(e => !/^error: Failed to load resource/.test(e));   // those are reported with their URL by the response/requestfailed listeners
+  const real = [...new Set(errors)].filter(e => !/^error: Failed to load resource/.test(e))   // those are reported with their URL by the response/requestfailed listeners
+    .filter(e => !/http 404 .*foxbench-picofox\.json$/.test(e));   // the build fingerprint exists only on the deployed site (CI writes it beside the UF2); the page says so
   if (real.length) { failures += real.length; console.log('console errors:\n  ' + real.join('\n  ')); } else console.log('  ok   no console errors or warnings');
   await browser.close(); await close();
   console.log(failures ? `\n${failures} failure(s)` : '\nall good');

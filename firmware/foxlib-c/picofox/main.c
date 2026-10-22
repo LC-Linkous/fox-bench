@@ -17,11 +17,13 @@
 #include "fox.h"
 #include "fs.h"
 #include "msc_disk.h"
+#include "hardware/watchdog.h"
 #include "pico/stdlib.h"
 #include "player.h"
 #include "tusb.h"
 
 #define RELOAD_SETTLE_MS 1500
+#define WATCHDOG_MS 8000
 
 int main(void) {
     board_init();
@@ -29,12 +31,18 @@ int main(void) {
     con_init();
     player_start();                 /* core 1: pins, I2C, Si5351 */
     tusb_init();
+    bool wd = watchdog_caused_reboot();
     fox_init();                     /* mount, seed, load, banner, go */
+    if (wd) con_puts("** previous run ended in a watchdog reset **\r\n");
+    /* Hardware watchdog from here on (first-boot formatting above may take longer than its period).
+     * Everything the loop waits on is bounded: flash writes 2 s, core 1 commands 1 s, stop 200 ms. */
+    watchdog_enable(WATCHDOG_MS, true);
 
     uint32_t seen_writes = msc_host_writes();
     bool banner_pending = false;
     bool was_connected = false;
     for (;;) {
+        watchdog_update();
         tud_task();
         con_poll();
         flash_disk_poll();

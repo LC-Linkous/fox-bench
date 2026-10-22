@@ -70,6 +70,7 @@ async function deploy(btn) {
   if (overrides.length && !confirm(`Deploy anyway?\n\n${overrides.map(o => '• ' + o.msg.replace(/ — .*$/, '')).join('\n')}\n\nThese are outside the ${app.region} amateur band table. Make sure this is intended (bench testing into a load, a different allocation, etc.).`)) return;
   busy = true; setLast(null); render();
   const d = app.device, cfg = app.validCfg, log = app.console;
+  { const why = app.deployBlocker(); if (why) { log.err(`deploy refused: ${why}`); return; } }
   const { files } = plan();
   try {
     await d.interrupt();                       // the fox may be running from a previous deploy or restart
@@ -101,7 +102,8 @@ function render() {
   const errs = [...app.report.map(r => ({ level: 'err', key: r.key, msg: r.reason })), ...app.issues];
   const blocking = errs.filter(e => e.level === 'err' && e.blocking !== false);
   const overrides = errs.filter(e => e.level === 'err' && e.blocking === false);
-  const ready = app.connected && !blocking.length && gateOk && !busy;
+  const transportWhy = app.deployBlocker();
+  const ready = !transportWhy && !blocking.length && gateOk && !busy;
   const lim = cfg.limits;
   root.replaceChildren(
     h('div.cols', {},
@@ -121,7 +123,7 @@ function render() {
       h('label.gate', {}, h('input', { type: 'checkbox', checked: gateOk, onchange: e => { gateOk = e.target.checked; render(); } }), h('span', {}, h('b', {}, 'Antenna or dummy load is connected.'), ' The fox transmits within seconds of rebooting, and keying the module with nothing on the RF connector can damage it.')),
       h('div.tools', {}, h('button.btn.primary', { disabled: !ready, onclick: e => deploy(e.currentTarget) }, busy ? 'Writing…' : 'Write to board and reboot'),
         h('button.btn', { disabled: !!blocking.length || busy, title: 'Download the same files as a zip, to copy onto a board by hand (Thonny or a CIRCUITPY drive)', onclick: exportZip }, 'Export deploy set (.zip)'),
-        !app.connected ? h('span.hint', {}, 'Connect a board to write, or export the zip.') : blocking.length ? h('span.hint.err', {}, 'Fix the blocking checks above.') : overrides.length ? h('span.hint.err', {}, `${overrides.length} out-of-band override${overrides.length === 1 ? '' : 's'} — you will be asked to confirm.`) : null),
+        !app.connected ? h('span.hint', {}, 'Connect a board to write, or export the zip.') : transportWhy ? h('span.hint.err', {}, transportWhy) : blocking.length ? h('span.hint.err', {}, 'Fix the blocking checks above.') : overrides.length ? h('span.hint.err', {}, `${overrides.length} out-of-band override${overrides.length === 1 ? '' : 's'} — you will be asked to confirm.`) : null),
       lastResult ? resultBox(lastResult) : null),
     h('div.card', {}, h('h3', {}, 'Save as profile'),
       h('p.hint', {}, 'Keep this whole configuration under a name so it can be loaded onto the next fox in a couple of clicks (Profiles & fleet tab). Saving here does not write anything to the board.'),

@@ -1,0 +1,156 @@
+# One workflow: the three test layers, then — on main only, and only when all three passed — the
+# Pages deploy, shipping the very UF2 the foxlib-c job built and tested rather than a second build.
+name: ci
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  page:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: tests/package-lock.json
+      - name: Install test dependencies
+        working-directory: tests
+        run: npm ci
+      - name: Install Chromium
+        working-directory: tests
+        run: npx playwright install --with-deps chromium
+      - name: Unit tests (REPL protocol, device layer, model)
+        working-directory: tests
+        run: npm run unit
+      - name: Page smoke test (every tab × every template on the demo board; exported zips booted in the firmware simulator and, for the foxlib-c target, in the C runner's host build)
+        working-directory: tests
+        run: SHOTS=../_shots npm run smoke
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: page-screenshots
+          path: _shots
+          retention-days: 7
+
+  sim:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - name: Syntax check (CircuitPython-compatible subset is not enforced here; the sim is)
+        run: python3 -m py_compile firmware/foxlib/*.py firmware/templates/*/code.py
+      - name: Catalog lint (descriptors, defaults through the firmware validator, index files, version bumps)
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [ -n "$BASE" ] && ! echo "$BASE" | grep -q '^0*$' && git cat-file -e "$BASE" 2>/dev/null; then
+            python3 tools/check_catalog.py --since "$BASE"
+          else
+            python3 tools/check_catalog.py
+          fi
+      - name: Simulator — every template, every scenario
+        run: python3 firmware/sim/run.py
+      - name: Bench script against the simulated board on a pty (tools/hw_smoke.py end to end)
+        run: |
+          pip install --quiet pyserial
+          python3 firmware/sim/pty_board.py --quiet > /tmp/port &
+          for i in $(seq 1 50); do [ -s /tmp/port ] && break; sleep 0.2; done; test -s /tmp/port
+          python3 tools/hw_smoke.py --port "$(cat /tmp/port)" --call "W1ABC FOX DE W1ABC" --yes-antenna --observe 0.5 --templates morse-songs,morse-sstv,resurrection --report /tmp/hw_smoke.json
+          python3 -c "import json; r=json.load(open('/tmp/hw_smoke.json')); assert all(t['ok'] and t['key']=='ok' for t in r['templates'].values()), r"
+      - name: Python / JS encoder parity
+        run: |
+          python3 firmware/sim/parity.py > /tmp/py.json
+          node firmware/sim/parity.mjs > /tmp/js.json
+          node firmware/sim/parity.mjs --compare /tmp/py.json /tmp/js.json
+      - name: Python / JS fox.json validator parity (same corpus, same effective config, same banner status)
+        run: |
+          python3 firmware/sim/schema_parity.py > /tmp/spy.json
+          node firmware/sim/schema_parity.mjs > /tmp/sjs.json
+          node firmware/sim/schema_parity.mjs --compare /tmp/spy.json /tmp/sjs.json
+
+  foxlib-c:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: Host build of the portable core + parity against foxlib (Morse, songs, schedules, cfg, synth)
+        run: make -C firmware/foxlib-c/tests check
+      # Pinned toolchain: the same compiler every time, by hash, so the UF2 on the site is reproducible from the
+      # commit (two builds of one commit are bit-identical). Bumping it is a deliberate commit here, not an image drift.
+      - name: Arm toolchain (xPack GCC 15.2.1-1.1, by sha256) + Pico SDK (2.1.1 by commit)
+        env:
+          TC_URL: https://github.com/xpack-dev-tools/arm-none-eabi-gcc-xpack/releases/download/v15.2.1-1.1/xpack-arm-none-eabi-gcc-15.2.1-1.1-linux-x64.tar.gz
+          TC_SHA256: da6a49ad4003944b823c6c93702a8787c922ab34bd7e918ec0eaf6933a9b1ff6
+          SDK_COMMIT: bddd20f928ce76142793bef434d4f75f4af6e433
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q cmake ninja-build
+          curl -sSL -o /tmp/tc.tar.gz "$TC_URL"
+          echo "$TC_SHA256  /tmp/tc.tar.gz" | sha256sum -c -
+          mkdir -p /tmp/tc && tar -xzf /tmp/tc.tar.gz -C /tmp/tc --strip-components=1
+          echo "/tmp/tc/bin" >> "$GITHUB_PATH"
+          git init -q /tmp/pico-sdk && git -C /tmp/pico-sdk fetch -q --depth 1 https://github.com/raspberrypi/pico-sdk.git "$SDK_COMMIT" && git -C /tmp/pico-sdk checkout -q FETCH_HEAD
+          git -C /tmp/pico-sdk submodule update -q --init --depth 1 lib/tinyusb
+      - name: Build the PicoFox UF2
+        env: { PICO_SDK_PATH: /tmp/pico-sdk }
+        run: |
+          arm-none-eabi-gcc --version | head -1
+          cmake -S firmware/foxlib-c/picofox -B /tmp/fxbuild -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build /tmp/fxbuild
+      - name: Fingerprint (foxbench-picofox.json beside the UF2) and RAM budget
+        env: { PICO_SDK_PATH: /tmp/pico-sdk }
+        run: python3 tools/build_info.py /tmp/fxbuild --bss-budget 220000
+      - uses: actions/upload-artifact@v4
+        with:
+          name: foxbench-picofox-uf2
+          path: |
+            /tmp/fxbuild/foxbench-picofox.uf2
+            /tmp/fxbuild/foxbench-picofox.json
+
+  deploy:
+    # Only after every test job passed, only for pushes to main. A failed job upstream skips this one,
+    # so a red suite leaves the live site as it was.
+    needs: [page, sim, foxlib-c]
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - name: The UF2 the foxlib-c job built and tested
+        uses: actions/download-artifact@v4
+        with:
+          name: foxbench-picofox-uf2
+          path: /tmp/uf2
+      - name: Stage site (page, descriptors, firmware the page deploys, docs)
+        run: |
+          mkdir -p _site
+          cp -r index.html css js flasher hardware boards modules songs bands.json firmware docs DESIGN.md CONFIG.md PROTOCOL.md LICENSES.md LICENSE _site/
+          rm -rf _site/firmware/sim _site/firmware/foxlib-c/tests/build
+          cp /tmp/uf2/foxbench-picofox.uf2 /tmp/uf2/foxbench-picofox.json _site/firmware/foxlib-c/picofox/
+          touch _site/.nojekyll   # Jekyll would drop foxlib/__init__.py (leading underscore)
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4

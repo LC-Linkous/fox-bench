@@ -5,5 +5,7 @@ _site/
 node_modules
 # build products (the UF2 is built by CI into the site; tests/build by make)
 firmware/foxlib-c/picofox/*.uf2
+firmware/foxlib-c/picofox/foxbench-picofox.json
+_shots/
 firmware/foxlib-c/tests/build/
 build/

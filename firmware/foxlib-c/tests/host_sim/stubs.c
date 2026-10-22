@@ -50,9 +50,13 @@ void player_play(play_req_t *req) {
 }
 void player_stop(void) { if (cur) { cur->cut = true; cur->done = true; cur = NULL; } }
 bool player_busy(void) { return cur != NULL; }
-void player_status(player_status_t *out) { memset(out, 0, sizeof *out); out->si5351_ok = true; out->revision = 3; out->carrier_hz = carrier; out->keyed = keyed; }
+void player_status(player_status_t *out) { memset(out, 0, sizeof *out); out->si5351_ok = true; out->revision = 3; out->carrier_hz = carrier; out->keyed = keyed; out->core1_alive = true; }
 uint32_t player_keyed_ms(void) { return keyed ? (uint32_t)(sim_now_us / 1000) - keyed_at : 0; }
 bool player_charging(void) { return sim_charging; }
+bool player_alive(void) { return true; }
+void player_bus_hold(void) {}
+void player_bus_release(void) {}
+void player_emergency_unkey(void) { if (keyed) { keyed = false; rec_ptt(false); } }
 void sim_player_tick(void) { if (cur && sim_now_us >= cur_end_us) { cur->done = true; cur = NULL; } }
 
 /* ---- si5351 math (what fox.c uses on core 0) */

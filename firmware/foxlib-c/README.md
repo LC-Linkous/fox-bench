@@ -52,6 +52,18 @@ VERSION      firmware version (the banner's foxlib=c-<version>)
   amplifier enable. Attenuation (rev 3) through the BVA1761 serial interface
   — written from the datasheet; the board accepts the codes, the dB per step is
   not yet confirmed with a power meter; never touched at attenuation 0.
+- **Staying off the air when it should**: the cycle's keydown budget is
+  enforced by the player in samples *and* by core 0 on the wall clock
+  (`keydown_guard`, 2 s grace; 10 min hard cap when the cfg has no limits);
+  if core 1 ever stops answering, core 0 switches the amplifier off itself,
+  reports `radio=core1_dead`, and the hardware watchdog (8 s) reboots the
+  board — `si5351_init` disables the outputs before anything else, even
+  when the chip does not answer its status read. `reboot`, `bootsel` and
+  the 1200-baud touch unkey first. Before every flash write core 0 parks
+  the FM loop between two samples so the lockout never lands inside an
+  I²C transfer; a write that times out anyway is followed by a controller
+  abort (or a 9-clock bus clear) and a full PLL-register rewrite, counted
+  in `status` as `i2c_errors=`.
 - **Console** (`picofox/console.c`): banner at boot, when a terminal opens and
   after every reload; the fox log (`cycle N @ f`, `morse: …`, `song: …`);
   commands `help status key <s> tone <hz> <s> id freq <mhz> atten <n> batt
@@ -69,10 +81,19 @@ cmake -S firmware/foxlib-c/picofox -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build                              # -> build/foxbench-picofox.uf2
 ```
 
-CI (`.github/workflows/firmware.yml`) builds it on every push and the Pages
-workflow places it at `firmware/foxlib-c/picofox/foxbench-picofox.uf2` on the
-site, where the Board tab fetches it ("Get fox-bench firmware" → copy to
-RPI-RP2).
+CI (`.github/workflows/ci.yml`, job `foxlib-c`) builds it on every push
+with a pinned toolchain — xPack GNU Arm Embedded GCC 15.2.1-1.1, fetched by
+sha256, and pico-sdk 2.1.1 by commit `bddd20f9` — so a given commit always
+yields the same bytes. `tools/build_info.py` writes `foxbench-picofox.json`
+beside the UF2 (`version`, `commit`, `pico_sdk`, `gcc`, `sha256`, `size`,
+`text`, `bss`, `built`) and fails the job when static RAM (`bss`) exceeds
+220 000 B of the RP2040's 264 KB. After every test job has passed, the
+`deploy` job places both files at `firmware/foxlib-c/picofox/` on the site;
+the Board tab shows the fingerprint and refuses a fetched image whose
+sha256 or size differ from it. A UF2 built elsewhere (another GCC) is a
+different binary: flash it for bench iterations, but the one to hand out
+is the site's. To build the same bytes locally, use the same xPack release
+and `PICO_SDK_PATH` at that commit.
 
 ## Tests (no hardware)
 

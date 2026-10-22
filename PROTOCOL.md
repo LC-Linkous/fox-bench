@@ -96,3 +96,12 @@ text console (115200, rate ignored):
   console); the Bench tab's buttons and the Board tab's "Enter UF2
   bootloader" go through it. The console drawer sends what you type as
   such a line when a foxlib-c board is selected.
+- `radio=` in the banner is one of `ok`, `nosi5351`, `band_edge` (a plan
+  frequency within 20 kHz of a range edge; `freq` applies the same margin),
+  `retune_failed`, `skipped` (no usable cfg) or `core1_dead` (the radio
+  core stopped answering: the amplifier was forced off from core 0 and the
+  watchdog will reboot the board). `status` adds `i2c_errors=` (Si5351
+  writes that timed out and were recovered) and `core1=ok|dead`.
+- `reboot`, `bootsel` and the 1200-baud touch unkey before resetting: a
+  reset does not touch the Si5351 or the amplifier enable, so anything
+  keyed at that moment would otherwise stay keyed in the bootloader.

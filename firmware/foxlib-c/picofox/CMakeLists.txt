@@ -40,7 +40,7 @@ target_compile_definitions(foxbench-picofox PRIVATE
 target_compile_options(foxbench-picofox PRIVATE -Wall -Wextra -Wno-unused-parameter)
 
 target_link_libraries(foxbench-picofox
-    pico_stdlib pico_multicore pico_unique_id pico_flash hardware_i2c hardware_gpio hardware_adc hardware_flash hardware_timer
+    pico_stdlib pico_multicore pico_unique_id pico_flash hardware_i2c hardware_gpio hardware_adc hardware_flash hardware_timer hardware_watchdog
     tinyusb_device tinyusb_board)
 
 pico_add_extra_outputs(foxbench-picofox)

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later
  * player -- core 1 owns the Si5351 and the amplifier pins. Core 0 sends it
- * commands over the inter-core FIFO: setup, set carrier, key, unkey, set
+ * commands through a mailbox in RAM: set carrier, key, unkey, set
  * attenuation, play an event stream (FM at the configured sample rate), stop.
  * Playing is asynchronous: the request struct's `done` flips when finished. */
 #ifndef PLAYER_H
@@ -28,6 +28,8 @@ typedef struct {
     bool keyed;
     int attenuation;
     uint32_t i2c_write_us;       /* measured time of one fraction write (for the console) */
+    uint32_t i2c_errors;         /* Si5351 writes that timed out and were recovered */
+    bool core1_alive;            /* false once core 1 missed a command deadline: the amp was forced off from core 0 */
 } player_status_t;
 
 void player_start(void);                        /* launches core 1; blocks until its setup ran */
@@ -40,5 +42,9 @@ bool player_busy(void);
 void player_status(player_status_t *out);
 uint32_t player_keyed_ms(void);                 /* ms since key(true), 0 when unkeyed */
 bool player_charging(void);                     /* ChgSense low */
+bool player_alive(void);                        /* core 1 still answering */
+void player_bus_hold(void);                     /* park the FM loop between two samples, off the I2C bus (before a flash write) */
+void player_bus_release(void);
+void player_emergency_unkey(void);              /* from core 0, without core 1: amplifier enable off (GPIO) */
 
 #endif

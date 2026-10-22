@@ -1,7 +1,9 @@
 # Tests
 
-Three layers, each runnable alone. CI runs all of them on every push
-(`.github/workflows/page.yml` and `firmware.yml`).
+Three layers, each runnable alone. CI runs all of them on every push as
+the `page`, `sim` and `foxlib-c` jobs of `.github/workflows/ci.yml`; the
+`deploy` job (Pages, `main` only) needs all three, so a red layer leaves
+the live site as it was.
 
 | What | Where | Run |
 |---|---|---|
@@ -45,5 +47,5 @@ scheduler and validator against foxlib and against the page's validator) and
 simulator's decoder). The page smoke test boots a deploy set exported for the
 `picofox-foxlibc` target in the same host simulation, so a page change that
 breaks what the firmware reads fails CI. The firmware itself is cross-compiled
-in the `foxlib-c` job of `firmware.yml` (UF2 as an artifact) and by the Pages
-workflow into the site.
+in the `foxlib-c` job (UF2 as an artifact); the `deploy` job puts that same
+artifact into the site.

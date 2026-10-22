@@ -1,6 +1,7 @@
 // flash.js — the Flash CircuitPython card (Board tab) and the batch card (Fleet tab).
 // Both drive flasher/flasher.js (separate Apache-2.0 component) and write the same fleet-log rows as tools/batch_flash.py.
 // SPDX-License-Identifier: GPL-2.0-only
+import { checkImage } from '../model/uf2.js';
 import { h, badge, field, select, check } from './dom.js';
 import { fleet } from '../model/profiles.js';
 import * as flasher from '../../flasher/flasher.js';   // separate component, Apache-2.0 (flasher/LICENSE)
@@ -122,23 +123,40 @@ export function batchCard(app) {
 
 /** UF2 boards (PicoFox): no CircuitPython. Firmware is a .uf2 copied to the bootloader drive: the vendor's (a file you
  * load) or fox-bench's own (fetched from this site for foxlib-c targets). The same card restores the vendor firmware. */
-let uf2 = { name: '', bytes: null, busy: false, last: null, source: '', fetching: false, touching: false, forBoard: '' };
+let uf2 = { name: '', bytes: null, busy: false, last: null, source: '', fetching: false, touching: false, forBoard: '', sha256: '', build: null };
+/** Fingerprint of the hosted fox-bench UF2 (foxbench-picofox.json written by CI beside the file): version, commit,
+ * compiler, sha256. null until fetched; false when the site has none (a local checkout without a CI build). */
+let buildInfo;
+async function loadBuildInfo(app) {
+  if (buildInfo !== undefined || !app.board.firmware?.build_info) return buildInfo;
+  buildInfo = null;
+  try { const r = await fetch(app.board.firmware.build_info, { cache: 'no-cache' }); buildInfo = r.ok ? await r.json() : false; } catch { buildInfo = false; }
+  notify(); return buildInfo;
+}
 /** A loaded image belongs to the target it was loaded for: switching targets forgets it, so the vendor target can never
  * flash the fox-bench image by accident (or the other way round). */
 function uf2For(app) { if (uf2.forBoard !== app.boardId) uf2 = { ...uf2, name: '', bytes: null, last: null, source: '', forBoard: app.boardId }; return uf2; }
-async function fetchImage(app, url, source, label) {
+/** Fetch an image and check it before it can be copied: UF2 structure, RP2040 family id, and — when the descriptor or
+ * the site's build info pins one — size and sha256. expect: { sha256?, size? }. A failed check leaves nothing loaded. */
+async function fetchImage(app, url, source, label, expect = {}) {
   uf2.fetching = true; uf2.last = null; notify();
   try {
-    const r = await fetch(url, { cache: 'no-cache' });
-    if (!r.ok) throw new Error(`HTTP ${r.status} for ${url}` + (source === 'fox-bench' ? ' — the site builds this file in CI; a local checkout has it only after a firmware build' : ''));
+    let r;
+    try { r = await fetch(url, { cache: 'no-cache' }); }
+    catch (e) { throw new Error(`could not reach ${new URL(url, location.href).host} (offline, or the network blocks it): download the file yourself and use Load .uf2… — ${e.message || e}`); }
+    if (!r.ok) throw new Error(`HTTP ${r.status} for ${url}` + (source === 'fox-bench' ? ' — the site builds this file in CI; a local checkout has it only after a firmware build' : source.startsWith('vendor') ? ' — the vendor\'s file moved or was removed at the pinned commit; see boards/picofox-vendor.json' : ''));
     const bytes = new Uint8Array(await r.arrayBuffer());
-    if (bytes.length < 512 || bytes[0] !== 0x55 || bytes[1] !== 0x46 || bytes[2] !== 0x32 || bytes[3] !== 0x0A) throw new Error('not a UF2 file');
-    uf2 = { ...uf2, name: url.split('/').pop(), bytes, source, last: null, forBoard: app.boardId };
-    app.console.dim(`fetched ${uf2.name} (${(bytes.length / 1024).toFixed(0)} kB) — ${label}`);
+    const chk = await checkImage(bytes, expect);
+    if (!chk.ok) throw new Error(`${url.split('/').pop()} rejected: ${chk.problems.join('; ')}` + (expect.sha256 ? (source === 'fox-bench' ? ' (the site may be mid-deploy: reload the page and try again)' : ' (the vendor\'s file differs from the one this page was checked against; nothing was loaded)') : ''));
+    uf2 = { ...uf2, name: url.split('/').pop(), bytes, source, last: null, forBoard: app.boardId, sha256: chk.sha256 };
+    app.console.dim(`fetched ${uf2.name} (${(bytes.length / 1024).toFixed(0)} kB, ${chk.blocks} blocks, RP2040, sha256 ${chk.sha256.slice(0, 12)}…${expect.sha256 ? ' = pinned' : ''}) — ${label}`);
   } catch (e) { uf2.last = { ok: false, text: String(e.message || e) }; app.console.err('firmware fetch failed: ' + uf2.last.text); }
   uf2.fetching = false; notify();
 }
-const fetchHosted = app => fetchImage(app, app.board.firmware?.image, 'fox-bench', 'fox-bench firmware built from this site\'s source');
+async function fetchHosted(app) {
+  const bi = await loadBuildInfo(app);
+  return fetchImage(app, app.board.firmware?.image, 'fox-bench', `fox-bench firmware ${bi?.version ? 'c-' + bi.version : ''} built from this site\'s source${bi?.commit ? ' at ' + bi.commit.slice(0, 7) : ''}`, bi ? { sha256: bi.sha256, size: bi.size } : {});
+}
 /** The Arduino "1200-baud touch": open the board's serial port at 1200 baud, drop DTR, close. Firmware built on the
  * Arduino RP2040 core (the PicoFox vendor's) and fox-bench's own both reboot into the UF2 bootloader on it. The only
  * way into the bootloader on a board whose BOOTSEL is inside the case. */
@@ -161,7 +179,13 @@ function uf2Card(app) {
   const b = app.board, ours = b.family === 'foxlib-c';
   uf2For(app);
   const fileIn = h('input', { type: 'file', accept: '.uf2', hidden: true });
-  fileIn.addEventListener('change', async () => { const f = fileIn.files[0]; if (!f) return; uf2 = { ...uf2, name: f.name, bytes: new Uint8Array(await f.arrayBuffer()), source: 'file', last: null, forBoard: app.boardId }; notify(); fileIn.value = ''; });
+  fileIn.addEventListener('change', async () => {
+    const f = fileIn.files[0]; if (!f) return; fileIn.value = '';
+    const bytes = new Uint8Array(await f.arrayBuffer()); const chk = await checkImage(bytes);
+    if (!chk.ok) { uf2 = { ...uf2, name: '', bytes: null, source: '', last: { ok: false, text: `${f.name} rejected: ${chk.problems.join('; ')}` }, forBoard: app.boardId }; notify(); return; }
+    uf2 = { ...uf2, name: f.name, bytes, source: 'file', last: null, forBoard: app.boardId, sha256: chk.sha256 }; app.console.dim(`loaded ${f.name} (${chk.blocks} blocks, RP2040, sha256 ${chk.sha256.slice(0, 12)}…)`); notify();
+  });
+  if (ours) loadBuildInfo(app);
   const copy = async () => {
     uf2.busy = true; uf2.last = null; notify();
     try {
@@ -201,10 +225,11 @@ function uf2Card(app) {
     h('p.hint', {}, h('b', {}, 'Order: '), 'fox on, plugged in → ', h('b', {}, '1. Reboot into bootloader'), ' (pick the fox\'s serial port) → a drive with just ', h('code', {}, 'INFO_UF2.TXT'), ' and ', h('code', {}, 'INDEX.HTM'), ' appears → ', h('b', {}, '2. Copy'), ' and pick ', h('i', {}, 'that'), ' drive. The page checks for INFO_UF2.TXT, because a .uf2 copied onto the fox\'s own drive is only a file and the board keeps running what it ran.'),
     b.flash.touch_1200 ? h('div.tools', {}, h('button.btn', { disabled: uf2.touching || uf2.busy, onclick: () => touch1200(app) }, uf2.touching ? 'Touching…' : '1. Reboot into bootloader'), h('span.hint', {}, 'Opens the serial port at 1200 baud and closes it: the Arduino way into the bootloader, no button needed.')) : null,
     ours ? h('div.tools', {}, h('button.btn', { disabled: uf2.fetching || uf2.busy, onclick: () => fetchHosted(app) }, uf2.fetching ? 'Fetching…' : 'Get fox-bench firmware'), h('span.hint', {}, `foxbench-picofox.uf2 built from this site\'s source (firmware/foxlib-c/picofox). To go back to the vendor firmware, select the "(vendor firmware)" target: its card fetches the vendor\'s .uf2.`)) : null,
+    ours ? h('p.hint', {}, h('b', {}, 'Hosted build: '), buildInfo ? [h('code', {}, `c-${buildInfo.version}`), ` · commit ${(buildInfo.commit || '').slice(0, 7)} · ${buildInfo.gcc || '?'} · pico-sdk ${(buildInfo.pico_sdk || '').slice(0, 7)} · sha256 ${(buildInfo.sha256 || '').slice(0, 12)}… · ${buildInfo.built || ''}`, ' — a fetched image must match this fingerprint before it can be copied.'] : buildInfo === false ? 'no build info on this site (a local checkout, or an older deploy): the image is checked as a UF2 for the RP2040 only.' : 'loading…') : null,
     !ours && b.firmware?.stock_firmware_files?.length ? h('div', {},
-      ...b.firmware.stock_firmware_files.filter(f => !f.recovery).map(f => h('div.tools', {}, h('button.btn', { disabled: uf2.fetching || uf2.busy, onclick: () => fetchImage(app, f.url, 'vendor', f.note) }, uf2.fetching ? 'Fetching…' : `Get ${f.name}`), h('span.hint', {}, f.note, ' — fetched from the vendor\'s GitHub into this browser.'))),
-      ...b.firmware.stock_firmware_files.filter(f => f.recovery).map(f => h('details', { style: 'margin-top:6px' }, h('summary.hint', {}, 'Recovery image (wipes the drive)'), h('div.tools', {}, h('button.btn.small.danger', { disabled: uf2.fetching || uf2.busy, onclick: () => fetchImage(app, f.url, 'vendor-recovery', f.note) }, uf2.fetching ? 'Fetching…' : `Get ${f.name}`), h('span.hint.warn', {}, f.note))))) : null,
-    h('div.tools', {}, h('button.btn.small', { onclick: () => fileIn.click() }, 'Load .uf2…'), fileIn, h('span.hint', {}, uf2.name ? `${uf2.name} · ${(uf2.bytes.length / 1024).toFixed(0)} kB${uf2.source === 'fox-bench' ? ' · fox-bench firmware' : ''}` : 'nothing loaded'),
+      ...b.firmware.stock_firmware_files.filter(f => !f.recovery).map(f => h('div.tools', {}, h('button.btn', { disabled: uf2.fetching || uf2.busy, onclick: () => fetchImage(app, f.url, 'vendor', f.note, { sha256: f.sha256, size: f.size }) }, uf2.fetching ? 'Fetching…' : `Get ${f.name}`), h('span.hint', {}, f.note, ` — fetched from the vendor\'s GitHub into this browser${b.firmware.stock_firmware_pinned_commit ? ` at commit ${b.firmware.stock_firmware_pinned_commit.slice(0, 7)} and checked against sha256 ${(f.sha256 || '').slice(0, 12)}…` : ''}.`))),
+      ...b.firmware.stock_firmware_files.filter(f => f.recovery).map(f => h('details', { style: 'margin-top:6px' }, h('summary.hint', {}, 'Recovery image (wipes the drive)'), h('div.tools', {}, h('button.btn.small.danger', { disabled: uf2.fetching || uf2.busy, onclick: () => fetchImage(app, f.url, 'vendor-recovery', f.note, { sha256: f.sha256, size: f.size }) }, uf2.fetching ? 'Fetching…' : `Get ${f.name}`), h('span.hint.warn', {}, f.note))))) : null,
+    h('div.tools', {}, h('button.btn.small', { onclick: () => fileIn.click() }, 'Load .uf2…'), fileIn, h('span.hint', {}, uf2.name ? `${uf2.name} · ${(uf2.bytes.length / 1024).toFixed(0)} kB${uf2.source === 'fox-bench' ? ' · fox-bench firmware' : ''}${uf2.sha256 ? ' · sha256 ' + uf2.sha256.slice(0, 12) + '…' : ''}` : 'nothing loaded'),
       h('button.btn' + (uf2.source === 'fox-bench' || uf2.source === 'vendor' ? '.primary' : uf2.source === 'vendor-recovery' ? '.danger' : ''), { disabled: !uf2.bytes || uf2.busy, onclick: copy }, uf2.busy ? 'Copying…' : `2. Copy to ${b.flash.drive_name}…`)),
     uf2.last ? h('p.hint' + (uf2.last.ok ? '.ok' : '.err'), {}, uf2.last.text) : null,
     ours ? h('p.hint', {}, 'Running fox-bench firmware and Listening? ', h('code', {}, 'bootsel'), ' in the console (or the button on the Board tab) does the same as the touch.') : h('p.hint', {}, 'Want fox-bench\'s own firmware on this board instead (fox.json, the same templates as the CircuitPython foxes, bench over serial)? Pick the "(fox-bench firmware)" entry of this board above.'),

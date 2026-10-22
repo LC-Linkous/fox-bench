@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 #include "flash_disk.h"
+#include "player.h"
 #include <string.h>
 #include "hardware/flash.h"
 #include "hardware/sync.h"
@@ -29,7 +30,9 @@ bool flash_disk_flush(void) {
     /* skip the erase/program when the flash already holds these bytes (host rewrites of identical sectors) */
     if (!memcmp(xip(cache_sector), cache, SECTOR)) { dirty = false; return true; }
     prog_t p = { cache_sector, cache };
+    player_bus_hold();                       /* core 1 off the I2C bus before it is parked */
     int rc = flash_safe_execute(do_program, &p, 2000);
+    player_bus_release();
     if (rc != PICO_OK) return false;
     dirty = false;
     return true;

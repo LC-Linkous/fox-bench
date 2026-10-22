@@ -89,17 +89,19 @@ static bool load(void) {
     return true;
 }
 
+/* the deviation must stay inside the band: 20 kHz margin from every range edge (the page checks the same) */
+static bool freq_allowed(double f) {
+    for (int r = 0; r < cfg.radio.n_ranges; r++) if (f >= cfg.radio.ranges_mhz[r][0] + 0.02 && f <= cfg.radio.ranges_mhz[r][1] - 0.02) return true;
+    return false;
+}
+
 static void setup_radio(void) {
     player_status_t ps; player_status(&ps);
+    if (!ps.core1_alive) { strcpy(radio_status, "core1_dead"); return; }
     if (!ps.si5351_ok) { strcpy(radio_status, "nosi5351"); return; }
     if (!have_cfg || report.fatal[0]) { strcpy(radio_status, "skipped"); return; }
     freq_index = 0; next_index = 0; rotating = cfg.plan.n > 1;
-    /* the deviation must stay inside the band: 20 kHz margin from every range edge (the page checks the same) */
-    for (int i = 0; i < cfg.plan.n; i++) {
-        double f = cfg.plan.frequencies_mhz[i]; bool inside = false;
-        for (int r = 0; r < cfg.radio.n_ranges; r++) if (f >= cfg.radio.ranges_mhz[r][0] + 0.02 && f <= cfg.radio.ranges_mhz[r][1] - 0.02) inside = true;
-        if (!inside) { strcpy(radio_status, "band_edge"); return; }
-    }
+    for (int i = 0; i < cfg.plan.n; i++) if (!freq_allowed(cfg.plan.frequencies_mhz[i])) { strcpy(radio_status, "band_edge"); return; }
     if (!player_set_carrier(cfg.plan.frequencies_mhz[0] * 1e6)) { strcpy(radio_status, "retune_failed"); return; }
     if (ps.revision >= 3) player_set_attenuation(cfg.radio.attenuation);
     strcpy(radio_status, "ok");
@@ -266,8 +268,31 @@ static void end_cycle(void) {
     hold((uint32_t)sched_wait_ms(&sched, now_ms()));
 }
 
+/* Wall-clock keydown guard, independent of core 1. The cycle's budget is enforced by the player in
+ * samples; flash writes park the player and a bus that starts timing out stretches every sample, so
+ * the clock can run well past the budget while the sample count says otherwise. Here core 0 unkeys on
+ * the clock -- and if core 1 is gone, without it. */
+#define KEYDOWN_GRACE_MS 2000
+#define KEYDOWN_HARD_CAP_MS (10u * 60u * 1000u)     /* no limits block in the cfg: still never longer than this */
+static uint32_t bench_limit_ms;
+static void keydown_guard(void) {
+    uint32_t keyed = player_keyed_ms();
+    bool lost = !player_alive();
+    if (!keyed && !lost) return;
+    uint32_t limit = state == FOX_BENCH ? bench_limit_ms : keyed_budget_ms ? keyed_budget_ms : KEYDOWN_HARD_CAP_MS;
+    if (!lost && keyed <= limit + KEYDOWN_GRACE_MS) return;
+    if (lost) { if (strcmp(radio_status, "core1_dead")) { strcpy(radio_status, "core1_dead"); con_puts("core 1 stopped answering: amplifier forced off; reboot (watchdog) to recover\r\n"); } }
+    else con_printf("keydown guard: keyed %lu ms against a limit of %lu ms: unkeying\r\n", (unsigned long)keyed, (unsigned long)limit);
+    player_stop(); player_key(false); player_emergency_unkey();
+    req.cut = true; req.done = true;
+    if (state == FOX_BENCH) { bench_active = false; con_puts("ok (stopped)\r\n"); hold(1000); }
+    else if (state == FOX_KEYED) end_cycle();
+    else hold(1000);
+}
+
 void fox_poll(void) {
     uint32_t t = now_ms();
+    keydown_guard();
     switch (state) {
         case FOX_HOLD:
             if ((int32_t)(t - hold_until) < 0) return;
@@ -330,6 +355,7 @@ static bool bench_begin(void) {
 
 bool fox_bench_key(uint32_t ms) {
     if (!bench_begin()) return false;
+    bench_limit_ms = ms;
     events_clear(&stream); events_push(&stream, 0, (float)ms);
     player_key(true); start_play((float)cfg.radio.id_deviation_hz, 0);
     return true;
@@ -337,6 +363,7 @@ bool fox_bench_key(uint32_t ms) {
 
 bool fox_bench_tone(float hz, uint32_t ms) {
     if (!bench_begin()) return false;
+    bench_limit_ms = ms;
     events_clear(&stream); events_push(&stream, hz, (float)ms);
     player_key(true); start_play((float)cfg.radio.id_deviation_hz, 0);
     return true;
@@ -345,13 +372,14 @@ bool fox_bench_tone(float hz, uint32_t ms) {
 bool fox_bench_id(void) {
     if (!bench_begin()) return false;
     events_clear(&stream); events_push(&stream, 0, GAP_MS); add_morse(id_message(), 0);
+    bench_limit_ms = (uint32_t)events_ms(&stream) + 1000;
     player_key(true); start_play((float)cfg.radio.id_deviation_hz, 0);
     return true;
 }
 
 bool fox_bench_freq(double mhz) {
     if (!have_cfg) return false;
-    if (!cfg_freq_in_ranges(&cfg, mhz)) { con_puts("err: outside the module ranges\r\n"); return false; }
+    if (!freq_allowed(mhz)) { con_puts("err: outside the module ranges (20 kHz band-edge margin, as the cycle applies)\r\n"); return false; }
     if (state == FOX_KEYED || state == FOX_BENCH) { player_stop(); player_key(false); bench_active = false; }
     cfg.plan.frequencies_mhz[0] = mhz; cfg.plan.n = 1; rotating = false; freq_index = next_index = 0;
     bool ok = player_set_carrier(mhz * 1e6);
@@ -364,4 +392,13 @@ void fox_bench_stop(void) {
     if (state == FOX_BENCH) con_puts("ok (stopped)\r\n");     /* the interrupted action's reply, so a waiting host is released */
     if (state == FOX_BENCH || state == FOX_KEYED) { player_stop(); player_key(false); }
     bench_active = false; hold(500);
+}
+
+/* Before a reset of any kind (reboot, bootsel, the 1200-baud touch): off the air first. A reset does
+ * not touch the Si5351 or the amplifier enable, so whatever is keyed now would stay keyed in the
+ * bootloader. */
+void fox_quiesce(void) {
+    if (state == FOX_BENCH || state == FOX_KEYED) { player_stop(); player_key(false); }
+    player_key(false); player_emergency_unkey();
+    bench_active = false; hold(60000);
 }

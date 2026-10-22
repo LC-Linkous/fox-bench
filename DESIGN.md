@@ -462,6 +462,17 @@ flashing. The working config keeps the `fox.json` shape for both families
 family-specific `radio` and `schedule` contents. `docs/picofox-notes.md`
 records what was learnt from the PicoFox's drive and published firmware.
 
+The transport belongs to the family, not to the connection: selecting a
+board of another family while a device is connected disconnects it first
+(`app._leaveFamilyFor`), and every deploy module asks
+`js/model/transport.js` whether the open device can carry this family's
+files before writing — a REPL with a PicoFox target selected, a drive with
+the XIAO selected, the foxlib-c console, or a listen-only REPL session whose
+board was never identified are all refused with the reason on the Deploy
+tab. Listen only on another family's board switches the page to the board
+the banner names and puts the matching device on the open port
+(`_followBanner`).
+
 ## 11. Out of scope for v1, kept possible
 
 - `drive-device.js` for foxlib boards that mount `CIRCUITPY` (ESP32-S2/S3, SAMD): the transport exists (§10); wiring it to the foxlib deploy does not.

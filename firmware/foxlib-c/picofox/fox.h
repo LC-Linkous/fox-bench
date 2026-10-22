@@ -20,7 +20,7 @@ const fox_cfg_t *fox_cfg(void);
 const cfg_report_t *fox_report(void);
 bool fox_id_ok(void);
 fox_state_t fox_state(void);
-const char *fox_radio_status(void);             /* ok | nosi5351 | fatal(...) */
+const char *fox_radio_status(void);             /* ok | nosi5351 | band_edge | retune_failed | core1_dead | skipped */
 
 /* bench actions (console): suspend the cycle, key, do the thing, unkey, resume */
 bool fox_bench_key(uint32_t ms);                /* unmodulated carrier */
@@ -28,5 +28,6 @@ bool fox_bench_tone(float hz, uint32_t ms);
 bool fox_bench_id(void);
 bool fox_bench_freq(double mhz);                 /* retune until the next reload */
 void fox_bench_stop(void);
+void fox_quiesce(void);                         /* unkey and stay silent: before reboot / bootsel / the 1200-baud touch */
 
 #endif

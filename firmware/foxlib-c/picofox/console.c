@@ -65,8 +65,8 @@ static void help(void) {
 static void status(void) {
     char b[400]; player_status_t ps; player_status(&ps);
     con_printf("%s\r\n", fox_banner_line(b, sizeof b));
-    con_printf("revision=%d si5351=%s carrier=%.1f keyed=%d attenuation=%d i2c_write_us=%lu state=%d\r\n",
-               ps.revision, ps.si5351_ok ? "ok" : "absent", ps.carrier_hz, ps.keyed, ps.attenuation, (unsigned long)ps.i2c_write_us, (int)fox_state());
+    con_printf("revision=%d si5351=%s carrier=%.1f keyed=%d attenuation=%d i2c_write_us=%lu i2c_errors=%lu core1=%s state=%d\r\n",
+               ps.revision, ps.si5351_ok ? "ok" : "absent", ps.carrier_hz, ps.keyed, ps.attenuation, (unsigned long)ps.i2c_write_us, (unsigned long)ps.i2c_errors, ps.core1_alive ? "ok" : "dead", (int)fox_state());
     con_printf("charging=%s host_drive=%s host_writes=%lu dirty=%d\r\n", player_charging() ? "yes" : "no", msc_host_has_drive() ? "mounted" : "no", (unsigned long)msc_host_writes(), flash_disk_dirty());
     char files[256]; fs_list(files, sizeof files); con_printf("files: %s\r\n", files);
 }
@@ -87,8 +87,8 @@ static void dispatch(char *cmd) {
     else if (!strcmp(cmd, "atten")) { int v = arg ? atoi(arg) : -1; if (v < 0 || v > 127) con_puts("err: 0-127\r\n"); else { player_set_attenuation(v); con_printf("attenuation %d\r\nok\r\n", v); } }
     else if (!strcmp(cmd, "stop")) { fox_bench_stop(); con_puts("ok\r\n"); }
     else if (!strcmp(cmd, "reload")) { fox_reload("console"); con_puts("ok\r\n"); }
-    else if (!strcmp(cmd, "reboot")) { con_puts("ok\r\n"); pump(); flash_disk_flush(); watchdog_reboot(0, 0, 50); }
-    else if (!strcmp(cmd, "bootsel")) { con_puts("ok (entering UF2 bootloader: the RPI-RP2 drive appears)\r\n"); pump(); flash_disk_flush(); sleep_ms(50); reset_usb_boot(0, 0); }
+    else if (!strcmp(cmd, "reboot")) { fox_quiesce(); con_puts("ok\r\n"); pump(); flash_disk_flush(); watchdog_reboot(0, 0, 50); }
+    else if (!strcmp(cmd, "bootsel")) { fox_quiesce(); con_puts("ok (entering UF2 bootloader: the RPI-RP2 drive appears)\r\n"); pump(); flash_disk_flush(); sleep_ms(50); reset_usb_boot(0, 0); }
     else if (*cmd) con_printf("err: unknown command '%s' (help)\r\n", cmd);
 }
 
@@ -99,7 +99,7 @@ static bool touch_armed;
 void tud_cdc_line_coding_cb(uint8_t itf, const cdc_line_coding_t *coding) { (void)itf; touch_armed = coding->bit_rate == 1200; }
 void tud_cdc_line_state_cb(uint8_t itf, bool dtr, bool rts) {
     (void)itf; (void)rts;
-    if (touch_armed && !dtr) { flash_disk_flush(); reset_usb_boot(0, 0); }
+    if (touch_armed && !dtr) { fox_quiesce(); flash_disk_flush(); reset_usb_boot(0, 0); }
 }
 
 void con_poll(void) {

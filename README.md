@@ -24,7 +24,9 @@ console; flashed from the Board tab as a UF2 and swapped with the vendor's from
 the same card — on the air on a rev 3 board since October 2026). Every push runs three test layers in CI: the firmware
 simulator (`firmware/sim/`), the REPL protocol against a fake board and
 the page itself in headless Chromium (`tests/`), and a lint of every
-descriptor (`tools/check_catalog.py`). See `tests/README.md`.
+descriptor (`tools/check_catalog.py`); the site deploys from `main` only
+after all three passed, carrying the UF2 that run built
+(`.github/workflows/ci.yml`). See `tests/README.md`.
 
 | | |
 |---|---|
