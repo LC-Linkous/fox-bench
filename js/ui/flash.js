@@ -147,7 +147,7 @@ async function touch1200(app) {
   uf2.touching = true; uf2.last = null; notify();
   try {
     if (!('serial' in navigator)) throw new Error('Web Serial is not available in this browser (Chrome or Edge on a laptop or desktop)');
-    if (app.device && app.device.link) { app.console.dim('closing the console first'); await app.disconnect(); }
+    if (app.device) { app.console.dim('disconnecting first: the board is about to reboot, and an open drive or console from before a reboot is stale afterwards'); await app.disconnect(); }
     const port = await navigator.serial.requestPort();
     await port.open({ baudRate: 1200 });
     try { await port.setSignals({ dataTerminalReady: true, requestToSend: true }); await new Promise(r => setTimeout(r, 100)); await port.setSignals({ dataTerminalReady: false, requestToSend: false }); await new Promise(r => setTimeout(r, 100)); } catch {}
@@ -190,6 +190,7 @@ function uf2Card(app) {
         ? { ok: true, text: `${uf2.name} flashed (${(uf2.bytes.length / 1024).toFixed(0)} kB): the ${b.flash.drive_name} drive went away, so the board rebooted into it.${after}` }
         : { ok: false, text: `${uf2.name} was written but the ${b.flash.drive_name} drive is still there after 6 s — the bootloader did not accept it. A .uf2 for another chip, or a copy that did not complete; try again.` };
       app.console.line(uf2.last.text, gone ? 'ok' : 'err');
+      if (gone && app.device) { await app.disconnect(); app.console.dim(`the board rebooted: open its drive again (${app.usesDrive ? 'Open ' + (b.drive?.label || 'drive') : 'Connect'} in the top bar) before writing files`); }
       fleet.append({ board_number: '', uid: '', board: b.id, action: 'flash', template: '', profile: '', callsign: '', freq: '', power: '', seed: '', result: gone ? 'ok' : 'not accepted', notes: uf2.name + ' (uf2' + (uf2.source === 'fox-bench' ? ', fox-bench firmware' : '') + ')' });
     } catch (e) { if (e.name !== 'AbortError' && e.message !== 'cancelled') { uf2.last = { ok: false, text: String(e.message || e) }; app.console.err('UF2 copy failed: ' + uf2.last.text); } }
     uf2.busy = false; notify(); app.changed('flash');

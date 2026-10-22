@@ -15,7 +15,10 @@ export class DriveDevice extends Device {
     super(); this.kind = 'drive'; this.transport = 'drive'; this.handle = handle; this.board = board;
     this._queue = Promise.resolve();
   }
-  _run(fn) { const p = this._queue.then(fn, fn); this._queue = p.catch(() => {}); return p; }
+  _run(fn) {
+    const stale = e => { if (e && (e.name === 'InvalidStateError' || e.name === 'NotFoundError' && /entry|directory/i.test(e.message || ''))) throw new Error(`the drive was re-mounted since it was opened (the board rebooted, or the drive was ejected): Disconnect, then Open ${this.board?.drive?.label || 'the drive'} again`); throw e; };
+    const p = this._queue.then(fn, fn).catch(stale); this._queue = p.catch(() => {}); return p;
+  }
 
   /** Ask the user for the drive. Throws if the browser cannot, or the user cancels. */
   static async pick({ id = 'fox-bench-drive' } = {}) {
