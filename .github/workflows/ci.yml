@@ -192,6 +192,14 @@ jobs:
           echo "fw=$fw" >> "$GITHUB_ENV"
       - name: Release notes from CHANGELOG.md (this version's section, else Unreleased)
         run: python3 tools/release_notes.py "$GITHUB_REF_NAME" > notes.md && cat notes.md
-      - name: Create the release
+      - name: Create the release, or fill one that already exists for this tag
+        # A release made from GitHub's "Draft a new release" page creates the tag too, and that tag push lands
+        # here: then the release exists already, so attach the files to it instead of failing.
         env: { GH_TOKEN: '${{ github.token }}' }
-        run: gh release create "$GITHUB_REF_NAME" out/* --title "fox-bench $GITHUB_REF_NAME" --notes-file notes.md --verify-tag
+        run: |
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" out/* --clobber
+            gh release edit "$GITHUB_REF_NAME" --title "fox-bench $GITHUB_REF_NAME" --notes-file notes.md
+          else
+            gh release create "$GITHUB_REF_NAME" out/* --title "fox-bench $GITHUB_REF_NAME" --notes-file notes.md --verify-tag
+          fi
