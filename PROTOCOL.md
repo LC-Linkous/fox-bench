@@ -73,7 +73,9 @@ See CONFIG.md. The page parses the first line matching `^FOX ` into
 
 Boards of the `foxlib-c` family have no REPL. The page configures them by
 writing `fox.json` and `defaults.json` to their `FOXBENCH` USB drive
-(`js/device/drive-device.js`, every write read back); the firmware reloads
+(`js/device/drive-device.js`, every write read back; the page first reads
+the firmware's `board.json` — `{"board","uid","foxlib"}` — for the chip UID
+its fleet rows carry); the firmware reloads
 about 1.5 s after the host's last write. Their USB serial port is a plain
 text console (115200, rate ignored):
 

@@ -26,7 +26,10 @@ VERSION      firmware version (the banner's foxlib=c-<version>)
 
 - **USB**: a mass-storage drive `FOXBENCH` (the 15 MB of flash above the 1 MB
   program image, FAT, created on first boot with `fox.json`, `defaults.json`
-  and a README) and a serial console (115200, any rate).
+  and a README) and a serial console (115200, any rate). At every boot the
+  firmware also keeps `board.json` current — `{"board", "uid", "foxlib"}` —
+  so a host that only sees the drive still knows which fox it is (the page
+  stamps deploy rows with that UID and the fleet audit keys on it).
 - **Configuration**: `fox.json` validated over `defaults.json` exactly as
   foxlib does (`core/cfg.c` is tested against `foxlib/cfg.py` and
   `js/model/schema.js`). Compiled-in morse-songs defaults are the last resort.

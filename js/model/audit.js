@@ -6,9 +6,11 @@
 // on how the fox is connected:
 //   REPL (foxlib):        chip UID + fox.json read from the board  → full comparison
 //   console (foxlib-c):   banner → UID, template, frequencies, cfg/radio/id status; no callsign text
-//   drive (foxlib-c):     fox.json → template, callsign, frequencies; no UID
+//   drive (foxlib-c):     fox.json → template, callsign, frequencies; UID from board.json (firmware 0.1.4+)
 //   drive (vendor):       settings.txt → callsign, frequency; no UID, no template
-// A fox without a readable UID is matched by board + what was last deployed on that board.
+// A fox without a readable UID is matched by board + what was last deployed on that board. A fox whose UID
+// no deploy row carries (its deploys went over a drive that could not read one) falls back to the last
+// deploy on that board that was itself logged without a UID — never to another identified fox's row.
 
 /** One record of what is connected right now. Returns null when nothing is. */
 export function observe(app) {
@@ -37,14 +39,18 @@ const parseFreqs = s => String(s || '').split(/[\s,]+/).filter(Boolean).map(Numb
 /**
  * Compare an observation with the fleet log. Returns
  *   { row, by, checks: [{ key, expected, actual, ok }], result: 'match' | 'mismatch' | 'unmatched' | 'nothing-to-check' }
- * row: the log's last deploy for this fox (by UID, else by board when the fox has no UID); by: 'uid' | 'board' | null.
+ * row: the log's last deploy for this fox (by UID; else by board when the fox has no UID, or when none of that board's
+ * deploys recorded one); by: 'uid' | 'board' | 'board (that deploy was logged without a UID)' | null.
  */
 export function match(obs, log) {
   if (!obs) return { row: null, by: null, checks: [], result: 'unmatched' };
   const deploys = log.filter(r => r.action === 'deploy');
   let row = null, by = null;
-  if (obs.uid) { row = [...deploys].reverse().find(r => r.uid && r.uid === obs.uid) || null; by = row ? 'uid' : null; }
-  if (!row && !obs.uid) { row = [...deploys].reverse().find(r => r.board === obs.board) || null; by = row ? 'board' : null; }
+  if (obs.uid) {
+    row = [...deploys].reverse().find(r => r.uid && r.uid === obs.uid) || null; by = row ? 'uid' : null;
+    if (!row) { row = [...deploys].reverse().find(r => r.board === obs.board && !r.uid) || null; by = row ? 'board (that deploy was logged without a UID)' : null; }
+  }
+  else { row = [...deploys].reverse().find(r => r.board === obs.board) || null; by = row ? 'board' : null; }
   if (!row) return { row: null, by: null, checks: [], result: 'unmatched' };
   const checks = [];
   if (obs.template != null && row.template) { const exp = String(row.template).split('/')[0]; checks.push({ key: 'template', expected: exp, actual: obs.template, ok: exp === obs.template }); }

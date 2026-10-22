@@ -90,7 +90,8 @@ export async function demoDrive(board, { MemDirectoryHandle }) {
 export async function demoFoxbenchDrive(board, defaults, { MemDirectoryHandle }) {
   const text = JSON.stringify(defaults, null, 2) + '\n';
   const readme = 'fox-bench PicoFox firmware\n\nfox.json      what this fox does\ndefaults.json the template\'s known-good values; fox.json overrides them\n';
-  const handle = new MemDirectoryHandle(board?.drive?.label || 'FOXBENCH', { 'fox.json': text, 'defaults.json': text, 'README.txt': readme });
+  const boardJson = JSON.stringify({ board: 'picofox-foxlibc', uid: 'e66138935f0a1b2c', foxlib: 'c-demo' }) + '\n';   // the same UID the demo console announces
+  const handle = new MemDirectoryHandle(board?.drive?.label || 'FOXBENCH', { 'fox.json': text, 'defaults.json': text, 'README.txt': readme, 'board.json': boardJson });
   const d = new DriveDevice(handle, { board }); d.kind = 'demo'; d.demo = true;
   return d;
 }

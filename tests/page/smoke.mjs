@@ -326,7 +326,14 @@ try {
   await page.check('#tab-deploy .gate input'); await page.click('#tab-deploy button.btn.primary'); await settle(1500);
   check(/files written and read back/.test(await text('#tab-deploy')), 'files written to the demo FOXBENCH drive');
   const onDriveC = await app(async () => { const d = window.foxbench.device; const l = await d.list(''); const f = JSON.parse(await d.readText('fox.json')); return { names: Object.keys(l).sort(), f }; });
-  check(onDriveC.names.join() === 'README.txt,defaults.json,fox.json' && onDriveC.f.template === 'morse-songs' && onDriveC.f.board === 'picofox-foxlibc' && onDriveC.f.id.callmessage === 'KY4ZR FOX DE KY4ZR' && !('ptt' in (onDriveC.f.pins || {})), 'drive holds fox.json for this board and template');
+  check(onDriveC.names.join() === 'README.txt,board.json,defaults.json,fox.json' && onDriveC.f.template === 'morse-songs' && onDriveC.f.board === 'picofox-foxlibc' && onDriveC.f.id.callmessage === 'KY4ZR FOX DE KY4ZR' && !('ptt' in (onDriveC.f.pins || {})), 'drive holds fox.json for this board and template');
+  // the deploy row carries the UID the firmware wrote to board.json, and an audit over the drive matches it by uid
+  const rowCu = await app(() => JSON.parse(localStorage.getItem('fox-bench.fleet') || '[]').filter(r => r.action === 'deploy' && r.board === 'picofox-foxlibc').pop());
+  check(rowCu && rowCu.uid === 'e66138935f0a1b2c', 'foxlib-c deploy row stamped with the UID from board.json');
+  await tab('fleet'); await page.click('#tab-fleet button:has-text("Audit")'); await settle(600);
+  const auditC = await app(() => JSON.parse(localStorage.getItem('fox-bench.fleet') || '[]').filter(r => r.action === 'audit').pop());
+  check(auditC && auditC.result === 'match' && /via (drive|demo) · matched by uid/.test(auditC.notes), 'audit of the PicoFox over its drive matches by uid: ' + (auditC && auditC.notes));
+  await tab('deploy');
   page.removeAllListeners('dialog'); page.once('dialog', d => d.accept());
   const [dlc] = await Promise.all([page.waitForEvent('download', { timeout: 10000 }), page.click('#tab-deploy button:has-text("Export files")')]);
   const cEntries = zipEntries(new Uint8Array(await (await import('node:fs/promises')).readFile(await dlc.path())));

@@ -183,7 +183,7 @@ export const app = {
     if (listen && kind !== 'demo') {
       this.device = device; this.info = await device.listen(); this.onBoard = { cfg: null, raw: null, foxlibVersion: '', foxlibMissing: [], foxlibComplete: false, files: {}, template: null, listening: true };
       // banner lines that scroll past while listening update the status
-      const prev = device.onLog; device.onLog = (t, cls) => { prev(t, cls); const b = parseBanner(t); if (b) { this.lastBanner = b; this.info = { ...this.info, boardId: b.board || '?', uid: b.uid || '' }; this.onBoard.foxlibVersion = b.foxlib || ''; this.onBoard.template = (b.template || '').split('/')[0] || null; this.setStatus(`Listening · ${b.board} · uid ${(b.uid || '').slice(-6)} · ${b.template} · cfg=${b.cfg} radio=${b.radio}`, 'tx'); this.changed('banner'); }
+      const prev = device.onLog; device.onLog = (t, cls) => { prev(t, cls); const b = parseBanner(t); if (b) { this.lastBanner = b; this.info = { ...this.info, boardId: b.board || '?', uid: b.uid || '' }; this.onBoard.foxlibVersion = b.foxlib || ''; this.onBoard.template = (b.template || '').split('/')[0] || null; this.setStatus(`Listening · ${b.board} · uid ${(b.uid || '').slice(-6)} · ${b.template} · cfg=${b.cfg} radio=${b.radio}`, 'tx'); this.changed('banner'); this._followBanner(b); }
         else if (this.family === 'drive' && this.vendor?.BOOT_OK?.test(t)) { this.setStatus(`Listening · ${this.board.name} · firmware up, transmitting`, 'tx'); this.changed('banner'); }
         else if (this.family === 'drive' && this.vendor?.BOOT_REGEN?.test(t)) { this.console.line('the firmware is regenerating its own ID audio: the marker file did not match settings.txt (expected after a hand edit; not after a page deploy)', 'err'); } };
       $('#connectBtn').textContent = 'Disconnect'; $('#listenBtn').hidden = true; this.console.setEnabled(this.family === 'foxlib-c');   // the foxlib-c console takes text commands
@@ -208,6 +208,24 @@ export const app = {
     await this.readBoard();
     this.changed('connect');
   },
+  /** Listening with another board selected: the banner says which fox this is, so follow it — select that board and, when its
+   *  family speaks a different protocol (console vs REPL), put the matching device on the same port. Otherwise an action that
+   *  takes control would talk REPL to a console (or the reverse). */
+  async _followBanner(b) {
+    if (!this.device?.listening || !b.board || b.board === this.boardId || !this.catalog.boards[b.board] || this.catalog.boards[b.board].status === 'planned') return;
+    const wasFamily = this.family;
+    this.console.dim(`banner says ${b.board}: selecting that board`);
+    await this.setBoard(b.board);
+    const wantConsole = this.family === 'foxlib-c';
+    if (wantConsole !== (this.device.kind === 'console') && this.device.link) {
+      const link = this.device.link, onLog = this.device.onLog;
+      const next = wantConsole ? new ConsoleDevice(link) : new ReplDevice(link);
+      if (!wantConsole) await next.listen();
+      next.listening = true; next.onLog = onLog; this.device = next;
+      this.console.setEnabled(wantConsole);
+      if (wasFamily !== this.family) this.changed('connect');
+    }
+  },
   /** Drive families: list the drive and read what configures the fox (the vendor's settings file, or fox.json) into onBoard. */
   async readDrive() {
     const d = this.device; if (!d) return;
@@ -215,11 +233,16 @@ export const app = {
       if (d.kind === 'console') return;    // Listen only: the console has no files; the banner is what we learn
       const files = await d.list('');
       const raw = await d.readText('fox.json');
-      const ob = { cfg: null, raw, foxlibVersion: this.onBoard.foxlibVersion || '', foxlibMissing: [], foxlibComplete: true, files, template: null };
+      // board.json: the firmware's own identity card (0.1.4+) — the UID the fleet log and audit key on, since a drive has none
+      let ident = null; try { const bj = await d.readText('board.json'); if (bj) ident = JSON.parse(bj); } catch { this.console.err('board.json on the drive is not valid JSON'); }
+      if (ident?.uid) this.info = { ...this.info, uid: String(ident.uid), boardId: ident.board || this.info.boardId };
+      const ob = { cfg: null, raw, foxlibVersion: ident?.foxlib || this.onBoard.foxlibVersion || '', foxlibMissing: [], foxlibComplete: true, files, template: null, ident };
       if (raw != null) { try { ob.cfg = JSON.parse(raw); ob.template = ob.cfg.template || null; } catch { this.console.err('fox.json on the drive is not valid JSON (the fox falls back to defaults.json and says cfg=default(parse) in its banner)'); } }
       this.onBoard = ob;
       if (!raw && ('settings.txt' in files || 'audio.wav' in files)) this.console.err('this drive holds the vendor firmware\'s files (settings.txt, audio.wav) and no fox.json: the board is still running the vendor firmware. Flash fox-bench\'s from the Board tab ("Reboot into bootloader", then copy to the RPI-RP2 drive), or select the "(vendor firmware)" target to keep using it.');
       this.console.dim(ob.cfg ? `fox.json read from the drive: template ${ob.cfg.template}, call "${ob.cfg.id?.callmessage}"` : `no fox.json on the drive (the firmware writes one from its built-in defaults at power-on)`);
+      if (ident?.uid) { this.console.dim(`board.json: uid ${ident.uid} · foxlib ${ident.foxlib || '?'}`); this.setStatus(`${this.board.name} · drive "${this.info.driveName || ''}" · uid ${String(ident.uid).slice(-6)}`, 'ok'); }
+      else if (raw != null) this.console.dim('no board.json on the drive: firmware before 0.1.4 — this deploy is logged without the chip UID (the audit then matches it by board)');
       return;
     }
     const v = this.vendor; if (!v) return;

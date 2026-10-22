@@ -101,7 +101,11 @@ Fleet tab → **Audit the connected fox**. With a fox connected (REPL), listenin
 (console) or its drive open, it reads what the fox is — chip UID, template,
 callsign, frequencies, and the banner's `cfg`/`radio`/`id` when there is one —
 and compares that with the last deploy the fleet log holds for that UID
-(by board, for the vendor PicoFox, which exposes no UID). The verdict and
+(by board, for the vendor PicoFox, which exposes no UID). A PicoFox on
+fox-bench firmware tells its UID in `board.json` on the drive (firmware
+0.1.4+), so drive deploys carry it too; deploys logged before that have no
+UID, and the audit falls back to the board's last UID-less deploy, saying so
+in the row. The verdict and
 any differences go into the log as an `audit` row with your note (box label,
 hider, battery state), so the CSV tells each fox's story: flashed → deployed
 → audited → whatever you record next. It compares the fox with the *log*, not

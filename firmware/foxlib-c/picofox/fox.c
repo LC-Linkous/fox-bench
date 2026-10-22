@@ -295,7 +295,10 @@ void fox_init(void) {
     pico_get_unique_board_id_string(uid, sizeof uid);
     for (char *p = uid; *p; p++) if (*p >= 'A' && *p <= 'F') *p = (char)(*p - 'A' + 'a');
     if (!fs_mount(true)) con_printf("filesystem: %s\r\n", fs_error());
-    else { int made = fs_seed(); if (made) con_printf("drive: created %d file(s)\r\n", made); }
+    else {
+        char bj[160]; snprintf(bj, sizeof bj, "{\"board\": \"%s\", \"uid\": \"%s\", \"foxlib\": \"c-%s\"}\n", BOARD_ID, uid, FOXLIBC_VERSION);
+        int made = fs_seed(bj); if (made) con_printf("drive: wrote %d file(s)\r\n", made);
+    }
     fox_reload(NULL);
 }
 

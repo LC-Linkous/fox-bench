@@ -16,6 +16,7 @@ static const char README[] =
     "\r\n"
     "fox.json      what this fox does (edit with the fox-bench page, or by hand)\r\n"
     "defaults.json the template's known-good values; fox.json overrides them\r\n"
+    "board.json    who this fox is (board, chip uid, firmware) - written by the firmware\r\n"
     "\r\n"
     "The fox reloads a second after the last write. Serial console: 115200 baud,\r\n"
     "type 'help'. https://lc-linkous.github.io/fox-bench/\r\n";
@@ -81,12 +82,15 @@ bool fs_write(const char *path, const void *data, size_t len) {
 
 bool fs_exists(const char *path) { FILINFO fi; return mounted && f_stat(path, &fi) == FR_OK; }
 
-int fs_seed(void) {
+int fs_seed(const char *board_json) {
     int made = 0;
     if (!fs_exists("defaults.json")) { fs_write("defaults.json", BUILTIN_DEFAULTS, BUILTIN_DEFAULTS_LEN); made++; }
     if (!fs_exists("fox.json")) { fs_write("fox.json", BUILTIN_DEFAULTS, BUILTIN_DEFAULTS_LEN); made++; }
     if (!fs_exists("README.txt")) { fs_write("README.txt", README, sizeof README - 1); made++; }
-    
+    /* board.json: the fox's identity for a host that only sees the drive (the page's deploy log and audit).
+     * Rewritten whenever it differs, so a firmware update refreshes it. */
+    char cur[160]; long n = fs_read("board.json", cur, sizeof cur);
+    if (n < 0 || strcmp(cur, board_json)) { fs_write("board.json", board_json, strlen(board_json)); made++; }
     return made;
 }
 
