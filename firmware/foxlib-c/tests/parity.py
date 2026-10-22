@@ -17,6 +17,17 @@ FOXLIB = os.path.join(REPO, "firmware", "foxlib")
 TEMPLATES = os.path.join(REPO, "firmware", "templates")
 
 
+def fox_templates():
+    """Template directories whose defaults are fox.json for foxlib / foxlib-c. The compiled family's templates
+    (kitsune) keep the file shape but not the sections, and have no payload to compare."""
+    out = []
+    for t in sorted(os.listdir(TEMPLATES)):
+        tj = os.path.join(TEMPLATES, t, "template.json")
+        if not os.path.exists(tj): continue
+        fams = json.load(open(tj)).get("families", ["foxlib"])
+        if "foxlib" in fams or "foxlib-c" in fams: out.append(t)
+    return out
+
 def load(name):
     spec = importlib.util.spec_from_file_location("foxlib_" + name, os.path.join(FOXLIB, name + ".py"))
     m = importlib.util.module_from_spec(spec)
@@ -66,7 +77,7 @@ def main():
         check("%-28r wpm=%d dit=%s: %d events" % (text, wpm, dit, len(py)), same(py, c), "py=%s c=%s" % (py[:6], c[:6]))
 
     print("songs")
-    for t in sorted(os.listdir(TEMPLATES)):
+    for t in fox_templates():
         ddir = os.path.join(TEMPLATES, t, "defaults")
         if not os.path.isdir(ddir):
             continue
@@ -81,7 +92,7 @@ def main():
                 check("%s/%s art=%s: %d events" % (t, f, art, len(py)), same(py, c, 0.02))
 
     print("schedules")
-    for t in sorted(os.listdir(TEMPLATES)):
+    for t in fox_templates():
         ddir = os.path.join(TEMPLATES, t, "defaults")
         if not os.path.isdir(ddir):
             continue
@@ -160,7 +171,7 @@ def main():
             if os.path.isfile(os.path.join(p, "fox.json")) and os.path.isfile(os.path.join(p, "defaults.json")):
                 scenarios.append((name, os.path.join(p, "defaults.json"), os.path.join(p, "fox.json")))
     # plus: every template's defaults as its own fox.json, and a few hand-made bad files
-    for t in sorted(os.listdir(TEMPLATES)):
+    for t in fox_templates():
         ddir = os.path.join(TEMPLATES, t, "defaults")
         if os.path.isdir(ddir):
             for f in sorted(os.listdir(ddir)):
@@ -214,7 +225,7 @@ def main():
         print("  skip: node not installed")
     else:
         js_cases = []
-        for t in sorted(os.listdir(TEMPLATES)):
+        for t in fox_templates():
             dp = os.path.join(TEMPLATES, t, "defaults", "picofox-foxlibc.json")
             if os.path.exists(dp):
                 js_cases.append((t + "/defaults", dp, dp))
