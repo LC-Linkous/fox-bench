@@ -62,11 +62,15 @@ static void help(void) {
              "  files | reload | stop | uid | version | reboot | bootsel\r\n");
 }
 
+static const char *reset_reason = "?";
+void con_set_reset_reason(const char *why) { reset_reason = why; }
+
 static void status(void) {
     char b[400]; player_status_t ps; player_status(&ps);
-    con_printf("%s\r\n", fox_banner_line(b, sizeof b));
-    con_printf("revision=%d si5351=%s carrier=%.1f keyed=%d attenuation=%d i2c_write_us=%lu i2c_errors=%lu core1=%s state=%d\r\n",
-               ps.revision, ps.si5351_ok ? "ok" : "absent", ps.carrier_hz, ps.keyed, ps.attenuation, (unsigned long)ps.i2c_write_us, (unsigned long)ps.i2c_errors, ps.core1_alive ? "ok" : "dead", (int)fox_state());
+    con_puts(fox_banner_line(b, sizeof b)); con_puts("\r\n");
+    con_printf("uptime=%lus reset=%s version=%s\r\n", (unsigned long)(to_ms_since_boot(get_absolute_time()) / 1000), reset_reason, FOXLIBC_VERSION);
+    con_printf("revision=%d si5351=%s carrier=%.1f keyed=%d attenuation=%d i2c_write_us=%lu i2c_errors=%lu core1=%s correction_ppm=%.1f state=%d\r\n",
+               ps.revision, ps.si5351_ok ? "ok" : "absent", ps.carrier_hz, ps.keyed, ps.attenuation, (unsigned long)ps.i2c_write_us, (unsigned long)ps.i2c_errors, ps.core1_alive ? "ok" : "dead", (double)ps.correction_ppm, (int)fox_state());
     con_printf("charging=%s host_drive=%s host_writes=%lu dirty=%d\r\n", player_charging() ? "yes" : "no", msc_host_has_drive() ? "mounted" : "no", (unsigned long)msc_host_writes(), flash_disk_dirty());
     char files[256]; fs_list(files, sizeof files); con_printf("files: %s\r\n", files);
 }

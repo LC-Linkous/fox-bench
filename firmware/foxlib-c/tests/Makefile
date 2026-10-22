@@ -2,6 +2,10 @@
 # Host build of the portable core + the parity harness. `make check` runs parity.py.
 CC ?= gcc
 CFLAGS ?= -std=gnu11 -O1 -g -Wall -Wextra -Werror -Wno-unused-parameter -D_GNU_SOURCE
+# The host builds run the JSON parser and the validator on files anyone can put on the drive: AddressSanitizer and
+# UBSan catch what -Wall cannot. SANITIZE= (empty) turns them off for a compiler without them.
+SANITIZE ?= -fsanitize=address,undefined -fno-sanitize-recover=undefined
+CFLAGS += $(SANITIZE)
 CORE := ../core/json.c ../core/morse.c ../core/melody.c ../core/schedule.c ../core/synth.c ../core/sstv.c ../core/cfg.c
 BUILD ?= build
 

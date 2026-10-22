@@ -260,8 +260,12 @@ function uf2Card(app) {
       }
       let info = ''; try { info = await (await (await dir.getFileHandle('INFO_UF2.TXT')).getFile()).text(); } catch {}
       if (info && !/RP2040|RPI-RP2/i.test(info)) throw new Error(`the bootloader drive says "${info.split('\n')[0].trim()}", not an RP2040 — wrong board?`);
-      const h2 = await dir.getFileHandle(uf2.name, { create: true }); const w = await h2.createWritable(); await w.write(uf2.bytes); await w.close();
-      app.console.line(`UF2 ${uf2.name} written to the bootloader drive — waiting for the board to reboot`, 'dim');
+      // The RP2040 bootloader flashes blocks as they arrive and reboots when the last one lands — often before the
+      // browser's close()/rename has finished, which then throws (NotFound/InvalidState) on a copy that succeeded.
+      // So: write, then try to close, and let the "did the drive go away" check below be the verdict either way.
+      const h2 = await dir.getFileHandle(uf2.name, { create: true }); const w = await h2.createWritable(); await w.write(uf2.bytes);
+      let closeErr = null; try { await w.close(); } catch (e) { closeErr = e; }
+      app.console.line(`UF2 ${uf2.name} written to the bootloader drive${closeErr ? ` (close() said "${closeErr.message || closeErr}" — expected when the board reboots mid-write)` : ''} — waiting for the board to reboot`, 'dim');
       // Verify: the bootloader drive must go away (the board rebooted into the new firmware). Listing it should fail.
       let gone = false;
       for (let i = 0; i < 12 && !gone; i++) { await new Promise(r => setTimeout(r, 500)); try { for await (const _ of dir.values()) { void _; break; } } catch { gone = true; } }
@@ -270,7 +274,7 @@ function uf2Card(app) {
         : uf2.source === 'vendor-recovery' ? ' THIS IMAGE REFORMATS THE DRIVE AT EVERY BOOT: do not write files yet. Flash pfoxr3v1.uf2 next (Reboot into bootloader → Copy), and only then write the four files and power-cycle.' : '';
       uf2.last = gone
         ? { ok: true, text: `${uf2.name} flashed (${(uf2.bytes.length / 1024).toFixed(0)} kB): the ${b.flash.drive_name} drive went away, so the board rebooted into it.${after}` }
-        : { ok: false, text: `${uf2.name} was written but the ${b.flash.drive_name} drive is still there after 6 s — the bootloader did not accept it. A .uf2 for another chip, or a copy that did not complete; try again.` };
+        : { ok: false, text: `${uf2.name} was written but the ${b.flash.drive_name} drive is still there after 6 s — the bootloader did not accept it${closeErr ? ` and the copy itself failed (${closeErr.message || closeErr})` : ''}. A .uf2 for another chip, or a copy that did not complete; try again.` };
       app.console.line(uf2.last.text, gone ? 'ok' : 'err');
       if (gone && app.device) { await app.disconnect(); app.console.dim(`the board rebooted: open its drive again (${app.usesDrive ? 'Open ' + (b.drive?.label || 'drive') : 'Connect'} in the top bar) before writing files`); }
       fleet.append({ board_number: '', uid: '', board: b.id, action: 'flash', template: '', profile: '', callsign: '', freq: '', power: '', seed: '', result: gone ? 'ok' : 'not accepted', notes: uf2.name + ' (uf2' + (uf2.source === 'fox-bench' ? ', fox-bench firmware' : '') + ')' });

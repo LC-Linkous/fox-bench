@@ -74,5 +74,8 @@ everything under `firmware/` — foxlib and foxlib-c — **GPL-3.0-or-later**
 (`firmware/LICENSE`), the flasher under `flasher/` **Apache-2.0**
 (`flasher/LICENSE`). What each bundles (esptool-js, FatFs, the Pico SDK
 and TinyUSB in the built UF2) and what is deliberately *not* here (the
-PicoFox hardware and vendor firmware, CC BY-NC-SA 4.0) is listed in
-`LICENSES.md`.
+PicoFox hardware and vendor firmware, CC BY-NC-SA 4.0; the kitsune fox
+firmware, which is the work of its authors at
+https://github.com/rfhs/kitsune and belongs to them — fox-bench only
+describes the boards it runs on and the header its build reads) is listed
+in `LICENSES.md`.

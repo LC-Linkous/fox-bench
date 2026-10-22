@@ -235,6 +235,9 @@ def main():
             "si5351-bad": {"radio": {"attenuation": 200, "tone_shape": "square", "sample_rate": 100, "preemphasis": "yes", "itu_zone": 9, "id_deviation_hz": 20000, "correction_ppm": 1000, "tx_while_mounted": 1}},
             "si5351-ok": {"radio": {"attenuation": 40, "tone_shape": "sine", "sample_rate": 5000, "preemphasis": False, "itu_zone": 1, "id_deviation_hz": 2500, "audio_deviation_hz": 7000, "correction_ppm": -1.5, "tx_while_mounted": False}, "id": {"callmessage": "KY4ZR FOX"}},
             "pins-ignored": {"pins": {"ptt": "GP99"}, "id": {"callmessage": "KY4ZR FOX"}},
+            "images-file-code.py": {"payload": {"kind": "sstv", "images_file": "code.py"}, "id": {"callmessage": "KY4ZR FOX"}},
+            "images-file-path": {"payload": {"kind": "sstv", "images_file": "../x.bin"}, "id": {"callmessage": "KY4ZR FOX"}},
+            "images-file-ok": {"payload": {"kind": "sstv", "images_file": "pics.bin"}, "id": {"callmessage": "KY4ZR FOX"}},
             "rotator": {"plan": {"frequencies_mhz": [146.565, 147.42, 147.445], "announce_qsy": True}, "schedule": {"kind": "resurrection", "seed": 5, "id_every": 2, "alive_min_ms": 5, "alive_max_ms": 1}},
         })
         tmp2 = []

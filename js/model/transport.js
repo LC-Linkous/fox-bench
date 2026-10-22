@@ -22,5 +22,6 @@ export function deployBlocker({ device, board, onBoard }) {
   if (!deployTransports(family).includes(device.transport)) return `the connected device is ${name(device.transport)}; ${board.name} is deployed over ${family === 'foxlib' ? 'the REPL' : 'its drive'}. Disconnect, then connect the ${board.name} the right way.`;
   if (device.kind === 'demo' && device.board && device.board.id !== board.id) return `the demo board is a ${device.board.name}; start the demo again for ${board.name}.`;
   if (onBoard?.listening) return 'Listen only: the board has not been identified. Connect (or Re-read board) first.';
+  if (device.transport === 'drive' && device.looksRight === false && !device.confirmedFolder) return `"${device.handle?.name || 'the folder picked'}" has none of the files a ${board.name} drive carries (${(board.drive?.files || []).join(', ')}): it may be a folder on your computer. Confirm it is the fox's drive to write there.`;
   return null;
 }

@@ -12,6 +12,8 @@ bool si5351_present(void);
 uint32_t si5351_divider_for(double hz);
 bool si5351_set_carrier(double hz);                     /* nominal carrier; resets PLLA */
 double si5351_carrier_hz(void);                         /* what the registers actually hold */
+void si5351_set_correction_ppm(double ppm);             /* reference error, radio.correction_ppm; applies at the next set_carrier */
+double si5351_correction_ppm(void);
 uint32_t si5351_counts_for_deviation(double dev_hz);    /* fraction counts for a given output deviation */
 void si5351_set_offset(int32_t counts);                 /* FM: carrier + counts (one short I2C write) */
 bool si5351_output(bool on);                            /* CLK0 output enable; false when the write failed */

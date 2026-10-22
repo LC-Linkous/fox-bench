@@ -62,6 +62,11 @@ page.on('response', r => { if (r.status() >= 400) errors.push(`http ${r.status()
 page.on('requestfailed', r => errors.push(`request failed ${r.url()} ${r.failure()?.errorText}`));
 page.on('dialog', d => d.dismiss());                                     // default: refuse confirms; tests opt in below
 const settle = ms => page.waitForTimeout(ms);
+/** Wait for a condition instead of a fixed time: a slow runner does not under-sleep, a fast one does not over-sleep.
+ *  `cond` runs in the page; `name` is what the failure says. Returns true when it came true in time. */
+const until = async (cond, name, ms = 15000) => { try { await page.waitForFunction(cond, null, { timeout: ms, polling: 100 }); return true; } catch { console.log(`  (timed out waiting for ${name})`); return false; } };
+const untilTextArgs = async (sel, re, ms = 15000) => { try { await page.waitForFunction(([s, src]) => new RegExp(src).test((document.querySelector(s)?.textContent || '').replace(/\s+/g, ' ')), [sel, re.source], { timeout: ms, polling: 100 }); return true; } catch { console.log(`  (timed out waiting for ${sel} to match ${re})`); return false; } };
+const untilFleet = async (pred, ms = 15000) => { try { await page.waitForFunction(src => (new Function('r', 'return ' + src))(JSON.parse(localStorage.getItem('fox-bench.fleet') || '[]').slice(-1)[0] || {}), pred, { timeout: ms, polling: 100 }); return true; } catch { console.log(`  (timed out waiting for a fleet row where ${pred})`); return false; } };
 const tab = async name => { await page.click(`.rail button[data-tab="${name}"]`); await settle(150); if (SHOTS) await page.screenshot({ path: `${SHOTS}/${name}.png`, fullPage: true }); };
 const text = sel => page.textContent(sel).then(t => (t || '').replace(/\s+/g, ' ').trim());
 const app = fn => page.evaluate(fn);
@@ -103,7 +108,7 @@ try {
     for (const t of TABS) await tab(t);
     await tab('deploy');
     await page.check('#tab-deploy .gate input');
-    await page.click('#tab-deploy button.btn.primary'); await settle(2500);
+    await page.click('#tab-deploy button.btn.primary'); await until(() => !!window.foxbench.lastDeploy, 'the deploy to finish'); await settle(200);
     const banner = await app(() => window.foxbench.onBoard.template ? document.querySelector('#tab-deploy').textContent : '');
     const m = banner.match(/FOX template=(\S+) foxlib=(\S+) board=\S+ uid=\S+ cfg=(\S+) radio=(\S+) id=(\S+) freq=(\S+)/);
     check(m && m[1].startsWith(id + '/'), `${id}: banner template`);
@@ -118,7 +123,7 @@ try {
   await tab('bench');
   await page.click('#tab-bench button:has-text("Read RSSI")'); await settle(500);
   check(/rssi\s+\d+/.test(await text('#tab-bench pre.out')), 'RSSI logged');
-  await page.click('#tab-bench button:has-text("Key")'); await settle(3600);   // demo keys for the configured 3 s
+  await page.click('#tab-bench button:has-text("Key")'); await untilTextArgs('#tab-bench pre.out', /key\s+ok/, 20000);   // demo keys for the configured 3 s
   check(/key\s+ok/.test(await text('#tab-bench pre.out')), 'key test logged ok');
   await tab('radio');
   await page.click('#tab-radio button:has-text("Probe")'); await settle(500);
@@ -136,13 +141,13 @@ try {
   check(!(await page.isDisabled('#tab-board button:has-text("Flash CircuitPython")')), 'flash enabled with the right image in demo mode');
   await page.click('#tab-board button:has-text("Flash CircuitPython")'); await settle(400);
   check(await page.$('#tab-board progress'), 'progress bar shown while flashing');
-  await settle(2500);
+  await untilTextArgs('#tab-board', /Flashed in .* ESP32-C3/);
   check(/Flashed in .* ESP32-C3.*MAC 84:f7:03:12:34:56/.test(await text('#tab-board')), 'demo flash reports chip and MAC');
   let flashRows = await app(() => JSON.parse(localStorage.getItem('fox-bench.fleet') || '[]').filter(r => r.action === 'flash'));
   check(flashRows.length === 1 && flashRows[0].uid === '84f703123456' && /10\.2\.1\.bin/.test(flashRows[0].notes) && flashRows[0].result === 'ok', 'fleet row for the flash keyed on the MAC');
   await tab('fleet');
   check(/Flash board #1/.test(await text('#tab-fleet')), 'batch card starts at board #1');
-  await page.click('#tab-fleet button:has-text("Flash board #1")'); await settle(3000);
+  await page.click('#tab-fleet button:has-text("Flash board #1")'); await untilTextArgs('#tab-fleet', /Flash board #2/);
   check(/Flash board #2/.test(await text('#tab-fleet')), 'batch number advances after a flash');
   flashRows = await app(() => JSON.parse(localStorage.getItem('fox-bench.fleet') || '[]').filter(r => r.action === 'flash'));
   check(flashRows.length === 2 && String(flashRows[1].board_number) === '1', 'batch row carries the board number');
@@ -177,7 +182,7 @@ try {
   check(!(await page.isDisabled('#tab-deploy button.btn.primary')) || !(await page.isChecked('#tab-deploy .gate input')), 'out-of-band does not block deploy');
   page.removeAllListeners('dialog');
   let dialog = null; page.once('dialog', async d => { dialog = d.message(); await d.accept(); });
-  await page.check('#tab-deploy .gate input'); await page.click('#tab-deploy button.btn.primary'); await settle(2500);
+  await page.check('#tab-deploy .gate input'); await page.click('#tab-deploy button.btn.primary'); await until(() => !!window.foxbench.lastDeploy, 'the deploy to finish'); await settle(300);
   check(dialog && /150 MHz/.test(dialog), 'deploy asked to confirm the 150 MHz entry');
   check(/freq=146\.565,150/.test(await text('#tab-deploy')), 'board banner carries both frequencies');
   page.on('dialog', d => d.dismiss());
@@ -274,7 +279,7 @@ try {
   check(/no callsign — silent/.test(await text('#tab-board')), 'factory drive shows an empty callsign');
   await tab('deploy');
   check(/settings\.txt/.test(await text('#tab-deploy')) && /\.callsign\.wav/.test(await text('#tab-deploy')) && /\.settings_crc\.bin/.test(await text('#tab-deploy')), 'deploy lists the four files');
-  await page.check('#tab-deploy .gate input'); await page.click('#tab-deploy button.btn.primary'); await settle(1500);
+  await page.check('#tab-deploy .gate input'); await page.click('#tab-deploy button.btn.primary'); await untilTextArgs('#tab-deploy', /files written and read back|deploy failed/);
   check(/files written and read back/.test(await text('#tab-deploy')), 'files written to the demo drive');
   const onDrive = await app(async () => { const d = window.foxbench.device; const l = await d.list(''); const s = await d.readText('settings.txt'); return { names: Object.keys(l).sort(), s, markerOk: window.foxbench.onBoard.markerOk }; });
   check(onDrive.names.join() === '.callsign.wav,.settings_crc.bin,audio.wav,settings.txt' && /CALLSIGN=KY4ZR\n/.test(onDrive.s) && /DUTY_CYCLE=50\n/.test(onDrive.s) && onDrive.markerOk === true, 'drive holds the four files, settings as configured, marker matching');
@@ -316,20 +321,20 @@ try {
   check(/FOXBENCH/.test(await text('#statusText')), 'demo FOXBENCH drive connected: ' + await text('#statusText'));
   await tab('bench');
   const keyIn = await page.$('#tab-bench input[type=number]'); await keyIn.fill('1'); await keyIn.dispatchEvent('change');
-  await page.click('#tab-bench button:has-text("Key")'); await settle(1800);
+  await page.click('#tab-bench button:has-text("Key")'); await untilTextArgs('#tab-bench', /key\s+ok/);
   check(/key\s+ok/.test(await text('#tab-bench')), 'bench Key over the demo console: ok after the keyed second');
   await page.click('#tab-bench button:has-text("Charging?")'); await settle(400);
   check(/charger idle/.test(await text('#tab-bench')), 'bench Charging? reads the console reply');
   await page.click('#tab-bench button:has-text("Status")'); await settle(400);
   check(/i2c_write_us/.test(await text('#tab-bench')), 'bench Status shows the firmware status block');
-  check(/FOX template=morse-songs/.test(await text('#log')) || true, 'console drawer carries the demo banner');
+  check(/FOX template=morse-songs/.test(await text('#log')), 'console drawer carries the demo banner');
   await tab('board');
   check(/Enter UF2 bootloader/.test(await text('#tab-board')), 'Board tab offers bootsel while a console is live');
   await tab('board');
   check(/Template on board/.test(await text('#tab-board')) && /morse-songs/.test(await text('#tab-board')), 'drive\'s fox.json read: template shown');
   await tab('deploy');
   check(/fox\.json/.test(await text('#tab-deploy')) && /defaults\.json/.test(await text('#tab-deploy')) && !/code\.py/.test(await text('#tab-deploy')), 'deploy lists fox.json + defaults.json, no code.py');
-  await page.check('#tab-deploy .gate input'); await page.click('#tab-deploy button.btn.primary'); await settle(1500);
+  await page.check('#tab-deploy .gate input'); await page.click('#tab-deploy button.btn.primary'); await untilTextArgs('#tab-deploy', /files written and read back|deploy failed/);
   check(/files written and read back/.test(await text('#tab-deploy')), 'files written to the demo FOXBENCH drive');
   const onDriveC = await app(async () => { const d = window.foxbench.device; const l = await d.list(''); const f = JSON.parse(await d.readText('fox.json')); return { names: Object.keys(l).sort(), f }; });
   check(onDriveC.names.join() === 'README.txt,board.json,defaults.json,fox.json' && onDriveC.f.template === 'morse-songs' && onDriveC.f.board === 'picofox-foxlibc' && onDriveC.f.id.callmessage === 'KY4ZR FOX DE KY4ZR' && !('ptt' in (onDriveC.f.pins || {})), 'drive holds fox.json for this board and template');
@@ -413,11 +418,11 @@ try {
   check(/No kitsune images are hosted on this site/.test(await text('#tab-board')) && /Load merged \.bin/.test(await text('#tab-board')), 'firmware card says no hosted images and takes a merged .bin');
   await page.setInputFiles('#tab-board input[type=file][accept=".bin"]', { name: 'merged.bin', mimeType: 'application/octet-stream', buffer: Buffer.alloc(8192, 0xe9) }); await settle(300);
   await app(() => { window.foxbenchFlash.simulate = true; window.foxbenchFlash.simulateChip = 'ESP32-C3 (QFN32) (revision v0.4)'; });
-  await page.click('#tab-board button:has-text("Flash")'); await settle(1200);
+  await page.click('#tab-board button:has-text("Flash")'); await untilFleet("r.action === 'flash' && r.board === 'seeed_xiao_esp32c5-kitsune'");
   const badRow = await app(() => JSON.parse(localStorage.getItem('fox-bench.fleet') || '[]').filter(r => r.action === 'flash' && r.board === 'seeed_xiao_esp32c5-kitsune').pop());
   check(badRow && /^fail: the port belongs to an ESP32-C3/.test(badRow.result), 'a C3 on the port with the C5 target selected is refused before the erase: ' + (badRow && badRow.result));
   await app(() => { window.foxbenchFlash.simulateChip = 'ESP32-C5'; });
-  await page.click('#tab-board button:has-text("Flash")'); await settle(2500);
+  await page.click('#tab-board button:has-text("Flash")'); await untilFleet("r.action === 'flash' && r.board === 'seeed_xiao_esp32c5-kitsune' && r.result === 'ok'");
   const okRow = await app(() => JSON.parse(localStorage.getItem('fox-bench.fleet') || '[]').filter(r => r.action === 'flash' && r.board === 'seeed_xiao_esp32c5-kitsune').pop());
   check(okRow && okRow.result === 'ok' && okRow.uid === '84f703123456' && /merged\.bin/.test(okRow.notes), 'the right chip flashes; fleet row keyed on the efuse MAC: ' + JSON.stringify(okRow && [okRow.result, okRow.uid]));
   check(/rebooting into the kitsune firmware/.test(await text('#tab-board')), 'the result text is the kitsune one');

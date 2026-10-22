@@ -32,6 +32,7 @@ void player_start(void) {}
 bool player_set_carrier(double hz) { carrier = hz; if (n_retunes < 256) retunes[n_retunes++] = hz; return hz >= 100e6 && hz <= 200e6; }
 void player_key(bool on) { if (on == keyed) return; keyed = on; rec_ptt(on); if (on) keyed_at = (uint32_t)(sim_now_us / 1000); }
 void player_set_attenuation(int code) { (void)code; }
+void player_set_correction_ppm(double ppm) { (void)ppm; }
 void player_play(play_req_t *req) {
     req->done = false; req->cut = false; req->played = 0; req->late = 0;
     if (!req->src && (!req->ev || !req->ev->n)) { req->done = true; return; }
@@ -71,6 +72,7 @@ long fs_read(const char *path, char *buf, size_t cap) { FILE *f = openp(path, "r
 long fs_read_at(const char *path, uint32_t off, void *buf, size_t n) { FILE *f = openp(path, "rb"); if (!f) return -1; fseek(f, (long)off, SEEK_SET); size_t got = fread(buf, 1, n, f); fclose(f); return (long)got; }
 bool fs_write(const char *path, const void *data, size_t len) { FILE *f = openp(path, "wb"); if (!f) return false; fwrite(data, 1, len, f); fclose(f); return true; }
 bool fs_exists(const char *path) { FILE *f = openp(path, "rb"); if (f) fclose(f); return f != NULL; }
+long fs_size(const char *path) { FILE *f = openp(path, "rb"); if (!f) return -1; fseek(f, 0, SEEK_END); long n = ftell(f); fclose(f); return n; }
 int fs_seed(const char *bj) { (void)bj; return 0; }
 int fs_list(char *out, size_t cap) { snprintf(out, cap, "fox.json defaults.json"); return 2; }
 
@@ -79,7 +81,7 @@ void con_init(void) {}
 void con_poll(void) {}
 bool con_connected(void) { return true; }
 void con_puts(const char *s) { size_t n = strlen(s); if (n_prints + n < sizeof prints) { memcpy(prints + n_prints, s, n); n_prints += n; } }
-void con_printf(const char *fmt, ...) { char b[400]; va_list ap; va_start(ap, fmt); vsnprintf(b, sizeof b, fmt, ap); va_end(ap); con_puts(b); }
+void con_printf(const char *fmt, ...) { char b[320];   /* the same size as the firmware's, so a line that would be cut there is cut here */ va_list ap; va_start(ap, fmt); vsnprintf(b, sizeof b, fmt, ap); va_end(ap); con_puts(b); }
 
 /* ---- drive */
 bool msc_host_has_drive(void) { return sim_host_drive; }

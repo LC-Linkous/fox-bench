@@ -13,6 +13,7 @@ typedef enum { FOX_HOLD, FOX_KEYED, FOX_BENCH } fox_state_t;
 
 void fox_init(void);                            /* mount, seed files, load, banner, start the cycle */
 void fox_reload(const char *why);               /* stop, reload fox.json/defaults.json, banner, restart */
+void fox_drive_changed(void);                   /* host writes settled: reload if the files that matter changed */
 void fox_poll(void);                            /* advance the state machine; call from the main loop */
 const char *fox_banner_line(char *buf, int n);  /* "FOX template=... " */
 void fox_print_banner(void);

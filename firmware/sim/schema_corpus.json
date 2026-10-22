@@ -1386,6 +1386,62 @@
    "template": "morse-songs",
    "board": "seeed_xiao_esp32c3",
    "user": null
+  },
+  {
+   "name": "images_file-ok@morse-sstv",
+   "template": "morse-sstv",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "id": {
+     "callmessage": "KY4ZR FOX"
+    },
+    "payload": {
+     "kind": "sstv",
+     "images_file": "pics-2026.bin"
+    }
+   }
+  },
+  {
+   "name": "images_file-code.py@morse-sstv",
+   "template": "morse-sstv",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "id": {
+     "callmessage": "KY4ZR FOX"
+    },
+    "payload": {
+     "kind": "sstv",
+     "images_file": "code.py"
+    }
+   }
+  },
+  {
+   "name": "images_file-path@morse-sstv",
+   "template": "morse-sstv",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "id": {
+     "callmessage": "KY4ZR FOX"
+    },
+    "payload": {
+     "kind": "sstv",
+     "images_file": "../foxlib/x.bin"
+    }
+   }
+  },
+  {
+   "name": "images_file-FOX.JSON@morse-sstv",
+   "template": "morse-sstv",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "id": {
+     "callmessage": "KY4ZR FOX"
+    },
+    "payload": {
+     "kind": "sstv",
+     "images_file": "FOX.JSON"
+    }
+   }
   }
  ]
 }

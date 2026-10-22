@@ -81,6 +81,7 @@ bool fs_write(const char *path, const void *data, size_t len) {
 }
 
 bool fs_exists(const char *path) { FILINFO fi; return mounted && f_stat(path, &fi) == FR_OK; }
+long fs_size(const char *path) { FILINFO fi; return mounted && f_stat(path, &fi) == FR_OK ? (long)fi.fsize : -1; }
 
 int fs_seed(const char *board_json) {
     int made = 0;

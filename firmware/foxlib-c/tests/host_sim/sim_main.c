@@ -8,6 +8,10 @@
 extern uint64_t sim_now_us; extern const char *sim_dir; extern int sim_host_drive, sim_unkeys, sim_charging;
 void sim_player_tick(void); void sim_dump(void);
 
+/* Under AddressSanitizer (tests/Makefile): the core has no heap, and this harness's own file buffers are not worth
+ * freeing before exit; leak detection would only report those. Harmless without ASan. */
+const char *__asan_default_options(void) { return "detect_leaks=0"; }
+
 int main(int argc, char **argv) {
     uint64_t cap_ms = 180000; int stop = 2;
     for (int i = 1; i < argc; i++) {

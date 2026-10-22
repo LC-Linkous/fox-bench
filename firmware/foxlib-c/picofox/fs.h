@@ -17,4 +17,5 @@ bool fs_write(const char *path, const void *data, size_t len);
 bool fs_exists(const char *path);
 int fs_seed(const char *board_json);        /* create the files the page expects if missing, keep board.json current; returns how many written */
 int fs_list(char *out, size_t cap);         /* "name size  name size ..." */
+long fs_size(const char *path);             /* file size, -1 if missing */
 #endif

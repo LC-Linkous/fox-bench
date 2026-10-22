@@ -31,6 +31,10 @@ static char *slurp(const char *path, size_t *n) {
 
 static void dump_events(void) { for (int i = 0; i < EV.n; i++) printf("%.6g %.6g\n", EV.e[i].hz, EV.e[i].ms); }
 
+/* Under AddressSanitizer (tests/Makefile): the core has no heap, and this harness's own file buffers are not worth
+ * freeing before exit; leak detection would only report those. Harmless without ASan. */
+const char *__asan_default_options(void) { return "detect_leaks=0"; }
+
 int main(int argc, char **argv) {
     if (argc < 2) return 1;
     if (!strcmp(argv[1], "morse")) {

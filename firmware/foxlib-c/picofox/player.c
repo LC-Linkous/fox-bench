@@ -16,7 +16,7 @@ static volatile struct { uint32_t seq, cmd, arg, ack_seq, result; } mbox;
 static uint32_t handled_seq;
 static inline bool mbox_pending(void) { return mbox.seq != handled_seq; }
 
-enum { CMD_SETUP = 1, CMD_CARRIER, CMD_KEY, CMD_UNKEY, CMD_ATTEN, CMD_PLAY, CMD_STOP, CMD_STATUS };
+enum { CMD_SETUP = 1, CMD_CARRIER, CMD_KEY, CMD_UNKEY, CMD_ATTEN, CMD_PLAY, CMD_STOP, CMD_STATUS, CMD_CORRECTION };
 enum { RESP_OK = 0x100, RESP_FAIL };
 
 #define I2C_HZ 1000000   /* a 6-byte fraction write must fit in a 125 us sample period */
@@ -128,6 +128,7 @@ static void core1_main(void) {
             case CMD_KEY: key(true); break;
             case CMD_UNKEY: key(false); break;
             case CMD_ATTEN: if (st.revision >= 3) atten_write((int)arg); break;
+            case CMD_CORRECTION: si5351_set_correction_ppm((int32_t)arg / 1000.0); st.correction_ppm = (float)si5351_correction_ppm(); break;
             case CMD_PLAY: req = (volatile play_req_t *)arg; cur = req; break;
             case CMD_STOP: break;
             default: result = RESP_FAIL; break;
@@ -165,6 +166,7 @@ void player_start(void) {
 bool player_set_carrier(double hz) { if (player_busy()) player_stop(); return call1(CMD_CARRIER, (uint32_t)(hz + 0.5)) == RESP_OK; }
 void player_key(bool on) { if (!on && player_busy()) player_stop(); call(on ? CMD_KEY : CMD_UNKEY); }
 void player_set_attenuation(int code) { call1(CMD_ATTEN, (uint32_t)code); }
+void player_set_correction_ppm(double ppm) { if (player_busy()) player_stop(); call1(CMD_CORRECTION, (uint32_t)(int32_t)(ppm * 1000.0)); }
 
 void player_play(play_req_t *req) {
     req->done = false; req->cut = false; req->played = 0; req->late = 0;

@@ -4,6 +4,22 @@
 #include "cfg.h"
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
+#include <strings.h>
+
+/* payload.images_file: a plain file name in the drive's root -- no paths, 1..32 of [A-Za-z0-9._-] starting with a
+ * letter or digit, and never one of the files the fox itself runs from or the page writes (Deploy writes the images
+ * file; a config naming code.py there would overwrite firmware). Same rule in schema.js and cfg.py. */
+static bool images_file_ok(const char *f) {
+    static const char *reserved[] = { "code.py", "boot.py", "fox.json", "defaults.json", "board.json", "settings.txt", "audio.wav", ".callsign.wav", ".settings_crc.bin", "readme.txt" };
+    size_t n = strlen(f);
+    if (n < 1 || n > 32) return false;
+    if (!isalnum((unsigned char)f[0])) return false;
+    for (size_t i = 0; i < n; i++) { unsigned char c = (unsigned char)f[i]; if (!(isalnum(c) || c == '.' || c == '_' || c == '-')) return false; }
+    for (size_t i = 0; i < sizeof reserved / sizeof *reserved; i++) if (!strcasecmp(f, reserved[i])) return false;
+    return true;
+}
+
 
 static void scopy(char *dst, int n, const char *s) { if (!s) { dst[0] = 0; return; } strncpy(dst, s, (size_t)n - 1); dst[n - 1] = 0; }
 
@@ -137,8 +153,11 @@ static void apply_payload(fox_cfg_t *cfg, const fox_cfg_t *defaults, const json_
         cfg->payload.kind = PAYLOAD_SSTV;
         const char *mode = json_str(d, json_get(d, pl, "mode"));
         if (json_get(d, pl, "mode") >= 0 && (!mode || strcmp(mode, "robot36-gray"))) cfg_report_bad(rep, "payload.mode", "robot36-gray only");
-        const char *f = json_str(d, json_get(d, pl, "images_file"));
-        scopy(cfg->payload.images_file, sizeof cfg->payload.images_file, f ? f : "images.bin");
+        k = json_get(d, pl, "images_file");
+        const char *f = k >= 0 ? json_str(d, k) : NULL;
+        if (k < 0) scopy(cfg->payload.images_file, sizeof cfg->payload.images_file, "images.bin");
+        else if (f && images_file_ok(f)) scopy(cfg->payload.images_file, sizeof cfg->payload.images_file, f);
+        else { cfg_report_bad(rep, "payload.images_file", "a plain file name (letters, digits, . _ -), not code.py / fox.json / defaults.json / boot.py / board.json"); scopy(cfg->payload.images_file, sizeof cfg->payload.images_file, "images.bin"); }
         k = json_get(d, pl, "skip_on_low_battery");
         cfg->payload.skip_on_low_battery = k < 0 ? true : (json_is(d, k, J_BOOL) && json_bool(d, k, false));
     } else {

@@ -41,12 +41,18 @@ def deep_merge(base, over):
     return out
 
 
-def applicable(scen):
-    if any(k in scen for k in SKIP_KEYS):
-        return False
+def skip_reason(scen):
+    """Why a scenario cannot run on this board, or None. Printed in the summary so a skip is never silent."""
+    for k in SKIP_KEYS:
+        if k in scen: return k
     fox = scen.get("fox") or {}
-    if "pins" in fox:
-        return False
+    if "pins" in fox: return "pins"
+    return None if applicable_rest(scen) else "expectation"
+
+def applicable(scen):
+    return skip_reason(scen) is None
+
+def applicable_rest(scen):
     exp = scen.get("expect", {})
     if "uart_contains" in exp:
         return False
@@ -149,11 +155,13 @@ def main():
     if a.template:
         templates = [t for t in templates if t == a.template]
     total = fails_n = skipped = 0
+    skip_by = {}
     for tid in templates:
         defaults = json.load(open(os.path.join(FW, "templates", tid, "defaults", BOARD + ".json")))
         for scen in scenarios.get("all", []) + scenarios.get(tid, []) + (FOXLIBC_ONLY if tid == "morse-songs" else []):
-            if not applicable(scen):
-                skipped += 1
+            why = skip_reason(scen)
+            if why:
+                skipped += 1; skip_by[why] = skip_by.get(why, 0) + 1
                 continue
             total += 1
             d = tempfile.mkdtemp(prefix="foxlibc-sim-")
@@ -187,7 +195,7 @@ def main():
                         print("       - %s" % f)
             finally:
                 shutil.rmtree(d, ignore_errors=True)
-    print("\nfoxlib-c runner: %d scenario(s), %d failed, %d skipped (need hardware this board lacks)" % (total, fails_n, skipped))
+    print("\nfoxlib-c runner: %d scenario(s), %d failed, %d skipped (need hardware this board lacks: %s)" % (total, fails_n, skipped, ", ".join("%s %d" % kv for kv in sorted(skip_by.items())) or "-"))
     sys.exit(1 if fails_n or not total else 0)
 
 

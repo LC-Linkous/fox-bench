@@ -17,6 +17,7 @@
 #include "fox.h"
 #include "fs.h"
 #include "msc_disk.h"
+#include "hardware/structs/vreg_and_chip_reset.h"
 #include "hardware/watchdog.h"
 #include "pico/stdlib.h"
 #include "player.h"
@@ -31,9 +32,13 @@ int main(void) {
     con_init();
     player_start();                 /* core 1: pins, I2C, Si5351 */
     tusb_init();
-    bool wd = watchdog_caused_reboot();
+    /* why this boot happened: shown by `status` (reset=) for as long as the board is up, because a line printed here
+     * is gone before any terminal opens. watchdog(timeout) is the one that means the firmware hung. */
+    bool wd_timeout = watchdog_enable_caused_reboot(), wd = watchdog_caused_reboot();
+    uint32_t chip = vreg_and_chip_reset_hw->chip_reset;
+    con_set_reset_reason(wd_timeout ? "watchdog(timeout)" : wd ? "software(reboot/touch/bootsel)" : (chip & VREG_AND_CHIP_RESET_CHIP_RESET_HAD_POR_BITS) ? "power_on" : (chip & VREG_AND_CHIP_RESET_CHIP_RESET_HAD_RUN_BITS) ? "run_pin" : (chip & VREG_AND_CHIP_RESET_CHIP_RESET_HAD_PSM_RESTART_BITS) ? "debugger" : "other");
     fox_init();                     /* mount, seed, load, banner, go */
-    if (wd) con_puts("** previous run ended in a watchdog reset **\r\n");
+    if (wd_timeout) con_puts("** previous run ended in a watchdog reset **\r\n");
     /* Hardware watchdog from here on (first-boot formatting above may take longer than its period).
      * Everything the loop waits on is bounded: flash writes 2 s, core 1 commands 1 s, stop 200 ms. */
     watchdog_enable(WATCHDOG_MS, true);
@@ -51,7 +56,7 @@ int main(void) {
         if (w != seen_writes) { seen_writes = w; banner_pending = true; }
         if (banner_pending && to_ms_since_boot(get_absolute_time()) - flash_disk_last_write_ms() > RELOAD_SETTLE_MS && !flash_disk_dirty()) {
             banner_pending = false;
-            fox_reload("drive changed");
+            fox_drive_changed();
         }
         /* a terminal just opened: give it the banner (the page's Listen expects one line starting FOX) */
         bool c = con_connected();

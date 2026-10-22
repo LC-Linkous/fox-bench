@@ -33,8 +33,16 @@ add_executable(foxbench-picofox
     ${DEFAULTS_H})
 
 target_include_directories(foxbench-picofox PRIVATE ${CMAKE_CURRENT_LIST_DIR} ${CMAKE_CURRENT_BINARY_DIR} ${CORE} ${FATFS})
+# Reproducible builds: the Pico SDK stamps __DATE__ into the image's binary info unless told otherwise, so the
+# same commit would hash differently on different days. Stamp the commit's author date instead (kept by git am) (or the version alone).
+execute_process(COMMAND git log -1 --format=%as WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+    OUTPUT_VARIABLE FOXLIBC_COMMIT_DATE OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET RESULT_VARIABLE GIT_RC)
+if(NOT GIT_RC EQUAL 0 OR FOXLIBC_COMMIT_DATE STREQUAL "")
+    set(FOXLIBC_COMMIT_DATE "v${FOXLIBC_VERSION}")
+endif()
 target_compile_definitions(foxbench-picofox PRIVATE
     FOXLIBC_VERSION="${FOXLIBC_VERSION}"
+    PICO_PROGRAM_BUILD_DATE="${FOXLIBC_COMMIT_DATE}"
     JSON_MAX_NODES=4096 JSON_STR_BYTES=8192
     PICO_FLASH_ASSUME_CORE1_SAFE=0)
 target_compile_options(foxbench-picofox PRIVATE -Wall -Wextra -Wno-unused-parameter)

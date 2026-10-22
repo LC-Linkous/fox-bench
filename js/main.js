@@ -4,7 +4,7 @@ import { $, $$ } from './ui/dom.js';
 import { loadCatalog, loadDefaults } from './model/loaders.js';
 import { mergeAndValidate, pageChecks } from './model/schema.js';
 import { parseBanner } from './device/device.js';
-import { profiles } from './model/profiles.js';
+import { profiles, fleet, unpackProfileImages } from './model/profiles.js';
 import { deployBlocker } from './model/transport.js';
 import { foxlibcCompat, cmpVersion } from './model/compat.js';
 import { TABLE as MORSE } from './audio/morse.js';
@@ -27,7 +27,7 @@ import * as tabBench from './ui/bench.js';
 import * as tabFleet from './ui/fleet.js';
 import * as tabAbout from './ui/about.js';
 
-const VERSION = '0.7.2';
+const VERSION = '0.7.3';
 /** Tab subtitles that read differently per device family (null = the page's original text). */
 const LEDES = { drive: {
   board: 'Which fox is on the bench, open its USB drive (or use the simulated one). The vendor firmware stays; the page writes its files.',
@@ -120,9 +120,10 @@ export const app = {
     }
     $('.rail button[data-tab="bench"]').hidden = this.family === 'drive' || this.isCompiled;
     $('.rail button[data-tab="payload"]').hidden = this.isCompiled;
-    $('#demoBtn').disabled = this.isCompiled; $('#demoBtn').title = this.isCompiled ? 'no simulated kitsune board yet' : '';
-    if (!this.device) { $('#connectBtn').textContent = this.usesDrive ? `Open ${this.board.drive?.label || 'drive'}` : 'Connect'; $('#connectBtn').disabled = this.isCompiled ? true : this.usesDrive ? !('showDirectoryPicker' in window) : !hasWebSerial(); $('#connectBtn').title = this.isCompiled ? 'kitsune foxes have no connection yet: prepare the configuration here and export the header (Listen only works on their serial port)' : ''; }
-    try { localStorage.setItem('fox-bench.working', JSON.stringify({ version: VERSION, cfg: this.cfg, boardId: this.boardId, templateId: this.templateId, moduleId: this.moduleId, region: this.region })); } catch {}
+    $('#demoBtn').disabled = this.isCompiled || !!this._connecting; $('#demoBtn').title = this.isCompiled ? 'no simulated kitsune board yet' : '';
+    if (!this.device) { $('#connectBtn').textContent = this.usesDrive ? `Open ${this.board.drive?.label || 'drive'}` : 'Connect'; $('#connectBtn').disabled = !!this._connecting || (this.isCompiled ? true : this.usesDrive ? !('showDirectoryPicker' in window) : !hasWebSerial()); $('#connectBtn').title = this.isCompiled ? 'kitsune foxes have no connection yet: prepare the configuration here and export the header (Listen only works on their serial port)' : ''; }
+    try { localStorage.setItem('fox-bench.working', JSON.stringify({ version: VERSION, cfg: this.cfg, boardId: this.boardId, templateId: this.templateId, moduleId: this.moduleId, region: this.region })); this._storageWarned = false; }
+    catch (e) { if (!this._storageWarned) { this._storageWarned = true; this.console.err(`the form is not being remembered between page loads: browser storage refused it (${e.message || e})`); } }
     for (const [tab, keys] of Object.entries(TAB_KEYS)) {
       const bad = [...this.report.map(x => ({ level: 'err', key: x.key })), ...this.issues].filter(i => keys.some(k => i.key === k || i.key.startsWith(k + '.')));
       setFlag(tab, bad.some(i => i.level === 'err') ? 'err' : bad.some(i => i.level === 'warn') ? 'warn' : '');
@@ -195,14 +196,32 @@ export const app = {
   saveProfile(name) {
     name = (name || '').trim(); if (!name) return null;
     this.cfg.fleet = { ...this.cfg.fleet, profile: name };
-    const rec = profiles.save({ name, template: this.templateId, board: this.boardId, module: this.moduleId, cfg: structuredClone(this.cfg), images: this.images.map(im => ({ ...im, pixels: Array.from(im.pixels) })) });
+    let rec;
+    try { rec = profiles.save({ name, template: this.templateId, board: this.boardId, module: this.moduleId, cfg: structuredClone(this.cfg), images: this.images }); }
+    catch (e) { this.console.err(`profile "${name}" NOT saved: ${e.message || e}`); return null; }
     this.console.line(`profile "${name}" saved`, 'ok');
     this.changed('profile');
     return rec;
   },
   setStatus(text, cls) { $('#status').className = 'status ' + (cls || ''); $('#statusText').textContent = text; },
 
-  async connect(kind, { listen = false } = {}) {
+  /** One connect at a time: a second click while the first is still opening (an interrupt on a slow board can take
+   *  many seconds) would open a second port and leave the first one leaking with its drop handler pointed at the
+   *  wrong device. The buttons are disabled meanwhile; every failure path says what happened in the console. */
+  async connect(kind, opts = {}) {
+    if (this._connecting) return this._connecting;
+    const btns = [$('#connectBtn'), $('#listenBtn'), $('#demoBtn')];
+    for (const b of btns) b.disabled = true;
+    this._connecting = this._connect(kind, opts).catch(e => {
+      const msg = String(e?.message || e);
+      if (e?.name === 'NotFoundError' || /No port selected/i.test(msg)) { this.setStatus('Not connected'); return; }   // the chooser was dismissed
+      const held = e?.name === 'NetworkError' || /Failed to open serial port|already open|busy|access denied/i.test(msg);
+      this.console.err(held ? `could not open the port: ${msg} — another program (Thonny, a terminal, a previous tab) probably has it; close that and try again` : msg);
+      this.setStatus('Not connected', 'err');
+    }).finally(() => { this._connecting = null; for (const b of btns) b.disabled = false; this.changed('connect'); });
+    return this._connecting;
+  },
+  async _connect(kind, { listen = false } = {}) {
     if (this.device) await this.disconnect();
     let device;
     if (this.usesDrive && !listen) {
@@ -244,7 +263,8 @@ export const app = {
     if (this.usesDrive) { this.setStatus(`${kind === 'demo' ? 'Demo · ' : ''}${this.board.name} · drive "${this.info.driveName || ''}"`, kind === 'demo' ? 'demo' : 'ok'); await this.readDrive(); this.changed('connect'); return; }
     this.setStatus(`${kind === 'demo' ? 'Demo · ' : ''}${this.info.boardId} · uid ${this.info.uid.slice(-6)}${this.info.foxlibVersion ? ' · foxlib ' + this.info.foxlibVersion : ' · no fox firmware'}`, kind === 'demo' ? 'demo' : 'ok');
     if (this.catalog.boards[this.info.boardId] && this.info.boardId !== this.boardId) await this.setBoard(this.info.boardId);
-    await this.readBoard();
+    try { await this.readBoard(); }
+    catch (e) { this.console.err(`connected, but reading the board failed: ${e.message || e} — Re-read board on the Board tab retries`); }
     this.changed('connect');
   },
   /** Listening with another board selected: the banner says which fox this is, so follow it — select that board and, when its
@@ -379,6 +399,7 @@ async function boot() {
       } catch (e) { app.console.err(String(e.message || e)); } });
   if (!hasWebSerial()) { $('#noSerial').hidden = false; }
 
+  fleet.onError = msg => app.console.err(msg);
   try { app.catalog = await loadCatalog(); }
   catch (e) { app.console.err('could not load descriptors: ' + e.message + ' (serve the folder over http, not file://)'); return; }
 

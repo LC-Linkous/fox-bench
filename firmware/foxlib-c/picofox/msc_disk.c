@@ -13,6 +13,10 @@ static uint32_t host_writes;
 bool msc_host_has_drive(void) { return tud_mounted() && !ejected; }
 uint32_t msc_host_writes(void) { return host_writes; }
 void msc_reset_eject(void) { ejected = false; }
+/* A host that ejected the drive and later re-enumerates it (unplug, replug; the board stays powered on battery)
+ * expects a medium: the eject belongs to the old session. */
+void tud_mount_cb(void) { ejected = false; }
+void tud_umount_cb(void) { ejected = false; }
 
 void tud_msc_inquiry_cb(uint8_t lun, uint8_t vendor_id[8], uint8_t product_id[16], uint8_t product_rev[4]) {
     (void)lun;

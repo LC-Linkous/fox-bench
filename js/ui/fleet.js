@@ -1,7 +1,7 @@
 // fleet.js — Profiles (named configs) and the fleet log.
 // SPDX-License-Identifier: GPL-2.0-only
 import { h, badge, field } from './dom.js';
-import { profiles, fleet, download, FLEET_FIELDS } from '../model/profiles.js';
+import { profiles, fleet, download, FLEET_FIELDS, unpackProfileImages } from '../model/profiles.js';
 import { batchCard, onChange as onFlashChange } from './flash.js';
 import { observe, match, auditRow } from '../model/audit.js';
 
@@ -49,7 +49,7 @@ function render() {
         field('Save current form as', h('div.row', {}, nameIn, h('button.btn', { onclick: save }, 'Save'))),
         h('ul.list', {}, list.map(p => h('li', {},
           h('span.name', {}, p.name), h('span.meta', {}, `${p.template} · ${p.cfg?.id?.callmessage} · ${(p.cfg?.plan?.frequencies_mhz || []).join('/')}`),
-          h('button.btn.small', { onclick: async () => { app.images = (p.images || []).map(im => ({ ...im, pixels: Uint8Array.from(im.pixels) })); await app.loadCfg(p.cfg, { source: 'profile' }); app.console.dim(`profile "${p.name}" loaded into the form`); } }, 'Load'),
+          h('button.btn.small', { onclick: async () => { try { app.images = unpackProfileImages(p.images); await app.loadCfg(p.cfg, { source: 'profile' }); app.console.dim(`profile "${p.name}" loaded into the form`); } catch (e) { app.console.err(`profile "${p.name}" could not be loaded: ${e.message || e}`); } } }, 'Load'),
           h('button', { title: 'delete', onclick: () => { if (confirm(`Delete profile "${p.name}"?`)) { profiles.remove(p.name); render(); } } }, '✕')))),
         h('div.tools', {}, h('button.btn.small', { disabled: !list.length, onclick: () => download('fox-bench-profiles.json', profiles.exportJson(), 'application/json') }, 'Export all'), h('button.btn.small', { onclick: () => fileIn.click() }, 'Import'), fileIn)),
       batchCard(app)),

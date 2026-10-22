@@ -16,7 +16,8 @@
 #define C_DEN 1048575u    /* 2^20 - 1 */
 
 static i2c_inst_t *bus;
-static double xtal_hz = 25e6;
+static double xtal_hz = 25e6;           /* the reference as corrected (nominal × (1 + ppm/1e6)) */
+static double xtal_nominal_hz = 25e6;
 static uint32_t out_div = 6;
 static uint32_t pll_a, pll_b;          /* nominal PLL multiplier a + b/c for the current carrier */
 static bool present;
@@ -79,7 +80,7 @@ static void encode(uint32_t a, uint32_t b, uint32_t c, uint8_t out[8]) {
 }
 
 bool si5351_init(i2c_inst_t *i2c, double ref_hz, unsigned sda, unsigned scl) {
-    bus = i2c; xtal_hz = ref_hz; present = false; regs_valid = false; sda_pin = sda; scl_pin = scl;
+    bus = i2c; xtal_hz = xtal_nominal_hz = ref_hz; present = false; regs_valid = false; sda_pin = sda; scl_pin = scl;
     /* wait for SYS_INIT to clear (reg 0 bit 7), up to 100 ms */
     for (int i = 0; i < 20; i++) { int s = rd1(0); if (s >= 0 && !(s & 0x80)) { present = true; break; } sleep_ms(5); }
     /* Outputs off first, whatever the status read said: a reset (bootsel, watchdog) does not touch
@@ -125,6 +126,12 @@ bool si5351_set_carrier(double hz) {
 }
 
 double si5351_carrier_hz(void) { return xtal_hz * (pll_a + (double)pll_b / C_DEN) / out_div; }
+
+/* radio.correction_ppm: the reference's measured error. +ppm means the TCXO runs fast, so the same registers would put
+ * the carrier high; computing them against the corrected reference puts it where it was asked. Takes effect at the
+ * next si5351_set_carrier. */
+void si5351_set_correction_ppm(double ppm) { xtal_hz = xtal_nominal_hz * (1.0 + ppm / 1e6); }
+double si5351_correction_ppm(void) { return (xtal_hz / xtal_nominal_hz - 1.0) * 1e6; }
 
 uint32_t si5351_counts_for_deviation(double dev_hz) {
     /* output deviation dev -> VCO deviation dev*div -> fraction dev*div/xtal -> counts of 1/c */

@@ -69,6 +69,14 @@ VERSION      firmware version (the banner's foxlib=c-<version>)
   I²C transfer; a write that times out anyway is followed by a controller
   abort (or a 9-clock bus clear) and a full PLL-register rewrite, counted
   in `status` as `i2c_errors=`.
+- **Drive writes by the operating system** (`.DS_Store`, `System Volume
+  Information`, Spotlight) do not restart the cycle: after the host's writes
+  settle the firmware compares a signature of `fox.json`, `defaults.json`
+  and the image file's size with what it last loaded and reloads only when
+  they differ. An ejected drive comes back when the cable is replugged
+  (the eject belonged to the old USB session). `radio.correction_ppm` is
+  applied to the reference before the carrier is computed (`status` shows
+  `correction_ppm=`).
 - **Console** (`picofox/console.c`): banner at boot, when a terminal opens and
   after every reload; the fox log (`cycle N @ f`, `morse: …`, `song: …`);
   commands `help status key <s> tone <hz> <s> id freq <mhz> atten <n> batt
@@ -105,6 +113,10 @@ and `PICO_SDK_PATH` at that commit.
 ```
 make -C firmware/foxlib-c/tests check
 ```
+
+The host builds run under AddressSanitizer and UBSan (`SANITIZE=` to turn
+them off); the runner's summary names why each skipped scenario could not
+run on this board.
 
 - `parity.py`: the C core against foxlib (Python) — identical Morse, song and
   SSTV event streams, identical schedule sequences, identical `cfg=` status lines

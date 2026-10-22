@@ -4,8 +4,11 @@
 # validate() is pure so the simulator and desktop tests can run it.
 
 import json
+import re
 
 SCHEMA = 1
+_IMAGES_FILE_OK = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$")
+_RESERVED_FILES = {"code.py", "boot.py", "fox.json", "defaults.json", "board.json", "settings.txt", "audio.wav", ".callsign.wav", ".settings_crc.bin", "readme.txt"}
 REQUIRED_PINS = ("ptt", "pd", "hl", "uart_tx", "uart_rx", "audio")
 OPTIONAL_PINS = ("led", "batt_sense")
 TOP_KEYS = ("schema", "template", "board", "module", "pins", "radio", "plan", "id", "payload", "schedule", "battery", "limits", "fleet")
@@ -247,7 +250,12 @@ def validate(user, defaults, board_names, board_id=None):
                 out["mode"] = "robot36-gray"
                 if "mode" in pl and pl["mode"] != "robot36-gray":
                     rep.bad("payload.mode", "robot36-gray only")
-                out["images_file"] = pl.get("images_file") if isinstance(pl.get("images_file"), str) else "images.bin"
+                imf = pl.get("images_file", "images.bin")
+                if isinstance(imf, str) and _IMAGES_FILE_OK.match(imf) and imf.lower() not in _RESERVED_FILES:
+                    out["images_file"] = imf
+                else:
+                    rep.bad("payload.images_file", "a plain file name (letters, digits, . _ -), not code.py / fox.json / defaults.json / boot.py / board.json")
+                    out["images_file"] = "images.bin"
                 out["skip_on_low_battery"] = pl.get("skip_on_low_battery", True) is True
             else:
                 ds = pl.get("dit_s")

@@ -109,6 +109,7 @@ static void setup_radio(void) {
     if (!have_cfg || report.fatal[0]) { strcpy(radio_status, "skipped"); return; }
     freq_index = 0; next_index = 0; rotating = cfg.plan.n > 1;
     for (int i = 0; i < cfg.plan.n; i++) if (!freq_allowed(cfg.plan.frequencies_mhz[i])) { strcpy(radio_status, "band_edge"); return; }
+    player_set_correction_ppm(cfg.radio.correction_ppm);
     if (!player_set_carrier(cfg.plan.frequencies_mhz[0] * 1e6)) { strcpy(radio_status, "retune_failed"); return; }
     if (ps.revision >= 3) player_set_attenuation(cfg.radio.attenuation);
     strcpy(radio_status, "ok");
@@ -126,7 +127,7 @@ const char *fox_banner_line(char *buf, int n) {
 void fox_print_banner(void) {
     char line[400];
     con_puts("initializing system ... \r\n");
-    con_printf("%s\r\n", fox_banner_line(line, sizeof line));
+    con_puts(fox_banner_line(line, sizeof line)); con_puts("\r\n");   /* not con_printf: its buffer is shorter than a long banner */
     for (int i = 0; i < report.n_items; i++) con_printf("  cfg: %s -> default (%s)\r\n", report.items[i].key, report.items[i].reason);
     if (report.fatal[0]) con_printf("** fatal: %s -- staying silent **\r\n", report.fatal);
     else if (!id_ok) con_printf("** callsign not set: %s **\r\n", cfg.id.tx_without_callsign ? "transmitting anyway (tx_without_callsign)" : "staying silent (id.tx_without_callsign=false)");
@@ -334,6 +335,30 @@ void fox_init(void) {
     fox_reload(NULL);
 }
 
+/* A cheap signature of what configures the fox on the drive: the operating system writes its own files
+ * (.DS_Store, System Volume Information, .fseventsd) and those must not restart a cycle or re-seed the schedule. */
+static uint32_t files_signature(void) {
+    uint32_t h = 2166136261u;
+    const char *names[] = { "fox.json", "defaults.json" };
+    for (int i = 0; i < 2; i++) {
+        long n = fs_read(names[i], filebuf, sizeof filebuf);
+        for (long k = 0; k < n; k++) { h ^= (uint8_t)filebuf[k]; h *= 16777619u; }
+        h ^= (uint32_t)n; h *= 16777619u;
+    }
+    long img = fs_size(have_cfg && cfg.payload.kind == PAYLOAD_SSTV ? cfg.payload.images_file : "images.bin");
+    h ^= (uint32_t)img; h *= 16777619u;
+    return h;
+}
+static uint32_t last_signature;
+
+/* The host wrote the drive and the writes have settled: reload only if what we read actually changed. */
+void fox_drive_changed(void) {
+    fs_mount(false);
+    uint32_t sig = files_signature();
+    if (sig == last_signature) { con_puts("drive changed: fox.json, defaults.json and the images are as before; not reloading\r\n"); return; }
+    fox_reload("drive changed");
+}
+
 void fox_reload(const char *why) {
     if (state == FOX_KEYED || state == FOX_BENCH) { player_stop(); player_key(false); }
     bench_active = false;
@@ -348,6 +373,7 @@ void fox_reload(const char *why) {
         if (cfg.payload.kind == PAYLOAD_SSTV) load_images();
     }
     cycle_n = 0; cut_warned = 0;
+    last_signature = files_signature();
     fox_print_banner();
     hold(0);
 }

@@ -36,7 +36,8 @@ export class DriveDevice extends Device {
     if (!looksRight) this.log(`"${this.handle.name}" has none of ${expected.join(', ')} — is this the right drive? A factory-reset board recreates them at power-on.`, 'err');
     else this.log(`drive "${/^[\\/]*$/.test(this.handle.name || '') ? (this.board?.drive?.label || 'drive') : this.handle.name}": ${Object.keys(files).sort().join('  ')}`, 'dim');
     const name = /^[\\/]*$/.test(this.handle.name || '') ? (this.board?.drive?.label || 'drive') : this.handle.name;   // a Windows drive root is named "\"
-    return { boardId: this.board?.id || 'drive', uid: '', foxlibVersion: '', cpVersion: '', files, driveName: name };
+    this.looksRight = looksRight;
+    return { boardId: this.board?.id || 'drive', uid: '', foxlibVersion: '', cpVersion: '', files, driveName: name, looksRight };
   }
 
   async list() { return this._run(() => this._list()); }

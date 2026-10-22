@@ -6,6 +6,7 @@
 // (foxlib/cfg.py) implements the same document independently; the demo
 // device uses this one to produce its boot banner.
 import { foxlibcLimitIssues } from './foxlibc-limits.js';
+const IMAGES_FILE_OK = /^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$/, RESERVED_FILES = new Set(['code.py', 'boot.py', 'fox.json', 'defaults.json', 'board.json', 'settings.txt', 'audio.wav', '.callsign.wav', '.settings_crc.bin', 'readme.txt']);
 
 export const SCHEMA = 1;
 export const REQUIRED_PINS = ['ptt', 'pd', 'hl', 'uart_tx', 'uart_rx', 'audio'];
@@ -117,7 +118,10 @@ export function mergeAndValidate(user, defaults, board) {
         if (!songs.length) { bad('payload.playlist', 'empty'); out.playlist = defaults.payload.kind === 'songs' ? defaults.payload.playlist : []; } else out.playlist = songs;
       } else if (pl.kind === 'sstv') {
         out.mode = 'robot36-gray'; if (pl.mode && pl.mode !== 'robot36-gray') bad('payload.mode', 'robot36-gray only');
-        out.images_file = typeof pl.images_file === 'string' ? pl.images_file : 'images.bin';
+        // a plain file name in the board's root: no paths, and never one of the files the fox runs from (Deploy writes it)
+        if (!('images_file' in pl)) out.images_file = 'images.bin';
+        else if (typeof pl.images_file === 'string' && IMAGES_FILE_OK.test(pl.images_file) && !RESERVED_FILES.has(pl.images_file.toLowerCase())) out.images_file = pl.images_file;
+        else { bad('payload.images_file', 'a plain file name (letters, digits, . _ -), not code.py / fox.json / defaults.json / boot.py / board.json'); out.images_file = 'images.bin'; }
         out.skip_on_low_battery = typeof pl.skip_on_low_battery === 'boolean' ? pl.skip_on_low_battery : true;
       } else {
         out.dit_s = pl.dit_s == null ? null : inRange(pl.dit_s, 0.05, 30) ? pl.dit_s : (bad('payload.dit_s', '0.05–30'), null);
