@@ -10,6 +10,59 @@
     "project": "kitsune",
     "source": "https://github.com/rfhs/kitsune",
     "note": "RF Hackers Sanctuary's kitsune foxes (Wi-Fi AP/client, BLE iBeacon, Bluetooth Classic, Zigbee) are PlatformIO/Arduino firmware whose configuration is compiled in from a per-conference header. kitsune belongs to its authors (https://github.com/rfhs/kitsune); nothing of it is included here. Today the page prepares and checks that configuration and exports the header; flashing from the page comes later.",
-    "stage": "config-only"
+    "stage": "flash-from-page",
+    "envs": [
+      {
+        "env": "m5atoms3-easy-ap",
+        "project": "wifi/wifi_ap_client",
+        "template": "wifi-ap",
+        "tier": "easy",
+        "mode": "AP"
+      },
+      {
+        "env": "m5atoms3-easy-client",
+        "project": "wifi/wifi_ap_client",
+        "template": "wifi-client",
+        "tier": "easy",
+        "mode": "CLIENT"
+      },
+      {
+        "env": "m5atoms3-hard-ap",
+        "project": "wifi/wifi_ap_client",
+        "template": "wifi-ap",
+        "tier": "hard",
+        "mode": "AP"
+      },
+      {
+        "env": "m5atoms3-hard-client",
+        "project": "wifi/wifi_ap_client",
+        "template": "wifi-client",
+        "tier": "hard",
+        "mode": "CLIENT"
+      },
+      {
+        "env": "m5atoms3-easy",
+        "project": "bluetooth/iBeacon",
+        "template": "ble-ibeacon",
+        "tier": "easy",
+        "mode": null
+      },
+      {
+        "env": "m5atoms3-medium",
+        "project": "bluetooth/iBeacon",
+        "template": "ble-ibeacon",
+        "tier": "medium",
+        "mode": null
+      },
+      {
+        "env": "m5atoms3-hard",
+        "project": "bluetooth/iBeacon",
+        "template": "ble-ibeacon",
+        "tier": "hard",
+        "mode": null
+      }
+    ],
+    "envs_note": "kitsune's PlatformIO environments for this board (platformio.ini of each project, at the pinned commit), mapped to this page's templates and tiers; tools/build_kitsune.py builds these when the CI job is enabled, the firmware card offers the manifest's images for the selected template",
+    "manifest": "firmware/kitsune/manifest.json"
   }
 }

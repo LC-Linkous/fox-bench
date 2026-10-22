@@ -1,0 +1,15 @@
+{
+ "id": "example_atom_clone-kitsune",
+ "name": "Example Atom clone (kitsune firmware)",
+ "hardware": "example_atom_clone",
+ "family": "compiled",
+ "vendor": "kitsune",
+ "status": "experimental",
+ "firmware": {
+  "kind": "compiled",
+  "project": "kitsune",
+  "source": "https://github.com/rfhs/kitsune",
+  "note": "RF Hackers Sanctuary's kitsune foxes (Wi-Fi AP/client, BLE iBeacon, Bluetooth Classic, Zigbee) are PlatformIO/Arduino firmware whose configuration is compiled in from a per-conference header. kitsune belongs to its authors (https://github.com/rfhs/kitsune); nothing of it is included here. Today the page prepares and checks that configuration and exports the header; flashing from the page comes later.",
+  "stage": "config-only"
+ }
+}

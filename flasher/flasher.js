@@ -1,4 +1,4 @@
-// flasher.js — put CircuitPython on a bare ESP32 board from the browser.
+// flasher.js — put CircuitPython (or any merged ESP32 image) on a bare ESP32-family board from the browser.
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (C) 2026 Lauren Linkous. Part of the fox-bench flasher component,
 // licensed separately from the rest of fox-bench (see ../flasher/LICENSE, NOTICE).
@@ -43,12 +43,17 @@ export function parseBinName(name) {
 export const image = { name: '', bytes: null, info: null, source: '' };
 export function setImage(name, bytes, source = 'file') { image.name = name; image.bytes = bytes; image.info = parseBinName(name); image.source = source; }
 
+/** esptool's chip name ("ESP32-C3 (QFN32) (revision v0.4)", "ESP32-S3") as a descriptor id: esp32c3, esp32s3, esp32, esp32c5 … */
+export function chipId(name) { return String(name || '').trim().split(/[\s(]/)[0].toLowerCase().replace(/-/g, ''); }
+
 /**
  * Flash `image` onto the board on a port the user picks. Resolves with chip facts.
- *   opts: { offset, eraseAll, baud, onLog(text), onProgress(fraction, phase), onPhase(text), impl }
+ *   opts: { offset, eraseAll, baud, expectChip, onLog(text), onProgress(fraction, phase), onPhase(text), impl }
+ * `expectChip` (a descriptor id such as "esp32s3"): the detected chip must match it, checked before anything is
+ * erased — with several ESP32 variants on the bench, the port picked may belong to another board.
  * `impl` replaces the esptool-js module (the demo passes a simulator).
  */
-export async function flash({ offset = 0, eraseAll = true, baud = 460800, onLog = () => {}, onProgress = () => {}, onPhase = () => {}, impl = null } = {}) {
+export async function flash({ offset = 0, eraseAll = true, baud = 460800, expectChip = '', onLog = () => {}, onProgress = () => {}, onPhase = () => {}, impl = null } = {}) {
   if (!image.bytes) throw new Error('no CircuitPython image loaded');
   const lib = impl || await loadEsptool();
   if (!impl && !('serial' in navigator)) throw new Error('Web Serial is not available in this browser (use Chrome or Edge on a laptop or desktop)');
@@ -62,6 +67,7 @@ export async function flash({ offset = 0, eraseAll = true, baud = 460800, onLog 
   try {
     onPhase('connecting (hold B if it does not answer)');
     facts.chip = await loader.main();                   // detect, print facts, run stub, change baud
+    if (expectChip && chipId(facts.chip) !== chipId(expectChip)) throw new Error(`the port belongs to an ${facts.chip.split(' (')[0]}, but the selected board is an ${expectChip.toUpperCase().replace(/^ESP32(.)/, 'ESP32-$1')}: nothing was erased. Pick the right board or the right port.`);
     try { facts.revision = String(await loader.chip.getChipRevision?.(loader) ?? ''); } catch {}
     try { facts.features = (await loader.chip.getChipFeatures(loader)).join(' '); } catch {}
     try { facts.crystal = String(await loader.chip.getCrystalFreq(loader)) + 'MHz'; } catch {}
@@ -97,7 +103,7 @@ export function demoEsptool({ ms = 1500 } = {}) {
   class Transport { constructor() {} async disconnect() {} }
   class ESPLoader {
     constructor({ terminal }) { this.t = terminal; this.chip = { getChipRevision: async () => 4, getChipFeatures: async () => ['WiFi', 'BLE'], getCrystalFreq: async () => 40, readMac: async () => '84:F7:03:12:34:56' }; }
-    async main() { await sleep(ms * 0.2); this.t.writeLine('Chip is ESP32-C3 (QFN32) (revision v0.4)'); this.t.writeLine('Uploading stub...'); this.t.writeLine('Stub running...'); return 'ESP32-C3 (QFN32) (revision v0.4)'; }
+    async main() { await sleep(ms * 0.2); const name = demoEsptool.chipName || 'ESP32-C3 (QFN32) (revision v0.4)'; this.t.writeLine('Chip is ' + name); this.t.writeLine('Uploading stub...'); this.t.writeLine('Stub running...'); return name; }
     async detectFlashSize() { return '4MB'; }
     async eraseFlash() { this.t.writeLine('Erasing flash (this may take a while)...'); await sleep(ms * 0.3); this.t.writeLine('Chip erase completed successfully in 0.4s'); }
     async writeFlash({ fileArray, reportProgress, calculateMD5Hash }) {

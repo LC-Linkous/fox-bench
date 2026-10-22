@@ -1,0 +1,35 @@
+# Hardware log
+
+What was verified on a real board, when, with which firmware — the evidence
+behind a target's `status` and a template's `boards_tested`. One entry per
+bench session. Record what was checked and how (by ear on a handheld, an
+S-meter at distance, a power meter, a scope), not just "works". For
+kitsune targets, say which kind of board, never which event's kits.
+
+Commit hashes are the fox-bench commit the firmware was built from; the
+Board tab shows them for the site's UF2 (`foxbench-picofox.json`).
+
+| date | board | firmware | checked | how | result |
+|---|---|---|---|---|---|
+| 2026-10-18 | Seeed XIAO ESP32-C3 + SA868 (2 m and 70 cm modules) | foxlib 1.0.1–1.0.2, CircuitPython 10.2.1 | all seven FM templates deployed from the page; keying, ID, songs, SSTV, QRSS, popcorn/resurrection schedules, keydown limit; `tools/hw_smoke.py` end to end | handheld receiver; bench key test | ok on both bands |
+| 2026-10-21 | AI6YM PicoFox rev 3 (vendor firmware) | vendor pfoxr3v1 | settings.txt, rendered audio.wav and .callsign.wav, marker file; cycle timing and carrier offsets as modelled; recovery image behaviour (reformats every boot) | handheld; drive contents | ok; recovery image demoted to a disclosure |
+| 2026-10-21 | AI6YM PicoFox rev 3 | foxlib-c 0.1.0 → 0.1.2 | Si5351 tuning and keying, 8 kHz FM (`i2c_write_us` 88), AEN active low, live reload after a drive write, console bench (`id`, `tone 800 2`, `key 3`) mid-stream after the `cur` fix, 1200-baud touch into the bootloader and the firmware swap both ways | handheld; console `status`; drive | ok → target marked stable. Attenuator: codes 0 and 40 accepted, dB per step **not** measured (operator too close for an S-meter difference) |
+| 2026-10-22 | AI6YM PicoFox rev 3 | foxlib-c 0.1.6, site build `fb5aac84…` (commit 9499077) | fetched image matched the site fingerprint; flashed via the touch while transmitting; `status`: `i2c_errors=0 core1=ok` with `keyed=1`; a changed Deploy during a cycle: `host_writes=112 i2c_errors=0`, carrier unchanged at 146565000.9; `CHG` appended to the ID while on charger; Fleet Audit `match · via drive · matched by uid`; morse-sstv deploy (`images.bin`, test card when no image) | handheld; console `status`; fleet log | ok. The bus-hold around flash writes holds under 112 host writes while keyed |
+| 2026-10-22 | AI6YM PicoFox rev 3 | foxlib-c 0.1.6 | `bootsel` (and the page's Reboot into bootloader) while keyed: carrier drops before RPI-RP2 appears | handheld | ok — off the air before the reset |
+| 2026-10-22 | AI6YM PicoFox rev 3 | foxlib-c 0.1.7 | soak: `status` after a power cycle shows `reset=` | console | pending |
+
+## Not yet verified on hardware
+
+- foxlib-c: attenuator dB per step (needs an S-meter at distance or a power
+  meter); `radio.correction_ppm` (not applied by the firmware yet);
+  `i2c_errors` recovery path exercised only by construction, never seen to
+  fire; watchdog timeout path (a hang has not been provoked).
+- Templates on the PicoFox other than morse-songs and morse-sstv: the
+  firmware runs them in the host simulation, not yet on air.
+- Every `compiled` (kitsune) target: descriptors come from public
+  documentation; nothing has been flashed or listened to from this page
+  (the firmware card's flash path has run only against the simulated
+  esptool).
+  The ESP32-C5 bootloader offset `0x2000` is the chip's convention, to be
+  confirmed. Serial on the AtomS3 Lite / StampS3 is noted as not working by
+  kitsune; to be tried.

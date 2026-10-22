@@ -22,3 +22,14 @@ field the page reads, and that each template has defaults for every
 target of the families it lists. Then add the target to
 `docs/first-hardware-session.md`'s run and to `boards_tested` once it has
 been on the air.
+
+## From another repository: a catalog pack
+
+A board, target or template that belongs to another project can live in
+that project's repository as a *catalog pack* and be loaded by this page
+with `?pack=<url to the directory>` (or saved on the Board tab). Lay it out
+like this repository with a `pack.json` naming the entries; a pack can also
+supply defaults for its targets for the built-in templates. Lint it with
+`python3 tools/check_catalog.py --pack <dir>`. `tests/fixtures/pack/README.md`
+shows the layout. Packs carry data only — a target may use one of this
+page's vendor models, but the page never loads code from a pack.

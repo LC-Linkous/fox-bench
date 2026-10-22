@@ -31,11 +31,33 @@ fcfg = importlib.util.module_from_spec(_spec); _spec.loader.exec_module(fcfg)   
 
 problems = []
 def bad(where, what): problems.append(f"{where}: {what}")
+
+# --pack DIR: lint a catalog pack (another repository's hardware/, boards/, firmware/templates/, modules/ with a
+# pack.json naming them) as the page would see it: merged over this repository's catalog, the pack's files first.
+PACK = os.path.abspath(sys.argv[sys.argv.index("--pack") + 1]) if "--pack" in sys.argv else None
+PACK_JSON = {}
+if PACK:
+    with open(os.path.join(PACK, "pack.json"), encoding="utf-8") as f: PACK_JSON = json.load(f)
+    for k in ("hardware", "boards", "templates", "modules"):
+        if k in PACK_JSON and not isinstance(PACK_JSON[k], list): bad("pack.json", f"{k} must be a list of ids")
+    if "name" not in PACK_JSON: bad("pack.json", "name missing")
+def _path(rel):
+    if PACK and os.path.exists(os.path.join(PACK, rel)): return os.path.join(PACK, rel)
+    return os.path.join(ROOT, rel)
 def load(rel):
-    with open(os.path.join(ROOT, rel), encoding="utf-8") as f:
+    with open(_path(rel), encoding="utf-8") as f:
         return json.load(f)
-def exists(rel): return os.path.exists(os.path.join(ROOT, rel))
-def listdir(rel): return sorted(n for n in os.listdir(os.path.join(ROOT, rel)) if not n.startswith(".") and n != "__pycache__")
+def exists(rel): return os.path.exists(_path(rel))
+def listdir(rel):
+    names = set()
+    for root in ([PACK] if PACK else []) + [ROOT]:
+        d = os.path.join(root, rel)
+        if os.path.isdir(d): names.update(n for n in os.listdir(d) if not n.startswith(".") and n != "__pycache__")
+    return sorted(names)
+def with_pack(ids, key):
+    """The repository's index plus the pack's entries (a pack id that is also built in replaces it, as on the page)."""
+    extra = [i for i in PACK_JSON.get(key, []) if i not in ids]
+    return list(ids) + extra
 SEMVER = re.compile(r"^\d+\.\d+\.\d+$")
 def ver(s): return tuple(int(x) for x in s.split("."))
 
@@ -63,9 +85,10 @@ def foxlibc_validate(drel, bid):
 # ---------------------------------------------------------------- hardware (physical facts) and boards (targets = hardware + firmware + family)
 FAMILIES = ("foxlib", "drive", "foxlib-c", "compiled")
 RADIOS = ("wifi24", "wifi5", "ble", "btclassic", "ieee802154")
-module_ids = load("modules/index.json")
+module_ids = with_pack(load("modules/index.json"), "modules")
+templates_listed = set(with_pack(load("firmware/index.json")["templates"], "templates"))
 hardware = {}
-hw_ids = load("hardware/index.json")
+hw_ids = with_pack(load("hardware/index.json"), "hardware")
 if sorted(hw_ids) != sorted(set(hw_ids)): bad("hardware/index.json", "duplicate entry")
 for hid in hw_ids:
     rel = f"hardware/{hid}.json"
@@ -101,7 +124,7 @@ for n in listdir("hardware"):
     if n.endswith(".json") and n != "index.json" and n[:-5] not in hw_ids: bad(f"hardware/{n}", "not listed in hardware/index.json")
 
 boards = {}
-board_ids = load("boards/index.json")
+board_ids = with_pack(load("boards/index.json"), "boards")
 if sorted(board_ids) != sorted(set(board_ids)): bad("boards/index.json", "duplicate entry")
 for bid in board_ids:
     rel = f"boards/{bid}.json"
@@ -148,6 +171,11 @@ for bid in board_ids:
             if r not in RADIOS: bad(rel, f"hardware radios: unknown {r!r} (one of {RADIOS})")
         if hw.get("flash", {}).get("method") != "esptool": bad(rel, "compiled-family hardware is flashed with esptool")
         if t.get("firmware", {}).get("source", "").startswith("http") is False: bad(rel, "firmware.source must link to the project the firmware comes from")
+        for e in t.get("firmware", {}).get("envs", []):
+            for k in ("env", "project", "template", "tier"):
+                if k not in e: bad(rel, f"firmware.envs entry missing {k}: {e}")
+            if e.get("template") and e["template"] not in templates_listed: bad(rel, f"firmware.envs names unknown template {e.get('template')!r}")
+            if e.get("tier") not in ("easy", "medium", "hard"): bad(rel, f"firmware.envs tier {e.get('tier')!r}")
     if fam == "foxlib-c":
         for k in ("module_fixed", "drive"):
             if k not in t: bad(rel, f"foxlib-c target missing {k}")
@@ -199,7 +227,8 @@ for region, table in bands.items():
 
 # ---------------------------------------------------------------- firmware
 fw = load("firmware/index.json")
-have = listdir("firmware/foxlib")
+fw["templates"] = with_pack(fw["templates"], "templates")
+have = sorted(n for n in os.listdir(os.path.join(ROOT, "firmware/foxlib")) if not n.startswith(".") and n != "__pycache__")   # foxlib is never in a pack
 if sorted(fw["foxlib"]) != have: bad("firmware/index.json", f"foxlib list {sorted(fw['foxlib'])} != files on disk {have}")
 foxlib_version = open(os.path.join(ROOT, "firmware/foxlib/VERSION")).read().strip()
 if not SEMVER.match(foxlib_version): bad("firmware/foxlib/VERSION", f"not semver: {foxlib_version!r}")

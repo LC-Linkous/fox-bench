@@ -407,10 +407,38 @@ try {
   await settle(300);
   const imp = await app(() => ({ ssid: window.foxbench.cfg.wifi.ssid, tier: window.foxbench.cfg.challenge.tier, hidden: window.foxbench.cfg.wifi.hidden, sleep: window.foxbench.cfg.schedule.sleep_s, p: window.foxbench.cfg.wifi.tx_power_dbm }));
   check(imp.ssid === 'Imported SSID' && imp.tier === 'hard' && imp.hidden === true && imp.sleep === 45 && imp.p === 7, 'a parsed header block loads into the form: ' + JSON.stringify(imp));
+  // the firmware card: no hosted images on a checkout; a locally built merged image flashes through esptool (simulated),
+  // the chip is checked against the descriptor before anything is erased, the fleet row carries the efuse MAC as UID
+  await tab('board');
+  check(/No kitsune images are hosted on this site/.test(await text('#tab-board')) && /Load merged \.bin/.test(await text('#tab-board')), 'firmware card says no hosted images and takes a merged .bin');
+  await page.setInputFiles('#tab-board input[type=file][accept=".bin"]', { name: 'merged.bin', mimeType: 'application/octet-stream', buffer: Buffer.alloc(8192, 0xe9) }); await settle(300);
+  await app(() => { window.foxbenchFlash.simulate = true; window.foxbenchFlash.simulateChip = 'ESP32-C3 (QFN32) (revision v0.4)'; });
+  await page.click('#tab-board button:has-text("Flash")'); await settle(1200);
+  const badRow = await app(() => JSON.parse(localStorage.getItem('fox-bench.fleet') || '[]').filter(r => r.action === 'flash' && r.board === 'seeed_xiao_esp32c5-kitsune').pop());
+  check(badRow && /^fail: the port belongs to an ESP32-C3/.test(badRow.result), 'a C3 on the port with the C5 target selected is refused before the erase: ' + (badRow && badRow.result));
+  await app(() => { window.foxbenchFlash.simulateChip = 'ESP32-C5'; });
+  await page.click('#tab-board button:has-text("Flash")'); await settle(2500);
+  const okRow = await app(() => JSON.parse(localStorage.getItem('fox-bench.fleet') || '[]').filter(r => r.action === 'flash' && r.board === 'seeed_xiao_esp32c5-kitsune').pop());
+  check(okRow && okRow.result === 'ok' && okRow.uid === '84f703123456' && /merged\.bin/.test(okRow.notes), 'the right chip flashes; fleet row keyed on the efuse MAC: ' + JSON.stringify(okRow && [okRow.result, okRow.uid]));
+  check(/rebooting into the kitsune firmware/.test(await text('#tab-board')), 'the result text is the kitsune one');
+  await app(() => { window.foxbenchFlash.simulate = false; window.foxbenchFlash.simulateChip = ''; });
   await tab('board'); await page.selectOption('#tab-board select', 'seeed_xiao_esp32c3'); await settle(400);
   eq(await app(() => window.foxbench.family), 'foxlib', 'back to the C3 after kitsune');
   check(await page.isVisible('.rail button[data-tab="payload"]'), 'Payload tab back');
-  await page.click('#demoBtn'); await settle(600);   // the C3 demo again, for the disconnect check below
+
+  console.log('catalog pack');
+  await page.goto(url + '?pack=/tests/fixtures/pack/'); await page.waitForFunction(() => window.foxbench?.catalog); await settle(400);
+  const pk = await app(() => window.foxbench.catalog.packs);
+  check(pk.length === 1 && pk[0].name === 'example-pack' && pk[0].counts.boards === 1 && !pk[0].error, 'the example pack loads: ' + JSON.stringify(pk));
+  check(await app(() => !!window.foxbench.catalog.boards['example_atom_clone-kitsune'] && window.foxbench.catalog.boards['example_atom_clone-kitsune']._pack === 'example-pack'), 'the pack\'s target is in the catalog, marked with the pack');
+  await tab('board'); await page.selectOption('#tab-board select', 'example_atom_clone-kitsune'); await settle(500);
+  eq(await app(() => window.foxbench.boardId), 'example_atom_clone-kitsune', 'the pack target can be selected');
+  eq(await app(() => window.foxbench.defaults.board), 'example_atom_clone-kitsune', 'its defaults come from the pack (for a built-in template)');
+  check(/catalog pack/.test(await text('#tab-board')) && /example-pack/.test(await text('#tab-board')), 'Board tab names the pack');
+  await page.goto(url); await page.waitForFunction(() => window.foxbench?.catalog); await settle(400);
+  check(await app(() => !window.foxbench.catalog.boards['example_atom_clone-kitsune']), 'without ?pack= the pack is gone, and the saved form for its target falls back');
+  await tab('board'); await page.selectOption('#tab-board select', 'seeed_xiao_esp32c3'); await settle(400);
+  await page.click('#demoBtn'); await settle(600);
 
   console.log('theme, disconnect');
   await page.click('#themeBtn'); await settle(100);
@@ -422,7 +450,7 @@ try {
   failures++; console.log('  FAIL exception: ' + (e.stack || e));
 } finally {
   const real = [...new Set(errors)].filter(e => !/^error: Failed to load resource/.test(e))   // those are reported with their URL by the response/requestfailed listeners
-    .filter(e => !/http 404 .*foxbench-picofox\.json$/.test(e));   // the build fingerprint exists only on the deployed site (CI writes it beside the UF2); the page says so
+    .filter(e => !/http 404 .*(foxbench-picofox\.json|firmware\/kitsune\/manifest\.json)$/.test(e));   // the build fingerprint and the kitsune manifest exist only on a deployed site (CI writes them); the page says so
   if (real.length) { failures += real.length; console.log('console errors:\n  ' + real.join('\n  ')); } else console.log('  ok   no console errors or warnings');
   await browser.close(); await close();
   console.log(failures ? `\n${failures} failure(s)` : '\nall good');

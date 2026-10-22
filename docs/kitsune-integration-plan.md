@@ -1,11 +1,10 @@
 # Plan: RFHS kitsune foxes on the bench
 
-Status: October 2026 — Phase 0 (§3) is in the page as the `compiled`
-family (five hardware descriptors and targets, five templates, the
-`challenge` / `wifi` / `ble` / `bt` / `zigbee` / `schedule.duty` sections
-in CONFIG.md, header export and import, fleet columns); catalog packs
-(§6) are not. Phases 1 and 2 are the plan to discuss with the RF Hackers
-Sanctuary people before they are built.
+Status: October 2026 — Phase 0 (§3), catalog packs (§6) and the bench side
+of Phase 1 (§4) are in the page; the CI build of kitsune images is gated
+off until the project agrees (§7); nothing has been flashed on a kitsune
+board from the page yet. Phase 2 is the plan to discuss with the RF
+Hackers Sanctuary people before it is built.
 Source studied: `github.com/rfhs/kitsune` at `cdfc0ce` (2026-10-17).
 
 kitsune is the work of its authors at https://github.com/rfhs/kitsune and
@@ -161,8 +160,7 @@ tab, the way the XIAO and the PicoFox do now.
 kitsune, the images are built by the bench's own CI from a commit of their
 repository pinned by hash (the way pico-sdk is pinned), staged under
 `firmware/kitsune/` on the site with a manifest, and attributed to
-https://github.com/rfhs/kitsune — with their agreement, see the note at the
-top. The target descriptor says where the image comes from (a site path, or
+https://github.com/rfhs/kitsune — with their agreement (§7). The target descriptor says where the image comes from (a site path, or
 later a URL pinned to one of their releases with a sha256), so moving to
 their own release assets is a descriptor change, never a code change, and
 the page never fetches a branch.
@@ -229,19 +227,49 @@ The cost on the fox side is one JSON read at boot (tens of milliseconds;
 their timing budget subtracts fixed delays already) and one partition in
 the table. Deep sleep is untouched: the config is in flash, not RTC RAM.
 
+**Both modes, layered.** A *conference build* is what kitsune produces
+today: a binary for one board, one challenge kind, one tier, with that
+tier's values compiled in — its identity is the challenge, and every board
+flashed with it is the same fox (spares are interchangeable). *Per-fox
+configuration* is the same binary with the tier block's values read from
+`foxcfg` — its identity is the device. The partition layers the second on
+the first: the compiled defaults are the conference's values, so a kit
+with an empty partition is a conference build byte for byte, and the
+partition holds only what differs for this kit — a fresh MAC after a hunter
+kept the old kit, a different channel for a venue, a quieter tier on a
+spare, or, for a board of one's own, every value. Neither mode asks the
+other to change.
+
+**The partition's state is visible and controllable, three ways:**
+
+| state | banner | Board tab | how it gets there |
+|---|---|---|---|
+| erased (all `0xFF`) | `cfg=default(missing)` | "conference build" | never written, or **Clear per-fox config** (erases the partition; no reflash) |
+| written, `"enabled": false` | `cfg=disabled` | "per-fox config present, disabled" | the toggle for A/B at the bench: flip, power-cycle, flip back, without rewriting |
+| written, enabled | `cfg=ok` / `partial(…)` | "per-fox config, N values overridden" | **Write** on the Deploy tab |
+
+The audit records the state with the rest of the banner, so a kit that was
+supposed to be overridden and is still a conference build shows up as a
+mismatch before it leaves the table.
+
 ## 6. Their own versions later
 
 Two things make a fork or a parallel bench cheap, and both are worth doing
 in Phase 0 so the shape is right from the start:
 
-- **Catalog packs.** Today `loaders.js` reads `hardware/`, `boards/`,
-  `modules/`, `templates/` from the page's own origin. Let it take a second
-  base URL (`?catalog=https://rfhs.github.io/kitsune/bench/` or a setting)
-  and merge that pack's index files over the built-in ones. Then kitsune's
-  repository can own its hardware descriptors, targets, templates, song-less
-  defaults and release manifests — and update them without a fox-bench
-  release — while the families, flasher, validator and audit stay here. The
-  lint runs in their CI against their pack (`check_catalog.py --pack`).
+- **Catalog packs** (done). `loaders.js` takes pack URLs
+  (`?pack=https://…/bench/`, or the list saved on the Board tab), fetches
+  each pack's `pack.json` and merges its hardware, targets, templates and
+  modules over the built-in catalog — a pack entry with a built-in id
+  replaces it, every entry is marked with the pack's name, a pack supplies
+  defaults for its own targets even for templates it does not re-publish,
+  and image paths resolve relative to the pack. Packs are data only: a
+  target may name one of the page's vendor models, never code of its own.
+  So kitsune's repository can own its descriptors and release manifests and
+  update them without a fox-bench release, while the families, flasher,
+  validator and audit stay here. `python3 tools/check_catalog.py --pack
+  <dir>` lints a pack as the page will see it, for their CI;
+  `tests/fixtures/pack/` is a worked example.
 - **Family code in one place.** The `compiled` family's transport (esptool
   partition write), banner parsing and exporter are generic; nothing in them
   is RFHS-specific. Their challenge kinds are templates (data) and their
@@ -255,21 +283,44 @@ chip support and CONFIG.md sections live here and take PRs; versions of the
 `fox.json` sections they read are declared in their manifest so
 `compat.js` can tell a fox from 2025 apart from one from 2026.
 
-## 7. Things to settle with RFHS first
+## 7. Attribution and their distribution
 
-1. Is per-fox configuration (Phase 2) wanted, or is "pick a conference
-   build and flash it" (Phase 1) their actual workflow? Their scripts
-   suggest conferences are rolled once per event; per-fox config matters
-   more for ad-hoc hunts and for reusing kits.
-2. Will they publish release assets (merged binaries + manifest) from their
-   CI, and pin a release per event? The page must never fetch a moving
-   branch (the vendor PicoFox lesson).
+fox-bench never produces an official kitsune image. Anything its CI builds
+is labelled as *fox-bench's build of kitsune at commit X*, links to their
+repository, and carries that commit in its fingerprint, so a fox flashed
+from the page is traceable to their source and distinguishable from their
+own releases. When they publish releases, the target descriptors point at
+those (pinned by tag, sha256 recorded) and the build job goes away; if they
+would rather no builds were hosted here at all, the descriptor loses its
+image and the family falls back to exporting the header, which is where it
+stands today. None of this needs them to change their process, and nothing
+hosted here competes with or overrides a decision they make about their own
+distribution. Until there is an agreement and a licence file in their
+repository, the build job exists but does not run.
+
+The hardware this family describes is *what the firmware can run on* — the
+boards in kitsune's public support table, with their radios — not what any
+event fields. Nothing that would help a contestant (rolled addresses,
+names, key phrases, which kit got which build) is in this repository: it
+lives in profiles and the fleet log, in the operator's browser. Hardware
+notes and `boards_tested` for these targets say "verified on an Atom Lite",
+never which boards an event uses.
+
+## 8. Things to settle with RFHS
+
+1. ~~Per-fox configuration or conference builds?~~ Both, layered (§5):
+   decided on this side; the partition design costs them nothing when it is
+   empty, so it can be offered as a PR before they decide to use it.
+2. A licence file in their repository, and whether they will publish
+   release assets (merged binaries + manifest) from their CI and pin a
+   release per event. The page never fetches a moving branch (the vendor
+   PicoFox lesson). Can take weeks; nothing here blocks on it.
 3. The `foxcfg` partition: offset and size they are happy with across their
    partition tables (the Zigbee table is custom); whether the C5's 5 GHz
    channel list and regulatory domain belong in config or stay compiled.
 4. Serial on the S3 boards: their notes say it isn't working on AtomS3 /
-   StampS3. Phase 2's banner needs it; Phase 1 does not. Worth a look at
-   `ARDUINO_USB_CDC_ON_BOOT` / `USBSerial` before counting on Listen there.
+   StampS3. Phase 2's banner needs it; Phase 1 does not. To be tried on a
+   board here: Listen only is the whole test.
 5. The flag words and the kit sheet: generated on the page, or left to
    `make_conference_full` with the page exporting what it needs? The fleet
    log can carry either.
@@ -278,17 +329,26 @@ chip support and CONFIG.md sections live here and take PRs; versions of the
    iBeacon, needs its own hardware descriptor and a `foxcfg` offset that
    fits a smaller table.
 
-## 8. Order of work, if agreed
+## 9. Order of work
 
-1. Phase 0 (bench only): hardware descriptors, `compiled` family, the five
+1. ✓ Phase 0 (bench only): hardware descriptors, `compiled` family, the five
    templates with CONFIG.md sections and validation, duty schedule, the
-   header exporter/importer, fleet columns, catalog-pack loading. Reviewable
-   as data plus one module; the smoke test gets a kitsune walk against the
-   demo.
-2. kitsune PR A: release assets + manifest from their CI (Phase 1 input).
-3. Phase 1 (bench): flasher chip support, the firmware card for the family,
-   efuse-MAC UIDs, Listen parsing their boot lines.
-4. kitsune PR B: `foxcfg` partition + banner (Phase 2 input), behind
-   "partition empty → unchanged".
-5. Phase 2 (bench): partition write/read, then the existing audit/compat
-   machinery over it.
+   header exporter/importer, fleet columns.
+2. ✓ Catalog packs (§6).
+3. ✓ Phase 1 (bench): the flasher checks the detected chip against the
+   descriptor before any erase (esptool-js already speaks ESP32 / S3 / C5),
+   the firmware card for the family takes the site's manifest images or a
+   merged image from a local PlatformIO build, the fleet row carries the
+   efuse MAC as UID, Listen parses their boot lines; the CI build job
+   (`tools/build_kitsune.py`, environments mapped per target in
+   `firmware.envs`) is present and gated by the repository variables
+   `KITSUNE_BUILD` / `KITSUNE_COMMIT`, off until §7's agreement. Unverified
+   on hardware: no kitsune board has been flashed from the page.
+4. One `pio run` of an exported header in a kitsune checkout — the check
+   that the exporter is right; an S3 board on the bench for the serial
+   question.
+5. kitsune PR: `foxcfg` partition + banner (Phase 2 input), behind
+   "partition empty → unchanged", with the reader offered under a
+   permissive licence so it can be dropped into their tree.
+6. Phase 2 (bench): partition write / erase / `enabled` toggle, the
+   three-state badge, then the existing audit/compat machinery over it.

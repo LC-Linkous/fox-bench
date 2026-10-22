@@ -48,3 +48,20 @@ test('flash() refuses with no image', async () => {
   flasher.setImage('', null);
   await assert.rejects(flasher.flash({ impl: flasher.demoEsptool() }), /no CircuitPython image/);
 });
+
+test('chipId normalises esptool\'s chip names to descriptor ids', () => {
+  assert.equal(flasher.chipId('ESP32-C3 (QFN32) (revision v0.4)'), 'esp32c3');
+  assert.equal(flasher.chipId('ESP32-S3'), 'esp32s3'); assert.equal(flasher.chipId('ESP32-C5 (revision v1.0)'), 'esp32c5');
+  assert.equal(flasher.chipId('ESP32-PICO-D4'), 'esp32picod4'); assert.equal(flasher.chipId('esp32'), 'esp32');
+});
+
+test('expectChip: the wrong chip on the port is refused before anything is erased', async () => {
+  flasher.setImage('merged.bin', new Uint8Array(4096), 'file');
+  const impl = flasher.demoEsptool({ ms: 10 });
+  flasher.demoEsptool.chipName = 'ESP32-C3 (QFN32) (revision v0.4)';
+  await assert.rejects(flasher.flash({ offset: 0, expectChip: 'esp32s3', impl }), e => /port belongs to an ESP32-C3.*ESP32-S3.*nothing was erased/.test(e.message) && e.facts.erase_ok === '' && e.facts.flash_ok === 'no');
+  flasher.demoEsptool.chipName = 'ESP32-S3';
+  const facts = await flasher.flash({ offset: 0, expectChip: 'esp32s3', impl });
+  assert.equal(facts.flash_ok, 'yes');
+  flasher.demoEsptool.chipName = '';
+});

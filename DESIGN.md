@@ -122,7 +122,7 @@ tools/
   batch_flash.py                      headless batch flasher (same CSV as the Fleet tab)
   hw_smoke.py                         bench script against a real (or pty-simulated) board
 tests/                                unit (node:test) and page smoke (Playwright), see tests/README.md
-docs/                                 first-hardware-session, adding-a-target, picofox hardware/notes, project audit
+docs/                                 first-hardware-session, hardware-log, adding-a-target, picofox hardware/notes, releasing, project audit, kitsune plan
 CONFIG.md                             fox.json schema — the contract
 PROTOCOL.md                           REPL exchange byte by byte; the foxlib-c console
 LICENSES.md                           which licence covers what
@@ -480,6 +480,14 @@ bench. A *device family* is the unit that varies:
 | bench | `exec-and-capture` | none (no REPL); serial boot log on Listen only | text commands on the console (`key`, `tone`, `id`, `batt`, `status`, …) | none; serial boot lines on Listen only |
 | flashing | esptool (`flasher/`) | UF2 copy to the bootloader drive | the site-built UF2 copied to the bootloader drive; `bootsel` from the console gets there | kitsune's PlatformIO build, by hand (planned: esptool from the page, images built in CI from a pinned commit) |
 | reboot after deploy | soft reboot, banner read back | eject + power cycle | the firmware reloads itself ~1.5 s after the last write | rebuild and flash |
+
+Descriptors need not all live here: a **catalog pack** is another site's
+`hardware/`, `boards/`, `firmware/templates/` and `modules/` with a
+`pack.json` naming them, loaded from `?pack=<url>` or the list kept on the
+Board tab and merged over the built-ins (`js/model/loaders.js`; a pack entry
+replaces a built-in one with the same id; everything from a pack is marked
+with its name; data only, never code). `tools/check_catalog.py --pack`
+lints one; `tests/fixtures/pack/` is the example.
 
 `boards/<id>.json` (a *target*: hardware + firmware + family) names its
 `family`, `vendor` or firmware image, and `module_fixed`; templates list

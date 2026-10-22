@@ -1,0 +1,63 @@
+{
+ "id": "example_atom_clone",
+ "name": "Example Atom clone (pack)",
+ "mcu": "ESP32-PICO-D4",
+ "radio": "the SoC's own radios: wifi24, ble, btclassic",
+ "radios": [
+  "wifi24",
+  "ble",
+  "btclassic"
+ ],
+ "design": {
+  "by": "M5Stack",
+  "source": "https://docs.m5stack.com/en/core/ATOM%20Lite",
+  "license": "see the vendor's page"
+ },
+ "flash": {
+  "method": "esptool",
+  "chip": "esp32",
+  "offset": "0x1000",
+  "flash_mb": 4,
+  "bootloader_instructions": "Plug in; the CH9102 bridge puts the chip in download mode by itself (DTR/RTS). If that fails, hold the front button (GPIO39) while plugging in.",
+  "note": "Values from public documentation; not yet verified on a board of this kind (the target is experimental until then)."
+ },
+ "has_usb_drive": false,
+ "usb": [
+  {
+   "vid": "0x1a86",
+   "pid": "0x55d4",
+   "when": "CH9102F USB-serial bridge (always)"
+  }
+ ],
+ "pins": [
+  {
+   "name": "G27",
+   "gpio": 27,
+   "note": "RGB LED data"
+  },
+  {
+   "name": "G39",
+   "gpio": 39,
+   "note": "front button, active low"
+  }
+ ],
+ "roles": {},
+ "led": {
+  "kind": "ws2812",
+  "pin": 27,
+  "note": "one SK6812/WS2812 RGB LED on GPIO27 (kitsune: FastLED, brightness 20)"
+ },
+ "battery": {
+  "charger": false,
+  "divider_note": "Powered from USB or a 5 V pack. kitsune's note: the pack must not have a low-current cut-off, or the board never wakes from deep sleep."
+ },
+ "notes": [
+  "The only kitsune board with Bluetooth Classic (original ESP32); kitsune pins its BT Classic project to the Arduino core 2.x for Bluedroid.",
+  "ESP32 (not S3/C3): the second-stage bootloader lives at 0x1000, so a merged image starts there."
+ ],
+ "serial": {
+  "baud": 115200,
+  "notes": "kitsune prints 'ESP32 boot count', 'Awake and screaming', 'Going to sleep' and 'PANIC' on its serial port; no command interface."
+ },
+ "silkscreen": null
+}

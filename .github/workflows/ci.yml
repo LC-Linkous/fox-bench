@@ -128,10 +128,39 @@ jobs:
             /tmp/fxbuild/foxbench-picofox.uf2
             /tmp/fxbuild/foxbench-picofox.json
 
+  kitsune:
+    # fox-bench's build of kitsune (https://github.com/rfhs/kitsune) at a pinned commit, for the compiled family's
+    # firmware card: merged images per board × challenge × tier plus a manifest with sha256s. kitsune belongs to its
+    # authors; this job runs only when the repository variable KITSUNE_BUILD is "true", which is set once the project
+    # has agreed to it (docs/kitsune-integration-plan.md §7). KITSUNE_COMMIT pins the commit. Until then the step is
+    # skipped and the site hosts no kitsune images; the firmware card says so and takes a locally built image.
+    if: vars.KITSUNE_BUILD == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: kitsune at the pinned commit
+        env: { KITSUNE_COMMIT: '${{ vars.KITSUNE_COMMIT }}' }
+        run: |
+          test -n "$KITSUNE_COMMIT" || { echo "set the repository variable KITSUNE_COMMIT to the kitsune commit to build"; exit 1; }
+          git init -q /tmp/kitsune && git -C /tmp/kitsune fetch -q --depth 1 https://github.com/rfhs/kitsune.git "$KITSUNE_COMMIT" && git -C /tmp/kitsune checkout -q FETCH_HEAD
+      - name: Build the environments the catalog names and merge each into one image
+        env: { KITSUNE_COMMIT: '${{ vars.KITSUNE_COMMIT }}' }
+        run: |
+          python3 -m pip install -q -U platformio esptool
+          python3 tools/build_kitsune.py /tmp/kitsune /tmp/kitsune-out --commit "$KITSUNE_COMMIT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kitsune-images
+          path: /tmp/kitsune-out
+
   deploy:
     # Only after every test job passed, only for pushes to main. A failed job upstream skips this one,
-    # so a red suite leaves the live site as it was.
-    needs: [page, sim, foxlib-c]
+    # so a red suite leaves the live site as it was. The kitsune job is optional: skipped (not failed) when it is
+    # not enabled, and its images are staged only when it ran.
+    needs: [page, sim, foxlib-c, kitsune]
+    if: always() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && needs.page.result == 'success' && needs.sim.result == 'success' && needs.foxlib-c.result == 'success' && (needs.kitsune.result == 'success' || needs.kitsune.result == 'skipped')
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
@@ -151,12 +180,19 @@ jobs:
         with:
           name: foxbench-picofox-uf2
           path: /tmp/uf2
+      - name: kitsune images, when that job ran
+        if: needs.kitsune.result == 'success'
+        uses: actions/download-artifact@v4
+        with:
+          name: kitsune-images
+          path: /tmp/kitsune-out
       - name: Stage site (page, descriptors, firmware the page deploys, docs)
         run: |
           mkdir -p _site
           cp -r index.html css js flasher hardware boards modules songs bands.json firmware docs DESIGN.md CONFIG.md PROTOCOL.md LICENSES.md LICENSE _site/
           rm -rf _site/firmware/sim _site/firmware/foxlib-c/tests/build
           cp /tmp/uf2/foxbench-picofox.uf2 /tmp/uf2/foxbench-picofox.json _site/firmware/foxlib-c/picofox/
+          if [ -d /tmp/kitsune-out ]; then mkdir -p _site/firmware/kitsune && cp /tmp/kitsune-out/* _site/firmware/kitsune/; fi
           touch _site/.nojekyll   # Jekyll would drop foxlib/__init__.py (leading underscore)
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

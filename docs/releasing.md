@@ -39,6 +39,6 @@ would name two).
 
 ## After
 
-Tell the Behavior tab's `boards_tested` and the hardware notes in `docs/`
-what this release was verified on, in the next commit, not by editing the
+Tell the Behavior tab's `boards_tested` and `docs/hardware-log.md` what
+this release was verified on, in the next commit, not by editing the
 release.

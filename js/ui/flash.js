@@ -10,9 +10,11 @@ const KEY_N = 'fox-bench.batchNumber';
 export const state = {
   busy: false, phase: '', progress: 0, last: null,          // last: { ok, facts, error, when }
   erase: true, baud: 460800,
+  simulate: false, simulateChip: '',                        // tests: run the flasher against the simulated esptool, pretending this chip
   get boardNumber() { return parseInt(localStorage.getItem(KEY_N) || '1', 10) || 1; },
   set boardNumber(n) { try { localStorage.setItem(KEY_N, String(n)); } catch {} },
 };
+if (typeof window !== 'undefined') window.foxbenchFlash = state;   // the smoke test flips simulate
 const rerenders = new Set();
 export const onChange = fn => rerenders.add(fn);
 const notify = () => rerenders.forEach(fn => fn());
@@ -26,7 +28,7 @@ function imageBadge() {
 /** Why the Flash button is disabled, or '' if it can go. */
 export function blocker(app) {
   if (state.busy) return 'flashing…';
-  if (!flasher.image.bytes) return 'load a CircuitPython .bin first';
+  if (!flasher.image.bytes) return app.isCompiled ? 'get or load an image first' : 'load a CircuitPython .bin first';
   if (app.device && app.device.kind !== 'demo') return 'disconnect from the board first (top bar) — the flasher opens the port itself';
   if (!app.device && !('serial' in navigator)) return 'Web Serial is not available in this browser';
   return '';
@@ -34,15 +36,16 @@ export function blocker(app) {
 
 /** Run one flash, log to the console, append a fleet row. Returns facts or throws. */
 export async function runFlash(app, { boardNumber = '' } = {}) {
-  const demo = app.device?.kind === 'demo';
+  const demo = app.device?.kind === 'demo' || state.simulate;
   const b = app.board;
+  if (demo) flasher.demoEsptool.chipName = state.simulateChip || (b.flash.chip === 'esp32c3' ? 'ESP32-C3 (QFN32) (revision v0.4)' : b.flash.chip.toUpperCase().replace(/^ESP32(.)/, 'ESP32-$1'));
   state.busy = true; state.phase = 'starting'; state.progress = 0; state.last = null; notify();
   const log = app.console;
   log.dim(`flash ${flasher.image.name} → ${b.name}${demo ? ' (demo)' : ''}`);
   let facts = null, error = null;
   try {
     facts = await flasher.flash({
-      offset: parseInt(b.flash.offset, 16) || 0, eraseAll: state.erase, baud: state.baud,
+      offset: parseInt(b.flash.offset, 16) || 0, eraseAll: state.erase, baud: state.baud, expectChip: b.flash.chip || '',
       impl: demo ? flasher.demoEsptool() : null,
       onLog: t => log.dim(t), onPhase: p => { state.phase = p; notify(); },
       onProgress: f => { state.progress = f; notify(); },
@@ -52,7 +55,7 @@ export async function runFlash(app, { boardNumber = '' } = {}) {
     error = String(e.message || e); facts = e.facts || null;
     log.err('flash failed: ' + error);
   }
-  state.busy = false; state.phase = ''; state.last = { ok: !error, facts, error, when: new Date().toISOString() };
+  state.busy = false; state.phase = ''; state.last = { ok: !error, facts, error, when: new Date().toISOString(), kind: app.isCompiled ? 'compiled' : 'circuitpython' };
   fleet.append({
     board_number: boardNumber, uid: (facts?.mac || '').replace(/:/g, ''), mac: facts?.mac || '', board: b.id,
     chip_type: facts?.chip || '', revision: facts?.revision || '', features: facts?.features || '', crystal: facts?.crystal || '', usb_mode: '',
@@ -71,7 +74,7 @@ export function statusBlock() {
   const l = state.last;
   if (l && !state.busy) {
     out.push(l.ok
-      ? h('p.hint.ok', {}, `Flashed in ${l.facts.seconds} s — ${l.facts.chip}, MAC ${l.facts.mac}${l.facts.flash_size ? ', ' + l.facts.flash_size + ' flash' : ''}. The board is rebooting into CircuitPython; first boot takes ~10 s and it may come back on a different port. Then `, h('b', {}, 'Connect'), '.')
+      ? h('p.hint.ok', {}, `Flashed in ${l.facts.seconds} s — ${l.facts.chip}, MAC ${l.facts.mac}${l.facts.flash_size ? ', ' + l.facts.flash_size + ' flash' : ''}. `, l.kind === 'compiled' ? 'The board is rebooting into the kitsune firmware: the LED goes violet, then the challenge colour; Listen only shows its boot lines.' : ['The board is rebooting into CircuitPython; first boot takes ~10 s and it may come back on a different port. Then ', h('b', {}, 'Connect'), '.'])
       : h('p.hint.err', {}, 'Flash failed: ', l.error, l.facts?.chip ? ` (reached the chip: ${l.facts.chip})` : ' (never reached the bootloader — hold B while plugging in, pick the port that appears, and check nothing else holds it)'));
   }
   return out;
@@ -81,6 +84,7 @@ export function statusBlock() {
 export function flashCard(app) {
   const b = app.board;
   if (b.flash.method === 'uf2') return uf2Card(app);
+  if (app.isCompiled) return compiledCard(app);
   if (b.flash.method !== 'esptool') {
     return h('div.card', {}, h('h3', {}, 'Flash CircuitPython'), h('p.hint', {}, `${b.name} is flashed by ${b.flash.method}, which this page does not do yet. `, b.circuitpython ? h('a', { href: b.circuitpython.download, target: '_blank', rel: 'noopener' }, 'CircuitPython downloads for this board') : null, '.'));
   }
@@ -104,6 +108,60 @@ export function flashCard(app) {
       why && !state.busy ? h('span.hint', {}, why) : null),
     ...statusBlock(),
     h('p.hint', {}, 'The flasher is a separate component of fox-bench (', h('code', {}, 'flasher/'), ', Apache-2.0) built on ', h('a', { href: 'https://github.com/espressif/esptool-js', target: '_blank', rel: 'noopener' }, 'esptool-js'), ` ${flasher.ESPTOOL_VERSION}. Works offline. From a terminal, `, h('code', {}, 'tools/batch_flash.py'), ' does the same with the same log columns.'));
+}
+
+/** Compiled family (kitsune): a merged image per board × challenge, from the site's manifest (built in CI from a pinned
+ * commit, once agreed) or a file built with PlatformIO; esptool at the board's offset, chip checked first. */
+let kManifest;   // undefined = not fetched; null = fetching; false = none on this site; else { commit, source, images: [...] }
+async function loadKitsuneManifest(app) {
+  if (kManifest !== undefined) return kManifest;
+  kManifest = null;
+  const url = app.board.firmware?.manifest || 'firmware/kitsune/manifest.json';
+  try { const r = await fetch(url, { cache: 'no-cache' }); kManifest = r.ok ? await r.json() : false; } catch { kManifest = false; }
+  notify(); return kManifest;
+}
+async function fetchKitsuneImage(app, entry) {
+  state.fetchError = ''; state.fetching = true; notify();
+  try {
+    const r = await fetch(entry.url || `firmware/kitsune/${entry.file}`, { cache: 'no-cache' });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const bytes = new Uint8Array(await r.arrayBuffer());
+    const d = await crypto.subtle.digest('SHA-256', bytes), sha = [...new Uint8Array(d)].map(x => x.toString(16).padStart(2, '0')).join('');
+    if (entry.sha256 && sha !== entry.sha256.toLowerCase()) throw new Error(`sha256 ${sha.slice(0, 12)}… does not match the manifest's ${entry.sha256.slice(0, 12)}… (a deploy may be in progress: reload and try again)`);
+    if (entry.size && bytes.length !== entry.size) throw new Error(`size ${bytes.length}, manifest says ${entry.size}`);
+    flasher.setImage(entry.file, bytes, 'fox-bench-kitsune');
+    app.console.dim(`fetched ${entry.file} (${(bytes.length / 1024).toFixed(0)} kB, sha256 ${sha.slice(0, 12)}… = manifest) — fox-bench's build of kitsune at ${(kManifest.commit || '').slice(0, 7)}`);
+  } catch (e) { state.fetchError = String(e.message || e); app.console.err('image fetch failed: ' + state.fetchError); }
+  state.fetching = false; notify();
+}
+function compiledCard(app) {
+  const b = app.board, hw = app.hardware || {}, v = app.vendor, t = v?.TEMPLATES[app.templateId] || {};
+  if (kManifest === undefined) loadKitsuneManifest(app);
+  const fileIn = h('input', { type: 'file', accept: '.bin', hidden: true });
+  fileIn.addEventListener('change', async () => { const f = fileIn.files[0]; if (!f) return; flasher.setImage(f.name, new Uint8Array(await f.arrayBuffer()), 'file'); state.fetchError = ''; notify(); app.console.dim(`loaded ${f.name} (${f.size} B)`); fileIn.value = ''; });
+  const why = blocker(app);
+  const mine = Array.isArray(kManifest?.images) ? kManifest.images.filter(im => im.board === b.id && (!im.template || im.template === app.templateId)) : [];
+  const tiers = mine.length ? h('div.tools', {}, ...mine.map(im => h('button.btn', { disabled: state.fetching || state.busy, onclick: () => fetchKitsuneImage(app, im) }, state.fetching ? 'Fetching…' : `Get ${im.tier ? im.tier + ' ' : ''}${im.template || ''}${im.band === '5' ? ' 5 GHz' : ''}${im.mode && im.template !== 'wifi-ap' && im.template !== 'wifi-client' ? ' (' + im.mode + ')' : ''}`)),
+    h('span.hint', {}, `built from kitsune at ${(kManifest.commit || '?').slice(0, 7)}; checked against the manifest's sha256 before it can be flashed.`)) : null;
+  return h('div.card', {}, h('h3', {}, 'Firmware ', imageBadge()),
+    h('p.hint', {}, h('b', {}, 'Bootloader: '), hw.flash?.bootloader_instructions || '', ' The flasher checks that the port\'s chip is an ', h('code', {}, b.flash.chip), ' before it erases anything.'),
+    kManifest === null ? h('p.hint', {}, 'looking for hosted images…')
+      : kManifest === false ? h('p.hint', {}, h('b', {}, 'No kitsune images are hosted on this site. '), 'They will be built in CI from a pinned commit of kitsune once that is agreed with the project (docs/kitsune-integration-plan.md §7); until then, build it yourself with PlatformIO in a kitsune checkout and load the merged image here.')
+      : mine.length ? h('div', {}, h('p.hint', {}, `Images for the ${b.name} and the ${app.template.name}:`), tiers)
+      : h('p.hint', {}, `The site's manifest (kitsune at ${(kManifest.commit || '?').slice(0, 7)}) has no image for the ${b.name} × ${app.template.name}.`),
+    h('details', {}, h('summary.hint', {}, 'A merged image from your own PlatformIO build'),
+      h('p.hint', {}, 'In a kitsune checkout, after ', h('code', {}, `pio run -e <env>`), ' in ', h('code', {}, t.project || 'the project'), ', the pieces are under ', h('code', {}, '.pio/build/<env>/'), ' (bootloader.bin, partitions.bin, firmware.bin, and boot_app0.bin from the framework). Merge them into one file at the board\'s offsets with ', h('code', {}, 'esptool.py --chip ' + (b.flash.chip || 'esp32') + ' merge_bin -o merged.bin …'), ' (PlatformIO prints the exact offsets it flashes with ', h('code', {}, '-v'), '), then load merged.bin here; it is written at ', h('code', {}, b.flash.offset || '0x0'), '.')),
+    field('Image', h('div.row', {}, h('button.btn.small', { onclick: () => fileIn.click() }, 'Load merged .bin…'), fileIn, h('span.hint', {}, flasher.image.bytes ? `${flasher.image.name} · ${(flasher.image.bytes.length / 1024).toFixed(0)} kB${flasher.image.source === 'fox-bench-kitsune' ? ' · from this site' : ''}` : 'nothing loaded'))),
+    state.fetchError ? h('p.hint.err', {}, state.fetchError) : null,
+    flasher.image.info ? h('p.hint.err', {}, `${flasher.image.name} is a CircuitPython image; a kitsune board wants a kitsune build.`) : null,
+    h('div.two-col', {},
+      check('Erase the whole flash first', state.erase, val => { state.erase = val; notify(); }, 'Recommended for a board coming from other firmware; a merged image covers everything a bare board needs anyway.'),
+      field('Speed', select([[921600, '921600 baud'], [460800, '460800 baud (default)'], [230400, '230400 baud'], [115200, '115200 baud (safe)']], state.baud, val => { state.baud = +val; }), 'Drop it if the write fails part way.')),
+    h('div.tools', {},
+      h('button.btn.primary', { disabled: !!why || !!flasher.image.info, title: why, onclick: () => runFlash(app).catch(() => {}) }, state.busy ? 'Flashing…' : 'Flash'),
+      why && !state.busy ? h('span.hint', {}, why) : null),
+    ...statusBlock(),
+    h('p.hint', {}, 'The fleet log gets a flash row with the chip\'s efuse MAC as the fox\'s UID — the one identity a kitsune fox has until it prints a banner. kitsune belongs to its authors: ', h('a', { href: v?.SOURCE || 'https://github.com/rfhs/kitsune', target: '_blank', rel: 'noopener' }, v?.SOURCE || 'https://github.com/rfhs/kitsune'), '.'));
 }
 
 /** Fleet tab: plug → click → next. */

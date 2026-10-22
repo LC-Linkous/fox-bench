@@ -10,6 +10,68 @@
     "project": "kitsune",
     "source": "https://github.com/rfhs/kitsune",
     "note": "RF Hackers Sanctuary's kitsune foxes (Wi-Fi AP/client, BLE iBeacon, Bluetooth Classic, Zigbee) are PlatformIO/Arduino firmware whose configuration is compiled in from a per-conference header. kitsune belongs to its authors (https://github.com/rfhs/kitsune); nothing of it is included here. Today the page prepares and checks that configuration and exports the header; flashing from the page comes later.",
-    "stage": "config-only"
+    "stage": "flash-from-page",
+    "envs": [
+      {
+        "env": "seeed-xiao-esp32c5-easy-ap",
+        "project": "wifi/wifi_ap_client",
+        "template": "wifi-ap",
+        "tier": "easy",
+        "mode": "AP"
+      },
+      {
+        "env": "seeed-xiao-esp32c5-easy-client",
+        "project": "wifi/wifi_ap_client",
+        "template": "wifi-client",
+        "tier": "easy",
+        "mode": "CLIENT"
+      },
+      {
+        "env": "seeed-xiao-esp32c5-hard-ap",
+        "project": "wifi/wifi_ap_client",
+        "template": "wifi-ap",
+        "tier": "hard",
+        "mode": "AP"
+      },
+      {
+        "env": "seeed-xiao-esp32c5-hard-client",
+        "project": "wifi/wifi_ap_client",
+        "template": "wifi-client",
+        "tier": "hard",
+        "mode": "CLIENT"
+      },
+      {
+        "env": "seeed-xiao-esp32c5-fiveeasy-ap",
+        "project": "wifi/wifi_ap_client",
+        "template": "wifi-ap",
+        "tier": "easy",
+        "mode": "AP",
+        "band": "5"
+      },
+      {
+        "env": "seeed-xiao-esp32c5-fivehard-ap",
+        "project": "wifi/wifi_ap_client",
+        "template": "wifi-ap",
+        "tier": "hard",
+        "mode": "AP",
+        "band": "5"
+      },
+      {
+        "env": "seeed-xiao-esp32c5-easy-coordinator",
+        "project": "zigbee/zigbee_coordinator",
+        "template": "zigbee-coordinator",
+        "tier": "easy",
+        "mode": "COORDINATOR"
+      },
+      {
+        "env": "seeed-xiao-esp32c5-hard-coordinator",
+        "project": "zigbee/zigbee_coordinator",
+        "template": "zigbee-coordinator",
+        "tier": "hard",
+        "mode": "COORDINATOR"
+      }
+    ],
+    "envs_note": "kitsune's PlatformIO environments for this board (platformio.ini of each project, at the pinned commit), mapped to this page's templates and tiers; tools/build_kitsune.py builds these when the CI job is enabled, the firmware card offers the manifest's images for the selected template",
+    "manifest": "firmware/kitsune/manifest.json"
   }
 }

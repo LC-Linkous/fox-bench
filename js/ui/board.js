@@ -3,12 +3,13 @@
 import { cmpVersion } from '../model/compat.js';
 import { h, badge, field, select } from './dom.js';
 import { download } from '../model/profiles.js';
+import { savePacks } from '../model/loaders.js';
 import { flashCard, onChange as onFlashChange } from './flash.js';
 
 let app, root;
 export function init(a, el) { app = a; root = el; app.listeners.add(render); onFlashChange(render); render(); }
 
-const FAMILY_LABEL = { foxlib: 'CircuitPython board + radio module', drive: 'Drive-configured fox (vendor firmware)', 'foxlib-c': 'fox-bench native firmware (UF2)' };
+const FAMILY_LABEL = { foxlib: 'CircuitPython board + radio module', drive: 'Drive-configured fox (vendor firmware)', 'foxlib-c': 'fox-bench native firmware (UF2)', compiled: 'Compiled-in configuration (kitsune)' };
 
 /** The board picker, grouped by family. This one choice drives every other tab. */
 function pickerCard() {
@@ -17,7 +18,7 @@ function pickerCard() {
   const sel = h('select', { onchange: e => app.setBoard(e.target.value) });
   for (const [fam, list] of Object.entries(groups)) {
     const og = h('optgroup', { label: FAMILY_LABEL[fam] || fam });
-    for (const b of list) { const o = h('option', { value: b.id }, b.name + (b.status === 'planned' ? ' — planned' : b.status === 'experimental' ? ' — experimental' : '')); if (b.id === app.boardId) o.selected = true; if (b.status === 'planned') o.disabled = true; og.appendChild(o); }
+    for (const b of list) { const o = h('option', { value: b.id }, b.name + (b.status === 'planned' ? ' — planned' : b.status === 'experimental' ? ' — experimental' : '') + (b._pack ? ` [${b._pack}]` : '')); if (b.id === app.boardId) o.selected = true; if (b.status === 'planned') o.disabled = true; og.appendChild(o); }
     sel.appendChild(og);
   }
   const how = app.family === 'drive'
@@ -26,7 +27,23 @@ function pickerCard() {
     ? ['Then ', h('b', {}, `Open ${app.board.drive?.label || 'drive'}`), ' in the top bar picks its USB drive (where fox.json lives); ', h('b', {}, 'Listen only'), ' opens its serial console for the banner, the log and bench commands.']
     : ['Then ', h('b', {}, 'Connect'), ' takes its REPL over USB; ', h('b', {}, 'Listen only'), ' watches a running fox without stopping it.'];
   return h('div.card', {}, h('h3', {}, 'Which fox is on the bench?'),
-    field('Board', sel, h('span', {}, ...how, ' Changing the board switches the template when the current one does not apply, and keeps your callsign.')));
+    field('Board', sel, h('span', {}, ...how, ' Changing the board switches the template when the current one does not apply, and keeps your callsign.')),
+    app.board._pack ? h('p.hint', {}, 'This target comes from the catalog pack ', h('b', {}, app.board._pack), '.') : null,
+    packsDisclosure());
+}
+
+/** Catalog packs: descriptors another site owns (hardware, targets, templates), merged over the built-ins. Data only. */
+function packsDisclosure() {
+  const packs = app.catalog.packs || [], saved = (() => { try { return JSON.parse(localStorage.getItem('fox-bench.packs') || '[]'); } catch { return []; } })();
+  const urlIn = h('input', { type: 'url', placeholder: 'https://…/bench/  (a directory with pack.json)', style: 'flex:1;min-width:260px' });
+  const add = () => { const u = urlIn.value.trim(); if (!u) return; savePacks([...saved.filter(x => x !== u), u]); location.reload(); };
+  urlIn.addEventListener('keydown', e => { if (e.key === 'Enter') add(); });
+  return h('details', { style: 'margin-top:8px', open: packs.length ? '' : null },
+    h('summary.hint', {}, `Catalog packs${packs.length ? ` (${packs.length})` : ''}`),
+    h('p.hint', {}, 'A pack is another site\'s set of descriptors — its boards, targets and templates — laid out like this repository with a pack.json naming them. Its entries appear here, marked with the pack\'s name, and replace built-in ones with the same id. Packs are data only: a target may use one of this page\'s vendor models, but no code is ever loaded from a pack. The page reloads when the list changes.'),
+    packs.length ? h('ul', {}, packs.map(p => h('li.hint', {}, p.error ? [h('code', {}, p.url), ' — ', h('span.err', {}, p.error)] : [h('b', {}, p.name), p.version ? ` ${p.version}` : '', ` — ${Object.entries(p.counts).filter(([, n]) => n).map(([k, n]) => `${n} ${k}`).join(', ')} · `, h('code', {}, p.url)],
+      saved.includes(p.url) || saved.includes(p.url.replace(/\/$/, '')) ? [' ', h('button.btn.small', { onclick: () => { savePacks(saved.filter(x => x !== p.url && x + '/' !== p.url)); location.reload(); } }, 'remove')] : h('span.hint', {}, ' (from ?pack= in the address)')))) : null,
+    h('div.tools', {}, urlIn, h('button.btn.small', { onclick: add }, 'Add pack')));
 }
 
 function diagCard() {
@@ -158,19 +175,19 @@ function renderCompiled() {
   const deviceCard = h('div.card', {}, h('h3', {}, 'Connection'),
     info ? h('dl.kv', {}, h('dt', {}, 'Serial'), h('dd', {}, 'listening', ob.listening ? badge('boot lines only', 'warn') : ''), h('dt', {}, 'Last seen'), h('dd', {}, app.lastBanner ? 'FOX banner' : '—'))
       : h('div', {},
-        h('p.hint', {}, h('b', {}, 'No connection for this family yet.'), ` The configuration of a kitsune fox is compiled into its firmware from a conference header, so the page does not write anything to the board today: it prepares the configuration on the next tabs, checks it the way the fox will check itself at boot, and exports the header for kitsune's build (Deploy tab). Flashing a prebuilt image from here, and later per-fox configuration without a rebuild, are the next stages (docs/kitsune-integration-plan.md).`),
+        h('p.hint', {}, h('b', {}, 'No connection for this family yet.'), ` The configuration of a kitsune fox is compiled into its firmware from a conference header, so the page does not write a configuration to the board today: it prepares it on the next tabs, checks it the way the fox will check itself at boot, and exports the header for kitsune's build (Deploy tab). The firmware card below flashes a kitsune image (the site's, once hosted, or one you built); per-fox configuration without a rebuild is the next stage (docs/kitsune-integration-plan.md).`),
         h('p.hint', {}, h('b', {}, 'Listen only'), ' opens the board\'s serial port and shows what kitsune prints: boot count, "Awake and screaming", "Going to sleep", or "PANIC" when a self-check failed (the LED blinks red/yellow). ', hw.notes?.some(n => /serial isn't working/.test(n)) ? h('span.warn', {}, 'kitsune notes that serial is not working on this board yet.') : null)));
   const facts = h('div.card', {}, h('h3', {}, 'Board facts'),
     h('dl.kv', {},
       h('dt', {}, 'Hardware'), h('dd', {}, hw.name || b.hardware, ' · ', hw.mcu || ''),
       h('dt', {}, 'Radios'), h('dd', {}, (hw.radios || []).map(r => radios[r] || r).join(', ') || '—'),
       h('dt', {}, 'LED'), h('dd', {}, hw.led?.note || '—'),
-      h('dt', {}, 'Flashing'), h('dd', {}, `esptool, ${hw.flash?.chip || '?'} at ${hw.flash?.offset || '?'}, ${hw.flash?.flash_mb || '?'} MB flash — not from this page yet. `, hw.flash?.bootloader_instructions || ''),
+      h('dt', {}, 'Flashing'), h('dd', {}, `esptool, ${hw.flash?.chip || '?'} at ${hw.flash?.offset || '?'}, ${hw.flash?.flash_mb || '?'} MB flash (the firmware card). `, hw.flash?.bootloader_instructions || ''),
       h('dt', {}, 'Power'), h('dd', {}, hw.battery?.divider_note || '—'),
       h('dt', {}, 'Design'), h('dd', {}, hw.design?.by || '—', hw.design?.source ? [' — ', h('a', { href: hw.design.source, target: '_blank', rel: 'noopener' }, 'documentation')] : null)),
     hw.notes?.length ? h('ul', {}, hw.notes.map(n => h('li.hint', {}, n))) : null);
   const firmware = h('div.card', {}, h('h3', {}, 'Firmware ', badge('kitsune', 'info')),
     h('p.hint', {}, fw.note || ''),
     h('p.hint', {}, 'kitsune is the work of its authors: ', h('a', { href: fw.source || 'https://github.com/rfhs/kitsune', target: '_blank', rel: 'noopener' }, fw.source || 'https://github.com/rfhs/kitsune'), '. Nothing of it is included in fox-bench; this page only prepares the header their build reads.'));
-  root.replaceChildren(pickerCard(), h('div.cols', {}, deviceCard, firmware), facts, diagCard());
+  root.replaceChildren(pickerCard(), h('div.cols', {}, deviceCard, firmware), flashCard(app), facts, diagCard());
 }

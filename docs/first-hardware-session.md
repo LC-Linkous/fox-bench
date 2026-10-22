@@ -86,6 +86,8 @@ diff it against the last one the next time anything changes.
 
 ## Afterwards
 
+- [ ] Add a row to `docs/hardware-log.md`: date, board, firmware (version and
+      the site build's commit), what was checked, how, result.
 - [ ] Add the board id to `boards_tested` in each `template.json` that
       passed (the catalog lint checks the id exists).
 - [ ] If the board is new: its descriptor in `boards/`, its row in
