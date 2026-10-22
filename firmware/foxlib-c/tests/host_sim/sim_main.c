@@ -5,7 +5,7 @@
 #include <string.h>
 #include "fox.h"
 
-extern uint64_t sim_now_us; extern const char *sim_dir; extern int sim_host_drive, sim_unkeys;
+extern uint64_t sim_now_us; extern const char *sim_dir; extern int sim_host_drive, sim_unkeys, sim_charging;
 void sim_player_tick(void); void sim_dump(void);
 
 int main(int argc, char **argv) {
@@ -14,6 +14,7 @@ int main(int argc, char **argv) {
         if (!strcmp(argv[i], "--cap-ms")) cap_ms = strtoull(argv[++i], NULL, 10);
         else if (!strcmp(argv[i], "--stop-after-unkeys")) stop = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--host-drive")) sim_host_drive = 1;
+        else if (!strcmp(argv[i], "--charging")) sim_charging = 1;
         else sim_dir = argv[i];
     }
     fox_init();

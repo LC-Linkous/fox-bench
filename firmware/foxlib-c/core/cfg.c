@@ -105,9 +105,9 @@ static void apply_id(fox_cfg_t *cfg, const json_doc *d, int i, cfg_report_t *rep
     if ((k = json_get(d, i, "wpm")) >= 0) { int v = json_int(d, k, -1); if (json_is_int(d, k) && v >= 5 && v <= 40) cfg->id.wpm = v; else cfg_report_bad(rep, "id.wpm", "5-40"); }
     if ((k = json_get(d, i, "tone_hz")) >= 0) { int v = json_int(d, k, -1); if (json_is_int(d, k) && v >= 300 && v <= 3000) cfg->id.tone_hz = v; else cfg_report_bad(rep, "id.tone_hz", "300-3000"); }
     if ((k = json_get(d, i, "telemetry")) >= 0) {
-        bool ok = json_is(d, k, J_ARR), batt = false;
-        for (int x = ok ? json_index(d, k, 0) : -1; x >= 0 && ok; x = d->nodes[x].next) { s = json_str(d, x); ok = s && !strcmp(s, "batt"); if (ok) batt = true; }
-        if (ok) cfg->id.telemetry_batt = batt; else cfg_report_bad(rep, "id.telemetry", "subset of [batt]");
+        bool ok = json_is(d, k, J_ARR), batt = false, chg = false;
+        for (int x = ok ? json_index(d, k, 0) : -1; x >= 0 && ok; x = d->nodes[x].next) { s = json_str(d, x); ok = s && (!strcmp(s, "batt") || !strcmp(s, "chg")); if (s && !strcmp(s, "batt")) batt = true; if (s && !strcmp(s, "chg")) chg = true; }
+        if (ok) { cfg->id.telemetry_batt = batt; cfg->id.telemetry_chg = chg; } else cfg_report_bad(rep, "id.telemetry", "subset of [batt,chg]");
     }
     if ((k = json_get(d, i, "tx_without_callsign")) >= 0) { if (json_is(d, k, J_BOOL)) cfg->id.tx_without_callsign = json_bool(d, k, false); else cfg_report_bad(rep, "id.tx_without_callsign", "bool"); }
 }

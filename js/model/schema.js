@@ -96,7 +96,7 @@ export function mergeAndValidate(user, defaults, board) {
   if ('placeholder' in d) { if (typeof d.placeholder === 'string' && d.placeholder) cfg.id.placeholder = d.placeholder; else bad('id.placeholder', 'string'); }
   if ('wpm' in d) { if (isInt(d.wpm) && inRange(d.wpm, 5, 40)) cfg.id.wpm = d.wpm; else bad('id.wpm', '5–40'); }
   if ('tone_hz' in d) { if (isInt(d.tone_hz) && inRange(d.tone_hz, 300, 3000)) cfg.id.tone_hz = d.tone_hz; else bad('id.tone_hz', '300–3000'); }
-  if ('telemetry' in d) { if (Array.isArray(d.telemetry) && d.telemetry.every(t => t === 'batt')) cfg.id.telemetry = d.telemetry.slice(); else bad('id.telemetry', 'subset of ["batt"]'); }
+  if ('telemetry' in d) { if (Array.isArray(d.telemetry) && d.telemetry.every(t => t === 'batt' || t === 'chg')) cfg.id.telemetry = d.telemetry.slice(); else bad('id.telemetry', 'subset of ["batt"]'); }
   if ('tx_without_callsign' in d) { if (typeof d.tx_without_callsign === 'boolean') cfg.id.tx_without_callsign = d.tx_without_callsign; else bad('id.tx_without_callsign', 'bool'); }
 
   // ---- payload
@@ -183,8 +183,9 @@ export function pageChecks(cfg, { bands, region, morseTable, templateManifest, m
   if (cfg.plan.frequencies_mhz.length > 1 && !cfg.plan.announce_qsy) issues.push({ level: 'info', key: 'plan.announce_qsy', msg: 'silent rotation: hunters must find each new frequency themselves' });
   if (templateManifest?.pins && !pinless) for (const role of templateManifest.pins.required) if (!cfg.pins[role]) issues.push({ level: 'err', key: `pins.${role}`, msg: `${role} is required by ${templateManifest.id}` });
   if (cfg.id.telemetry.includes('batt') && !pinless && !cfg.pins.batt_sense) issues.push({ level: 'info', key: 'id.telemetry', msg: 'battery telemetry requested but no batt_sense pin — ignored by the firmware' });
+  if (cfg.id.telemetry.includes('chg') && !pinless) issues.push({ level: 'info', key: 'id.telemetry', msg: 'this board has no charger sense; "chg" telemetry is ignored' });
   if (pinless) {
-    if (cfg.id.telemetry.includes('batt')) issues.push({ level: 'info', key: 'id.telemetry', msg: 'this board has no battery voltage sense; telemetry is ignored' });
+    if (cfg.id.telemetry.includes('batt')) issues.push({ level: 'info', key: 'id.telemetry', msg: 'this board has no battery voltage sense; "batt" telemetry is ignored (it can send "chg": the word CHG while the charger is active)' });
     const maxTone = Math.floor((cfg.radio.sample_rate || 8000) / 2) - 100;
     if (cfg.id.tone_hz > maxTone) issues.push({ level: 'warn', key: 'id.tone_hz', msg: `${cfg.id.tone_hz} Hz is above what ${cfg.radio.sample_rate || 8000} samples/s can carry (${maxTone} Hz); the firmware folds it down an octave` });
     if ((cfg.radio.id_deviation_hz || 0) > 5000 || (cfg.radio.audio_deviation_hz || 0) > 5000) issues.push({ level: 'warn', key: 'radio.id_deviation_hz', msg: 'deviation above ±5 kHz is wider than a 12.5 kHz channel; receivers will distort' });

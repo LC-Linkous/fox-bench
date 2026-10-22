@@ -125,6 +125,15 @@ void fox_print_banner(void) {
 }
 
 /* ---- streams */
+/* The ID as sent: callmessage, plus the telemetry words this board can supply. The PicoFox has no
+ * battery voltage (id.telemetry "batt" is ignored); "chg" adds the word CHG while the charger is
+ * active — on USB power with a battery still filling. Off USB it never appears. */
+static const char *id_message(void) {
+    static char buf[80];
+    snprintf(buf, sizeof buf, "%s%s", cfg.id.callmessage, (cfg.id.telemetry_chg && player_charging()) ? " CHG" : "");
+    return buf;
+}
+
 static void add_morse(const char *text, float dit_s) {
     con_printf("morse: %s\r\n", text);
     morse_events(&stream, text, cfg.id.wpm, (float)cfg.id.tone_hz, dit_s > 0 ? dit_s * 1000 : 0);
@@ -212,7 +221,7 @@ static void begin_cycle(void) {
         sched_wake_t kind = sched_dead_wake(&sched);
         events_push(&stream, 0, 250);
         if (kind == WAKE_ID) {
-            add_morse(cfg.id.callmessage, 0);
+            add_morse(id_message(), 0);
             if (cfg.schedule.dead_song && cfg.payload.kind == PAYLOAD_SONGS && playlist.n) { events_push(&stream, 0, GAP_MS); const song_t *s = playlist_next(&playlist, &stream); con_printf("song: %s\r\n", s->name); }
         } else add_morse("e", 0);
         con_printf("dead-phase wake: %s\r\n", kind == WAKE_ID ? "id" : "dit");
@@ -227,10 +236,10 @@ static void begin_cycle(void) {
     events_t *tail = &stream;            /* where events after the payload go */
     events_push(&stream, 0, GAP_MS);
     if (cfg.payload.kind == PAYLOAD_NONE) {
-        add_morse(cfg.payload.message_set && cfg.payload.message[0] ? cfg.payload.message : cfg.id.callmessage, cfg.payload.dit_set ? cfg.payload.dit_s : 0);
+        add_morse(cfg.payload.message_set && cfg.payload.message[0] ? cfg.payload.message : id_message(), cfg.payload.dit_set ? cfg.payload.dit_s : 0);
         segs[seg_n++] = (segment_t){ SEG_EVENTS, &stream };
     } else {
-        add_morse(cfg.id.callmessage, 0);
+        add_morse(id_message(), 0);
         if (cfg.payload.kind == PAYLOAD_SONGS && playlist.n) { events_push(&stream, 0, GAP_MS); const song_t *s = playlist_next(&playlist, &stream); con_printf("song: %s\r\n", s->name); }
         segs[seg_n++] = (segment_t){ SEG_EVENTS, &stream };
         if (cfg.payload.kind == PAYLOAD_SSTV) {
@@ -332,7 +341,7 @@ bool fox_bench_tone(float hz, uint32_t ms) {
 
 bool fox_bench_id(void) {
     if (!bench_begin()) return false;
-    events_clear(&stream); events_push(&stream, 0, GAP_MS); add_morse(cfg.id.callmessage, 0);
+    events_clear(&stream); events_push(&stream, 0, GAP_MS); add_morse(id_message(), 0);
     player_key(true); start_play((float)cfg.radio.id_deviation_hz, 0);
     return true;
 }

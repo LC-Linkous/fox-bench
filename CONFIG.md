@@ -142,7 +142,7 @@ failed. The firmware checks only the module range.
 | `placeholder` | string | | sentinel. If it appears in `callmessage`, the callsign is unset. Do not personalise. |
 | `wpm` | int | 5–40 | PARIS timing |
 | `tone_hz` | int | 300–3000 | |
-| `telemetry` | [string] | subset of `["batt"]` | appended to the ID, e.g. `BAT 3V7`. Ignored when `pins.batt_sense` is `null`. |
+| `telemetry` | [string] | subset of `["batt", "chg"]` | words appended to the ID. `batt`: `BAT 3V7` from the battery divider (ignored when `pins.batt_sense` is `null`, and on boards without one). `chg`: the word `CHG` while the charger is active — boards with a charger-status line (the PicoFox); never appears off USB power; ignored elsewhere. |
 | `tx_without_callsign` | bool | | **default `false`**: with the placeholder present the fox boots, prints `id=unset`, never keys PTT, and shows the `unconfigured` LED pattern. `true` restores warn-and-transmit. |
 
 ## `payload`

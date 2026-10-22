@@ -37,7 +37,7 @@ typedef struct {
         bool tx_while_mounted;
     } radio;
     struct { double frequencies_mhz[CFG_MAX_FREQS]; int n; bool announce_qsy; } plan;   /* double: 146.565f * 1e6 is 2 Hz off */
-    struct { char callmessage[65]; char placeholder[17]; int wpm; int tone_hz; bool telemetry_batt; bool tx_without_callsign; } id;
+    struct { char callmessage[65]; char placeholder[17]; int wpm; int tone_hz; bool telemetry_batt, telemetry_chg; bool tx_without_callsign; } id;
     struct {
         payload_kind_t kind;
         float articulation; bool skip_on_low_battery;

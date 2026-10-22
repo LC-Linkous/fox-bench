@@ -10,7 +10,7 @@ const sum = evs => evs.reduce((a, [, ms]) => a + ms, 0);
 
 /** Returns { id_ms, payload_ms: [...per rotation item], qsy_ms, worst_ms, typical_ms } */
 export function airtime(cfg, { images = [] } = {}) {
-  const idText = cfg.id.callmessage + (cfg.id.telemetry.includes('batt') && cfg.pins.batt_sense ? ' BAT 3V7' : '');
+  const idText = cfg.id.callmessage + (cfg.id.telemetry.includes('batt') && cfg.pins?.batt_sense ? ' BAT 3V7' : '') + (cfg.id.telemetry.includes('chg') ? ' CHG' : '');
   const p = cfg.payload;
   const ditMs = p.kind === 'none' && p.dit_s ? p.dit_s * 1000 : null;
   const id_ms = 750 + sum(morse.events(p.kind === 'none' && p.message ? p.message : idText, { wpm: cfg.id.wpm, toneHz: cfg.id.tone_hz, ditMs }));

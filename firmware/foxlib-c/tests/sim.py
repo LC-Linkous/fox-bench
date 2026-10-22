@@ -20,6 +20,16 @@ import decode  # noqa: E402
 BOARD = "picofox-foxlibc"
 SKIP_KEYS = ("battery", "module_silent", "module_ranges", "uart")          # scenario features this family has no hardware for
 
+# scenarios only this family can run (its charger-status telemetry word)
+FOXLIBC_ONLY = [
+    {"name": "chg-telemetry-charging", "charging": True, "stop_after_unkeys": 1, "cap_ms": 120000,
+     "fox": {"id": {"callmessage": "W1ABC FOX", "telemetry": ["chg"]}}, "expect": {"banner": {"cfg": "ok"}, "id_contains": ["W1ABC FOX CHG"]}},
+    {"name": "chg-telemetry-idle", "stop_after_unkeys": 1, "cap_ms": 120000,
+     "fox": {"id": {"callmessage": "W1ABC FOX", "telemetry": ["chg"]}}, "expect": {"banner": {"cfg": "ok"}, "id_contains": ["W1ABC FOX"], "id_not_contains": ["CHG"]}},
+    {"name": "batt-telemetry-ignored-here", "stop_after_unkeys": 1, "cap_ms": 120000,
+     "fox": {"id": {"callmessage": "W1ABC FOX", "telemetry": ["batt"]}}, "expect": {"banner": {"cfg": "ok"}, "id_contains": ["W1ABC FOX"], "id_not_contains": ["BAT"]}},
+]
+
 
 def deep_merge(base, over):
     out = json.loads(json.dumps(base))
@@ -91,6 +101,9 @@ def check(scen, rec, eff):
             continue
         if i >= len(texts) or want not in texts[i]:
             fails.append("tx %d decoded %r, want it to contain %r" % (i, texts[i] if i < len(texts) else None, want))
+    for i, bad_word in enumerate(exp.get("id_not_contains", [])):
+        if texts and bad_word in texts[0]:
+            fails.append("tx 0 decoded %r, must not contain %r" % (texts[0], bad_word))
     for k in exp.get("kinds", []):
         if k not in kinds:
             fails.append("no %s heard (kinds=%s)" % (k, sorted(kinds)))
@@ -138,7 +151,7 @@ def main():
     total = fails_n = skipped = 0
     for tid in templates:
         defaults = json.load(open(os.path.join(FW, "templates", tid, "defaults", BOARD + ".json")))
-        for scen in scenarios.get("all", []) + scenarios.get(tid, []):
+        for scen in scenarios.get("all", []) + scenarios.get(tid, []) + (FOXLIBC_ONLY if tid == "morse-songs" else []):
             if not applicable(scen):
                 skipped += 1
                 continue
@@ -155,7 +168,7 @@ def main():
                 else:
                     user = {}
                 eff, _ = fwcfg.validate(user, defaults, [], BOARD)
-                cmd = [a.bin, d, "--cap-ms", str(scen.get("cap_ms", 180000)), "--stop-after-unkeys", str(scen.get("stop_after_unkeys", 2))]
+                cmd = [a.bin, d, "--cap-ms", str(scen.get("cap_ms", 180000)), "--stop-after-unkeys", str(scen.get("stop_after_unkeys", 2))] + (["--charging"] if scen.get("charging") else [])
                 r = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
                 if r.returncode != 0:
                     fails_n += 1

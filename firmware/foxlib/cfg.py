@@ -204,10 +204,10 @@ def validate(user, defaults, board_names, board_id=None):
         else:
             rep.bad("id.tone_hz", "300-3000")
     if "telemetry" in d:
-        if isinstance(d["telemetry"], list) and all(t == "batt" for t in d["telemetry"]):
-            cfg["id"]["telemetry"] = list(d["telemetry"])
+        if isinstance(d["telemetry"], list) and all(t in ("batt", "chg") for t in d["telemetry"]):
+            cfg["id"]["telemetry"] = list(d["telemetry"])    # "chg" needs a charger sense; boards without one send nothing for it
         else:
-            rep.bad("id.telemetry", "subset of [batt]")
+            rep.bad("id.telemetry", "subset of [batt,chg]")
     if "tx_without_callsign" in d:
         if isinstance(d["tx_without_callsign"], bool):
             cfg["id"]["tx_without_callsign"] = d["tx_without_callsign"]

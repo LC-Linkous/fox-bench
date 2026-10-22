@@ -13,7 +13,7 @@
 
 uint64_t sim_now_us;
 const char *sim_dir = ".";
-int sim_host_drive = 0;
+int sim_host_drive = 0, sim_charging = 0;
 
 /* ---- record */
 #define MAXREC 60000   /* an SSTV image alone is ~11 000 tones */
@@ -52,7 +52,7 @@ void player_stop(void) { if (cur) { cur->cut = true; cur->done = true; cur = NUL
 bool player_busy(void) { return cur != NULL; }
 void player_status(player_status_t *out) { memset(out, 0, sizeof *out); out->si5351_ok = true; out->revision = 3; out->carrier_hz = carrier; out->keyed = keyed; }
 uint32_t player_keyed_ms(void) { return keyed ? (uint32_t)(sim_now_us / 1000) - keyed_at : 0; }
-bool player_charging(void) { return false; }
+bool player_charging(void) { return sim_charging; }
 void sim_player_tick(void) { if (cur && sim_now_us >= cur_end_us) { cur->done = true; cur = NULL; } }
 
 /* ---- si5351 math (what fox.c uses on core 0) */

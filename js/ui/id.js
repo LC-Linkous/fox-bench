@@ -8,7 +8,7 @@ let app, root; const player = new Player();
 let callInput, previewBox, warnBox, titleBadge;
 export function init(a, el) { app = a; root = el; app.listeners.add(render); render('boot'); }
 
-function idText() { const d = app.cfg.id; return d.callmessage + (d.telemetry.includes('batt') && app.cfg.pins.batt_sense ? ' BAT 3V7' : ''); }
+function idText() { const d = app.cfg.id; return d.callmessage + (d.telemetry.includes('batt') && app.cfg.pins?.batt_sense ? ' BAT 3V7' : '') + (d.telemetry.includes('chg') && app.family === 'foxlib-c' ? ' CHG' : ''); }
 
 function renderPreview() {
   const d = app.cfg.id, unset = d.callmessage.includes(d.placeholder), bad = morse.unsendable(d.callmessage);
@@ -43,8 +43,9 @@ function render(source) {
         h('div.two-col', {},
           field('Speed (WPM)', numInput(d.wpm, { min: 5, max: app.family === 'drive' ? 30 : 40, step: 1, onchange: v => { d.wpm = v; app.changed('id'); } })),
           field('Tone (Hz)', numInput(d.tone_hz, { min: app.family === 'drive' ? 100 : 300, max: app.family === 'drive' ? 2400 : 3000, step: 10, onchange: v => { d.tone_hz = v; app.changed('id'); } }), app.family === 'drive' ? 'up to 2400 Hz: the firmware samples audio at 5 kHz' : null)),
-        app.family === 'drive' ? null
-          : check('Append battery voltage to the ID (e.g. "BAT 3V7")', d.telemetry.includes('batt'), v => { d.telemetry = v ? ['batt'] : []; app.changed('id'); }, app.cfg.pins.batt_sense ? '' : '— no batt_sense pin set on the Board tab, so the firmware will ignore this')),
+        app.family === 'drive' ? null : app.family === 'foxlib-c'
+          ? check('Append CHG to the ID while the charger is active', d.telemetry.includes('chg'), v => { d.telemetry = v ? [...d.telemetry.filter(t => t !== 'chg'), 'chg'] : d.telemetry.filter(t => t !== 'chg'); app.changed('id'); }, 'This board has no battery voltage sense, only the charger\'s /CHG line: on USB power with a battery still filling the ID ends "… CHG"; off USB the word never appears. Handy on the bench, silent in the field.')
+          : check('Append battery voltage to the ID (e.g. "BAT 3V7")', d.telemetry.includes('batt'), v => { d.telemetry = v ? [...d.telemetry.filter(t => t !== 'batt'), 'batt'] : d.telemetry.filter(t => t !== 'batt'); app.changed('id'); }, app.cfg.pins.batt_sense ? '' : '— no batt_sense pin set on the Board tab, so the firmware will ignore this')),
       h('div.card', {}, h('h3', {}, 'Preview'), previewBox)),
     app.family === 'drive' ? null : h('div.card', {}, h('h3', {}, 'Unset-callsign behaviour'),
       check('Transmit even if the callsign is unset (legacy warn-and-transmit)', d.tx_without_callsign, v => { d.tx_without_callsign = v; app.changed('id'); }),
