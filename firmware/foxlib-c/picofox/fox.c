@@ -52,7 +52,7 @@ static fox_state_t state = FOX_HOLD;
 static uint32_t hold_until;
 static bool hold_logged;
 static int cycle_n, freq_index, next_index;
-static bool rotating, bench_active;
+static bool rotating, bench_active, cycle_restart;
 static uint32_t cut_warned;
 static char uid[2 * PICO_UNIQUE_BOARD_ID_SIZE_BYTES + 1];
 
@@ -220,7 +220,8 @@ static void begin_cycle(void) {
         begin_section();
         return;
     }
-    con_printf("cycle %d @ %.4f MHz\r\n", cycle_n, (double)cfg.plan.frequencies_mhz[freq_index]);
+    con_printf("cycle %d%s @ %.4f MHz\r\n", cycle_n, cycle_restart ? " (restarted after a bench action)" : "", (double)cfg.plan.frequencies_mhz[freq_index]);
+    cycle_restart = false;
     next_index = rotating ? (freq_index + 1) % cfg.plan.n : freq_index;
     events_clear(&stream2); seg_n = 0;
     events_t *tail = &stream;            /* where events after the payload go */
@@ -275,7 +276,7 @@ void fox_poll(void) {
             if (req.done && (req.cut || !start_segment())) end_cycle();   /* cut, or no segment left: unkey; else the next segment on the same carrier */
             return;
         case FOX_BENCH:
-            if (req.done || !bench_active) { bench_active = false; player_key(false); con_puts("ok\r\n"); hold(1000); }
+            if (req.done || !bench_active) { bench_active = false; player_key(false); con_puts("ok\r\n"); cycle_restart = true; hold(1000); }
             return;
     }
 }

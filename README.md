@@ -20,8 +20,8 @@ cycle that firmware runs — verified on air, `docs/picofox-notes.md`), and
 with **fox-bench's own firmware** (`firmware/foxlib-c/`, GPL-3.0-or-later:
 `fox.json`, every template the CircuitPython foxes have including SSTV, FM
 at 8 kHz with pre-emphasis, banner and bench buttons over its serial
-console; flashed from the Board tab as a UF2 — builds and passes the
-simulations, first on-air test pending). Every push runs three test layers in CI: the firmware
+console; flashed from the Board tab as a UF2 and swapped with the vendor's from
+the same card — on the air on a rev 3 board since October 2026). Every push runs three test layers in CI: the firmware
 simulator (`firmware/sim/`), the REPL protocol against a fake board and
 the page itself in headless Chromium (`tests/`), and a lint of every
 descriptor (`tools/check_catalog.py`). See `tests/README.md`.

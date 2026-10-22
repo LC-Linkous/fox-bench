@@ -57,7 +57,7 @@ static void help(void) {
              "  tone <hz> <s>     carrier with a tone\r\n"
              "  id                send the ID once now\r\n"
              "  freq <mhz>        retune until the next reload\r\n"
-             "  atten <0-127>     attenuator code now (rev 3 boards; interface unverified)\r\n"
+             "  atten <0-127>     attenuator code now (rev 3 boards; dB per step not yet metered)\r\n"
              "  batt              charging state (no voltage sense on this board)\r\n"
              "  files | reload | stop | uid | version | reboot | bootsel\r\n");
 }

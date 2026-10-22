@@ -94,12 +94,10 @@ appears with the switch on (matches observed behaviour).
   (0–127 → 0–31.75 dB) followed by the device address bits, latched by a
   pulse on `LE`. The I²C peripheral must be released (pins as plain GPIO)
   while bit-banging, then re-enabled; SCL is held low before SDA moves so the
-  Si5351 does not see an I²C START. *The bit order and word layout must be
-  confirmed against the datasheet before use; this is the one interface we
-  have not verified from a primary source.*
-  Amplifier enable polarity: `AEN` active **low** per the vendor's observed
-  behaviour (carrier appears when GPIO2 is driven low) — confirm on the bench
-  with the attenuator at 0 and a power meter before relying on it.
+  Si5351 does not see an I²C START. *The firmware accepts attenuation codes on a rev 3 board; the resulting
+  dB per step has not been measured with a power meter yet.*
+  Amplifier enable polarity: `AEN` active **low** — confirmed on the air with
+  the fox-bench firmware (October 2026, rev 3 board).
 - Post-amp LPF (same values), then JP1/JP2 jumpers (standalone: both fitted),
   D1 H5VU06B ESD diode, SMA J4.
 

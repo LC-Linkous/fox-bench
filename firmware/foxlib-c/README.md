@@ -20,7 +20,7 @@ VERSION      firmware version (the banner's foxlib=c-<version>)
 
 | target | hardware | status |
 |---|---|---|
-| `picofox-foxlibc` | AI6YM PicoFox rev 2/3 (`hardware/picofox.json`, `docs/picofox-hardware.md`) | experimental: builds and passes the simulations; first on-air test pending |
+| `picofox-foxlibc` | AI6YM PicoFox rev 2/3 (`hardware/picofox.json`, `docs/picofox-hardware.md`) | stable: on the air on a rev 3 board since October 2026 (keying, 8 kHz FM, live reload, console bench, firmware swap both ways); attenuator dB/step not yet metered |
 
 ## What the PicoFox firmware does
 
@@ -47,8 +47,8 @@ VERSION      firmware version (the banner's foxlib=c-<version>)
   flat deviation (`audio_deviation_hz`), played back to back with the ID on
   one carrier. Keying = CLK0 output enable +
   amplifier enable. Attenuation (rev 3) through the BVA1761 serial interface
-  — written from the datasheet, **unverified on hardware**, never touched at
-  attenuation 0.
+  — written from the datasheet; the board accepts the codes, the dB per step is
+  not yet confirmed with a power meter; never touched at attenuation 0.
 - **Console** (`picofox/console.c`): banner at boot, when a terminal opens and
   after every reload; the fox log (`cycle N @ f`, `morse: …`, `song: …`);
   commands `help status key <s> tone <hz> <s> id freq <mhz> atten <n> batt
