@@ -161,7 +161,6 @@ jobs:
     # not enabled, and its images are staged only when it ran.
     needs: [page, sim, foxlib-c, kitsune]
     if: always() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && needs.page.result == 'success' && needs.sim.result == 'success' && needs.foxlib-c.result == 'success' && (needs.kitsune.result == 'success' || needs.kitsune.result == 'skipped')
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: read
