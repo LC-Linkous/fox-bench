@@ -60,7 +60,7 @@ export class ConsoleDevice extends Device {
       case 'key': { const s = args.seconds || 3; need(await this.command(`key ${s}`, { timeout: s * 1000 + 5000 })); return 'ok'; }
       case 'tone': { const s = args.seconds || 2; need(await this.command(`tone ${args.hz || 800} ${s}`, { timeout: s * 1000 + 5000 })); return 'ok'; }
       case 'id': { need(await this.command('id', { timeout: 120000 })); return 'ok'; }
-      case 'batt': { const r = need(await this.command('batt')); const m = r.lines.join(' ').match(/charging=(\w+)/); return m ? (m[1] === 'yes' ? 'charging' : 'not charging') : r.lines.join(' '); }
+      case 'batt': { const r = need(await this.command('batt')); const m = r.lines.join(' ').match(/charging=(\w+)/); return m ? (m[1] === 'yes' ? 'charging' : 'charger idle — battery full, or no USB power') : r.lines.join(' '); }
       case 'status': { const r = need(await this.command('status')); return r.lines.join('\n'); }
       case 'freq': { need(await this.command(`freq ${args.mhz}`)); return 'ok'; }
       case 'atten': { need(await this.command(`atten ${args.code}`)); return 'ok'; }

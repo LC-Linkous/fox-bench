@@ -77,7 +77,7 @@ static void dispatch(char *cmd) {
     else if (!strcmp(cmd, "status")) { status(); con_puts("ok\r\n"); }
     else if (!strcmp(cmd, "uid")) { char b[400]; const char *p = strstr(fox_banner_line(b, sizeof b), "uid="); con_printf("%.*s\r\nok\r\n", p ? (int)(strchr(p, ' ') - p) : 0, p ? p : ""); }
     else if (!strcmp(cmd, "version")) { con_printf("foxlib-c %s board=%s\r\nok\r\n", FOXLIBC_VERSION, BOARD_ID); }
-    else if (!strcmp(cmd, "batt")) { con_printf("batt charging=%s volts=none\r\nok\r\n", player_charging() ? "yes" : "no"); }
+    else if (!strcmp(cmd, "batt")) { con_printf("batt charging=%s volts=none note=%s\r\nok\r\n", player_charging() ? "yes" : "no", player_charging() ? "charger_active" : "charger_idle(full_or_no_usb_power)"); }
     else if (!strcmp(cmd, "files")) { char files[256]; fs_list(files, sizeof files); con_printf("%s\r\nok\r\n", files); }
     else if (!strcmp(cmd, "key")) { double s = arg ? atof(arg) : 2; if (s <= 0 || s > 60) con_puts("err: 0 < s <= 60\r\n"); else if (fox_bench_key((uint32_t)(s * 1000))) con_printf("keyed %.1f s\r\n", s); }
     else if (!strcmp(cmd, "tone")) { double hz = arg ? atof(arg) : 0; char *s2 = arg ? strchr(arg, ' ') : NULL; double s = s2 ? atof(s2) : 2;

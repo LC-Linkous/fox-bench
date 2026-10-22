@@ -22,7 +22,7 @@ enum { RESP_OK = 0x100, RESP_FAIL };
 #define I2C_HZ 1000000   /* a 6-byte fraction write must fit in a 125 us sample period */
 
 static volatile player_status_t st;
-static volatile play_req_t *cur;
+static volatile play_req_t *volatile cur;   /* the pointer itself is shared across cores: core 0 spins on it in player_stop */
 static volatile uint32_t keyed_at_ms;
 static volatile bool core1_ready;
 
@@ -154,7 +154,8 @@ void player_play(play_req_t *req) {
 void player_stop(void) {
     if (!cur) return;
     call(CMD_STOP);
-    while (cur) tight_loop_contents();
+    while (cur) tight_loop_contents();   /* core 1 clears it when play_loop has returned */
+    __dmb();
 }
 
 bool player_busy(void) { return cur != NULL; }

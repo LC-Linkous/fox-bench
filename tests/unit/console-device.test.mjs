@@ -22,7 +22,7 @@ test('command waits for ok, collects the lines before it; err rejects through be
   await link.open(); await sleep(10);
   const r = await d.command('batt');
   assert.equal(r.ok, true); assert.match(r.lines.join(' '), /charging=no/);
-  assert.equal(await d.bench('batt'), 'not charging');
+  assert.match(await d.bench('batt'), /charger idle/);
   link.charging = true; assert.equal(await d.bench('batt'), 'charging');
   await assert.rejects(d.bench('key', { seconds: 99 }), /0 < s <= 60/);
   await assert.rejects(d.command('nonsense').then(r => { if (!r.ok) throw new Error(r.error); }), /unknown command/);

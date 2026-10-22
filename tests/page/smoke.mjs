@@ -303,7 +303,7 @@ try {
   await page.click('#tab-bench button:has-text("Key")'); await settle(1800);
   check(/key\s+ok/.test(await text('#tab-bench')), 'bench Key over the demo console: ok after the keyed second');
   await page.click('#tab-bench button:has-text("Charging?")'); await settle(400);
-  check(/not charging/.test(await text('#tab-bench')), 'bench Charging? reads the console reply');
+  check(/charger idle/.test(await text('#tab-bench')), 'bench Charging? reads the console reply');
   await page.click('#tab-bench button:has-text("Status")'); await settle(400);
   check(/i2c_write_us/.test(await text('#tab-bench')), 'bench Status shows the firmware status block');
   check(/FOX template=morse-songs/.test(await text('#log')) || true, 'console drawer carries the demo banner');
