@@ -14,6 +14,14 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.7.3 · foxlib 1.0.4 · foxlib-c 0.1.8
+
+foxlib 1.0.4: `payload.images_file` must be a plain file name (no paths,
+never `code.py` / `fox.json` / `defaults.json` / `boot.py` / `board.json`),
+in step with the page and the C firmware. The page's 0.7.x and foxlib-c's
+0.1.8 are described under their own headings in the commit history; see
+`docs/kitsune-integration-plan.md` for the `compiled` family.
+
 ### Page 0.6.2 · foxlib 1.0.3 · foxlib-c 0.1.7
 
 The October 2026 audit (`docs/project-audit-2026-10.md`) and what followed it.
