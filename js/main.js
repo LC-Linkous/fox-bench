@@ -183,7 +183,7 @@ export const app = {
     if (listen && kind !== 'demo') {
       this.device = device; this.info = await device.listen(); this.onBoard = { cfg: null, raw: null, foxlibVersion: '', foxlibMissing: [], foxlibComplete: false, files: {}, template: null, listening: true };
       // banner lines that scroll past while listening update the status
-      const prev = device.onLog; device.onLog = (t, cls) => { prev(t, cls); const b = parseBanner(t); if (b) { this.info = { ...this.info, boardId: b.board || '?', uid: b.uid || '' }; this.onBoard.foxlibVersion = b.foxlib || ''; this.onBoard.template = (b.template || '').split('/')[0] || null; this.setStatus(`Listening · ${b.board} · uid ${(b.uid || '').slice(-6)} · ${b.template} · cfg=${b.cfg} radio=${b.radio}`, 'tx'); this.changed('banner'); }
+      const prev = device.onLog; device.onLog = (t, cls) => { prev(t, cls); const b = parseBanner(t); if (b) { this.lastBanner = b; this.info = { ...this.info, boardId: b.board || '?', uid: b.uid || '' }; this.onBoard.foxlibVersion = b.foxlib || ''; this.onBoard.template = (b.template || '').split('/')[0] || null; this.setStatus(`Listening · ${b.board} · uid ${(b.uid || '').slice(-6)} · ${b.template} · cfg=${b.cfg} radio=${b.radio}`, 'tx'); this.changed('banner'); }
         else if (this.family === 'drive' && this.vendor?.BOOT_OK?.test(t)) { this.setStatus(`Listening · ${this.board.name} · firmware up, transmitting`, 'tx'); this.changed('banner'); }
         else if (this.family === 'drive' && this.vendor?.BOOT_REGEN?.test(t)) { this.console.line('the firmware is regenerating its own ID audio: the marker file did not match settings.txt (expected after a hand edit; not after a page deploy)', 'err'); } };
       $('#connectBtn').textContent = 'Disconnect'; $('#listenBtn').hidden = true; this.console.setEnabled(this.family === 'foxlib-c');   // the foxlib-c console takes text commands
@@ -198,7 +198,7 @@ export const app = {
     }
     this.device = device;
     this.sideConsole = null;
-    if (kind === 'demo' && this.family === 'foxlib-c') { const { device: c, link } = demoConsole(this.board, this.cfg); c.onLog = device.onLog; this.sideConsole = c; link.open(); }
+    if (kind === 'demo' && this.family === 'foxlib-c') { const { device: c, link } = demoConsole(this.board, this.cfg); c.onLog = (t, cls) => { device.onLog(t, cls); const b = parseBanner(t); if (b) this.lastBanner = b; }; this.sideConsole = c; link.open(); }
     $('#demoBtn').setAttribute('aria-pressed', kind === 'demo' ? 'true' : 'false');
     $('#connectBtn').textContent = 'Disconnect'; $('#listenBtn').hidden = true;
     this.console.setEnabled((kind !== 'demo' && !this.usesDrive) || !!this.sideConsole);
@@ -260,6 +260,7 @@ export const app = {
     if (this.family === 'foxlib-c') { this.console.line('the fox reloads by itself about a second after the last write; Listen only on its serial port shows the new banner', 'dim'); return null; }
     const text = await this.device.reboot();
     const banner = parseBanner(text);
+    if (banner) this.lastBanner = banner;
     this.console.line(banner ? `fox restarted: ${banner._raw}` : 'restarted; no FOX banner seen', banner ? 'ok' : 'err');
     this.changed('restart');
     return banner;
@@ -287,6 +288,7 @@ export const app = {
   async disconnect() {
     try { await this.device?.close(); } catch {}
     try { await this.sideConsole?.close(); } catch {} this.sideConsole = null;
+    this.lastBanner = null;
     this.device = null; this.info = null; this.onBoard = { cfg: null, raw: null, foxlibVersion: '', foxlibMissing: [], foxlibComplete: false, files: {} };
     $('#demoBtn').setAttribute('aria-pressed', 'false'); $('#listenBtn').hidden = false;
     this.console.setEnabled(false); this.setStatus('Not connected');

@@ -214,6 +214,16 @@ try {
   check(/smoke profile/.test(await text('#tab-fleet ul.list')), 'profile saved from Deploy appears in Fleet');
   await page.click('#tab-fleet ul.list li:has-text("smoke profile") button:has-text("Load")'); await settle(300);
   eq(await app(() => window.foxbench.cfg.fleet.profile), 'smoke profile', 'profile loads back');
+  // audit: the demo board was deployed earlier in this run; its UID is in the log, and what is on it matches
+  await page.fill('#tab-fleet input[placeholder^="note"]', 'smoke box'); await page.click('#tab-fleet button:has-text("Audit")'); await settle(400);
+  check(/match/.test(await text('#tab-fleet')) && !/mismatch/.test(await text('#tab-fleet')), 'audit of the demo board matches its last deploy');
+  const auditRowOk = await app(() => JSON.parse(localStorage.getItem('fox-bench.fleet') || '[]').filter(r => r.action === 'audit').pop());
+  check(auditRowOk && auditRowOk.result === 'match' && /matched by uid/.test(auditRowOk.notes) && /smoke box/.test(auditRowOk.notes), 'audit row appended with the note');
+  // change the callsign on the form only: the board still carries the deployed one, so the audit still matches the log, not the form
+  await app(() => { window.foxbench.cfg.id.callmessage = 'N0BODY HERE'; window.foxbench.changed('id'); }); await settle(200);
+  await page.click('#tab-fleet button:has-text("Audit")'); await settle(400);
+  check(/match/.test(await text('#tab-fleet')) && !/mismatch/.test(await text('#tab-fleet')), 'audit compares the board with the log, not with the unsaved form');
+  await app(() => { window.foxbench.cfg.id.callmessage = 'W1ABC FOX DE W1ABC'; window.foxbench.changed('id'); }); await settle(200);
 
   console.log('diagnostics');
   const diag = await app(() => window.foxbench.diagnostics());

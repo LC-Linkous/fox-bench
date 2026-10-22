@@ -382,6 +382,18 @@ keyed) and calls `fox.radio.probe()`, `fox.radio.key_for(3)`,
 `fox.radio.rssi()`, `fox.batt.read()`. The firmware's functions are the
 bench API; no second protocol.
 
+### Audit
+
+`js/model/audit.js` is the one place that asks "is this fox what the log
+says?": `observe()` reduces the connected device to a record (what is
+available depends on the transport — a REPL gives UID + fox.json, a
+foxlib-c console gives the banner, a drive gives the files), `match()`
+compares it with the log's last deploy for that UID (or board, when the
+fox has none), `auditRow()` is what gets appended. Hunt-day management —
+who hid which fox where, scoring, recovery — is deliberately not here;
+that is a separate project. fox-bench's job ends at "this fox is the one
+the log says it is".
+
 ## 8. Simulator and CI
 
 `firmware/sim/` is the desktop harness from the earlier foxes, generalised:
