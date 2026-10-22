@@ -225,11 +225,26 @@ async function touch1200(app) {
     if (!('serial' in navigator)) throw new Error('Web Serial is not available in this browser (Chrome or Edge on a laptop or desktop)');
     if (app.device) { app.console.dim('disconnecting first: the board is about to reboot, and an open drive or console from before a reboot is stale afterwards'); await app.disconnect(); }
     const port = await navigator.serial.requestPort();
+    // Is this the fox's port? The hardware descriptor lists its USB ids; a USB-serial adapter or another board picked
+    // by mistake takes the touch quietly and nothing reboots.
+    const info = port.getInfo?.() || {}, ids = (b.usb || []).map(u => [parseInt(u.vid, 16), parseInt(u.pid, 16)]);
+    const idText = info.usbVendorId != null ? `${info.usbVendorId.toString(16).padStart(4, '0')}:${(info.usbProductId || 0).toString(16).padStart(4, '0')}` : 'unknown ids';
+    const known = ids.length && info.usbVendorId != null ? ids.some(([v, pd]) => v === info.usbVendorId && pd === info.usbProductId) : null;
+    if (known === false) app.console.err(`the port picked is USB ${idText}, not one of the ${b.name}'s (${(b.usb || []).map(u => `${u.vid.slice(2)}:${u.pid.slice(2)}`).join(', ')}) — the touch is being sent to it anyway, but it is probably another device`);
+    else app.console.dim(`touching port USB ${idText}${known ? ` (a ${b.name})` : ''} at 1200 baud`);
     await port.open({ baudRate: 1200 });
-    try { await port.setSignals({ dataTerminalReady: true, requestToSend: true }); await new Promise(r => setTimeout(r, 100)); await port.setSignals({ dataTerminalReady: false, requestToSend: false }); await new Promise(r => setTimeout(r, 100)); } catch {}
+    try { await port.setSignals({ dataTerminalReady: true, requestToSend: true }); await new Promise(r => setTimeout(r, 100)); await port.setSignals({ dataTerminalReady: false, requestToSend: false }); await new Promise(r => setTimeout(r, 100)); } catch (e) { app.console.err('could not drive DTR on the port: ' + (e.message || e)); }
     try { await port.close(); } catch {}
-    uf2.last = { ok: true, text: `1200-baud touch sent. The serial port goes away and a ${b.flash.drive_name} drive appears within a few seconds — then Copy below and pick that drive. If nothing appears, the firmware on the board does not answer the touch; the BOOTSEL button (SW2, inside the case) is the fallback.` };
-    app.console.line('1200-baud touch sent — look for the RPI-RP2 drive', 'ok');
+    // Did it take? A board that rebooted into the bootloader drops off the bus: its port is no longer connected.
+    let gone = null;
+    if ('connected' in port) { for (let i = 0; i < 16 && port.connected; i++) await new Promise(r => setTimeout(r, 250)); gone = !port.connected; }
+    if (gone === false) {
+      uf2.last = { ok: false, text: `1200-baud touch sent, but the port is still there after 4 s: the board did not reboot. ${known === false ? 'The port picked was not the fox\'s — try again and choose the PicoFox\'s port (Device Manager shows which COM number has VID 2E8A).' : 'Try once more (Windows sometimes leaves DTR as it was); if it still stays, Listen only and type bootsel, which does the same from the console; the BOOTSEL button (SW2, inside the case) is the last resort.'}` };
+      app.console.err(uf2.last.text);
+    } else {
+      uf2.last = { ok: true, text: `1200-baud touch sent${gone ? ' and the port went away' : ''}. A ${b.flash.drive_name} drive appears within a few seconds — then Copy below and pick that drive. If nothing appears, the firmware on the board does not answer the touch; the BOOTSEL button (SW2, inside the case) is the fallback.` };
+      app.console.line(`1200-baud touch sent${gone ? ', port gone' : ''} — look for the ${b.flash.drive_name} drive`, 'ok');
+    }
   } catch (e) { if (e.name !== 'NotFoundError') { uf2.last = { ok: false, text: 'bootloader touch failed: ' + String(e.message || e) }; app.console.err(uf2.last.text); } }
   uf2.touching = false; notify();
 }
