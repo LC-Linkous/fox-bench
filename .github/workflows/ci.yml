@@ -156,3 +156,42 @@ jobs:
           path: _site
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  release:
+    # A tag vX.Y.Z (the page version) makes a GitHub Release carrying the UF2 the tests ran against, its
+    # fingerprint, and the staged site as a zip — "yesterday's page" and "yesterday's firmware" for anyone who
+    # hits a regression on the live site. Nothing here publishes without the tag.
+    needs: [page, sim, foxlib-c]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: foxbench-picofox-uf2
+          path: /tmp/uf2
+      - name: The tag must name the page version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          page=$(grep -o "const VERSION = '[^']*'" js/main.js | cut -d"'" -f2)
+          test "$tag" = "$page" || { echo "tag v$tag but js/main.js VERSION is $page"; exit 1; }
+      - name: Stage the site as released and name the files
+        run: |
+          mkdir -p _site out
+          cp -r index.html css js flasher hardware boards modules songs bands.json firmware docs DESIGN.md CONFIG.md PROTOCOL.md LICENSES.md LICENSE CHANGELOG.md _site/
+          rm -rf _site/firmware/sim _site/firmware/foxlib-c/tests/build
+          cp /tmp/uf2/foxbench-picofox.uf2 /tmp/uf2/foxbench-picofox.json _site/firmware/foxlib-c/picofox/
+          touch _site/.nojekyll
+          fw=$(cat firmware/foxlib-c/VERSION)
+          cp /tmp/uf2/foxbench-picofox.uf2 "out/foxbench-picofox-$fw.uf2"
+          cp /tmp/uf2/foxbench-picofox.json "out/foxbench-picofox-$fw.json"
+          (cd _site && zip -qr "../out/fox-bench-site-$GITHUB_REF_NAME.zip" .)
+          (cd out && sha256sum * > SHA256SUMS)
+          echo "fw=$fw" >> "$GITHUB_ENV"
+      - name: Release notes from CHANGELOG.md (this version's section, else Unreleased)
+        run: python3 tools/release_notes.py "$GITHUB_REF_NAME" > notes.md && cat notes.md
+      - name: Create the release
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: gh release create "$GITHUB_REF_NAME" out/* --title "fox-bench $GITHUB_REF_NAME" --notes-file notes.md --verify-tag

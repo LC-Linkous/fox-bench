@@ -27,7 +27,8 @@ simulator (`firmware/sim/`), the REPL protocol against a fake board and
 the page itself in headless Chromium (`tests/`), and a lint of every
 descriptor (`tools/check_catalog.py`); the site deploys from `main` only
 after all three passed, carrying the UF2 that run built
-(`.github/workflows/ci.yml`). See `tests/README.md`.
+(`.github/workflows/ci.yml`). See `tests/README.md`; releases are tags
+(`docs/releasing.md`, `CHANGELOG.md`).
 
 | | |
 |---|---|
