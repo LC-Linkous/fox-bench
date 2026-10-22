@@ -1,5 +1,6 @@
 // plan.js — Frequency plan tab: one frequency or a rotating list, validated.
 // SPDX-License-Identifier: GPL-2.0-only
+import * as kitsune from './kitsune.js';
 import { h, badge, numInput, check } from './dom.js';
 
 let app, root;
@@ -15,6 +16,7 @@ function whyBad(f) {
 }
 
 function render() {
+  if (app.isCompiled) return kitsune.renderPlan(root);
   const p = app.cfg.plan;
   if (app.family === 'drive') return renderDrive();
   const rows = p.frequencies_mhz.map((f, i) => {

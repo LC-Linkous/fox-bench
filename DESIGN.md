@@ -469,21 +469,24 @@ a `dmo`-dialect radio module, files written through the REPL, behaviour
 from `foxlib`. Some foxes are built differently and still belong on the
 bench. A *device family* is the unit that varies:
 
-| | foxlib | drive | foxlib-c |
-|---|---|---|---|
-| example | XIAO ESP32-C3 + SA868 | AI6YM PicoFox with its vendor firmware | AI6YM PicoFox with fox-bench firmware |
-| firmware | ours (CircuitPython + foxlib), deployed by the page | the vendor's, left alone (CC BY-NC-SA; not in this repo) | ours (C, Pico SDK, `firmware/foxlib-c/`), flashed as a UF2 from the Board tab |
-| transport | `repl-device.js` (raw REPL) | `drive-device.js` (File System Access API on the USB drive) | `drive-device.js` for the files; the serial console for banner, log and bench |
-| config contract | `CONFIG.md` → `fox.json` | the vendor's files, modelled in `js/model/vendor/<id>.js` | `CONFIG.md` → `fox.json`, no `pins`, `si5351fm` radio keys |
-| payload | event stream played by `foxlib/tones.py` | `audio.wav` the page **renders from the same event stream** (`js/audio/wav.js`), plus its own Morse-ID file | the same event stream, synthesised in the firmware per sample (`core/synth.c`) into FM |
-| validation | `schema.js` + `cfg.py` (parity-tested) | the vendor module's `validate()`, which knows what makes that firmware fall silent | `schema.js` (pinless) + `core/cfg.c`, parity-tested against both |
-| bench | `exec-and-capture` | none (no REPL); serial boot log on Listen only | text commands on the console (`key`, `tone`, `id`, `batt`, `status`, …) |
-| flashing | esptool (`flasher/`) | UF2 copy to the bootloader drive | the site-built UF2 copied to the bootloader drive; `bootsel` from the console gets there |
-| reboot after deploy | soft reboot, banner read back | eject + power cycle | the firmware reloads itself ~1.5 s after the last write |
+| | foxlib | drive | foxlib-c | compiled |
+|---|---|---|---|---|
+| example | XIAO ESP32-C3 + SA868 | AI6YM PicoFox with its vendor firmware | AI6YM PicoFox with fox-bench firmware | RFHS kitsune foxes on M5Stack Atom / S3 boards, Nano ESP32, XIAO ESP32C5 |
+| firmware | ours (CircuitPython + foxlib), deployed by the page | the vendor's, left alone (CC BY-NC-SA; not in this repo) | ours (C, Pico SDK, `firmware/foxlib-c/`), flashed as a UF2 from the Board tab | theirs (PlatformIO/Arduino, `github.com/rfhs/kitsune`; not in this repo), configuration compiled in from a conference header |
+| transport | `repl-device.js` (raw REPL) | `drive-device.js` (File System Access API on the USB drive) | `drive-device.js` for the files; the serial console for banner, log and bench | none yet: the page exports the header block; Listen only reads their boot lines (`docs/kitsune-integration-plan.md` for the next stages) |
+| config contract | `CONFIG.md` → `fox.json` | the vendor's files, modelled in `js/model/vendor/<id>.js` | `CONFIG.md` → `fox.json`, no `pins`, `si5351fm` radio keys | `CONFIG.md` "compiled family": `challenge`, `wifi`/`ble`/`bt`/`zigbee`, `schedule.duty` |
+| payload | event stream played by `foxlib/tones.py` | `audio.wav` the page **renders from the same event stream** (`js/audio/wav.js`), plus its own Morse-ID file | the same event stream, synthesised in the firmware per sample (`core/synth.c`) into FM | none: the radio itself is the challenge |
+| validation | `schema.js` + `cfg.py` (parity-tested) | the vendor module's `validate()`, which knows what makes that firmware fall silent | `schema.js` (pinless) + `core/cfg.c`, parity-tested against both | `js/model/vendor/kitsune.js`: what the fox checks at boot (address, channel, name) and what the headers only document |
+| bench | `exec-and-capture` | none (no REPL); serial boot log on Listen only | text commands on the console (`key`, `tone`, `id`, `batt`, `status`, …) | none; serial boot lines on Listen only |
+| flashing | esptool (`flasher/`) | UF2 copy to the bootloader drive | the site-built UF2 copied to the bootloader drive; `bootsel` from the console gets there | kitsune's PlatformIO build, by hand (planned: esptool from the page, images built in CI from a pinned commit) |
+| reboot after deploy | soft reboot, banner read back | eject + power cycle | the firmware reloads itself ~1.5 s after the last write | rebuild and flash |
 
 `boards/<id>.json` (a *target*: hardware + firmware + family) names its
 `family`, `vendor` or firmware image, and `module_fixed`; templates list
-the `families` they apply to, and the page shows only those. One piece of
+the `families` they apply to, and the page shows only those — and, for
+the compiled family, the `radios` they need, matched against the
+hardware's `radios` list, so Bluetooth Classic is offered on the
+original-ESP32 Atom only and Zigbee on the C5 only. One piece of
 hardware can be several targets — the PicoFox is `picofox-vendor` (drive)
 and `picofox-foxlibc` (foxlib-c) — and the user switches between them by
 flashing. The working config keeps the `fox.json` shape for both families

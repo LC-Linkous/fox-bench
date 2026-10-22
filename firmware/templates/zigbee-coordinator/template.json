@@ -1,0 +1,28 @@
+{
+  "id": "zigbee-coordinator",
+  "name": "Zigbee coordinator (kitsune)",
+  "version": "0.1.0",
+  "families": [
+    "compiled"
+  ],
+  "vendor": "kitsune",
+  "radios": [
+    "ieee802154"
+  ],
+  "status": "experimental",
+  "description": "A kitsune fox that forms a Zigbee network as coordinator on an 802.15.4 channel with a spoofed EUI-64. Boards with an 802.15.4 radio only. Configuration is compiled into the firmware from a conference header; this page prepares, checks and exports that header (docs/kitsune-integration-plan.md). kitsune belongs to its authors: https://github.com/rfhs/kitsune",
+  "foxlib": ">=0.0.0",
+  "sections": [
+    "challenge",
+    "zigbee",
+    "schedule.duty"
+  ],
+  "pins": {
+    "required": [],
+    "optional": []
+  },
+  "files": [],
+  "payloads": [],
+  "capabilities": [],
+  "boards_tested": []
+}

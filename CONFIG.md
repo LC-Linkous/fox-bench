@@ -250,6 +250,51 @@ computed airtime per transmission next to this field.
 Bookkeeping for the page. The firmware ignores this block entirely
 (it is merged over the defaults' `fleet` block so no key is lost).
 
+## The `compiled` family (RFHS kitsune foxes)
+
+Foxes whose configuration is compiled into their firmware keep the
+`fox.json` shape for the page's sake — profiles, the fleet log and the
+validator are shared — but their sections are their own; `pins`, `radio`,
+`plan`, `id`, `payload`, `battery` and `limits` do not appear. Today the
+page turns this document into a kitsune conference header block
+(`docs/kitsune-integration-plan.md`); later the same document is what a
+`foxcfg` partition would hold. Validated by `js/model/vendor/kitsune.js`.
+
+| key | type | meaning |
+|---|---|---|
+| `challenge.name` | string | `RFHS_CHALLENGE_NAME`: the scoreboard name |
+| `challenge.keyphrase` | string | what a hunter must say (`FOX_KEYWORDS` prints "Hunter should ask '…'") |
+| `challenge.tier` | `easy` \| `medium` \| `hard` | a label; kitsune selects a block of values by tier at build time, the page writes one explicit block guarded by it |
+| `wifi.ssid` | string ≤ 32 bytes | `FSSID` |
+| `wifi.psk` | string, 8–63 or empty | `PSK` |
+| `wifi.mac` | `XX:XX:XX:XX:XX:XX` | `MAC_ADDR`, spoofed; locally administered unicast (kitsune: first byte `F2`); the skeleton's `00:01:02:…` is refused |
+| `wifi.band` | `2.4` \| `5` | AP only; 5 GHz needs the `wifi5` radio |
+| `wifi.channel` | int | AP only; 0 = random at every wake; 2.4 GHz 1–11 (12–13 warn), 5 GHz one of 36 40 44 48 149 153 157 161 165 |
+| `wifi.hidden` | bool | AP only, `SSID_HIDDEN` |
+| `wifi.max_clients` | 1–4 | AP only |
+| `wifi.tx_power_dbm` | one of 19.5 19 18.5 17 15 13 11 8.5 7 5 2 −1 | `TXPOWER` (`WIFI_POWER_…`) |
+| `ble.device_name` | string ≤ 29 bytes | `DEVICE_NAME` |
+| `ble.uuid` | 8-4-4-4-12 hex | `BEACON_UUID` |
+| `ble.major`, `ble.minor` | 0–65535 | |
+| `ble.signal_power_dbm` | −127–0 | `SIGNAL_POWER`, the calibration byte (−59 = `0xC5`) |
+| `ble.mac` | 6 bytes | spoofed |
+| `ble.adv_min`, `ble.adv_max` | 32–16384 | advertising interval in 0.625 ms units |
+| `ble.tx_power_dbm` | one of −12 −9 −6 −3 0 3 6 9 | `ADV_TX_POWER` (`ESP_PWR_LVL_…`) |
+| `bt.name` | string | Bluetooth Classic `NAME` |
+| `bt.mac` | 6 bytes | spoofed |
+| `zigbee.mac` | 8 bytes (EUI-64) | spoofed |
+| `zigbee.channel` | 0 or 11–26 | 0 = random |
+| `zigbee.tx_power_dbm` | −15–20 | ESP32-C5 range |
+| `schedule.kind` | `duty` | the only kind: awake, then deep sleep |
+| `schedule.wake_s` | 1–86400 | `TIME_TO_WAKE` (`ADVERTISING_DURATION` for the iBeacon) |
+| `schedule.sleep_s` | 0–86400 | `TIME_TO_SLEEP` (`GPIO_DEEP_SLEEP_DURATION`); 0 = never sleeps |
+| `led.enabled` | bool | informational today (kitsune has no switch for its LED) |
+
+Templates: `wifi-ap` and `wifi-client` fill `wifi`, `ble-ibeacon` fills
+`ble`, `bt-classic` fills `bt`, `zigbee-coordinator` fills `zigbee`; each
+names the radio it needs (`radios` in `template.json`) and is offered only
+on hardware that lists it (`hardware/<id>.json` `radios`).
+
 ## Boot banner
 
 One line, space-separated `key=value`, printed after setup and before the

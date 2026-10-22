@@ -49,6 +49,7 @@ function fwBadge(app, v) {
 function render() {
   if (app.family === 'drive') return renderDrive();
   if (app.family === 'foxlib-c') return renderFoxlibC();
+  if (app.isCompiled) return renderCompiled();
   const b = app.board, ob = app.onBoard, info = app.info;
   const deviceCard = h('div.card', {},
     h('h3', {}, 'Connection'),
@@ -148,4 +149,28 @@ function renderFoxlibC() {
     h('dl.kv', {}, h('dt', {}, 'Family'), h('dd', {}, 'fox-bench native firmware (C, Pico SDK, GPL-3.0-or-later) on the PicoFox hardware'), h('dt', {}, 'Radio'), h('dd', {}, `${m.name}: ${m.ranges_mhz.map(([a, c]) => `${a}–${c} MHz`).join(', ')}; FM by PLL fraction updates at 8 000 samples/s`), h('dt', {}, 'Power'), h('dd', {}, `about ${m.power_dbm.high} dBm, attenuator to ${m.power_dbm.low} dBm (rev 3)`), h('dt', {}, 'USB'), h('dd', {}, `drive "${b.drive.label}" + serial console (banner, log, bench commands)`), h('dt', {}, 'Battery'), h('dd', {}, 'internal LiPo; the firmware can only report whether it is charging')),
     h('p.hint', {}, 'Hardware design by AI6YM.radio (CC BY-NC-SA 4.0). The firmware is fox-bench\'s own, written from the published schematic — see ', h('code', {}, 'docs/picofox-hardware.md'), '. On the air since October 2026 on a rev 3 board (keying, FM, live reload, the console bench). Still unmeasured: the attenuator\'s dB per step — the firmware accepts the codes; a power meter will confirm the scale.'));
   root.replaceChildren(pickerCard(), h('div.cols', {}, deviceCard, flashCard(app)), facts, flow, diagCard());
+}
+
+/** Compiled family (kitsune): nothing connects yet. The board's facts, the attribution, and what Listen only can show. */
+function renderCompiled() {
+  const b = app.board, hw = app.hardware || {}, fw = b.firmware || {}, info = app.info, ob = app.onBoard;
+  const radios = { wifi24: 'Wi-Fi 2.4 GHz', wifi5: 'Wi-Fi 5 GHz', ble: 'BLE', btclassic: 'Bluetooth Classic', ieee802154: '802.15.4 (Zigbee)' };
+  const deviceCard = h('div.card', {}, h('h3', {}, 'Connection'),
+    info ? h('dl.kv', {}, h('dt', {}, 'Serial'), h('dd', {}, 'listening', ob.listening ? badge('boot lines only', 'warn') : ''), h('dt', {}, 'Last seen'), h('dd', {}, app.lastBanner ? 'FOX banner' : '—'))
+      : h('div', {},
+        h('p.hint', {}, h('b', {}, 'No connection for this family yet.'), ` The configuration of a kitsune fox is compiled into its firmware from a conference header, so the page does not write anything to the board today: it prepares the configuration on the next tabs, checks it the way the fox will check itself at boot, and exports the header for kitsune's build (Deploy tab). Flashing a prebuilt image from here, and later per-fox configuration without a rebuild, are the next stages (docs/kitsune-integration-plan.md).`),
+        h('p.hint', {}, h('b', {}, 'Listen only'), ' opens the board\'s serial port and shows what kitsune prints: boot count, "Awake and screaming", "Going to sleep", or "PANIC" when a self-check failed (the LED blinks red/yellow). ', hw.notes?.some(n => /serial isn't working/.test(n)) ? h('span.warn', {}, 'kitsune notes that serial is not working on this board yet.') : null)));
+  const facts = h('div.card', {}, h('h3', {}, 'Board facts'),
+    h('dl.kv', {},
+      h('dt', {}, 'Hardware'), h('dd', {}, hw.name || b.hardware, ' · ', hw.mcu || ''),
+      h('dt', {}, 'Radios'), h('dd', {}, (hw.radios || []).map(r => radios[r] || r).join(', ') || '—'),
+      h('dt', {}, 'LED'), h('dd', {}, hw.led?.note || '—'),
+      h('dt', {}, 'Flashing'), h('dd', {}, `esptool, ${hw.flash?.chip || '?'} at ${hw.flash?.offset || '?'}, ${hw.flash?.flash_mb || '?'} MB flash — not from this page yet. `, hw.flash?.bootloader_instructions || ''),
+      h('dt', {}, 'Power'), h('dd', {}, hw.battery?.divider_note || '—'),
+      h('dt', {}, 'Design'), h('dd', {}, hw.design?.by || '—', hw.design?.source ? [' — ', h('a', { href: hw.design.source, target: '_blank', rel: 'noopener' }, 'documentation')] : null)),
+    hw.notes?.length ? h('ul', {}, hw.notes.map(n => h('li.hint', {}, n))) : null);
+  const firmware = h('div.card', {}, h('h3', {}, 'Firmware ', badge('kitsune', 'info')),
+    h('p.hint', {}, fw.note || ''),
+    h('p.hint', {}, 'kitsune is the work of its authors: ', h('a', { href: fw.source || 'https://github.com/rfhs/kitsune', target: '_blank', rel: 'noopener' }, fw.source || 'https://github.com/rfhs/kitsune'), '. Nothing of it is included in fox-bench; this page only prepares the header their build reads.'));
+  root.replaceChildren(pickerCard(), h('div.cols', {}, deviceCard, firmware), facts, diagCard());
 }

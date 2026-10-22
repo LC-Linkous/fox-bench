@@ -34,6 +34,15 @@ reads; the `foxlib-c` firmware was written from the published schematic and
 component datasheets (`docs/picofox-hardware.md`) and credits the hardware
 design. Nothing in fox-bench grants rights to the PicoFox design.
 
+The **kitsune** fox firmware (Wi-Fi, BLE, Bluetooth Classic and Zigbee foxes
+for the RF CTF) is the work of its authors at https://github.com/rfhs/kitsune
+and belongs to them. fox-bench includes none of it: the `compiled` family's
+descriptors describe the boards it runs on, and `js/model/vendor/kitsune.js`
+is fox-bench's own description of the configuration header that build
+reads, written from reading the public repository. Their repository carries
+no licence file at the time of writing; nothing of theirs is redistributed
+from here.
+
 ## Lineage
 
 The template runners under `firmware/templates/` descend from earlier

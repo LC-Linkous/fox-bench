@@ -1,0 +1,28 @@
+{
+  "id": "wifi-ap",
+  "name": "Wi-Fi access point (kitsune)",
+  "version": "0.1.0",
+  "families": [
+    "compiled"
+  ],
+  "vendor": "kitsune",
+  "radios": [
+    "wifi24"
+  ],
+  "status": "experimental",
+  "description": "A kitsune fox that raises an access point: SSID, passphrase, a spoofed BSSID, a channel (fixed or random each wake; 5 GHz on boards that have it), hidden or not, then deep-sleeps on a duty cycle. Hunters find it by SSID or BSSID. Configuration is compiled into the firmware from a conference header; this page prepares, checks and exports that header (docs/kitsune-integration-plan.md). kitsune belongs to its authors: https://github.com/rfhs/kitsune",
+  "foxlib": ">=0.0.0",
+  "sections": [
+    "challenge",
+    "wifi.ap",
+    "schedule.duty"
+  ],
+  "pins": {
+    "required": [],
+    "optional": []
+  },
+  "files": [],
+  "payloads": [],
+  "capabilities": [],
+  "boards_tested": []
+}

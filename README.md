@@ -10,7 +10,7 @@ to install.
 **Use it:** https://lc-linkous.github.io/fox-bench/ — *Try without
 hardware* runs the whole page against a simulated board.
 
-Status: **v0.6 — three device families.** All seven templates have been
+Status: **v0.7 — four device families.** All seven FM templates have been
 deployed from the page to a XIAO ESP32-C3 + SA868 and run on both 2 m and
 70 cm (checked with `tools/hw_smoke.py`; the hardware notes in `docs/`
 record what was verified on which board); CircuitPython itself can be flashed
@@ -22,7 +22,14 @@ with **fox-bench's own firmware** (`firmware/foxlib-c/`, GPL-3.0-or-later:
 `fox.json`, every template the CircuitPython foxes have including SSTV, FM
 at 8 kHz with pre-emphasis, banner and bench buttons over its serial
 console; flashed from the Board tab as a UF2 and swapped with the vendor's from
-the same card — on the air on a rev 3 board since October 2026). Every push runs three test layers in CI: the firmware
+the same card — on the air on a rev 3 board since October 2026). The fourth
+family, **compiled**, is for the RF Hackers Sanctuary's
+[kitsune](https://github.com/rfhs/kitsune) foxes — Wi-Fi AP and client, BLE
+iBeacon, Bluetooth Classic and Zigbee on five ESP32-family boards — whose
+configuration is compiled in: the page prepares and checks it with the
+same forms and exports the conference header their build reads; flashing
+and per-fox configuration are planned (`docs/kitsune-integration-plan.md`).
+kitsune belongs to its authors and nothing of it is included here. Every push runs three test layers in CI: the firmware
 simulator (`firmware/sim/`), the REPL protocol against a fake board and
 the page itself in headless Chromium (`tests/`), and a lint of every
 descriptor (`tools/check_catalog.py`); the site deploys from `main` only

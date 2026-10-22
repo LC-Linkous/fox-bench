@@ -1,0 +1,59 @@
+{
+  "id": "seeed_xiao_esp32c5",
+  "name": "Seeed XIAO ESP32C5",
+  "mcu": "ESP32-C5",
+  "radio": "the SoC's own radios: wifi24, wifi5, ble, ieee802154",
+  "radios": [
+    "wifi24",
+    "wifi5",
+    "ble",
+    "ieee802154"
+  ],
+  "design": {
+    "by": "Seeed Studio",
+    "source": "https://wiki.seeedstudio.com/xiao_esp32c5_getting_started/",
+    "license": "see the vendor's page"
+  },
+  "flash": {
+    "method": "esptool",
+    "chip": "esp32c5",
+    "offset": "0x2000",
+    "flash_mb": 8,
+    "bootloader_instructions": "Hold BOOT while plugging in USB; release after a second. The chip's USB-JTAG-serial port appears.",
+    "note": "Values from public documentation; not yet verified on a board of this kind (the target is experimental until then)."
+  },
+  "has_usb_drive": false,
+  "usb": [
+    {
+      "vid": "0x303a",
+      "pid": "0x1001",
+      "when": "ESP32-S3/C5 USB-JTAG-serial (download mode and, with CDC on boot, the running firmware)"
+    }
+  ],
+  "pins": [
+    {
+      "name": "D0",
+      "gpio": 27,
+      "note": "yellow LED (kitsune's DATA_PIN)"
+    }
+  ],
+  "roles": {},
+  "led": {
+    "kind": "single",
+    "pin": 27,
+    "active_low": true,
+    "note": "one yellow LED on GPIO27 (kitsune: on for every state except red)"
+  },
+  "battery": {
+    "charger": false,
+    "divider_note": "Powered from USB or a 5 V pack. kitsune's note: the pack must not have a low-current cut-off, or the board never wakes from deep sleep."
+  },
+  "notes": [
+    "The only kitsune board with 5 GHz Wi-Fi and an 802.15.4 radio (Zigbee coordinator). kitsune builds it with the pioarduino platform fork. kitsune notes client mode gets the wrong MAC on this board. Bootloader offset 0x2000 is the ESP32-C5 convention; to be confirmed with the first board."
+  ],
+  "serial": {
+    "baud": 115200,
+    "notes": "kitsune prints 'ESP32 boot count', 'Awake and screaming', 'Going to sleep' and 'PANIC' on its serial port; no command interface."
+  },
+  "silkscreen": null
+}

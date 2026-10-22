@@ -375,6 +375,43 @@ try {
   check((await page.$$eval('#tab-behavior select option', els => els.length)) >= 7, 'template dropdown back to the foxlib set');
   await page.click('#demoBtn'); await settle(600);
 
+  console.log('kitsune (compiled family)');
+  await tab('board'); await page.selectOption('#tab-board select', 'seeed_xiao_esp32c5-kitsune'); await settle(400);
+  eq(await app(() => window.foxbench.family), 'compiled', 'family switches to compiled');
+  eq(await app(() => window.foxbench.templateId), 'wifi-ap', 'first kitsune template selected');
+  check(await page.isDisabled('#connectBtn') && await page.isDisabled('#demoBtn'), 'no Connect / demo for the compiled family yet');
+  check(/kitsune is the work of its authors/.test(await text('#tab-board')) && /github\.com\/rfhs\/kitsune/.test(await text('#tab-board')), 'Board tab attributes kitsune to its repository');
+  check(await page.isHidden('.rail button[data-tab="payload"]') && await page.isHidden('.rail button[data-tab="bench"]'), 'Payload and Bench tabs hidden for the family');
+  await tab('behavior');
+  const kOpts = await page.$$eval('#tab-behavior select option', els => els.map(e => e.value));
+  check(kOpts.includes('wifi-ap') && kOpts.includes('zigbee-coordinator') && !kOpts.includes('bt-classic') && !kOpts.includes('morse-songs'), 'C5 offers Wi-Fi/BLE/Zigbee challenges, not BT Classic or the FM templates (' + kOpts.join(',') + ')');
+  await tab('id');
+  check(/Key phrase/.test(await text('#tab-id')) && /placeholder MAC/.test(await text('#tab-id')), 'ID tab shows the challenge card and flags the placeholder MAC');
+  await page.click('#tab-id button:has-text("roll")'); await settle(300);
+  const mac = await app(() => window.foxbench.cfg.wifi.mac);
+  check(/^F2(:[0-9A-F]{2}){5}$/.test(mac), 'roll gives a locally administered MAC: ' + mac);
+  await tab('plan');
+  check(/Band/.test(await text('#tab-plan')) && /random at every wake/.test(await text('#tab-plan')), 'Plan tab: band and channel for the AP on the C5');
+  await tab('schedule');
+  check(/Duty cycle/.test(await text('#tab-schedule')) && /wakes in 10 min/.test(await text('#tab-schedule')), 'Schedule tab draws the duty cycle');
+  await tab('deploy');
+  check(/#if defined\(AP\)/.test(await text('#tab-deploy')) && /#define FSSID/.test(await text('#tab-deploy')) && /RFHS_CHALLENGE_NAME/.test(await text('#tab-deploy')), 'Deploy tab previews the header block');
+  const [dlh] = await Promise.all([page.waitForEvent('download', { timeout: 10000 }), page.click('#tab-deploy button:has-text("Export header block")')]);
+  check(/\.h$/.test(dlh.suggestedFilename()), 'header block downloads: ' + dlh.suggestedFilename());
+  const hdr = (await import('node:fs/promises')).readFile(await dlh.path(), 'utf8');
+  check(/#define MAC_ADDR \{0xf2,/.test(await hdr) && /#define TIME_TO_WAKE 15/.test(await hdr), 'the exported block carries the rolled MAC and the duty cycle');
+  const rowK = await app(() => JSON.parse(localStorage.getItem('fox-bench.fleet') || '[]').filter(r => r.action === 'export-header').pop());
+  check(rowK && rowK.board === 'seeed_xiao_esp32c5-kitsune' && rowK.mac === mac && /WiFi AP/.test(rowK.challenge), 'fleet row for the export carries MAC and challenge');
+  // import a block of another tier back in
+  await app(async () => { const v = window.foxbench.vendor; const b = v.parseHeader('#if defined(AP)\n#if defined(HARD)\n// RFHS_CHALLENGE_NAME "Imported Fox"\n// FOX_KEYWORDS "Hunter should ask \'Imported?\'"\n#define FSSID "Imported SSID"\n#define PSK "0123456789"\n#define MAC_ADDR {0xF2, 0x01, 0x02, 0x03, 0x04, 0x05}\n#define CHANNEL 0\n#define SSID_HIDDEN 1\n#define MAX_CLIENTS 2\n#define TIME_TO_WAKE 30\n#define TIME_TO_SLEEP 45\n#define TXPOWER WIFI_POWER_7dBm\n#endif\n#endif\n'); const part = v.cfgFromBlock(b[0], 'wifi-ap'); const m = structuredClone(window.foxbench.cfg); for (const [k, x] of Object.entries(part)) m[k] = { ...m[k], ...x }; await window.foxbench.loadCfg(m, { source: 'import' }); });
+  await settle(300);
+  const imp = await app(() => ({ ssid: window.foxbench.cfg.wifi.ssid, tier: window.foxbench.cfg.challenge.tier, hidden: window.foxbench.cfg.wifi.hidden, sleep: window.foxbench.cfg.schedule.sleep_s, p: window.foxbench.cfg.wifi.tx_power_dbm }));
+  check(imp.ssid === 'Imported SSID' && imp.tier === 'hard' && imp.hidden === true && imp.sleep === 45 && imp.p === 7, 'a parsed header block loads into the form: ' + JSON.stringify(imp));
+  await tab('board'); await page.selectOption('#tab-board select', 'seeed_xiao_esp32c3'); await settle(400);
+  eq(await app(() => window.foxbench.family), 'foxlib', 'back to the C3 after kitsune');
+  check(await page.isVisible('.rail button[data-tab="payload"]'), 'Payload tab back');
+  await page.click('#demoBtn'); await settle(600);   // the C3 demo again, for the disconnect check below
+
   console.log('theme, disconnect');
   await page.click('#themeBtn'); await settle(100);
   check(['light', 'dark'].includes(await page.getAttribute('html', 'data-theme')), 'theme toggles');

@@ -1,0 +1,28 @@
+{
+  "id": "wifi-client",
+  "name": "Wi-Fi client (kitsune)",
+  "version": "0.1.0",
+  "families": [
+    "compiled"
+  ],
+  "vendor": "kitsune",
+  "radios": [
+    "wifi24"
+  ],
+  "status": "experimental",
+  "description": "A kitsune fox that behaves as a station: probes for / associates with a network under a spoofed MAC, on a duty cycle. Hunters find it as a client. Configuration is compiled into the firmware from a conference header; this page prepares, checks and exports that header (docs/kitsune-integration-plan.md). kitsune belongs to its authors: https://github.com/rfhs/kitsune",
+  "foxlib": ">=0.0.0",
+  "sections": [
+    "challenge",
+    "wifi.client",
+    "schedule.duty"
+  ],
+  "pins": {
+    "required": [],
+    "optional": []
+  },
+  "files": [],
+  "payloads": [],
+  "capabilities": [],
+  "boards_tested": []
+}

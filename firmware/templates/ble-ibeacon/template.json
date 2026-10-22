@@ -1,0 +1,28 @@
+{
+  "id": "ble-ibeacon",
+  "name": "BLE iBeacon (kitsune)",
+  "version": "0.1.0",
+  "families": [
+    "compiled"
+  ],
+  "vendor": "kitsune",
+  "radios": [
+    "ble"
+  ],
+  "status": "experimental",
+  "description": "A kitsune fox advertising an iBeacon frame: UUID, major, minor, device name, spoofed address, advertising interval and power; always on, or advertising bursts between deep sleeps. Configuration is compiled into the firmware from a conference header; this page prepares, checks and exports that header (docs/kitsune-integration-plan.md). kitsune belongs to its authors: https://github.com/rfhs/kitsune",
+  "foxlib": ">=0.0.0",
+  "sections": [
+    "challenge",
+    "ble",
+    "schedule.duty"
+  ],
+  "pins": {
+    "required": [],
+    "optional": []
+  },
+  "files": [],
+  "payloads": [],
+  "capabilities": [],
+  "boards_tested": []
+}

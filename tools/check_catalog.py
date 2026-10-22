@@ -61,7 +61,8 @@ def foxlibc_validate(drel, bid):
 
 
 # ---------------------------------------------------------------- hardware (physical facts) and boards (targets = hardware + firmware + family)
-FAMILIES = ("foxlib", "drive", "foxlib-c")
+FAMILIES = ("foxlib", "drive", "foxlib-c", "compiled")
+RADIOS = ("wifi24", "wifi5", "ble", "btclassic", "ieee802154")
 module_ids = load("modules/index.json")
 hardware = {}
 hw_ids = load("hardware/index.json")
@@ -137,6 +138,16 @@ for bid in board_ids:
             elif pin not in f.get("url", ""): bad(rel, f"stock_firmware_files ({n}): url does not contain the pinned commit (a branch name would move under the page)")
             if not re.fullmatch(r"[0-9a-f]{64}", str(f.get("sha256", ""))): bad(rel, f"stock_firmware_files ({n}): sha256 missing or not 64 hex")
             if not isinstance(f.get("size"), int) or f["size"] <= 0 or f["size"] % 512: bad(rel, f"stock_firmware_files ({n}): size must be a positive multiple of 512 (UF2 blocks)")
+    if fam == "compiled":
+        # a fox whose configuration is compiled into its firmware (kitsune): a vendor model does the fox.json work
+        for k in ("vendor",):
+            if k not in t: bad(rel, f"compiled-family target missing {k}")
+        if t.get("vendor") and not exists(f"js/model/vendor/{t['vendor']}.js"): bad(rel, f"vendor model js/model/vendor/{t['vendor']}.js missing")
+        if not isinstance(hw.get("radios"), list) or not hw["radios"]: bad(rel, "compiled-family hardware must list its radios")
+        for r in hw.get("radios", []):
+            if r not in RADIOS: bad(rel, f"hardware radios: unknown {r!r} (one of {RADIOS})")
+        if hw.get("flash", {}).get("method") != "esptool": bad(rel, "compiled-family hardware is flashed with esptool")
+        if t.get("firmware", {}).get("source", "").startswith("http") is False: bad(rel, "firmware.source must link to the project the firmware comes from")
     if fam == "foxlib-c":
         for k in ("module_fixed", "drive"):
             if k not in t: bad(rel, f"foxlib-c target missing {k}")
@@ -207,7 +218,10 @@ for tid in fw["templates"]:
     fams = t.get("families", ["foxlib"])
     for f in fams:
         if f not in FAMILIES: bad(rel, f"unknown family {f!r}")
-    if "drive" in fams and not t.get("vendor"): bad(rel, "drive-family template needs a vendor")
+    if ("drive" in fams or "compiled" in fams) and not t.get("vendor"): bad(rel, "drive/compiled-family template needs a vendor")
+    for r in t.get("radios", []):
+        if r not in RADIOS: bad(rel, f"radios: unknown {r!r}")
+    if "compiled" in fams and not t.get("radios"): bad(rel, "compiled-family template must say which radio it uses (radios)")
     is_fw = "foxlib" in fams
     if not SEMVER.match(str(t.get("version", ""))): bad(rel, f"version not semver: {t.get('version')!r}")
     if t.get("status") not in ("stable", "experimental"): bad(rel, f"status must be stable|experimental, got {t.get('status')!r}")
@@ -233,6 +247,18 @@ for tid in fw["templates"]:
         drel = f"{base}/defaults/{bid}.json"
         if b["_family"] not in fams or b.get("_planned"):
             if exists(drel) and b["_family"] not in fams: bad(drel, f"defaults for a board of family {b['_family']}, which this template does not list")
+            continue
+        if t.get("radios"):
+            hw_radios = hardware.get(b.get("hardware"), {}).get("radios", [])
+            if not all(r in hw_radios for r in t["radios"]):
+                if exists(drel): bad(drel, f"defaults for a board without the {t['radios']} radio this template needs")
+                continue
+        if b["_family"] == "compiled":
+            if not exists(drel): bad(drel, "missing — every compiled-family template needs defaults for every board with its radio"); continue
+            d = load(drel)
+            if d.get("template") != tid or d.get("board") != bid: bad(drel, "template/board do not match")
+            if d.get("schedule", {}).get("kind") != "duty": bad(drel, "compiled-family defaults need schedule.kind = duty")
+            if "challenge" not in d or "fleet" not in d: bad(drel, "challenge and fleet sections required")
             continue
         if not exists(drel): bad(drel, f"missing — every template needs defaults for every board of the families it lists"); continue
         d = load(drel)

@@ -27,7 +27,7 @@ import * as tabBench from './ui/bench.js';
 import * as tabFleet from './ui/fleet.js';
 import * as tabAbout from './ui/about.js';
 
-const VERSION = '0.6.2';
+const VERSION = '0.7.0';
 /** Tab subtitles that read differently per device family (null = the page's original text). */
 const LEDES = { drive: {
   board: 'Which fox is on the bench, open its USB drive (or use the simulated one). The vendor firmware stays; the page writes its files.',
@@ -37,6 +37,14 @@ const LEDES = { drive: {
   payload: 'What goes into audio.wav. Preview plays the same events the file will carry.',
   schedule: 'The firmware\'s duty cycle, drawn with the carrier offsets and power steps it adds by itself.',
   deploy: 'Render the four files, write them to the drive and read them back; then eject and power-cycle.',
+}, compiled: {
+  board: 'Which kitsune board this fox is. Nothing connects yet: the configuration is compiled into their firmware, so this page prepares and checks it and exports the header. Listen only reads their serial boot lines.',
+  radio: 'Transmit power for the radio this challenge uses, and what this board has.',
+  behavior: 'Which kitsune challenge this fox is: Wi-Fi access point or client, BLE iBeacon, Bluetooth Classic, Zigbee coordinator.',
+  plan: 'The channel: fixed, or random at every wake.',
+  id: 'The challenge as the hunters meet it: its name, the key phrase, the SSID or device name, and the spoofed address.',
+  schedule: 'The duty cycle: awake and transmitting, then deep sleep, repeated from power-on.',
+  deploy: 'Export the conference header for kitsune\'s build, or import one; record the fox in the fleet log.',
 }, 'foxlib-c': {
   board: 'Which fox is on the bench, open its FOXBENCH drive (or use the simulated one), or flash the fox-bench firmware onto it. Listen only shows its banner and log.',
   radio: 'Band, power and FM deviation for the SI5351 exciter the fox-bench firmware drives. Nothing to wire.',
@@ -69,11 +77,18 @@ export const app = {
   deployBlocker() { return deployBlocker({ device: this.device, board: this.board, onBoard: this.onBoard }); },
   /** Families configured through files on a USB drive rather than a REPL. */
   get usesDrive() { return this.family === 'drive' || this.family === 'foxlib-c'; },
+  /** The hardware descriptor behind the selected target. */
+  get hardware() { return this.catalog.hardware?.[this.board.hardware] || null; },
+  /** Families whose configuration is compiled into the firmware (kitsune): the page prepares and checks it, no transport yet. */
+  get isCompiled() { return this.family === 'compiled'; },
   /** The foxlib-c console to send bench commands to: the Listen-only device, or the demo's side console. */
   consoleDevice() { if (this.family !== 'foxlib-c') return null; if (this.device?.kind === 'console') return this.device; return this.sideConsole || null; },
   get vendor() { return this.board.vendor ? this.catalog.vendors[this.board.vendor] : null; },
   /** Templates that apply to a family. */
-  templatesFor(family) { return Object.values(this.catalog.templates).filter(t => (t.families || ['foxlib']).includes(family)); },
+  templatesFor(family, board = this.board) {
+    const hw = board ? this.catalog.hardware?.[board.hardware] : null;
+    return Object.values(this.catalog.templates).filter(t => (t.families || ['foxlib']).includes(family) && (!t.radios || !hw?.radios || t.radios.every(r => hw.radios.includes(r))));
+  },
 
   /** Re-validate and notify every tab. */
   changed(source) {
@@ -88,6 +103,9 @@ export const app = {
     if (this.family === 'drive') {
       const r = this.vendor.validate(this.cfg, this.defaults, this.board);
       this.report = r.report; this.status = r.status; this.issues = r.issues; this.validCfg = r.cfg;
+    } else if (this.isCompiled) {
+      const r = this.vendor.validate(this.cfg, this.defaults, this.board);
+      this.report = r.report; this.status = r.status; this.validCfg = r.cfg; this.issues = this.vendor.checks(r.cfg, this.hardware);
     } else {
       const r = mergeAndValidate(this.cfg, this.defaults, this.board);
       this.report = r.report; this.status = r.status;
@@ -100,8 +118,10 @@ export const app = {
       for (const [tab, text] of Object.entries(LEDES[this.family] || {})) { const el = $(`#tab-${tab} .lede`); if (el) { el.dataset.orig ??= el.textContent; el.textContent = text === null ? el.dataset.orig : text; } }
       for (const el of $$('.panel .lede')) if (!(LEDES[this.family] || {})[el.closest('.panel').id.slice(4)] && el.dataset.orig) el.textContent = el.dataset.orig;
     }
-    $('.rail button[data-tab="bench"]').hidden = this.family === 'drive';
-    if (!this.device) { $('#connectBtn').textContent = this.usesDrive ? `Open ${this.board.drive?.label || 'drive'}` : 'Connect'; $('#connectBtn').disabled = this.usesDrive ? !('showDirectoryPicker' in window) : !hasWebSerial(); }
+    $('.rail button[data-tab="bench"]').hidden = this.family === 'drive' || this.isCompiled;
+    $('.rail button[data-tab="payload"]').hidden = this.isCompiled;
+    $('#demoBtn').disabled = this.isCompiled; $('#demoBtn').title = this.isCompiled ? 'no simulated kitsune board yet' : '';
+    if (!this.device) { $('#connectBtn').textContent = this.usesDrive ? `Open ${this.board.drive?.label || 'drive'}` : 'Connect'; $('#connectBtn').disabled = this.isCompiled ? true : this.usesDrive ? !('showDirectoryPicker' in window) : !hasWebSerial(); $('#connectBtn').title = this.isCompiled ? 'kitsune foxes have no connection yet: prepare the configuration here and export the header (Listen only works on their serial port)' : ''; }
     try { localStorage.setItem('fox-bench.working', JSON.stringify({ version: VERSION, cfg: this.cfg, boardId: this.boardId, templateId: this.templateId, moduleId: this.moduleId, region: this.region })); } catch {}
     for (const [tab, keys] of Object.entries(TAB_KEYS)) {
       const bad = [...this.report.map(x => ({ level: 'err', key: x.key })), ...this.issues].filter(i => keys.some(k => i.key === k || i.key.startsWith(k + '.')));
@@ -149,12 +169,12 @@ export const app = {
       this.templateId = this.templatesFor(this.family)[0].id;
       this.defaults = await loadDefaults(this.templateId, id);
       this.cfg = structuredClone(this.defaults);
-      if (prev) { this.cfg.id.callmessage = prev.id.callmessage; this.cfg.fleet = structuredClone(prev.fleet); if (this.family === prevFamily) this.cfg.plan = structuredClone(prev.plan); }
+      if (prev) { if (this.cfg.id && prev.id) this.cfg.id.callmessage = prev.id.callmessage; if (prev.fleet) this.cfg.fleet = structuredClone(prev.fleet); if (this.family === prevFamily && this.cfg.plan && prev.plan) this.cfg.plan = structuredClone(prev.plan); }
       this.console.dim(`board ${this.board.name}: template switched to ${this.template.name}`);
       this.changed('board'); return;
     }
     this.defaults = await loadDefaults(this.templateId, id);
-    this.cfg.board = id; this.cfg.pins = structuredClone(this.defaults.pins);
+    this.cfg.board = id; if (this.defaults.pins) this.cfg.pins = structuredClone(this.defaults.pins);
     if (this.board.module_fixed) { this.cfg.module = this.moduleId; this.cfg.radio = { ...this.cfg.radio, ...structuredClone(this.defaults.radio) }; }
     this.changed('board');
   },
@@ -167,7 +187,7 @@ export const app = {
     if (cfg.board && this.catalog.boards[cfg.board]) { await this._leaveFamilyFor(cfg.board, false); this.boardId = cfg.board; }
     if (cfg.module && this.catalog.modules[cfg.module]) this.moduleId = cfg.module;
     this.defaults = await loadDefaults(this.templateId, this.boardId);
-    this.cfg = this.family === 'drive' ? this.vendor.validate(cfg, this.defaults, this.board).cfg : mergeAndValidate(cfg, this.defaults, this.board).cfg;
+    this.cfg = this.family === 'drive' || this.isCompiled ? this.vendor.validate(cfg, this.defaults, this.board).cfg : mergeAndValidate(cfg, this.defaults, this.board).cfg;
     this.changed(source);
   },
 
@@ -193,7 +213,7 @@ export const app = {
     else {
       const link = new SerialLink(); await link.open();
       link.onDrop = () => { this.console.err(this.family === 'foxlib-c' ? 'serial port dropped (bootsel or a reboot re-enumerates the USB port — reconnect when it is back)' : 'serial port dropped (a reset re-enumerates the USB port — reconnect)'); this.disconnect(); };
-      device = this.family === 'foxlib-c' ? new ConsoleDevice(link) : new ReplDevice(link);   // the foxlib-c family has a text console, not a REPL
+      device = this.family === 'foxlib-c' || this.isCompiled ? new ConsoleDevice(link) : new ReplDevice(link);   // the foxlib-c family has a text console, not a REPL; kitsune prints lines
     }
     device.onLog = (t, cls) => cls === 'tx' ? this.console.tx(t) : cls === 'reply' ? this.console.reply(t) : cls === 'ok' ? this.console.line(t, 'ok') : cls === 'err' ? this.console.err(t) : this.console.dim(t);
     this.setStatus(kind === 'demo' ? 'Starting simulated board…' : listen ? 'Opening port…' : 'Connecting…');
@@ -202,9 +222,11 @@ export const app = {
       // banner lines that scroll past while listening update the status
       const prev = device.onLog; device.onLog = (t, cls) => { prev(t, cls); const b = parseBanner(t); if (b) { this.lastBanner = b; this.info = { ...this.info, boardId: b.board || '?', uid: b.uid || '' }; this.onBoard.foxlibVersion = b.foxlib || ''; this.onBoard.template = (b.template || '').split('/')[0] || null; this.setStatus(`Listening · ${b.board} · uid ${(b.uid || '').slice(-6)} · ${b.template} · cfg=${b.cfg} radio=${b.radio}`, 'tx'); this.changed('banner'); this._followBanner(b); }
         else if (this.family === 'drive' && this.vendor?.BOOT_OK?.test(t)) { this.setStatus(`Listening · ${this.board.name} · firmware up, transmitting`, 'tx'); this.changed('banner'); }
-        else if (this.family === 'drive' && this.vendor?.BOOT_REGEN?.test(t)) { this.console.line('the firmware is regenerating its own ID audio: the marker file did not match settings.txt (expected after a hand edit; not after a page deploy)', 'err'); } };
+        else if (this.family === 'drive' && this.vendor?.BOOT_REGEN?.test(t)) { this.console.line('the firmware is regenerating its own ID audio: the marker file did not match settings.txt (expected after a hand edit; not after a page deploy)', 'err'); }
+        else if (this.isCompiled && this.vendor?.BOOT_OK?.test(t)) { this.setStatus(`Listening · ${this.board.name} · awake and transmitting`, 'tx'); this.changed('banner'); }
+        else if (this.isCompiled && this.vendor?.BOOT_FATAL?.test(t)) { this.console.line('the fox failed its self-check (kitsune blinks red/yellow): ' + t, 'err'); } };
       $('#connectBtn').textContent = 'Disconnect'; $('#listenBtn').hidden = true; this.console.setEnabled(this.family === 'foxlib-c');   // the foxlib-c console takes text commands
-      this.setStatus(this.family === 'drive' ? `Listening on the ${this.board.name} serial port — switch it off and on to see its boot messages` : this.family === 'foxlib-c' ? `Listening on the ${this.board.name} console — its banner appears now; type help in the console` : 'Listening — fox output streams to the console; tap R on the board to see its boot banner', 'tx');
+      this.setStatus(this.family === 'drive' || this.isCompiled ? `Listening on the ${this.board.name} serial port — switch it off and on to see its boot messages` : this.family === 'foxlib-c' ? `Listening on the ${this.board.name} console — its banner appears now; type help in the console` : 'Listening — fox output streams to the console; tap R on the board to see its boot banner', 'tx');
       this.changed('connect'); return;
     }
     try { this.info = await device.connect(); }
@@ -371,7 +393,7 @@ async function boot() {
       if (restored.region && Object.hasOwn(app.catalog.bands || {}, restored.region)) app.region = restored.region;
       if (app.board.module_fixed) app.moduleId = app.board.module_fixed;
       app.defaults = await loadDefaults(app.templateId, app.boardId);
-      const r = app.family === 'drive' ? app.vendor.validate(restored.cfg, app.defaults, app.board) : mergeAndValidate(restored.cfg, app.defaults, app.board);
+      const r = app.family === 'drive' || app.isCompiled ? app.vendor.validate(restored.cfg, app.defaults, app.board) : mergeAndValidate(restored.cfg, app.defaults, app.board);
       app.cfg = r.cfg; restoredOk = true;
       if (r.report?.length && restored.version !== VERSION) app.console.dim(`saved form from page ${restored.version || '< 0.6.1'}: ${r.report.length} value(s) reset to defaults (${r.report.map(x => x.key).join(', ')})`);
     } catch (e) { app.console.err(`saved form could not be restored (${e.message || e}); starting from the template defaults`); }

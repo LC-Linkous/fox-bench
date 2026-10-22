@@ -14,6 +14,7 @@ Families:
 
 - `foxlib` — CircuitPython on the board, fox-bench's foxlib and a template deployed over the REPL. Needs `hardware.circuitpython` and a full role map.
 - `drive` — the vendor's firmware, left alone; the page writes the files it reads. Needs a `vendor` model in `js/model/vendor/<vendor>.js`, `module_fixed`, and `drive` (label, files, note); the hardware entry carries the firmware's quirk `notes`.
+- `compiled` — a fox whose configuration is compiled into its firmware (RFHS kitsune). Needs `vendor` (`js/model/vendor/<vendor>.js`), hardware with `radios` and an esptool `flash` block, `firmware.kind: "compiled"` with `source` linking to the project. Templates list `radios`; defaults exist only for targets whose hardware has them. The page prepares and exports the configuration; no transport yet.
 - `foxlib-c` — fox-bench's native firmware (`firmware/foxlib-c/`, a UF2 built by CI into the site). Needs `module_fixed`, `drive` (label + files), `firmware.image` (the site path CI writes) and `firmware.version_file`; `status: "planned"` until the firmware source directory exists. Templates that list `foxlib-c` need `defaults/<target>.json` with no `pins` and the `si5351fm` radio keys (CONFIG.md); the lint runs them through the C validator (`make -C firmware/foxlib-c/tests`).
 
 Run `python3 tools/check_catalog.py` — it checks every reference, every

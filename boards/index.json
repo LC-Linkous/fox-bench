@@ -1,1 +1,1 @@
-["seeed_xiao_esp32c3", "picofox-vendor", "picofox-foxlibc"]
+["seeed_xiao_esp32c3", "picofox-vendor", "picofox-foxlibc", "m5stack_atom_lite-kitsune", "m5stack_atoms3_lite-kitsune", "m5stack_stamps3-kitsune", "arduino_nano_esp32-kitsune", "seeed_xiao_esp32c5-kitsune"]

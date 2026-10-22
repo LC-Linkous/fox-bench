@@ -1,0 +1,61 @@
+{
+  "id": "m5stack_stamps3",
+  "name": "M5Stack StampS3 (ESP32-S3)",
+  "mcu": "ESP32-S3-PICO-1-N8",
+  "radio": "the SoC's own radios: wifi24, ble",
+  "radios": [
+    "wifi24",
+    "ble"
+  ],
+  "design": {
+    "by": "M5Stack",
+    "source": "https://docs.m5stack.com/en/core/StampS3",
+    "license": "see the vendor's page"
+  },
+  "flash": {
+    "method": "esptool",
+    "chip": "esp32s3",
+    "offset": "0x0",
+    "flash_mb": 8,
+    "bootloader_instructions": "Hold the BOOT button (GPIO0) while plugging in USB; release after a second.",
+    "note": "Values from public documentation; not yet verified on a board of this kind (the target is experimental until then)."
+  },
+  "has_usb_drive": false,
+  "usb": [
+    {
+      "vid": "0x303a",
+      "pid": "0x1001",
+      "when": "ESP32-S3/C5 USB-JTAG-serial (download mode and, with CDC on boot, the running firmware)"
+    }
+  ],
+  "pins": [
+    {
+      "name": "G21",
+      "gpio": 21,
+      "note": "RGB LED data"
+    },
+    {
+      "name": "G0",
+      "gpio": 0,
+      "note": "BOOT button, active low"
+    }
+  ],
+  "roles": {},
+  "led": {
+    "kind": "ws2812",
+    "pin": 21,
+    "note": "one RGB LED on GPIO21"
+  },
+  "battery": {
+    "charger": false,
+    "divider_note": "Powered from USB or a 5 V pack. kitsune's note: the pack must not have a low-current cut-off, or the board never wakes from deep sleep."
+  },
+  "notes": [
+    "Native USB: kitsune builds with ARDUINO_USB_CDC_ON_BOOT=1 and notes 'serial isn't working' on this board."
+  ],
+  "serial": {
+    "baud": 115200,
+    "notes": "kitsune prints 'ESP32 boot count', 'Awake and screaming', 'Going to sleep' and 'PANIC' on its serial port; no command interface."
+  },
+  "silkscreen": null
+}

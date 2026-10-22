@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "template": "wifi-client",
+  "board": "seeed_xiao_esp32c5-kitsune",
+  "challenge": {
+    "name": "WiFi Client Easy Fox",
+    "keyphrase": "Are you the WiFi Client Easy Fox?",
+    "tier": "easy"
+  },
+  "wifi": {
+    "ssid": "WiFi Client Easy Fox",
+    "psk": "0123456789",
+    "mac": "00:15:16:17:18:19",
+    "tx_power_dbm": 17
+  },
+  "schedule": {
+    "kind": "duty",
+    "wake_s": 300,
+    "sleep_s": 1
+  },
+  "led": {
+    "enabled": true
+  },
+  "fleet": {
+    "profile": "",
+    "number": null,
+    "event": "",
+    "notes": ""
+  }
+}

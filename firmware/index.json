@@ -21,6 +21,11 @@
     "freq-rotator",
     "resurrection",
     "composite",
-    "picofox"
+    "picofox",
+    "wifi-ap",
+    "wifi-client",
+    "ble-ibeacon",
+    "bt-classic",
+    "zigbee-coordinator"
   ]
 }

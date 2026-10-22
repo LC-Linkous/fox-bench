@@ -12,7 +12,7 @@ import os, re, subprocess, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DOCS = ["README.md", "DESIGN.md", "CONFIG.md", "PROTOCOL.md", "LICENSES.md", "tests/README.md", "firmware/foxlib-c/README.md"]
-DOCS += sorted(os.path.join("docs", f) for f in os.listdir(os.path.join(ROOT, "docs")) if f.endswith(".md") and not f.startswith("project-audit"))   # audits name files they propose
+DOCS += sorted(os.path.join("docs", f) for f in os.listdir(os.path.join(ROOT, "docs")) if f.endswith(".md") and not (f.startswith("project-audit") or f.endswith("-plan.md")))   # audits and plans name files they propose
 TOP = {"js", "css", "flasher", "boards", "hardware", "modules", "songs", "firmware", "tools", "tests", "docs", ".github", "foxlib", "core", "picofox", "templates", "sim"}
 EXTS = (".js", ".mjs", ".py", ".c", ".h", ".json", ".md", ".yml", ".html", ".css", ".txt")
 # names that are examples, generated, on a board, or otherwise not repository files

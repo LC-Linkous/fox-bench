@@ -1,12 +1,13 @@
 // id.js — Callsign & ID tab: callmessage, Morse settings, telemetry, the silent-when-unset rule.
 // SPDX-License-Identifier: GPL-2.0-only
+import * as kitsune from './kitsune.js';
 import { h, badge, field, numInput, check, fill } from './dom.js';
 import * as morse from '../audio/morse.js';
 import { Player, drawTrace } from '../audio/player.js';
 
 let app, root; const player = new Player();
 let callInput, previewBox, warnBox, titleBadge;
-export function init(a, el) { app = a; root = el; app.listeners.add(render); render('boot'); }
+export function init(a, el) { app = a; root = el; kitsune.init(a); app.listeners.add(render); render('boot'); }
 
 function idText() { const d = app.cfg.id; return d.callmessage + (d.telemetry.includes('batt') && app.cfg.pins?.batt_sense ? ' BAT 3V7' : '') + (d.telemetry.includes('chg') && app.family === 'foxlib-c' ? ' CHG' : ''); }
 
@@ -30,6 +31,7 @@ function renderPreview() {
 }
 
 function render(source) {
+  if (app.isCompiled) return kitsune.renderId(root);
   if (source === 'id-live') { renderPreview(); return; }
   const d = app.cfg.id;
   callInput = h('input', { type: 'text', value: d.callmessage, maxlength: 64, spellcheck: 'false', style: 'width:100%;text-transform:uppercase' });
