@@ -9,3 +9,6 @@ firmware/foxlib-c/picofox/foxbench-picofox.json
 _shots/
 firmware/foxlib-c/tests/build/
 build/
+
+# editor state
+.vscode/
