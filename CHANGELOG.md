@@ -14,7 +14,11 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
-### Page 0.7.5 · foxlib 1.0.4 · foxlib-c 0.1.9
+### Page 0.7.6 · foxlib 1.0.4 · foxlib-c 0.1.9
+
+- 0.7.6: a command typed into the console drawer was shown twice (logged by the
+  drawer and again by the device); the touch names which of the board's USB
+  ids the picked port matched.
 
 A bench session that swapped the PicoFox between the vendor firmware and
 fox-bench's, both ways, and loaded an old UF2 by hand.

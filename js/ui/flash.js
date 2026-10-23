@@ -230,9 +230,9 @@ async function touch1200(app) {
     // by mistake takes the touch quietly and nothing reboots.
     const info = port.getInfo?.() || {}, ids = (b.usb || []).map(u => [parseInt(u.vid, 16), parseInt(u.pid, 16)]);
     const idText = info.usbVendorId != null ? `${info.usbVendorId.toString(16).padStart(4, '0')}:${(info.usbProductId || 0).toString(16).padStart(4, '0')}` : 'unknown ids';
-    const known = ids.length && info.usbVendorId != null ? ids.some(([v, pd]) => v === info.usbVendorId && pd === info.usbProductId) : null;
+    const match = ids.length && info.usbVendorId != null ? (b.usb || []).find(u => parseInt(u.vid, 16) === info.usbVendorId && parseInt(u.pid, 16) === info.usbProductId) : null, known = ids.length && info.usbVendorId != null ? !!match : null;
     if (known === false) app.console.err(`the port picked is USB ${idText}, not one of the ${b.name}'s (${(b.usb || []).map(u => `${u.vid.slice(2)}:${u.pid.slice(2)}`).join(', ')}) — the touch is being sent to it anyway, but it is probably another device`);
-    else app.console.dim(`touching port USB ${idText}${known ? ` (a ${b.name})` : ''} at 1200 baud`);
+    else app.console.dim(`touching port USB ${idText}${known ? ` (${app.hardware?.name?.split(" (")[0] || b.name}: ${match.when})` : ''} at 1200 baud`);
     await port.open({ baudRate: 1200 });
     try { await port.setSignals({ dataTerminalReady: true, requestToSend: true }); await new Promise(r => setTimeout(r, 100)); await port.setSignals({ dataTerminalReady: false, requestToSend: false }); await new Promise(r => setTimeout(r, 100)); } catch (e) { app.console.err('could not drive DTR on the port: ' + (e.message || e)); }
     try { await port.close(); } catch {}

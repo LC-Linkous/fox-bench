@@ -58,7 +58,7 @@ export class ConsoleDevice extends Device {
     return this._run(async () => {
       const t0 = Date.now();
       while (Date.now() - this._lastRx < 150 && Date.now() - t0 < 2000) await new Promise(r => setTimeout(r, 50));
-      this.log(text, 'tx'); await this.link.write(text.trim() + '\r\n');
+      await this.link.write(text.trim() + '\r\n');   // the drawer already logged the line; logging it here showed it twice
     });
   }
 
