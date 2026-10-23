@@ -59,6 +59,13 @@ Documentation, from the same review:
   CHANGELOG gained the missing 0.7.0–0.7.4 section; DESIGN §1/§2 and the
   About tab (families, transports, tested, next) brought up to date.
 
+Tests: the smoke now runs the page's real transports through a fake Web
+Serial port (`tests/page/fake-serial.mjs`) — REPL connect and deploy, listen
+only with banner-follow and the device swap across the PicoFox targets,
+port drop, the 1200-baud touch (matched and wrong port), a hand-loaded UF2
+with and without the version tag, and the UF2 copy onto a fake RPI-RP2 drive
+and onto the fox's own drive. These paths had run only on the bench.
+
 CI guards (each for a slip that happened): `tools/check_ci.py` parses the
 workflow strictly and checks the job graph; `build_info.py` fails when the
 UF2's `FOXLIBC-VERSION:` tag differs from `VERSION`; the page version-bump

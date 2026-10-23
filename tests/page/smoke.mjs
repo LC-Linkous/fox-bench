@@ -485,6 +485,80 @@ try {
   await tab('board'); await page.selectOption('#tab-board select', 'seeed_xiao_esp32c3'); await settle(400);
   await page.click('#demoBtn'); await settle(600);
 
+  console.log('real transports over a fake Web Serial port (serial-link.js, connect/listen/follow/swap/drop, touch, UF2 copy)');
+  await app(() => window.foxbench.disconnect()); await settle(200);
+  await page.addScriptTag({ type: 'module', url: url + 'tests/page/fake-serial.mjs' }); await page.waitForFunction(() => !!window.__fakeSerial);
+  // 1. Connect to a CircuitPython board over the REPL, deploy a template through it, then unplug it.
+  await tab('board'); await page.selectOption('#tab-board select', 'seeed_xiao_esp32c3'); await settle(300);
+  await app(() => window.__fakeSerial.install('board', { running: true, noise: true, noiseMs: 50, ansi: true, chunk: 17, latency: 2, files: { 'foxlib/__init__.py': '# old\n', 'foxlib/VERSION': '0.9.0\n' } }));
+  await page.click('#connectBtn'); await until(() => window.foxbench.connected && window.foxbench.info.uid === '85c818eae840', 'the REPL connect to finish', 20000);
+  eq(await app(() => window.foxbench.device?.kind), 'repl', 'a ReplDevice on a SerialLink');
+  eq(await app(() => window.__fakeSerial.port.baud), 115200, 'port opened at 115200');
+  check(/foxlib/.test(await text('#tab-board')), 'Board tab read the board\'s foxlib version over the real link');
+  await tab('behavior'); await page.selectOption('#tab-behavior select', 'morse-songs'); await settle(200);
+  await tab('id'); await page.fill('#tab-id input[type=text]', 'W1ABC FOX DE W1ABC'); await settle(200);
+  await tab('deploy'); await page.check('#tab-deploy .gate input'); await settle(200);
+  const why = await app(() => ({ blocker: window.foxbench.deployBlocker(), errs: window.foxbench.issues.filter(i => i.level === 'err').map(i => i.msg), last: window.foxbench.lastDeploy }));
+  check(!why.blocker && !why.errs.length, 'nothing blocks the deploy over the fake REPL: ' + JSON.stringify(why));
+  await app(() => { window.foxbench.lastDeploy = null; });
+  await page.click('#tab-deploy button.btn.primary'); await until(() => !!window.foxbench.lastDeploy, 'the deploy over the fake REPL to finish', 30000); await settle(200);
+  const fsAfter = await app(() => window.__fakeSerial.files());
+  check('code.py' in fsAfter && 'fox.json' in fsAfter && /morse-songs/.test(fsAfter['fox.json'] || ''), 'deploy wrote code.py and fox.json through the REPL protocol onto the fake board: ' + Object.keys(fsAfter).filter(k => !k.startsWith('foxlib/')).join(', '));
+  check((fsAfter['foxlib/VERSION'] || '').trim() !== '0.9.0', 'foxlib on the board was updated from 0.9.0');
+  check(await untilFleet("r.action === 'deploy' && r.uid === '85c818eae840'"), 'fleet row carries the board\'s uid');
+  await app(() => window.__fakeSerial.port.drop()); await settle(500);
+  eq(await app(() => window.foxbench.connected), false, 'unplugging the port disconnects the page');
+  check(/serial port dropped/.test(await text('#log')), 'the console says the port dropped');
+  // 2. Listen only with a fox-bench PicoFox on the port while the XIAO is selected: the banner is followed, the device swapped.
+  await app(() => window.__fakeSerial.install('console', { uid: 'e4654c16431b2321', callsign: 'KY4ZR TEST', vid: 0x2e8a, pid: 0x000a }));
+  await page.click('#listenBtn'); await until(() => window.foxbench.boardId === 'picofox-foxlibc' && window.foxbench.device?.kind === 'console', 'the banner to be followed and the device swapped', 15000);
+  eq(await app(() => window.foxbench.family), 'foxlib-c', 'family followed the banner');
+  check(/banner says picofox-foxlibc: selecting that board/.test(await text('#log')), 'console explains the switch');
+  check(await app(() => window.foxbench.device.listening === true), 'still listening after the swap');
+  await tab('board'); await page.selectOption('#tab-board select', 'picofox-vendor'); await settle(400);
+  eq(await app(() => window.foxbench.connected), true, 'selecting the vendor target keeps the listen-only port');
+  check(/same serial port, still listening/.test(await text('#log')), 'console says the port was kept');
+  eq(await app(() => window.foxbench.device?.kind), 'repl', 'the vendor target listens with the line device');
+  await page.selectOption('#tab-board select', 'picofox-foxlibc'); await settle(400);
+  eq(await app(() => window.foxbench.device?.kind), 'console', 'and back to the console device for the fox-bench target');
+  await page.fill('#sendInput', 'status'); await page.press('#sendInput', 'Enter'); await untilTextArgs('#log', /revision=3/, 5000);
+  eq(((await text('#log')).match(/> status/g) || []).length, 1, 'a typed console command is shown once');
+  eq(await app(() => window.__fakeSerial.link.sent.filter(l => l === 'status').length), 1, 'and sent once');
+  await app(() => window.foxbench.disconnect()); await settle(200);
+  // 3. The 1200-baud touch: the fox's port (ids match, the port goes away) and a wrong port (ids differ, stays).
+  await app(() => window.__fakeSerial.install('dumb', { vid: 0x2e8a, pid: 0x000a, disappearOnTouch: true }));
+  await tab('board'); await page.click('#tab-board button:has-text("1. Reboot into bootloader")'); await untilTextArgs('#log', /1200-baud touch sent, port gone/, 8000);
+  check(/touching port USB 2e8a:000a \(AI6YM PicoFox, fox-bench firmware\) at 1200 baud/.test(await text('#log')), 'touch names the matched USB id');
+  const sig = await app(() => window.__fakeSerial.port.signals);
+  check(sig.length === 2 && sig[0].baud === 1200 && sig[0].dataTerminalReady === true && sig[1].dataTerminalReady === false, 'DTR raised then dropped at 1200 baud: ' + JSON.stringify(sig));
+  check(await app(() => window.__fakeSerial.port.closedByPage), 'the port was closed after the touch');
+  await app(() => window.__fakeSerial.install('dumb', { vid: 0x1a86, pid: 0x7523, disappearOnTouch: false }));
+  await page.click('#tab-board button:has-text("1. Reboot into bootloader")'); await untilTextArgs('#log', /still there after 4 s/, 10000);
+  check(/the port picked is USB 1a86:7523, not one of the AI6YM PicoFox/.test(await text('#log')), 'a wrong port is named before the touch and the verdict says the board did not reboot');
+  // 4. A UF2 loaded by hand: version tag read; untagged flagged as old. Then the copy onto a fake RPI-RP2 drive, and onto the wrong drive.
+  const mkUf2 = tag => { const n = 3, out = Buffer.alloc(512 * n); for (let i = 0; i < n; i++) { const o = i * 512; out.writeUInt32LE(0x0A324655, o); out.writeUInt32LE(0x9E5D5157, o + 4); out.writeUInt32LE(0x2000, o + 8); out.writeUInt32LE(0x10000000 + i * 256, o + 12); out.writeUInt32LE(256, o + 16); out.writeUInt32LE(i, o + 20); out.writeUInt32LE(n, o + 24); out.writeUInt32LE(0xe48bff56, o + 28); out.writeUInt32LE(0x0AB16F30, o + 508); } if (tag) out.write(tag + '\0', 32 + 100, 'latin1'); return out; };
+  await page.setInputFiles('#tab-board input[type=file][accept=".uf2"]', { name: 'old.uf2', mimeType: 'application/octet-stream', buffer: mkUf2('') }); await settle(300);
+  check(/old\.uf2 is an untagged build; this site builds/.test(await text('#log')) && /untagged build/.test(await text('#tab-board')), 'an untagged (pre-0.1.9) UF2 is flagged as older than the site\'s build');
+  await page.setInputFiles('#tab-board input[type=file][accept=".uf2"]', { name: 'cur.uf2', mimeType: 'application/octet-stream', buffer: mkUf2('FOXLIBC-VERSION:9.9.9') }); await settle(300);
+  check(/foxlib-c 9\.9\.9/.test(await text('#tab-board')) && !/untagged build/.test(await text('#tab-board')), 'a tagged UF2 shows its version');
+  await app(() => {
+    const mk = (files, { vanishAfterWrite = false } = {}) => { let written = false; const fh = n => ({ kind: 'file', name: n, getFile: async () => new File([files[n] || ''], n), createWritable: async () => ({ write: async () => { written = true; }, close: async () => { if (vanishAfterWrite) throw new DOMException('gone', 'NotFoundError'); } }) });
+      return { kind: 'directory', name: '\\', queryPermission: async () => 'granted', requestPermission: async () => 'granted',
+        values: async function* () { if (vanishAfterWrite && written) throw new DOMException('gone', 'NotFoundError'); for (const n of Object.keys(files)) yield fh(n); },
+        getFileHandle: async (n, o) => { if (!(n in files) && !o?.create) { const e = new Error('nf'); e.name = 'NotFoundError'; throw e; } files[n] = files[n] || ''; return fh(n); } }; };
+    window.__drives = { rpi: mk({ 'INFO_UF2.TXT': 'UF2 Bootloader v3.0\nModel: Raspberry Pi RP2\nBoard-ID: RPI-RP2\n', 'INDEX.HTM': '' }, { vanishAfterWrite: true }), fox: mk({ 'fox.json': '{}', 'settings.txt': '' }) };
+    window.showDirectoryPicker = async () => window.__drives.fox;
+  });
+  await page.click('#tab-board button:has-text("2. Copy to RPI-RP2")'); await untilTextArgs('#log', /UF2 copy failed/, 5000);
+  check(/not the RPI-RP2 bootloader drive \(no INFO_UF2\.TXT; it holds FOX\.JSON, SETTINGS\.TXT\) — it is the fox's own drive/.test(await text('#log')), 'copying onto the fox\'s own drive is refused by content');
+  await app(() => { window.showDirectoryPicker = async () => window.__drives.rpi; });
+  await page.click('#tab-board button:has-text("2. Copy to RPI-RP2")'); await untilFleet("r.action === 'flash' && r.result === 'ok' && /cur\\.uf2/.test(r.notes)", 15000);
+  check(/cur\.uf2 flashed .*the RPI-RP2 drive went away, so the board rebooted into it/.test(await text('#log')), 'the copy succeeds when the bootloader drive vanishes mid-close (the close() error is tolerated)');
+  check(/close\(\) said "gone"/.test(await text('#log')), 'the close() error is reported, not treated as failure');
+  await app(() => { delete window.__drives; });
+  await tab('board'); await page.selectOption('#tab-board select', 'seeed_xiao_esp32c3'); await settle(400);
+  await page.click('#demoBtn'); await settle(600);
+
   console.log('theme, disconnect');
   await page.click('#themeBtn'); await settle(100);
   check(['light', 'dark'].includes(await page.getAttribute('html', 'data-theme')), 'theme toggles');

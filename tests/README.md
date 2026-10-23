@@ -17,7 +17,13 @@ libraries on a fresh Linux box; on macOS and Windows plain `install
 chromium` is enough). The smoke test also needs `gcc`, `make` and
 `python3`: it boots the exported foxlib-c deploy set in the C host build
 (`make -C firmware/foxlib-c/tests build/host_sim`) and the Python one in
-`firmware/sim/run.py`. Chromium can be pointed at an existing build with
+`firmware/sim/run.py`. The smoke also drives the page's real transports
+through a fake Web Serial port (`tests/page/fake-serial.mjs`: a port whose
+bytes come from `FakeBoard` or `FakeConsoleLink`) — Connect over the REPL
+and a deploy through it, Listen only with banner-follow and the device
+swap, a port drop, the 1200-baud touch on the right and the wrong port —
+and a fake bootloader drive for the UF2 copy (refusal on the fox's own
+drive; the drive vanishing mid-close). Chromium can be pointed at an existing build with
 `CHROMIUM=/path/to/chrome npm run smoke`.
 
 Everything CI runs, locally, from the repository root:
