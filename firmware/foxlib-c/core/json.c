@@ -70,8 +70,10 @@ static int string(P *p) {
                     p->i += 2;
                     unsigned lo;
                     if (hex4(p, &lo)) return -1;
+                    if (lo < 0xDC00 || lo > 0xDFFF) return fail(p, "bad surrogate pair");   /* F12: anything else is not a low surrogate */
                     cp = 0x10000 + ((cp - 0xD800) << 10) + (lo - 0xDC00);
                 }
+                if (cp >= 0xD800 && cp <= 0xDFFF) cp = 0xFFFD;   /* a lone surrogate is not a character: U+FFFD, never a surrogate encoded as UTF-8 */
                 if (put_utf8(p, cp)) return -1;
                 break;
             }
@@ -170,6 +172,10 @@ bool json_is(const json_doc *d, int idx, json_type t) { return idx >= 0 && d->no
 bool json_is_int(const json_doc *d, int idx) { return idx >= 0 && d->nodes[idx].type == J_NUM && d->nodes[idx].is_int; }
 bool json_is_num(const json_doc *d, int idx) { return idx >= 0 && d->nodes[idx].type == J_NUM; }
 double json_num(const json_doc *d, int idx, double dflt) { if (!json_is_num(d, idx)) return dflt; const json_node *n = &d->nodes[idx]; return n->is_int ? (double)n->v.i : d->dbls[n->v.dbl]; }
-int json_int(const json_doc *d, int idx, int dflt) { return json_is_num(d, idx) ? (int)json_num(d, idx, 0) : dflt; }
+int json_int(const json_doc *d, int idx, int dflt) {
+    if (!json_is_num(d, idx)) return dflt;
+    double v = json_num(d, idx, 0);   /* F12: (int) of 1e30 is undefined; clamp, the validator's range checks then reject it */
+    return v >= 2147483647.0 ? 2147483647 : v <= -2147483648.0 ? (-2147483647 - 1) : (int)v;
+}
 bool json_bool(const json_doc *d, int idx, bool dflt) { return json_is(d, idx, J_BOOL) ? d->nodes[idx].v.b : dflt; }
 bool json_is_null(const json_doc *d, int idx) { return json_is(d, idx, J_NULL); }

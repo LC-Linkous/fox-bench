@@ -18,17 +18,19 @@ compiler version. A second review on 2026-10-22 (tests and documentation,
 against 0.7.8) produced the regroup series 0.7.9: merged-image offset,
 interrupt-from-raw, CI guards, the documentation drift listed there.
 
+**Fixed in foxlib-c 0.1.10** (2026-10-23): F12 (surrogates, `json_int`
+clamp, a fuzzer in `make check`), F13 (64-bit clock into the scheduler),
+F14 (re-probe from the hold loop), F15 (callsign gate on bench actions,
+`atten` stops-applies-restarts, `reload` answers a bench action). `console.c`
+and `si5351.c` build on the host; the page's fake console is held to the
+firmware's replies by a corpus; the Si5351 register math is checked against
+AN619.
+
 **Open — firmware**: F10 (attenuator word format unverified and dB/step
-unmeasured; written on every reload including 0 — the docs now say so;
-`atten` during a stream still answers `ok`), F11 (I²C at 1 MHz, no readback;
-zero `i2c_errors` across every bench session so far), F12 (`json.c`
-over-read on truncated input, `json_int` cast UB, low surrogates), F13
-(32-bit `now_ms` into 64-bit schedule: resurrection `until` unreachable after
-49.7 days), F14 (Si5351 probed once at boot), F15 (bench actions bypass the
-callsign gate; `reload` mid-bench; VID/PID reuse — see also the `(player late
-on N samples)` note in `firmware/foxlib-c/README.md`). The firmware test blind
-spots: host build compiles only `fox.c`; `console.c`, `si5351.c`, `player.c`
-and the FatFs/MSC drive path have no host coverage.
+unmeasured — needs a meter), F11 (I²C at 1 MHz, no readback; zero
+`i2c_errors` across every bench session so far), F15's VID/PID reuse
+(2E8A:000A is the SDK's generic CDC PID on a composite device). Not on the
+host: `player.c` (core 1), the FatFs/MSC drive path.
 
 **Open — page**: W6 (banner-follow rewrites the working form, no undo), W11
 (a clean `done` on the read stream fires no `onDrop`; a port drop

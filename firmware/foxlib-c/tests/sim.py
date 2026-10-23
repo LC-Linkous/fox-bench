@@ -21,7 +21,18 @@ BOARD = "picofox-foxlibc"
 SKIP_KEYS = ("battery", "module_silent", "module_ranges", "uart")          # scenario features this family has no hardware for
 
 # scenarios only this family can run (its charger-status telemetry word)
+WRAP_MS = (1 << 32) - 60000   # one minute before the 32-bit millisecond clock wraps (49.7 days of uptime)
 FOXLIBC_ONLY = [
+    # F14: the Si5351 did not answer at boot (TCXO/LDO still ramping): the hold loop probes it again every 20 s, so the
+    # fox comes up on its own — it used to stay radio=nosi5351 until a power cycle
+    {"name": "si5351-absent-at-boot-answers-later-by-itself", "si5351_late": 3, "stop_after_unkeys": 1, "cap_ms": 120000,
+     "fox": {"id": {"callmessage": "W1ABC FOX"}},
+     "expect": {"keyed_min": 1, "banner": {"cfg": "ok"}, "prints_contain": ["unconfigured (nosi5351): silent", "si5351: answers now (was absent at boot)", "radio=ok"]}},
+    # F13: the scheduler takes a 64-bit clock; feeding it the 32-bit one made a resurrection fox's `until` unreachable
+    # for 49.7 days after the wrap. Booted a minute before the wrap, the fox must still die and return on schedule.
+    {"name": "resurrection-across-the-32-bit-clock-wrap", "template": "resurrection", "start_ms": WRAP_MS, "stop_after_unkeys": 18, "cap_ms": 7200000,
+     "fox": {"id": {"callmessage": "W1ABC FOX"}, "schedule": {"kind": "resurrection", "seed": 1, "delay_ms": 10000, "alive_min_ms": 30000, "alive_max_ms": 30000, "dead_ms": 120000, "dit_min_ms": 10000, "dit_max_ms": 20000, "id_every": 3, "dead_song": False}},
+     "expect": {"keyed_min": 17, "prints_contain": ["dead-phase wake: dit", "dead-phase wake: id"], "prints_count_min": {"cycle ": 3}}},   # ≥3 alive cycles: it came back after the dead phase that straddles the wrap
     {"name": "chg-telemetry-charging", "charging": True, "stop_after_unkeys": 1, "cap_ms": 120000,
      "fox": {"id": {"callmessage": "W1ABC FOX", "telemetry": ["chg"]}}, "expect": {"banner": {"cfg": "ok"}, "id_contains": ["W1ABC FOX CHG"]}},
     {"name": "chg-telemetry-idle", "stop_after_unkeys": 1, "cap_ms": 120000,
@@ -131,6 +142,9 @@ def check(scen, rec, eff):
     for want in exp.get("prints_contain", []):
         if not any(want in l for l in prints):
             fails.append("no print containing %r" % want)
+    for want, n in exp.get("prints_count_min", {}).items():
+        got = sum(1 for l in prints if want in l)
+        if got < n: fails.append("%d print(s) containing %r, want >= %d" % (got, want, n))
     return fails, banner, texts, sorted(kinds), keyed
 
 
@@ -158,7 +172,7 @@ def main():
     skip_by = {}
     for tid in templates:
         defaults = json.load(open(os.path.join(FW, "templates", tid, "defaults", BOARD + ".json")))
-        for scen in scenarios.get("all", []) + scenarios.get(tid, []) + (FOXLIBC_ONLY if tid == "morse-songs" else []):
+        for scen in scenarios.get("all", []) + scenarios.get(tid, []) + [x for x in FOXLIBC_ONLY if x.get("template", "morse-songs") == tid]:
             why = skip_reason(scen)
             if why:
                 skipped += 1; skip_by[why] = skip_by.get(why, 0) + 1
@@ -176,7 +190,8 @@ def main():
                 else:
                     user = {}
                 eff, _ = fwcfg.validate(user, defaults, [], BOARD)
-                cmd = [a.bin, d, "--cap-ms", str(scen.get("cap_ms", 180000)), "--stop-after-unkeys", str(scen.get("stop_after_unkeys", 2))] + (["--charging"] if scen.get("charging") else [])
+                cmd = [a.bin, d, "--cap-ms", str(scen.get("cap_ms", 180000)), "--stop-after-unkeys", str(scen.get("stop_after_unkeys", 2))] + (["--charging"] if scen.get("charging") else []) + (["--start-ms", str(scen["start_ms"])] if scen.get("start_ms") else []) \
+                    + (["--si5351-late", str(scen["si5351_late"])] if scen.get("si5351_late") else []) + (["--reload-at-ms", str(scen["reload_at_ms"])] if scen.get("reload_at_ms") else [])
                 r = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
                 if r.returncode != 0:
                     fails_n += 1

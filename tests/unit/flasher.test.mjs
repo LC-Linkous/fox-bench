@@ -54,7 +54,7 @@ test('flash() refuses with no image', async () => {
 test('chipId normalises esptool\'s chip names to descriptor ids', () => {
   assert.equal(flasher.chipId('ESP32-C3 (QFN32) (revision v0.4)'), 'esp32c3');
   assert.equal(flasher.chipId('ESP32-S3'), 'esp32s3'); assert.equal(flasher.chipId('ESP32-C5 (revision v1.0)'), 'esp32c5');
-  assert.equal(flasher.chipId('ESP32-PICO-D4'), 'esp32picod4'); assert.equal(flasher.chipId('esp32'), 'esp32');
+  assert.equal(flasher.chipId('ESP32-PICO-D4'), 'esp32');   // the ATOM Lite's chip: a package variant of the classic ESP32, not another chip assert.equal(flasher.chipId('esp32'), 'esp32');
 });
 
 test('expectChip: the wrong chip on the port is refused before anything is erased', async () => {
@@ -73,4 +73,21 @@ test('the write address follows the offset option (a CircuitPython image on an E
   assert.equal(flasher.demoEsptool.lastWrite.address, 0x1000);
   await flasher.flash({ impl: flasher.demoEsptool({ ms: 20 }), offset: 0 });
   assert.equal(flasher.demoEsptool.lastWrite.address, 0);
+});
+
+test('chipId: esptool chip names map to descriptor ids; the classic ESP32 package variants are all esp32', () => {
+  for (const [name, id] of [['ESP32-C3 (QFN32) (revision v0.4)', 'esp32c3'], ['ESP32-S3 (QFN56) (revision v0.2)', 'esp32s3'], ['ESP32-C5', 'esp32c5'], ['ESP32-C6 (QFN40)', 'esp32c6'],
+    ['ESP32-D0WDQ6 (revision v1.0)', 'esp32'], ['ESP32-D0WD-V3 (revision v3.0)', 'esp32'], ['ESP32-PICO-D4', 'esp32'], ['ESP32-PICO-V3-02', 'esp32'], ['esp32s3', 'esp32s3'], ['', '']])
+    assert.equal(flasher.chipId(name), id, name);
+});
+
+test('connect and stub failures: the facts say what was and was not done, nothing is erased', async () => {
+  flasher.setImage('adafruit-circuitpython-seeed_xiao_esp32c3-en_US-10.2.1.bin', new Uint8Array(4096));
+  flasher.demoEsptool.chipName = ''; flasher.demoEsptool.lastWrite = null;
+  flasher.demoEsptool.fail = 'connect';
+  await assert.rejects(flasher.flash({ offset: 0, impl: flasher.demoEsptool({ ms: 20 }) }), e => /Failed to connect/.test(e.message) && e.facts.chip === '' && e.facts.erase_ok === '' && e.facts.flash_ok === 'no');
+  flasher.demoEsptool.fail = 'stub';
+  await assert.rejects(flasher.flash({ offset: 0, impl: flasher.demoEsptool({ ms: 20 }) }), e => /Failed to start stub/.test(e.message) && e.facts.flash_ok === 'no');
+  assert.equal(flasher.demoEsptool.lastWrite, null, 'nothing was written in either case');
+  flasher.demoEsptool.fail = '';
 });

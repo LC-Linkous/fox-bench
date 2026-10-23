@@ -28,6 +28,7 @@ bool fox_bench_key(uint32_t ms);                /* unmodulated carrier */
 bool fox_bench_tone(float hz, uint32_t ms);
 bool fox_bench_id(void);
 bool fox_bench_freq(double mhz);                 /* retune until the next reload */
+bool fox_bench_atten(int code);                  /* attenuator code until the next reload; stops what is on the air first (core 1 refuses it mid-stream) */
 void fox_bench_stop(void);
 void fox_quiesce(void);                         /* unkey and stay silent: before reboot / bootsel / the 1200-baud touch */
 

@@ -14,6 +14,67 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.7.10 · foxlib 1.0.4 · foxlib-c 0.1.10
+
+**foxlib-c 0.1.10** — the open firmware items of the October audit, each
+with a host test that fails on the old code:
+
+- F13: the scheduler was fed the 32-bit millisecond clock. After 49.7 days
+  of uptime a resurrection fox's `until` became unreachable and it stayed
+  dead. The scheduler now takes a 64-bit clock (`sim.py`
+  `resurrection-across-the-32-bit-clock-wrap`).
+- F14: a Si5351 that did not answer at boot (reference still ramping) was
+  `radio=nosi5351` until a power cycle. The hold loop asks again every
+  20 s and the fox comes up by itself; `status` says "si5351: answers now".
+- F15: `key`/`tone`/`id` from the console obey the callsign gate the cycle
+  obeys (`err: callsign unset`); `atten` stops what is on the air, applies,
+  and restarts the cycle — core 1 refuses a register write mid-stream, and
+  the console used to print `ok` while the value was dropped; a `reload`
+  during a bench action answers it (`ok (stopped)`) so a waiting host is
+  released.
+- F12: `json.c` rejects a bad low surrogate and never emits a surrogate as
+  UTF-8; `json_int` clamps instead of casting an out-of-range double
+  (undefined behaviour). `tests/json_fuzz.c`: a deterministic mutational
+  fuzzer over every template's defaults, parser + validator under
+  ASan/UBSan, 20 000 iterations in `make check` (a million locally, clean).
+- `(player late on N samples)` is printed only above 2: one or two late
+  samples per transmission are the console's own printing.
+
+Also in 0.1.10: `console.c` and `si5351.c` now build and run on the host. `console_test.py` feeds a command corpus to the real parser and to
+the page's `FakeConsoleLink`; the fake had drifted (`help` text, `status`
+without `uptime=`/`version=`/`i2c_errors=`/`core1=`/`correction_ppm=`, `batt`
+without `note=`, `reload` not resetting a console `freq`, a second `ok` after
+`bootsel`) and now follows the firmware. `si5351_ref.py` sweeps the 2 m band
+through the real driver over a fake I²C controller and checks every register
+against the datasheet's formulas, plus the timed-out-write recovery paths and
+`correction_ppm`. `console.c` includes `pico/time.h` itself instead of getting
+it through `pico/bootrom.h`.
+
+
+Two bugs the new tests found, both on the kitsune side:
+
+- **A page whose saved working form was a kitsune target did not boot**
+  (blank page, `renderRadio … reading 'cfg'`): the Radio/Plan/Schedule tabs
+  render at boot before the ID tab had initialised the kitsune UI module.
+  Each tab now initialises it itself. The smoke reloads with a kitsune form
+  saved on each of those tabs.
+- **The flasher would have refused a real ATOM Lite.** `chipId()` turned
+  esptool's "ESP32-PICO-D4" / "ESP32-D0WDQ6" into `esp32picod4` /
+  `esp32d0wdq6`, not `esp32`, so the chip check would have reported "the
+  port belongs to an ESP32-PICO-D4, but the selected board is an ESP32" and
+  stopped. The classic ESP32's package variants now map to `esp32`; the old
+  unit test had encoded the bug.
+- `setTemplate` with carry no longer assumes a `payload` section (compiled
+  configs have none).
+
+Tests: the test server can play a deployed site (CI-written fingerprint,
+kitsune manifest and image), so the hosted-image paths run in the smoke —
+fingerprint shown, image accepted when it matches, refused with the
+"mid-deploy" hint when it does not, the same for a kitsune image, and the
+site's merged image flashed at 0x0. The simulated esptool can fail to
+connect or to start its stub (unit-tested); `send()` has a unit test; three
+smoke asserts that could not fail now can, and two sleeps are waits.
+
 ### Page 0.7.9 · foxlib 1.0.4 · foxlib-c 0.1.9
 
 Regroup before kitsune hardware (the 2026-10-22 test and documentation

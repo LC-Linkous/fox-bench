@@ -89,10 +89,11 @@ VERSION      firmware version (the banner's foxlib=c-<version>)
   so the vendor firmware can go back without touching the button.
 - **No LED, no battery voltage** on this hardware: the log carries the status,
   `batt` reports only whether the charger is active.
-- **`(player late on N samples)`** after a long console reply (`status`, the
-  banner at boot): core 0's printing delays one or two of core 1's 125 µs FM
-  samples. The counter reports it; the glitch is sub-millisecond and has not
-  been heard. A line that appears mid-cycle without a command is worth a look.
+- **`(player late on N samples)`** is printed when more than two of core 1's
+  125 µs FM samples were late in one transmission. One or two per transmission
+  is core 0's own console printing (a long `status` reply) and is not
+  reported; more means a flash write landed mid-stream or something stalled,
+  and is worth a look.
 
 ## Build
 
@@ -134,8 +135,29 @@ run on this board.
   (`tests/host_sim/`), run through the Python simulator's own scenarios
   (`firmware/sim/scenarios.json`) and judged by its decoder — the banner,
   the decoded ID, kinds of audio, waits, keydown cuts, retunes, dead wakes.
+- `console_test.py`: the real `picofox/console.c` (command parser, reply
+  text, the `bootsel` path) built for the host over a stub TinyUSB CDC
+  (`build/console_sim`), fed every command in `console_corpus.json` — and the
+  page's `FakeConsoleLink` fed the same, so the fake the demo and the page's
+  unit tests run against cannot drift from the firmware's replies.
+- `si5351_ref.py`: the real `picofox/si5351.c` over a fake I²C controller
+  holding a register image (`build/si5351_sim`), swept across the 2 m band
+  and compared with the datasheet's formulas (AN619): divider choice and VCO
+  range, PLLA register encoding, carrier error < 2 Hz, deviation counts, the
+  6-byte FM offset write and its no-op on an unchanged value, the recovery
+  path after a timed-out write (controller abort; bus clear + re-init when
+  the abort sticks), `correction_ppm`.
 - The page smoke test boots a deploy set exported for this target in the
   same host simulation.
+
+- `json_fuzz.c` (`make fuzz`, also part of `check`): deterministic mutations
+  of every template's defaults through the parser and the validator under
+  ASan/UBSan — 20 000 per CI run; `FUZZ_ITERS=200000 make fuzz` for a longer
+  session, and the seed in the Makefile reproduces any report.
+
+Not on the host: `player.c` (core 1, the FM loop, PTT/attenuator GPIO),
+`flash_disk.c` / `msc_disk.c` / `fs.c` (the USB drive) — those run only on a
+board.
 
 ## Switching between the two firmwares
 

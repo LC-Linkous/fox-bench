@@ -127,7 +127,10 @@ static void core1_main(void) {
             case CMD_CARRIER: { bool ok = si5351_set_carrier((double)arg); if (ok) st.carrier_hz = si5351_carrier_hz(); result = ok ? RESP_OK : RESP_FAIL; break; }
             case CMD_KEY: key(true); break;
             case CMD_UNKEY: key(false); break;
-            case CMD_ATTEN: if (st.revision >= 3) atten_write((int)arg); break;
+            case CMD_SETUP:   /* F14: the Si5351 was probed once at boot; a TCXO/LDO still ramping then answers now */
+                if (!st.si5351_ok) { si5351_bus_clear(PICOFOX_PIN_SDA, PICOFOX_PIN_SCL); i2c_init(i2c0, I2C_HZ); gpio_set_function(PICOFOX_PIN_SDA, GPIO_FUNC_I2C); gpio_set_function(PICOFOX_PIN_SCL, GPIO_FUNC_I2C); st.si5351_ok = si5351_init(i2c0, 25e6, PICOFOX_PIN_SDA, PICOFOX_PIN_SCL); }
+                result = st.si5351_ok ? RESP_OK : RESP_FAIL; break;
+            case CMD_ATTEN: if (st.revision >= 3) atten_write((int)arg); else result = RESP_FAIL; break;
             case CMD_CORRECTION: si5351_set_correction_ppm((int32_t)arg / 1000.0); st.correction_ppm = (float)si5351_correction_ppm(); break;
             case CMD_PLAY: req = (volatile play_req_t *)arg; cur = req; break;
             case CMD_STOP: break;
@@ -165,7 +168,8 @@ void player_start(void) {
 
 bool player_set_carrier(double hz) { if (player_busy()) player_stop(); return call1(CMD_CARRIER, (uint32_t)(hz + 0.5)) == RESP_OK; }
 void player_key(bool on) { if (!on && player_busy()) player_stop(); call(on ? CMD_KEY : CMD_UNKEY); }
-void player_set_attenuation(int code) { call1(CMD_ATTEN, (uint32_t)code); }
+bool player_set_attenuation(int code) { return call1(CMD_ATTEN, (uint32_t)code) == RESP_OK; }   /* false: mid-stream (core 1 refuses), rev 2, or core 1 dead */
+bool player_reprobe(void) { if (player_busy()) return st.si5351_ok; return call(CMD_SETUP) == RESP_OK; }
 void player_set_correction_ppm(double ppm) { if (player_busy()) player_stop(); call1(CMD_CORRECTION, (uint32_t)(int32_t)(ppm * 1000.0)); }
 
 void player_play(play_req_t *req) {

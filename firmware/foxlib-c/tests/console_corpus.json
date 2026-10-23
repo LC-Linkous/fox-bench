@@ -1,0 +1,199 @@
+{
+ "_": "What the foxlib-c console answers, as regexes over the bytes written back (PROTOCOL.md 'foxlib-c console'). console_test.py runs each command through the real console.c on the host (build/console_sim) AND through the page's FakeConsoleLink (js/device/console-device.js), so the fake cannot drift from the firmware. `advance_ms` is how long the virtual clock runs after the command; `c_only` marks replies the fake does not model (a bench action's late `ok`, the cycle log).",
+ "drive": {
+  "callsign": "KY4ZR TEST"
+ },
+ "cases": [
+  {
+   "cmd": "help",
+   "expect": [
+    "^fox-bench PicoFox console\\r\\n",
+    "  status ",
+    "  key <s> ",
+    "  tone <hz> <s> ",
+    "  id ",
+    "  freq <mhz> ",
+    "  atten <0-127> ",
+    "  batt ",
+    "files \\| reload \\| stop \\| uid \\| version \\| reboot \\| bootsel",
+    "\\r\\nok\\r\\n$"
+   ]
+  },
+  {
+   "cmd": "status",
+   "expect": [
+    "^FOX template=morse-songs/\\S+ foxlib=c-\\S+ board=picofox-foxlibc uid=[0-9a-f]{16} cfg=ok radio=ok id=set freq=146\\.565\\r\\n",
+    "\\r\\nuptime=\\d+s reset=\\S+ version=\\S+\\r\\n",
+    "\\r\\nrevision=3 si5351=ok carrier=\\d+\\.\\d keyed=[01] attenuation=\\d+ i2c_write_us=\\d+ i2c_errors=\\d+ core1=ok correction_ppm=-?\\d+\\.\\d state=\\d\\r\\n",
+    "\\r\\ncharging=(yes|no) host_drive=(mounted|no) host_writes=\\d+ dirty=[01]\\r\\n",
+    "\\r\\nfiles: .*fox\\.json.*\\r\\n",
+    "\\r\\nok\\r\\n$"
+   ]
+  },
+  {
+   "cmd": "uid",
+   "expect": [
+    "^uid=[0-9a-f]{16}\\r\\nok\\r\\n$"
+   ]
+  },
+  {
+   "cmd": "version",
+   "expect": [
+    "^foxlib-c \\S+ board=picofox-foxlibc\\r\\nok\\r\\n$"
+   ]
+  },
+  {
+   "cmd": "batt",
+   "expect": [
+    "^batt charging=(yes|no) volts=none note=(charger_active|charger_idle\\(full_or_no_usb_power\\))\\r\\nok\\r\\n$"
+   ]
+  },
+  {
+   "cmd": "files",
+   "expect": [
+    "fox\\.json",
+    "\\r\\nok\\r\\n$"
+   ]
+  },
+  {
+   "cmd": "atten 40",
+   "expect": [
+    "^attenuation 40\\r\\nok\\r\\n"
+   ],
+   "note": "mid-cycle: the transmission stops, the value applies, the cycle restarts (the fake models the reply only)"
+  },
+  {
+   "cmd": "atten 200",
+   "expect": [
+    "^err: 0-127\\r\\n$"
+   ]
+  },
+  {
+   "cmd": "atten",
+   "expect": [
+    "^err: 0-127\\r\\n$"
+   ]
+  },
+  {
+   "cmd": "key 0",
+   "expect": [
+    "^err: 0 < s <= 60\\r\\n$"
+   ]
+  },
+  {
+   "cmd": "key 61",
+   "expect": [
+    "^err: 0 < s <= 60\\r\\n$"
+   ]
+  },
+  {
+   "cmd": "tone 20 1",
+   "expect": [
+    "^err: tone <50-4000 hz> <s<=60>\\r\\n$"
+   ]
+  },
+  {
+   "cmd": "key 1",
+   "advance_ms": 1500,
+   "expect": [
+    "^keyed 1\\.0 s\\r\\n",
+    "\\r\\nok\\r\\n"
+   ],
+   "c_only": [
+    "\\r\\nok\\r\\n"
+   ],
+   "keyed_after": false
+  },
+  {
+   "cmd": "tone 800 1",
+   "advance_ms": 1500,
+   "expect": [
+    "^tone 800 Hz 1\\.0 s\\r\\n",
+    "\\r\\nok\\r\\n"
+   ],
+   "c_only": [
+    "\\r\\nok\\r\\n"
+   ],
+   "keyed_after": false
+  },
+  {
+   "cmd": "id",
+   "advance_ms": 20000,
+   "expect": [
+    "^morse: KY4ZR TEST\\r\\n",
+    "\\r\\nok\\r\\n"
+   ],
+   "c_only": [
+    "\\r\\nok\\r\\n"
+   ]
+  },
+  {
+   "cmd": "freq 146.52",
+   "expect": [
+    "^carrier 146\\.5200 MHz\\r\\nok\\r\\n"
+   ]
+  },
+  {
+   "cmd": "freq 150",
+   "expect": [
+    "^err: "
+   ]
+  },
+  {
+   "cmd": "stop",
+   "expect": [
+    "^ok\\r\\n"
+   ],
+   "keyed_after": false
+  },
+  {
+   "cmd": "reload",
+   "expect": [
+    "^reload: console\\r\\n",
+    "FOX template=morse-songs/\\S+ foxlib=c-\\S+ board=picofox-foxlibc uid=[0-9a-f]{16} cfg=ok radio=ok id=set freq=146\\.565\\r\\n",
+    "\\r\\nok\\r\\n"
+   ]
+  },
+  {
+   "cmd": "bogus",
+   "expect": [
+    "^err: unknown command 'bogus' \\(help\\)\\r\\n$"
+   ]
+  },
+  {
+   "cmd": "bootsel",
+   "expect": [
+    "^ok \\(entering UF2 bootloader: the RPI-RP2 drive appears\\)\\r\\n$"
+   ],
+   "bootsel": true
+  },
+  {
+   "cmd": "key 5",
+   "then": [
+    "atten 40"
+   ],
+   "advance_ms": 200,
+   "expect": [
+    "^ok \\(stopped\\)\\r\\nattenuation 40\\r\\nok\\r\\n"
+   ],
+   "c_only": [
+    "^ok \\(stopped\\)\\r\\nattenuation 40\\r\\nok\\r\\n"
+   ],
+   "note": "F15: atten during a bench action stops it (answering it) and applies — core 1 refuses the write mid-stream, so core 0 stops first; the value used to be dropped while the console printed ok"
+  },
+  {
+   "cmd": "key 5",
+   "then": [
+    "reload"
+   ],
+   "advance_ms": 200,
+   "expect": [
+    "^ok \\(stopped\\)\\r\\nreload: console\\r\\n"
+   ],
+   "c_only": [
+    "^ok \\(stopped\\)\\r\\nreload: console\\r\\n"
+   ],
+   "note": "F15: a reload during a bench action answers the action (ok (stopped)) so a waiting host is released"
+  }
+ ]
+}

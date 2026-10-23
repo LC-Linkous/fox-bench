@@ -14,6 +14,7 @@
 #include "hardware/watchdog.h"
 #include "msc_disk.h"
 #include "pico/bootrom.h"
+#include "pico/time.h"
 #include "player.h"
 #include "tusb.h"
 
@@ -91,7 +92,7 @@ static void dispatch(char *cmd) {
         if (hz < 50 || hz > 4000 || s <= 0 || s > 60) con_puts("err: tone <50-4000 hz> <s<=60>\r\n"); else if (fox_bench_tone((float)hz, (uint32_t)(s * 1000))) con_printf("tone %.0f Hz %.1f s\r\n", hz, s); }
     else if (!strcmp(cmd, "id")) { fox_bench_id(); }
     else if (!strcmp(cmd, "freq")) { double m = arg ? atof(arg) : 0; if (fox_bench_freq(m)) con_printf("carrier %.4f MHz\r\nok\r\n", m); else con_puts("err: retune\r\n"); }
-    else if (!strcmp(cmd, "atten")) { int v = arg ? atoi(arg) : -1; if (v < 0 || v > 127) con_puts("err: 0-127\r\n"); else { player_set_attenuation(v); con_printf("attenuation %d\r\nok\r\n", v); } }
+    else if (!strcmp(cmd, "atten")) { int v = arg ? atoi(arg) : -1; if (v < 0 || v > 127) con_puts("err: 0-127\r\n"); else if (fox_bench_atten(v)) con_printf("attenuation %d\r\nok\r\n", v); else con_puts("err: attenuator not set (a rev 2 board has none; or no config / core 1 not answering)\r\n"); }
     else if (!strcmp(cmd, "stop")) { fox_bench_stop(); con_puts("ok\r\n"); }
     else if (!strcmp(cmd, "reload")) { fox_reload("console"); con_puts("ok\r\n"); }
     else if (!strcmp(cmd, "reboot")) { fox_quiesce(); con_puts("ok\r\n"); pump(); flash_disk_flush(); watchdog_reboot(0, 0, 50); }

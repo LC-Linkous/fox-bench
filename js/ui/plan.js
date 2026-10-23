@@ -4,7 +4,7 @@ import * as kitsune from './kitsune.js';
 import { h, badge, numInput, check } from './dom.js';
 
 let app, root;
-export function init(a, el) { app = a; root = el; app.listeners.add(render); render(); }
+export function init(a, el) { app = a; root = el; kitsune.init(a); app.listeners.add(render); render(); }   // kitsune.init before the first render: a saved kitsune form renders this tab at boot, before the ID tab's init
 
 function whyBad(f) {
   const inMod = app.cfg.radio.ranges_mhz.some(([a, b]) => f >= a && f <= b);

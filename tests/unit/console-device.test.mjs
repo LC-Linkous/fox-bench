@@ -73,3 +73,13 @@ test('demoConsole follows the working config (template, callsign) and logs like 
   assert.equal(device.kind, 'demo');
   await device.close();
 });
+
+test('drawer send(): one write, after the fox has been quiet, and no second tx log line (the drawer logs it)', async () => {
+  const link = new FakeConsoleLink({ latency: 5 }); const d = new ConsoleDevice(link); const logs = []; d.onLog = (t, cls) => logs.push([cls, t]);
+  await link.open(); await sleep(50);
+  link._emit('cycle 1 @ 146.5650 MHz\r\n');   // the fox is printing: the drawer must wait for ≥150 ms of silence
+  const t0 = Date.now(); await d.send('status');
+  assert.ok(Date.now() - t0 >= 120, `waited for quiet (${Date.now() - t0} ms)`);
+  assert.deepEqual(link.sent.filter(l => l === 'status'), ['status'], 'written exactly once');
+  assert.equal(logs.filter(([cls]) => cls === 'tx').length, 0, 'send() does not log a tx line itself');
+});

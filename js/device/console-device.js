@@ -87,13 +87,16 @@ export class ConsoleDevice extends Device {
 }
 
 /** A Link that answers like the foxlib-c firmware's console: for the demo and the unit tests. */
+/** The version the fake claims. Old on purpose (0.1.0 predates `chg` and `correction_ppm`), so the page's compat badge
+ *  and feature gating are exercised against the demo; the reply *shapes* follow the current firmware (console_corpus.json). */
+const FAKE_VERSION = '0.1.0';
 export class FakeConsoleLink extends Link {
   constructor({ uid = 'e66138935f0a1b2c', template = 'morse-songs', callsign = 'N0CALL DECOY DECOY N0CALL', revision = 3, latency = 5, log = true } = {}) {
-    super(); Object.assign(this, { uid, template, callsign, revision, latency, logging: log, keyed: false, atten: 0, carrier: 146.565, charging: false, bootsel: false, sent: [] });
+    super(); Object.assign(this, { uid, template, callsign, revision, latency, logging: log, keyed: false, atten: 0, carrier: 146.565, cfgCarrier: 146.565, charging: false, bootsel: false, sent: [], _t0: Date.now() });
     this._timers = [];
   }
   async open() { this._emit(this.banner()); }
-  banner() { const set = !this.callsign.includes('N0CALL'); return `initializing system ... \r\nFOX template=${this.template}/0.1.0 foxlib=c-0.1.0 board=picofox-foxlibc uid=${this.uid} cfg=ok radio=ok id=${set ? 'set' : 'unset'} freq=${this.carrier}\r\n${set ? '' : '** callsign not set: staying silent (id.tx_without_callsign=false) **\r\n'}`; }
+  banner() { const set = !this.callsign.includes('N0CALL'); return `initializing system ... \r\nFOX template=${this.template}/${FAKE_VERSION} foxlib=c-${FAKE_VERSION} board=picofox-foxlibc uid=${this.uid} cfg=ok radio=ok id=${set ? 'set' : 'unset'} freq=${this.carrier}\r\n${set ? '' : '** callsign not set: staying silent (id.tx_without_callsign=false) **\r\n'}`; }
   _emit(text, after = this.latency) { const t = setTimeout(() => this._feed(this.enc.encode(text)), after); this._timers.push(t); }
   async write(data) {
     const text = typeof data === 'string' ? data : dec.decode(data);
@@ -103,20 +106,20 @@ export class FakeConsoleLink extends Link {
     const [cmd, ...a] = line.split(/\s+/);
     const reply = (t, ms) => this._emit(t + '\r\n', ms ?? this.latency);
     switch (cmd) {
-      case 'help': reply('fox-bench PicoFox console\r\n  status   key <s>   tone <hz> <s>   id   batt   files   reload   stop   bootsel\r\nok'); break;
-      case 'status': reply(`${this.banner().split('\r\n')[1]}\r\nrevision=${this.revision} si5351=ok carrier=${(this.carrier * 1e6).toFixed(1)} keyed=${this.keyed ? 1 : 0} attenuation=${this.atten} i2c_write_us=78 state=0\r\ncharging=${this.charging ? 'yes' : 'no'} host_drive=no host_writes=0 dirty=0\r\nfiles: README.txt 212  defaults.json 1830  fox.json 1830\r\nok`); break;
+      case 'help': reply('fox-bench PicoFox console\r\n  status            banner line, revision, charging, drive, files\r\n  key <s>           unmodulated carrier for s seconds (max 60)\r\n  tone <hz> <s>     carrier with a tone\r\n  id                send the ID once now\r\n  freq <mhz>        retune until the next reload\r\n  atten <0-127>     attenuator code now (rev 3 boards; dB per step not yet metered)\r\n  batt              charging state (no voltage sense on this board)\r\n  files | reload | stop | uid | version | reboot | bootsel\r\nok'); break;
+      case 'status': reply(`${this.banner().split('\r\n')[1]}\r\nuptime=${Math.floor((Date.now() - this._t0) / 1000)}s reset=power_on version=${FAKE_VERSION}\r\nrevision=${this.revision} si5351=ok carrier=${(this.carrier * 1e6).toFixed(1)} keyed=${this.keyed ? 1 : 0} attenuation=${this.atten} i2c_write_us=78 i2c_errors=0 core1=ok correction_ppm=0.0 state=${this.keyed ? 1 : 0}\r\ncharging=${this.charging ? 'yes' : 'no'} host_drive=no host_writes=0 dirty=0\r\nfiles: board.json 77  README.txt 212  defaults.json 1830  fox.json 1830\r\nok`); break;
       case 'key': { const s = parseFloat(a[0] || '2'); if (!(s > 0 && s <= 60)) { reply('err: 0 < s <= 60'); break; } this.keyed = true; reply(`keyed ${s.toFixed(1)} s`); this._emit('ok\r\n', s * 1000 + this.latency); this._timers.push(setTimeout(() => { this.keyed = false; }, s * 1000)); break; }
       case 'tone': { const hz = parseFloat(a[0] || '0'), s = parseFloat(a[1] || '2'); if (!(hz >= 50 && hz <= 4000 && s > 0 && s <= 60)) { reply('err: tone <50-4000 hz> <s<=60>'); break; } reply(`tone ${hz.toFixed(0)} Hz ${s.toFixed(1)} s`); this._emit('ok\r\n', s * 1000 + this.latency); break; }
       case 'id': reply(`morse: ${this.callsign}`); this._emit('ok\r\n', 300); break;
-      case 'batt': reply(`batt charging=${this.charging ? 'yes' : 'no'} volts=none\r\nok`); break;
+      case 'batt': reply(`batt charging=${this.charging ? 'yes' : 'no'} volts=none note=${this.charging ? 'charger_active' : 'charger_idle(full_or_no_usb_power)'}\r\nok`); break;
       case 'files': reply('README.txt 212  defaults.json 1830  fox.json 1830\r\nok'); break;
       case 'freq': { const m = parseFloat(a[0] || '0'); if (!(m >= 144.02 && m <= 147.98)) { reply('err: outside the module ranges'); break; } this.carrier = m; reply(`carrier ${m.toFixed(4)} MHz\r\nok`); break; }
       case 'atten': { const v = parseInt(a[0] || '-1', 10); if (!(v >= 0 && v <= 127)) { reply('err: 0-127'); break; } this.atten = v; reply(`attenuation ${v}\r\nok`); break; }
       case 'stop': this.keyed = false; reply('ok'); break;
-      case 'reload': reply(`reload: console\r\n${this.banner()}ok`); break;
+      case 'reload': this.carrier = this.cfgCarrier; reply(`reload: console\r\n${this.banner()}ok`); break;   // a console `freq` lasts until the next reload
       case 'uid': reply(`uid=${this.uid}\r\nok`); break;
-      case 'version': reply('foxlib-c 0.1.0 board=picofox-foxlibc\r\nok'); break;
-      case 'bootsel': this.bootsel = true; reply('ok (entering UF2 bootloader: the RPI-RP2 drive appears)'); this._timers.push(setTimeout(() => { if (this.onDrop) this.onDrop(new Error('port gone')); }, 50)); break;
+      case 'version': reply(`foxlib-c ${FAKE_VERSION} board=picofox-foxlibc\r\nok`); break;
+      case 'bootsel': this.bootsel = true; reply('ok (entering UF2 bootloader: the RPI-RP2 drive appears)'); this._timers.push(setTimeout(() => { if (this.onDrop) this.onDrop(new Error('port gone')); }, 50)); return;   // no second ok: the port is gone
       default: reply(`err: unknown command '${cmd}' (help)`);
     }
   }

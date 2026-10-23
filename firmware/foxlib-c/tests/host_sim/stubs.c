@@ -12,6 +12,7 @@
 #include "si5351.h"
 
 uint64_t sim_now_us;
+void sim_spin(void) {}
 const char *sim_dir = ".";
 int sim_host_drive = 0, sim_charging = 0;
 
@@ -20,7 +21,9 @@ int sim_host_drive = 0, sim_charging = 0;
 static struct { double t; int on; } ptt[MAXREC]; static int n_ptt;
 static struct { double s, e; float hz; } tones[MAXREC]; static int n_tones;
 static double retunes[256]; static int n_retunes;
+#ifndef SIM_REAL_CONSOLE
 static char prints[1 << 16]; static size_t n_prints;
+#endif
 int sim_unkeys;
 
 static void rec_ptt(int on) { if (n_ptt < MAXREC) { ptt[n_ptt].t = sim_now_us / 1000.0; ptt[n_ptt].on = on; n_ptt++; } if (!on) sim_unkeys++; }
@@ -31,7 +34,9 @@ static uint32_t keyed_at;
 void player_start(void) {}
 bool player_set_carrier(double hz) { carrier = hz; if (n_retunes < 256) retunes[n_retunes++] = hz; return hz >= 100e6 && hz <= 200e6; }
 void player_key(bool on) { if (on == keyed) return; keyed = on; rec_ptt(on); if (on) keyed_at = (uint32_t)(sim_now_us / 1000); }
-void player_set_attenuation(int code) { (void)code; }
+int sim_atten = -1, sim_si5351_absent_until_reprobe = 0, sim_reprobes;
+bool player_set_attenuation(int code) { if (cur) return false; sim_atten = code; return true; }   /* refused mid-stream, as core 1 does */
+bool player_reprobe(void) { sim_reprobes++; if (sim_si5351_absent_until_reprobe > 0) sim_si5351_absent_until_reprobe--; return sim_si5351_absent_until_reprobe == 0; }
 void player_set_correction_ppm(double ppm) { (void)ppm; }
 void player_play(play_req_t *req) {
     req->done = false; req->cut = false; req->played = 0; req->late = 0;
@@ -51,7 +56,7 @@ void player_play(play_req_t *req) {
 }
 void player_stop(void) { if (cur) { cur->cut = true; cur->done = true; cur = NULL; } }
 bool player_busy(void) { return cur != NULL; }
-void player_status(player_status_t *out) { memset(out, 0, sizeof *out); out->si5351_ok = true; out->revision = 3; out->carrier_hz = carrier; out->keyed = keyed; out->core1_alive = true; }
+void player_status(player_status_t *out) { memset(out, 0, sizeof *out); out->si5351_ok = sim_si5351_absent_until_reprobe == 0; out->revision = 3; out->carrier_hz = carrier; out->keyed = keyed; out->core1_alive = true; }
 uint32_t player_keyed_ms(void) { return keyed ? (uint32_t)(sim_now_us / 1000) - keyed_at : 0; }
 bool player_charging(void) { return sim_charging; }
 bool player_alive(void) { return true; }
@@ -76,12 +81,19 @@ long fs_size(const char *path) { FILE *f = openp(path, "rb"); if (!f) return -1;
 int fs_seed(const char *bj) { (void)bj; return 0; }
 int fs_list(char *out, size_t cap) { snprintf(out, cap, "fox.json defaults.json"); return 2; }
 
-/* ---- console */
+int sim_keyed_now(void) { return keyed; }
+
+/* ---- console: a capture for host_sim; console_sim compiles the real console.c instead (-DSIM_REAL_CONSOLE) */
+#ifndef SIM_REAL_CONSOLE
 void con_init(void) {}
 void con_poll(void) {}
 bool con_connected(void) { return true; }
+void con_set_reset_reason(const char *why) { (void)why; }
 void con_puts(const char *s) { size_t n = strlen(s); if (n_prints + n < sizeof prints) { memcpy(prints + n_prints, s, n); n_prints += n; } }
 void con_printf(const char *fmt, ...) { char b[320];   /* the same size as the firmware's, so a line that would be cut there is cut here */ va_list ap; va_start(ap, fmt); vsnprintf(b, sizeof b, fmt, ap); va_end(ap); con_puts(b); }
+#else
+static char prints[1]; static size_t n_prints;   /* sim_dump still links */
+#endif
 
 /* ---- drive */
 bool msc_host_has_drive(void) { return sim_host_drive; }

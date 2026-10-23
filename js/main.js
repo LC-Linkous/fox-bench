@@ -27,7 +27,7 @@ import * as tabBench from './ui/bench.js';
 import * as tabFleet from './ui/fleet.js';
 import * as tabAbout from './ui/about.js';
 
-const VERSION = '0.7.9';
+const VERSION = '0.7.10';
 /** Tab subtitles that read differently per device family (null = the page's original text). */
 const LEDES = { drive: {
   board: 'Which fox is on the bench, open its USB drive (or use the simulated one). The vendor firmware stays; the page writes its files.',
@@ -143,8 +143,8 @@ export const app = {
     if (carry && prev) {
       for (const k of ['module', 'pins', 'radio', 'plan', 'id', 'battery', 'limits', 'fleet']) next[k] = structuredClone(prev[k]);
       const sec = this.template.sections;
-      if (sec.includes(`payload.${prev.payload.kind}`) || sec.includes('payload.*')) next.payload = structuredClone(prev.payload);
-      if (sec.includes(`schedule.${prev.schedule.kind}`) || sec.includes('schedule.*')) next.schedule = structuredClone(prev.schedule);
+      if (prev.payload && (sec.includes(`payload.${prev.payload.kind}`) || sec.includes('payload.*'))) next.payload = structuredClone(prev.payload);
+      if (prev.schedule && (sec.includes(`schedule.${prev.schedule.kind}`) || sec.includes('schedule.*'))) next.schedule = structuredClone(prev.schedule);   // compiled-family configs have no payload
     }
     this.cfg = next;
     this.changed('template');

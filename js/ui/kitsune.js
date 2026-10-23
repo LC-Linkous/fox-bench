@@ -4,7 +4,7 @@
 import { h, badge, field, select, numInput, check } from './dom.js';
 
 let app;
-export function init(a) { app = a; }
+export function init(a) { app = a; }   // idempotent; every tab that renders a kitsune form calls it from its own init
 
 const sec = () => app.vendor.TEMPLATES[app.templateId]?.section;
 const mode = () => app.vendor.TEMPLATES[app.templateId]?.mode;

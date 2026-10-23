@@ -50,7 +50,7 @@ async function bootInSimulator(entries, label) {
   return new Promise((res, rej) => execFile('python3', [join(ROOT, 'firmware/sim/run.py'), '--deploy-set', dir], { timeout: 120000 }, (err, stdout, stderr) => err ? rej(new Error(`${label}: simulator failed\n${stdout}${stderr}`)) : res(stdout)));
 }
 
-const { url, close } = await serve(ROOT);
+const { url, close, overrides } = await serve(ROOT);
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM || undefined });
 const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 }, acceptDownloads: true });
 await ctx.route(/^https?:\/\/(?!127\.0\.0\.1)/, r => r.fulfill({ status: 200, contentType: 'text/css', body: '' }));   // no fonts, no network: the page must work offline
@@ -95,7 +95,9 @@ try {
   check(badges.some(b => /outside the .* range/.test(b)), 'UHF entry flagged against the VHF module');
   await page.click('#tab-plan .list li:nth-child(2) button[title="remove"]'); await settle(150);
   await tab('deploy');
-  check(await page.isDisabled('#tab-deploy button.btn.primary'), 'deploy disabled while callsign unset');
+  await page.check('#tab-deploy .gate input');
+  check(await page.isDisabled('#tab-deploy button.btn.primary'), 'deploy disabled while callsign unset (gate ticked, so the callsign is the reason)');
+  await page.uncheck('#tab-deploy .gate input');
   await tab('id');
   await page.fill('#tab-id input[type=text]', 'W1ABC FOX DE W1ABC'); await settle(200);
   eq(await app(() => window.foxbench.cfg.id.callmessage), 'W1ABC FOX DE W1ABC', 'callsign stored without losing focus');
@@ -121,12 +123,12 @@ try {
 
   console.log('bench');
   await tab('bench');
-  await page.click('#tab-bench button:has-text("Read RSSI")'); await settle(500);
+  await page.click('#tab-bench button:has-text("Read RSSI")'); await untilTextArgs('#tab-bench pre.out', /rssi\s+\d+/, 10000);
   check(/rssi\s+\d+/.test(await text('#tab-bench pre.out')), 'RSSI logged');
   await page.click('#tab-bench button:has-text("Key")'); await untilTextArgs('#tab-bench pre.out', /key\s+ok/, 20000);   // demo keys for the configured 3 s
   check(/key\s+ok/.test(await text('#tab-bench pre.out')), 'key test logged ok');
   await tab('radio');
-  await page.click('#tab-radio button:has-text("Probe")'); await settle(500);
+  await page.click('#tab-radio button:has-text("Probe")'); await untilTextArgs('#tab-radio', /146\.5 MHz accepted/, 10000);
   check(/146\.5 MHz accepted/.test(await text('#tab-radio')), 'probe reports the VHF band');
 
   console.log('flash CircuitPython (demo esptool)');
@@ -165,8 +167,10 @@ try {
   await tab('payload'); await page.selectOption('#tab-payload select', 'sstv'); await settle(600);
   check((await page.$$('#tab-payload canvas')).length >= 2, 'SSTV preview draws decode canvases');
   const xs = await page.$$('#tab-payload button[title="remove"]');
+  check(xs.length >= 1, 'the SSTV card has a remove button');
   if (xs.length) { await xs[0].click(); await settle(200); }
-  check(/no images/i.test(await text('#tab-payload')) || (await app(() => window.foxbench.images.length)) > 0, 'removing the only SSTV card warns instead of refusing');
+  eq(await app(() => window.foxbench.images.length), 0, 'removing the only SSTV card removes it');
+  check(/no images/i.test(await text('#tab-payload')), 'and the tab warns rather than refusing');
   await tab('schedule'); await page.selectOption('#tab-schedule select', 'resurrection'); await settle(300);
   check(await page.$('#tab-schedule canvas'), 'schedule timeline drawn');
 
@@ -179,7 +183,8 @@ try {
   badges = await page.$$eval('#tab-plan .list .badge', els => els.map(e => e.textContent));
   check(badges.some(b => /outside the US bands/.test(b)), 'out-of-band entry flagged red, not refused');
   await tab('deploy');
-  check(!(await page.isDisabled('#tab-deploy button.btn.primary')) || !(await page.isChecked('#tab-deploy .gate input')), 'out-of-band does not block deploy');
+  await page.check('#tab-deploy .gate input');
+  check(!(await page.isDisabled('#tab-deploy button.btn.primary')), 'out-of-band does not block deploy (gate ticked, button enabled)');
   page.removeAllListeners('dialog');
   let dialog = null; page.once('dialog', async d => { dialog = d.message(); await d.accept(); });
   await page.check('#tab-deploy .gate input'); await page.click('#tab-deploy button.btn.primary'); await until(() => !!window.foxbench.lastDeploy, 'the deploy to finish'); await settle(300);
@@ -556,6 +561,54 @@ try {
   check(/cur\.uf2 flashed .*the RPI-RP2 drive went away, so the board rebooted into it/.test(await text('#log')), 'the copy succeeds when the bootloader drive vanishes mid-close (the close() error is tolerated)');
   check(/close\(\) said "gone"/.test(await text('#log')), 'the close() error is reported, not treated as failure');
   await app(() => { delete window.__drives; });
+  await tab('board'); await page.selectOption('#tab-board select', 'seeed_xiao_esp32c3'); await settle(400);
+  await page.click('#demoBtn'); await settle(600);
+
+  console.log('hosted images: the CI-written fingerprint and kitsune manifest, served by the test server');
+  const { createHash } = await import('node:crypto');
+  const sha = b => createHash('sha256').update(b).digest('hex');
+  const hostedUf2 = mkUf2('FOXLIBC-VERSION:9.9.9'), kImage = Buffer.alloc(8192, 0xe9);
+  overrides.set('/firmware/foxlib-c/picofox/foxbench-picofox.uf2', { body: hostedUf2 });
+  overrides.set('/firmware/foxlib-c/picofox/foxbench-picofox.json', { body: JSON.stringify({ name: 'foxbench-picofox.uf2', version: '9.9.9', version_tag: '9.9.9', commit: 'abc1234def', pico_sdk: 'bddd20f9', gcc: 'arm-none-eabi-gcc 15.2.1', sha256: sha(hostedUf2), size: hostedUf2.length, text: 1, bss: 1, built: '2026-10-22T00:00:00Z' }), type: 'application/json' });
+  overrides.set('/firmware/kitsune/manifest.json', { body: JSON.stringify({ project: 'kitsune', source: 'https://github.com/rfhs/kitsune', commit: '0123456789abcdef0123456789abcdef01234567', built: '', tools: { platformio: '6.1.18', esptool: '4.8.1' }, note: 'smoke fixture',
+    images: [{ board: 'm5stack_atom_lite-kitsune', template: 'wifi-ap', tier: 'easy', mode: 'AP', env: 'm5atom-easy-ap', file: 'm5atom-easy-ap.bin', sha256: sha(kImage), size: kImage.length, chip: 'esp32', offset: '0x0' }] }), type: 'application/json' });
+  overrides.set('/firmware/kitsune/m5atom-easy-ap.bin', { body: kImage });
+  await page.goto(url); await page.waitForFunction(() => window.foxbench?.catalog); await settle(400);   // the cards cache "no file on this site" per page load
+  await tab('board'); await page.selectOption('#tab-board select', 'picofox-foxlibc'); await untilTextArgs('#tab-board', /Hosted build: c-9\.9\.9 · commit abc1234/, 5000);
+  check(/Hosted build: c-9\.9\.9 · commit abc1234 · arm-none-eabi-gcc 15\.2\.1 · pico-sdk bddd20f/.test(await text('#tab-board')), 'the Board tab shows the fingerprint CI wrote');
+  await page.click('#tab-board button:has-text("Get fox-bench firmware")'); await untilTextArgs('#log', /fetched foxbench-picofox\.uf2 .*= pinned/, 5000);
+  check(/= pinned\) — fox-bench firmware c-9\.9\.9 built from this site's source at abc1234/.test(await text('#log')), 'a fetched image that matches the fingerprint is accepted and labelled with the build');
+  check(/foxbench-picofox\.uf2 .*fox-bench firmware · foxlib-c 9\.9\.9/.test(await text('#tab-board')), 'the card shows the image with its in-image version');
+  overrides.set('/firmware/foxlib-c/picofox/foxbench-picofox.uf2', { body: mkUf2('FOXLIBC-VERSION:9.9.8') });   // the site mid-deploy: a different UF2 under the same fingerprint
+  await page.click('#tab-board button:has-text("Get fox-bench firmware")'); await untilTextArgs('#log', /firmware fetch failed: foxbench-picofox\.uf2 rejected/, 5000);
+  check(/rejected: .*sha256 .*mid-deploy: reload the page and try again/.test(await text('#log')), 'an image whose sha256 differs from the fingerprint is refused with the mid-deploy hint');
+  await page.selectOption('#tab-board select', 'm5stack_atom_lite-kitsune'); await settle(300);
+  await tab('behavior'); await page.selectOption('#tab-behavior select', 'wifi-ap'); await settle(300);
+  await tab('board'); await untilTextArgs('#tab-board', /Get easy wifi-ap/, 5000);
+  check(/Images for the M5Stack ATOM Lite \(kitsune firmware\) and the Wi-Fi access point/.test(await text('#tab-board')) && /built from kitsune at 0123456/.test(await text('#tab-board')), 'the firmware card lists the manifest\'s image for this board × template');
+  await page.click('#tab-board button:has-text("Get easy wifi-ap")'); await untilTextArgs('#log', /fetched m5atom-easy-ap\.bin .*= manifest/, 5000);
+  check(/m5atom-easy-ap\.bin · 8 kB · from this site/.test(await text('#tab-board')), 'the fetched kitsune image is loaded and marked as the site\'s');
+  overrides.set('/firmware/kitsune/m5atom-easy-ap.bin', { body: Buffer.alloc(8192, 0xea) });
+  await page.click('#tab-board button:has-text("Get easy wifi-ap")'); await untilTextArgs('#log', /image fetch failed: sha256 .* does not match the manifest's/, 5000);
+  check(/does not match the manifest's .*a deploy may be in progress/.test(await text('#log')), 'a kitsune image whose sha256 differs from the manifest is refused');
+  await app(() => { window.foxbenchFlash.simulate = true; window.foxbenchFlash.simulateChip = 'ESP32-PICO-D4 (revision v1.0)'; });
+  await tab('board'); await page.selectOption('#tab-board select', 'm5stack_atom_lite-kitsune'); await settle(200);
+  await page.click('#tab-board button:has-text("Get easy wifi-ap")');   // re-fetch the bad one fails; the good image from before is still loaded
+  await settle(500);
+  overrides.set('/firmware/kitsune/m5atom-easy-ap.bin', { body: kImage });
+  await page.click('#tab-board button:has-text("Get easy wifi-ap")'); await untilTextArgs('#log', /fetched m5atom-easy-ap\.bin .*= manifest/, 5000);
+  await page.click('#tab-board button:has-text("Flash")'); await untilFleet("r.action === 'flash' && r.board === 'm5stack_atom_lite-kitsune' && r.result === 'ok'", 15000);
+  const kw = await app(() => window.foxbenchFlash.lastWrite?.());
+  check(kw && kw.address === 0 && kw.length === 8192, 'the site\'s merged image is written at 0x0 on the ATOM Lite (bootloader offset 0x1000 is inside it): ' + JSON.stringify(kw));
+  check(/SIMULATED flash \(test mode\)/.test(await text('#log')), 'a simulated flash says so in the log');
+  await app(() => { window.foxbenchFlash.simulate = false; window.foxbenchFlash.simulateChip = ''; });
+  for (const k of [...overrides.keys()]) overrides.delete(k);
+  // a page whose saved working form is a kitsune target must boot (every tab renders at boot, before the ID tab's init)
+  for (const t of ['radio', 'plan', 'schedule', 'deploy']) {
+    await tab(t);
+    await page.goto(url); const booted = await until(() => window.foxbench?.catalog && window.foxbench.boardId === 'm5stack_atom_lite-kitsune', `boot with a saved kitsune form on the ${t} tab`, 5000);
+    check(booted, `reload with a kitsune target saved and the ${t} tab open boots`);
+  }
   await tab('board'); await page.selectOption('#tab-board select', 'seeed_xiao_esp32c3'); await settle(400);
   await page.click('#demoBtn'); await settle(600);
 

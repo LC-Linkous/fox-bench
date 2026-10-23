@@ -6,7 +6,7 @@ import { timeline, drawTimeline } from '../audio/schedule.js';
 import { airtime, fmtDuration } from '../model/airtime.js';
 
 let app, root, horizonH = 4;
-export function init(a, el) { app = a; root = el; app.listeners.add(render); render(); }
+export function init(a, el) { app = a; root = el; kitsune.init(a); app.listeners.add(render); render(); }   // kitsune.init before the first render: a saved kitsune form renders this tab at boot, before the ID tab's init
 
 const KINDS = { fixed: 'Fixed delay', popcorn: 'Popcorn — seeded clusters and dark periods', resurrection: 'Resurrection — plays dead on a seeded schedule' };
 const kindsForTemplate = () => { const s = app.template.sections; return s.includes('schedule.*') ? Object.keys(KINDS) : Object.keys(KINDS).filter(k => s.includes('schedule.' + k)); };

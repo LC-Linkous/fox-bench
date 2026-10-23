@@ -90,8 +90,14 @@ text console (115200, rate ignored):
   `atten <0-127>`, `batt`, `files`, `reload`, `stop`, `uid`, `version`,
   `reboot`, `bootsel` (jump to the UF2 bootloader). Ctrl-C stops a bench
   action. A bench action pauses the cycle and the cycle resumes a second
-  after it ends; `stop` releases a running action with `ok (stopped)`
-  before its own `ok`. The page's `js/device/console-device.js` sends one
+  after it ends; `stop`, `reload` and `atten` release a running action with
+  `ok (stopped)` before their own reply. `key`, `tone` and `id` obey the
+  callsign gate the cycle obeys (`err: callsign unset`); `freq` and `atten`
+  stop whatever is on the air, apply until the next reload, and restart the
+  cycle (0.1.10 — core 1 refuses a register write mid-stream, so core 0
+  stops first). The corpus of replies is
+  `firmware/foxlib-c/tests/console_corpus.json`, run against the firmware
+  and against the fake. The page's `js/device/console-device.js` sends one
   command at a time and treats every line up to the `ok`/`err:` as that
   command's output (`tests/unit/console-device.test.mjs`, against a fake
   console); the Bench tab's buttons and the Board tab's "Enter UF2

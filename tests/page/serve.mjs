@@ -8,9 +8,11 @@ const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/jav
 
 export function serve(root, port = 0) {
   root = resolve(root);
+  const overrides = new Map();   // path → { body: Buffer|string, type } set by a test to play a deployed site (CI-written files)
   const srv = http.createServer(async (req, res) => {
     let p = decodeURIComponent(new URL(req.url, 'http://x').pathname);
     if (p.endsWith('/')) p += 'index.html';
+    if (overrides.has(p)) { const o = overrides.get(p); res.writeHead(200, { 'content-type': o.type || 'application/octet-stream', 'cache-control': 'no-store' }); return res.end(o.body); }
     const file = resolve(join(root, p));
     if (!file.startsWith(root)) { res.writeHead(403); return res.end(); }
     try {
@@ -20,7 +22,7 @@ export function serve(root, port = 0) {
       res.end(await readFile(file));
     } catch { res.writeHead(404); res.end('not found: ' + p); }
   });
-  return new Promise(ok => srv.listen(port, '127.0.0.1', () => ok({ url: `http://127.0.0.1:${srv.address().port}/`, close: () => new Promise(r => srv.close(r)) })));
+  return new Promise(ok => srv.listen(port, '127.0.0.1', () => ok({ url: `http://127.0.0.1:${srv.address().port}/`, overrides, close: () => new Promise(r => srv.close(r)) })));
 }
 
 if (process.argv[1] && import.meta.url.endsWith(process.argv[1].replace(/\\/g, '/').split('/').pop())) {

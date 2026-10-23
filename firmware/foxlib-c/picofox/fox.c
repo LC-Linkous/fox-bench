@@ -56,7 +56,8 @@ static bool rotating, bench_active, cycle_restart;
 static uint32_t cut_warned;
 static char uid[2 * PICO_UNIQUE_BOARD_ID_SIZE_BYTES + 1];
 
-static uint32_t now_ms(void) { return to_ms_since_boot(get_absolute_time()); }
+static uint32_t now_ms(void) { return to_ms_since_boot(get_absolute_time()); }   /* 32-bit: only ever used in wrap-safe differences */
+static int64_t now_ms64(void) { return (int64_t)(time_us_64() / 1000); }          /* for the scheduler's absolute `until`: wraps in 292 million years, not 49.7 days */
 
 const fox_cfg_t *fox_cfg(void) { return &cfg; }
 const cfg_report_t *fox_report(void) { return &report; }
@@ -105,13 +106,14 @@ static bool freq_allowed(double f) {
 static void setup_radio(void) {
     player_status_t ps; player_status(&ps);
     if (!ps.core1_alive) { strcpy(radio_status, "core1_dead"); return; }
+    if (!ps.si5351_ok && player_reprobe()) { player_status(&ps); con_puts("si5351: answers now (was absent at boot)\r\n"); }   /* F14 */
     if (!ps.si5351_ok) { strcpy(radio_status, "nosi5351"); return; }
     if (!have_cfg || report.fatal[0]) { strcpy(radio_status, "skipped"); return; }
     freq_index = 0; next_index = 0; rotating = cfg.plan.n > 1;
     for (int i = 0; i < cfg.plan.n; i++) if (!freq_allowed(cfg.plan.frequencies_mhz[i])) { strcpy(radio_status, "band_edge"); return; }
     player_set_correction_ppm(cfg.radio.correction_ppm);
     if (!player_set_carrier(cfg.plan.frequencies_mhz[0] * 1e6)) { strcpy(radio_status, "retune_failed"); return; }
-    if (ps.revision >= 3) player_set_attenuation(cfg.radio.attenuation);
+    if (ps.revision >= 3 && !player_set_attenuation(cfg.radio.attenuation)) con_puts("attenuator: not set (core 1 refused)\r\n");
     strcpy(radio_status, "ok");
 }
 
@@ -225,9 +227,8 @@ static void hold(uint32_t ms) { state = FOX_HOLD; hold_until = now_ms() + ms; ho
 static bool configured(void) { return have_cfg && !report.fatal[0] && !strcmp(radio_status, "ok") && (id_ok || cfg.id.tx_without_callsign); }
 
 static void begin_cycle(void) {
-    uint32_t t = now_ms();
     events_clear(&stream);
-    if (sched_phase(&sched, t) == PHASE_DEAD) {
+    if (sched_phase(&sched, now_ms64()) == PHASE_DEAD) {
         sched_wake_t kind = sched_dead_wake(&sched);
         events_push(&stream, 0, 250);
         if (kind == WAKE_ID) {
@@ -267,13 +268,15 @@ static void begin_cycle(void) {
 static void end_cycle(void) {
     player_key(false);
     if (req.cut) con_puts("keydown limit reached; transmission cut\r\n");
-    if (req.late) con_printf("  (player late on %lu samples)\r\n", (unsigned long)req.late);
+    /* one or two late samples per transmission are the console's own doing (a long reply on core 0 delays core 1's
+     * next 125 us sample once) and not worth a line; more than that means a flash write or a stall and is */
+    if (req.late > 2) con_printf("  (player late on %lu samples)\r\n", (unsigned long)req.late);
     bool dead = sched.dead;
     if (!dead) {
         if (rotating) { freq_index = next_index; if (!player_set_carrier(cfg.plan.frequencies_mhz[freq_index] * 1e6)) con_printf("retune to %.4f failed\r\n", (double)cfg.plan.frequencies_mhz[freq_index]); }
         cycle_n++;
     }
-    hold((uint32_t)sched_wait_ms(&sched, now_ms()));
+    hold((uint32_t)sched_wait_ms(&sched, now_ms64()));
 }
 
 /* Wall-clock keydown guard, independent of core 1. The cycle's budget is enforced by the player in
@@ -306,6 +309,9 @@ void fox_poll(void) {
             if ((int32_t)(t - hold_until) < 0) return;
             if (!configured()) {
                 if (!hold_logged) { con_printf("unconfigured (%s): silent\r\n", report.fatal[0] ? report.fatal : strcmp(radio_status, "ok") ? radio_status : "callsign unset"); hold_logged = true; }
+                /* F14: a synthesiser that was not answering is asked again at every hold — a fox in the field with a slow
+                 * reference comes up on its own instead of staying silent until a power cycle */
+                if (!strcmp(radio_status, "nosi5351")) { setup_radio(); if (configured()) { fox_print_banner(); hold(0); return; } }
                 hold_until = t + HOLD_UNCONFIGURED_MS; return;
             }
             if (!cfg.radio.tx_while_mounted && msc_host_has_drive()) {
@@ -360,6 +366,7 @@ void fox_drive_changed(void) {
 }
 
 void fox_reload(const char *why) {
+    if (state == FOX_BENCH) con_puts("ok (stopped)\r\n");       /* F15: the interrupted bench action's reply, so a waiting host is released */
     if (state == FOX_KEYED || state == FOX_BENCH) { player_stop(); player_key(false); }
     bench_active = false;
     if (why) { con_printf("reload: %s\r\n", why); fs_mount(false); }
@@ -381,6 +388,7 @@ void fox_reload(const char *why) {
 /* ---- bench */
 static bool bench_begin(void) {
     if (!have_cfg || strcmp(radio_status, "ok")) { con_printf("err: radio %s\r\n", radio_status); return false; }
+    if (!id_ok && !cfg.id.tx_without_callsign) { con_puts("err: callsign unset (id.callmessage; the cycle is silent for the same reason)\r\n"); return false; }   /* F15: bench actions obey the same gate as the cycle */
     if (state == FOX_KEYED || state == FOX_BENCH) { player_stop(); player_key(false); }
     bench_active = true; state = FOX_BENCH;
     return true;
@@ -419,6 +427,16 @@ bool fox_bench_freq(double mhz) {
     strcpy(radio_status, ok ? "ok" : "retune_failed");
     hold(0);
     return ok;
+}
+
+/* `atten` from the console: core 1 refuses a register write mid-stream, so stop whatever is on the air, set it, and let
+ * the cycle restart — the same shape as `freq`. The value sticks until the next reload (fox.json's wins then). */
+bool fox_bench_atten(int code) {
+    if (!have_cfg) return false;
+    if (state == FOX_KEYED || state == FOX_BENCH) { if (state == FOX_BENCH) con_puts("ok (stopped)\r\n"); player_stop(); player_key(false); bench_active = false; }
+    if (!player_set_attenuation(code)) return false;
+    cfg.radio.attenuation = code; cycle_restart = true; hold(0);
+    return true;
 }
 
 void fox_bench_stop(void) {

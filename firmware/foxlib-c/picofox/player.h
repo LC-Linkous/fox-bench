@@ -36,7 +36,8 @@ typedef struct {
 void player_start(void);                        /* launches core 1; blocks until its setup ran */
 bool player_set_carrier(double hz);             /* nominal carrier (PLL reset) */
 void player_key(bool on);                       /* output enable + amplifier enable together */
-void player_set_attenuation(int code);          /* 0..127, rev 3 only */
+bool player_set_attenuation(int code);          /* 0..127, rev 3 only; false when refused (mid-stream, rev 2, core 1 dead) */
+bool player_reprobe(void);                      /* probe the Si5351 again when it was absent at boot; true when it answers now */
 void player_set_correction_ppm(double ppm);     /* radio.correction_ppm; set before the carrier */
 void player_play(play_req_t *req);              /* starts; poll req->done */
 void player_stop(void);                         /* abandon the current stream (req->done set, cut) */

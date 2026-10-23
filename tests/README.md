@@ -79,11 +79,14 @@ checklist.
 
 ## foxlib-c (the native firmware)
 
-`make -C firmware/foxlib-c/tests check` builds the portable core and the
-PicoFox runner for the host and runs two suites: `parity.py` (C encoders,
-scheduler and validator against foxlib and against the page's validator) and
-`sim.py` (the runner through `firmware/sim/scenarios.json`, judged by the
-simulator's decoder). The page smoke test boots a deploy set exported for the
+`make -C firmware/foxlib-c/tests check` builds the portable core, the
+PicoFox runner, the real console and the real Si5351 driver for the host and
+runs four suites: `parity.py` (C encoders, scheduler and validator against
+foxlib and against the page's validator), `sim.py` (the runner through
+`firmware/sim/scenarios.json`, judged by the simulator's decoder),
+`console_test.py` (`console_corpus.json` against `console.c` and against the
+page's `FakeConsoleLink`, so the fake tracks the firmware) and `si5351_ref.py`
+(the driver's register math against the datasheet formulas). The page smoke test boots a deploy set exported for the
 `picofox-foxlibc` target in the same host simulation, so a page change that
 breaks what the firmware reads fails CI. The firmware itself is cross-compiled
 in the `foxlib-c` job (UF2 as an artifact); the `deploy` job puts that same

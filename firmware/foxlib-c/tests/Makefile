@@ -12,7 +12,18 @@ BUILD ?= build
 PF := ../picofox
 SIMSRC := host_sim/sim_main.c host_sim/stubs.c $(PF)/fox.c
 
-all: $(BUILD)/core_dump $(BUILD)/host_sim
+CONSRC := host_sim/console_main.c host_sim/stubs.c $(PF)/fox.c $(PF)/console.c
+
+all: $(BUILD)/core_dump $(BUILD)/host_sim $(BUILD)/console_sim $(BUILD)/si5351_sim
+
+# the real si5351.c over a fake I2C controller with a register image; si5351_ref.py checks the math
+$(BUILD)/si5351_sim: host_sim/si5351_main.c $(PF)/si5351.c $(PF)/si5351.h host_sim/hardware/*.h host_sim/pico.h
+	@mkdir -p $(BUILD)
+	$(CC) $(CFLAGS) -Ihost_sim -I$(PF) -o $@ host_sim/si5351_main.c $(PF)/si5351.c -lm
+
+# the real console.c (command parser, reply text, 1200-touch callbacks) over the same fox.c and stubs
+$(BUILD)/console_sim: $(CONSRC) $(CORE) $(BUILD)/builtin_defaults.h ../core/*.h $(PF)/*.h host_sim/*.h
+	$(CC) $(CFLAGS) -DFOXLIBC_VERSION='"host"' -DSIM_REAL_CONSOLE -Ihost_sim -I$(BUILD) -I$(PF) -I../core -o $@ $(CONSRC) $(CORE) -lm
 
 # compiled-in defaults, same file the firmware embeds
 $(BUILD)/builtin_defaults.h: ../../templates/morse-songs/defaults/picofox-foxlibc.json
@@ -26,11 +37,22 @@ $(BUILD)/core_dump: core_dump.c $(CORE) ../core/*.h
 	@mkdir -p $(BUILD)
 	$(CC) $(CFLAGS) -o $@ core_dump.c $(CORE) -lm
 
-check: $(BUILD)/core_dump $(BUILD)/host_sim
+# a deterministic mutational fuzzer for the parser + validator, run under the sanitizers (F12)
+$(BUILD)/json_fuzz: json_fuzz.c $(CORE) ../core/*.h
+	@mkdir -p $(BUILD)
+	$(CC) $(CFLAGS) -o $@ json_fuzz.c $(CORE) -lm
+
+FUZZ_ITERS ?= 20000
+fuzz: $(BUILD)/json_fuzz
+	$(BUILD)/json_fuzz ../../templates/morse-songs/defaults/picofox-foxlibc.json 1 $(FUZZ_ITERS) ../../templates/*/defaults/picofox-foxlibc.json
+
+check: $(BUILD)/core_dump $(BUILD)/host_sim $(BUILD)/console_sim $(BUILD)/si5351_sim fuzz
 	python3 parity.py --bin $(BUILD)/core_dump
 	python3 sim.py --bin $(BUILD)/host_sim
+	python3 console_test.py --bin $(BUILD)/console_sim
+	python3 si5351_ref.py --bin $(BUILD)/si5351_sim
 
 clean:
 	rm -rf $(BUILD)
 
-.PHONY: all check clean
+.PHONY: all check clean fuzz

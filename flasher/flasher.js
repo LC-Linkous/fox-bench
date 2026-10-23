@@ -44,7 +44,13 @@ export const image = { name: '', bytes: null, info: null, source: '' };
 export function setImage(name, bytes, source = 'file') { image.name = name; image.bytes = bytes; image.info = parseBinName(name); image.source = source; }
 
 /** esptool's chip name ("ESP32-C3 (QFN32) (revision v0.4)", "ESP32-S3") as a descriptor id: esp32c3, esp32s3, esp32, esp32c5 … */
-export function chipId(name) { return String(name || '').trim().split(/[\s(]/)[0].toLowerCase().replace(/-/g, ''); }
+/** esptool's chip name → the descriptor id: "ESP32-S3 (QFN56) (revision v0.2)" → esp32s3; "ESP32-D0WDQ6 (revision v1.0)",
+ *  "ESP32-PICO-D4", "ESP32-D0WD-V3" → esp32 (the classic ESP32's package variants are not different chips). */
+export function chipId(name) {
+  const flat = String(name || '').trim().split(/[\s(]/)[0].toLowerCase().replace(/-/g, '');
+  const m = flat.match(/^esp32(s2|s3|c2|c3|c5|c6|c61|h2|p4)?/);
+  return m ? m[0] : flat;
+}
 
 /**
  * Flash `image` onto the board on a port the user picks. Resolves with chip facts.
@@ -103,7 +109,15 @@ export function demoEsptool({ ms = 1500 } = {}) {
   class Transport { constructor() {} async disconnect() {} }
   class ESPLoader {
     constructor({ terminal }) { this.t = terminal; this.chip = { getChipRevision: async () => 4, getChipFeatures: async () => ['WiFi', 'BLE'], getCrystalFreq: async () => 40, readMac: async () => '84:F7:03:12:34:56' }; }
-    async main() { await sleep(ms * 0.2); const name = demoEsptool.chipName || 'ESP32-C3 (QFN32) (revision v0.4)'; this.t.writeLine('Chip is ' + name); this.t.writeLine('Uploading stub...'); this.t.writeLine('Stub running...'); return name; }
+    async main() {
+      await sleep(ms * 0.2);
+      // demoEsptool.fail = 'connect' | 'stub': what a real ESPLoader.main() throws when the chip never answers (wrong
+      // port, not in download mode) or the stub does not come up (bad baud, flaky cable)
+      if (demoEsptool.fail === 'connect') throw new Error('Failed to connect with the device');
+      const name = demoEsptool.chipName || 'ESP32-C3 (QFN32) (revision v0.4)'; this.t.writeLine('Chip is ' + name); this.t.writeLine('Uploading stub...');
+      if (demoEsptool.fail === 'stub') throw new Error('Failed to start stub. Unexpected response');
+      this.t.writeLine('Stub running...'); return name;
+    }
     async detectFlashSize() { return '4MB'; }
     async eraseFlash() { this.t.writeLine('Erasing flash (this may take a while)...'); await sleep(ms * 0.3); this.t.writeLine('Chip erase completed successfully in 0.4s'); }
     async writeFlash({ fileArray, reportProgress, calculateMD5Hash }) {
