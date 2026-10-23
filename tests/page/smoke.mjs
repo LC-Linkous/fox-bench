@@ -424,7 +424,14 @@ try {
   await page.click('#demoBtn'); await settle(600);
 
   console.log('kitsune (compiled family)');
-  await tab('board'); await page.selectOption('#tab-board select', 'seeed_xiao_esp32c5-kitsune'); await settle(400);
+  await tab('board');
+  const optsDefault = await page.$$eval('#tab-board select option', els => els.map(e => e.value));
+  check(!optsDefault.some(v => v.endsWith('-kitsune')) && optsDefault.includes('picofox-foxlibc') && optsDefault.includes('seeed_xiao_esp32c3'), 'experimental (kitsune) targets are hidden from the picker by default; the verified ones are listed');
+  check(/Show experimental targets/.test(await text('#tab-board')) && /5 hidden/.test(await text('#tab-board')), 'the picker says how many targets are hidden');
+  await page.check('#tab-board .card:first-child input[type=checkbox]'); await settle(300);   // the picker card's checkbox, not the flash card's erase box
+  const optsAll = await page.$$eval('#tab-board select option', els => els.map(e => e.value));
+  check(optsAll.filter(v => v.endsWith('-kitsune')).length === 5, 'the checkbox lists the five kitsune targets');
+  await page.selectOption('#tab-board select', 'seeed_xiao_esp32c5-kitsune'); await settle(400);
   eq(await app(() => window.foxbench.family), 'compiled', 'family switches to compiled');
   eq(await app(() => window.foxbench.templateId), 'wifi-ap', 'first kitsune template selected');
   check(await page.isDisabled('#connectBtn') && await page.isDisabled('#demoBtn'), 'no Connect / demo for the compiled family yet');

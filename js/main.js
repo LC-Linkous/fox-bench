@@ -27,7 +27,7 @@ import * as tabBench from './ui/bench.js';
 import * as tabFleet from './ui/fleet.js';
 import * as tabAbout from './ui/about.js';
 
-const VERSION = '0.7.11';
+const VERSION = '0.7.12';
 /** Tab subtitles that read differently per device family (null = the page's original text). */
 const LEDES = { drive: {
   board: 'Which fox is on the bench, open its USB drive (or use the simulated one). The vendor firmware stays; the page writes its files.',
@@ -77,6 +77,9 @@ export const app = {
   deployBlocker() { return deployBlocker({ device: this.device, board: this.board, onBoard: this.onBoard }); },
   /** Families configured through files on a USB drive rather than a REPL. */
   get usesDrive() { return this.family === 'drive' || this.family === 'foxlib-c'; },
+  /** Board picker: targets with status experimental are listed only when asked (remembered per browser). */
+  get showExperimental() { try { return localStorage.getItem('fox-bench.experimental') === '1'; } catch { return false; } },
+  setShowExperimental(v) { try { if (v) localStorage.setItem('fox-bench.experimental', '1'); else localStorage.removeItem('fox-bench.experimental'); } catch {} this.changed('board'); },
   /** The hardware descriptor behind the selected target. */
   get hardware() { return this.catalog.hardware?.[this.board.hardware] || null; },
   /** Families whose configuration is compiled into the firmware (kitsune): the page prepares and checks it and flashes images; no deploy transport (Phase 2). */

@@ -14,6 +14,15 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.7.12 · foxlib 1.0.4 · foxlib-c 0.1.10
+
+- The Board picker lists only targets verified on hardware. Targets with
+  status `experimental` — the five kitsune boards, until one is on the
+  bench — sit behind a **Show experimental targets** checkbox (remembered
+  per browser; a selected target is always listed). Nothing is removed: a
+  release of this page is what the hardware log vouches for, and the
+  kitsune work continues behind the box.
+
 ### Page 0.7.11 · foxlib 1.0.4 · foxlib-c 0.1.10
 
 Page 0.7.11 is a version bump so the release carries foxlib-c 0.1.10 under a

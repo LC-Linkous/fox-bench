@@ -23,8 +23,9 @@ target of the families it lists. Then run `docs/first-hardware-session.md`
 against the board, record the session in `docs/hardware-log.md`, and add
 the target to the templates' `boards_tested` once it has been on the air.
 Status convention: `planned` (listed, greyed out) → `experimental` (works
-in the page, no row in the hardware log) → `stable` (the lint requires a
-template to list it in `boards_tested`).
+in the page, no row in the hardware log; listed only when "Show
+experimental targets" is ticked on the Board tab) → `stable` (the lint
+requires a template to list it in `boards_tested`).
 
 ## Adding a `compiled` target (kitsune-style firmware)
 

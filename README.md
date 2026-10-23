@@ -30,7 +30,9 @@ configuration is compiled in: the page prepares and checks it with the
 same forms, exports the conference header their build reads, and can flash
 a kitsune image after checking the port's chip (one built with PlatformIO,
 or the site's once hosting is agreed) — not yet tried on a real kitsune
-board. Per-fox configuration without a rebuild is Phase 2
+board, so these targets sit behind **Show experimental targets** on the
+Board tab until one has a row in `docs/hardware-log.md`. Per-fox
+configuration without a rebuild is Phase 2
 (`docs/kitsune-integration-plan.md`). kitsune belongs to its authors;
 nothing of it is hosted here today, and nothing will be without the
 project's agreement (`LICENSES.md`). Every push runs three test layers in CI: the firmware
