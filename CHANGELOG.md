@@ -14,6 +14,14 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.7.7 · foxlib 1.0.4 · foxlib-c 0.1.9
+
+- 0.7.7: switching between the two PicoFox targets while the drive is open
+  keeps it open and reads it as the other firmware's files (both live on the
+  same USB drive) instead of disconnecting; a drive still holding the
+  vendor's files says so once, without a contradictory "no fox.json" line;
+  the `.crswap` note is given once per drive, and a Windows drive root is
+  named by its label in every message. Smoke test with a fake drive.
 ### Page 0.7.6 · foxlib 1.0.4 · foxlib-c 0.1.9
 
 - 0.7.6: a command typed into the console drawer was shown twice (logged by the

@@ -292,6 +292,39 @@ try {
   check(row && row.result === 'written' && /dBm/.test(row.power), 'fleet row for the PicoFox deploy');
   await page.click('#demoBtn'); await settle(300);
 
+  console.log('PicoFox drive: switching targets keeps the drive');
+  // A fake drive root (Windows names it "\\") holding the vendor firmware's files and an editor's .crswap leftover. Both PicoFox
+  // targets read the same drive, so the dropdown switch must not disconnect it — only read it as the other firmware's files.
+  await app(() => {
+    const files = { 'settings.txt': 'CALLSIGN=W1ABC\nFREQ_MHZ=146.565000\n', 'audio.wav': 'RIFF', '.settings_crc.bin': '\0\0\0\0', 'settings.txt.crswap': '' };
+    const fh = name => ({ kind: 'file', name, getFile: async () => new File([files[name]], name), createWritable: async () => ({ write: async b => { files[name] = typeof b === 'string' ? b : new TextDecoder().decode(b); }, close: async () => {} }) });
+    const handle = { kind: 'directory', name: '\\', queryPermission: async () => 'granted', requestPermission: async () => 'granted',
+      values: async function* () { for (const n of Object.keys(files)) yield fh(n); },
+      getFileHandle: async (n, o) => { if (!(n in files)) { if (o?.create) files[n] = ''; else { const e = new Error('nf'); e.name = 'NotFoundError'; throw e; } } return fh(n); },
+      removeEntry: async n => { delete files[n]; } };
+    window.showDirectoryPicker = async () => handle; window.__fakeDriveFiles = files;
+  });
+  await page.click('#connectBtn'); await settle(500);
+  eq(await app(() => window.foxbench.connected), true, 'fake PicoFox drive opened under the vendor target');
+  check(/drive "PicoFox"/.test(await text('#log')), 'a drive root named "\\" is shown by its label');
+  check(/settings\.txt\.crswap: Chrome's temporary/.test(await text('#log')), 'the .crswap leftover is explained');
+  await tab('board');
+  await page.selectOption('#tab-board select', 'picofox-foxlibc'); await settle(500);
+  eq(await app(() => window.foxbench.connected), true, 'switching to the fox-bench target keeps the drive open');
+  eq(await app(() => window.foxbench.family), 'foxlib-c', 'family is foxlib-c after the switch');
+  check(/same drive, read as that firmware's files/.test(await text('#log')), 'the console says the drive was kept');
+  check(/still running the vendor firmware/.test(await text('#log')), 'vendor files and no fox.json: the page says the board still runs the vendor firmware');
+  check(!/no fox\.json on the drive \(the firmware writes/.test(await text('#log')), 'no second, contradictory "no fox.json" line');
+  eq((await text('#log')).split("crswap: Chrome's temporary").length - 1, 1, 'the .crswap note is given once, not on every re-read');
+  await page.selectOption('#tab-board select', 'picofox-vendor'); await settle(500);
+  eq(await app(() => window.foxbench.connected), true, 'and back to the vendor target, still open');
+  eq(await app(() => window.foxbench.onBoard?.settings?.CALLSIGN), 'W1ABC', 'the vendor settings are read again after the switch back');
+  await app(() => window.foxbench.removeCrswap());
+  await settle(300);
+  eq(await app(() => 'settings.txt.crswap' in window.__fakeDriveFiles), false, 'removeCrswap() deletes the leftover');
+  await app(() => window.foxbench.disconnect()); await settle(300);
+  eq(await app(() => window.foxbench.connected), false, 'fake drive closed');
+
   console.log('PicoFox with fox-bench firmware (foxlib-c family)');
   await tab('board');
   await page.selectOption('#tab-board select', 'picofox-foxlibc'); await settle(400);

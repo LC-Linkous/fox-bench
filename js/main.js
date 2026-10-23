@@ -27,7 +27,7 @@ import * as tabBench from './ui/bench.js';
 import * as tabFleet from './ui/fleet.js';
 import * as tabAbout from './ui/about.js';
 
-const VERSION = '0.7.6';
+const VERSION = '0.7.7';
 /** Tab subtitles that read differently per device family (null = the page's original text). */
 const LEDES = { drive: {
   board: 'Which fox is on the bench, open its USB drive (or use the simulated one). The vendor firmware stays; the page writes its files.',
@@ -156,6 +156,14 @@ export const app = {
     const next = this.catalog.boards[id]; if (!next || keepDevice || !this.device) return;
     if ((next.family || 'foxlib') === this.family) return;
     const was = this.board.name;
+    // Both PicoFox targets live on the same USB drive: switching between them while the drive is open is a change of
+    // reading, not of transport — keep the handle, read the drive as the other target expects it.
+    if (this.device.kind === 'drive' && ['drive', 'foxlib-c'].includes(next.family || 'foxlib')) {
+      this.device.board = next;
+      this.console.line(`${next.name} selected: same drive, read as that firmware's files`, 'dim');
+      this._rereadAfterSwitch = true;
+      return;
+    }
     await this.disconnect();
     this.console.line(`disconnected from the ${was}: ${next.name} is a different kind of board (${(next.family || 'foxlib') === 'foxlib' ? 'REPL' : 'USB drive'}), connect it when you are ready to deploy`, 'ok');
   },
@@ -172,12 +180,18 @@ export const app = {
       this.cfg = structuredClone(this.defaults);
       if (prev) { if (this.cfg.id && prev.id) this.cfg.id.callmessage = prev.id.callmessage; if (prev.fleet) this.cfg.fleet = structuredClone(prev.fleet); if (this.family === prevFamily && this.cfg.plan && prev.plan) this.cfg.plan = structuredClone(prev.plan); }
       this.console.dim(`board ${this.board.name}: template switched to ${this.template.name}`);
-      this.changed('board'); return;
+      this.changed('board'); await this._rereadIfSwitched(); return;
     }
     this.defaults = await loadDefaults(this.templateId, id);
     this.cfg.board = id; if (this.defaults.pins) this.cfg.pins = structuredClone(this.defaults.pins);
     if (this.board.module_fixed) { this.cfg.module = this.moduleId; this.cfg.radio = { ...this.cfg.radio, ...structuredClone(this.defaults.radio) }; }
-    this.changed('board');
+    this.changed('board'); await this._rereadIfSwitched();
+  },
+  async _rereadIfSwitched() {
+    if (!this._rereadAfterSwitch) return;
+    this._rereadAfterSwitch = false;
+    if (!this.device) return;
+    try { this.info = { ...this.info, boardId: this.boardId }; await this.readDrive(); this.changed('reread'); } catch (e) { this.console.err(`re-reading the drive: ${e.message}`); }
   },
   setModule(id) {
     this.moduleId = id; this.cfg.module = id; this.cfg.radio.ranges_mhz = structuredClone(this.module.ranges_mhz); this.cfg.radio.family = this.module.family; this.changed('module');
@@ -290,8 +304,11 @@ export const app = {
    *  stale-handle error) leaves the temporary behind. The firmwares ignore it, but it should not sit there unexplained. */
   async _noteCrswap(d, files) {
     const left = Object.keys(files).filter(n => /\.crswap$/i.test(n));
-    if (!left.length) return;
-    this.console.err(`${left.join(', ')}: Chrome's half-written temporar${left.length === 1 ? 'y' : 'ies'} from an interrupted write — the fox ignores ${left.length === 1 ? 'it' : 'them'}, and the real file is whatever was written last. Remove with: window.foxbench.removeCrswap() in the browser console, or delete by hand.`);
+    if (!left.length) { this._crswapNoted = null; return; }
+    const key = left.sort().join('|');
+    if (this._crswapNoted === key) return;    // said once per drive session, not on every re-read
+    this._crswapNoted = key;
+    this.console.err(`${left.join(', ')}: Chrome's temporar${left.length === 1 ? 'y' : 'ies'} from an earlier write that did not finish (the board rebooting or the drive going away while Chrome was renaming the file). The fox ignores ${left.length === 1 ? 'it' : 'them'}; the real file is whatever was written last. Remove with: window.foxbench.removeCrswap() in the browser console, or delete by hand.`);
     this.removeCrswap = async () => { for (const n of left) await d.remove(n); this.console.line(`removed ${left.join(', ')}`, 'ok'); await this.readDrive(); this.changed('reread'); };
   },
   async readDrive() {
@@ -310,8 +327,9 @@ export const app = {
       const ob = { cfg: null, raw, foxlibVersion: ident?.foxlib || this.onBoard.foxlibVersion || '', foxlibMissing: [], foxlibComplete: true, files, template: null, ident };
       if (raw != null) { try { ob.cfg = JSON.parse(raw); ob.template = ob.cfg.template || null; } catch { this.console.err('fox.json on the drive is not valid JSON (the fox falls back to defaults.json and says cfg=default(parse) in its banner)'); } }
       this.onBoard = ob;
-      if (!raw && ('settings.txt' in files || 'audio.wav' in files)) this.console.err('this drive holds the vendor firmware\'s files (settings.txt, audio.wav) and no fox.json: the board is still running the vendor firmware. Flash fox-bench\'s from the Board tab ("Reboot into bootloader", then copy to the RPI-RP2 drive), or select the "(vendor firmware)" target to keep using it.');
-      this.console.dim(ob.cfg ? `fox.json read from the drive: template ${ob.cfg.template}, call "${ob.cfg.id?.callmessage}"` : `no fox.json on the drive (the firmware writes one from its built-in defaults at power-on)`);
+      const vendorFiles = !raw && ('settings.txt' in files || 'audio.wav' in files);
+      if (vendorFiles) this.console.err('this drive holds the vendor firmware\'s files (settings.txt, audio.wav) and no fox.json: the board is still running the vendor firmware. Flash fox-bench\'s from the Board tab ("Reboot into bootloader", then copy to the RPI-RP2 drive), or select the "(vendor firmware)" target to keep using it.');
+      else this.console.dim(ob.cfg ? `fox.json read from the drive: template ${ob.cfg.template}, call "${ob.cfg.id?.callmessage}"` : `no fox.json on the drive (the firmware writes one from its built-in defaults at power-on)`);
       if (ident?.uid) { this.console.dim(`board.json: uid ${ident.uid} · foxlib ${ident.foxlib || '?'}`); this.setStatus(`${this.board.name} · drive "${this.info.driveName || ''}" · uid ${String(ident.uid).slice(-6)}`, 'ok'); }
       else if (raw != null) this.console.dim('no board.json on the drive: firmware before 0.1.4 — this deploy is logged without the chip UID (the audit then matches it by board)');
       return;
@@ -381,6 +399,7 @@ export const app = {
   },
   pageErrors: [],
   async disconnect() {
+    this._crswapNoted = null;   // a new drive gets its own note
     try { await this.device?.close(); } catch {}
     try { await this.sideConsole?.close(); } catch {} this.sideConsole = null;
     this.lastBanner = null;
