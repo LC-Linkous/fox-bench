@@ -1,0 +1,59 @@
+{
+  "id": "seeed_xiao_esp32c6",
+  "name": "Seeed XIAO ESP32C6",
+  "mcu": "ESP32-C6",
+  "radio": "the SoC's own radios: wifi24, ble, ieee802154",
+  "radios": [
+    "wifi24",
+    "ble",
+    "ieee802154"
+  ],
+  "design": {
+    "by": "Seeed Studio",
+    "source": "https://wiki.seeedstudio.com/xiao_esp32c6_getting_started/",
+    "license": "see the vendor's page"
+  },
+  "flash": {
+    "method": "esptool",
+    "chip": "esp32c6",
+    "offset": "0x0",
+    "flash_mb": 4,
+    "bootloader_instructions": "Hold BOOT while plugging in USB-C; release after a second. The chip's USB-JTAG-serial port appears.",
+    "note": "Not a board kitsune builds for; fox-bench carries a PlatformIO env for it (firmware/kitsune/extra/). Offset 0x0 is the ESP32-C6 convention. Serial over native USB confirmed on the bench (the factory sketch prints 'Hello from Seeed Studio XIAO ESP32-C6')."
+  },
+  "has_usb_drive": false,
+  "usb": [
+    {
+      "vid": "0x303a",
+      "pid": "0x1001",
+      "when": "ESP32-C6 USB-JTAG-serial (download mode and, with CDC on boot, the running firmware)"
+    }
+  ],
+  "pins": [
+    {
+      "name": "LED",
+      "gpio": 15,
+      "note": "yellow user LED, active low"
+    }
+  ],
+  "roles": {},
+  "led": {
+    "kind": "single",
+    "pin": 15,
+    "active_low": true,
+    "note": "yellow LED on GPIO15; fox-bench's env passes -D DATA_PIN=15, which kitsune's FastLED path drives as a digital LED (it will not show colours; on/off at best)"
+  },
+  "battery": {
+    "charger": false,
+    "divider_note": "Powered from USB or a 5 V pack. kitsune's note: the pack must not have a low-current cut-off, or the board never wakes from deep sleep."
+  },
+  "notes": [
+    "Adds a second 802.15.4 radio to the bench: a partner for the C5 Zigbee coordinator.",
+    "Candidate for a PR to kitsune ('other platformio supported hardware'): one env stanza and an LED entry."
+  ],
+  "serial": {
+    "baud": 115200,
+    "notes": "kitsune prints 'ESP32 boot count', 'Awake and screaming', 'Going to sleep' and 'PANIC' on its serial port; no command interface."
+  },
+  "silkscreen": null
+}

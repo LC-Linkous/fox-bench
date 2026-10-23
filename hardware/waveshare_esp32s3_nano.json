@@ -1,0 +1,67 @@
+{
+  "id": "waveshare_esp32s3_nano",
+  "name": "Waveshare ESP32-S3-Nano (ESP32-S3R8, Arduino Nano ESP32 compatible)",
+  "mcu": "ESP32-S3R8",
+  "radio": "the SoC's own radios: wifi24, ble",
+  "radios": [
+    "wifi24",
+    "ble"
+  ],
+  "design": {
+    "by": "Waveshare",
+    "source": "https://www.waveshare.com/wiki/ESP32-S3-Nano",
+    "license": "see the vendor's page"
+  },
+  "flash": {
+    "method": "esptool",
+    "chip": "esp32s3",
+    "offset": "0x0",
+    "flash_mb": 16,
+    "bootloader_instructions": "Hold BOOT while plugging in USB-C; release after a second. The chip's USB-JTAG-serial port (303a:1001) appears and esptool can write it — this board does not need Arduino's DFU route.",
+    "note": "Waveshare documents it as 'select Arduino Nano ESP32' in the IDE: pinout and RGB LED pins follow the Nano ESP32, so kitsune's arduino-nano-esp32 builds are what this target flashes. Not yet flashed from this page."
+  },
+  "has_usb_drive": false,
+  "usb": [
+    {
+      "vid": "0x303a",
+      "pid": "0x1001",
+      "when": "ESP32-S3 USB-JTAG-serial (download mode and, with CDC on boot, the running firmware)"
+    }
+  ],
+  "pins": [
+    {
+      "name": "LED_R",
+      "gpio": 46,
+      "note": "red"
+    },
+    {
+      "name": "LED_G",
+      "gpio": 0,
+      "note": "green"
+    },
+    {
+      "name": "LED_B",
+      "gpio": 45,
+      "note": "blue"
+    }
+  ],
+  "roles": {},
+  "led": {
+    "kind": "rgb_pins",
+    "pins": {
+      "red": 46,
+      "green": 0,
+      "blue": 45
+    },
+    "note": "three analog-driven LED lines (kitsune writes 255 - value, scaled to 75)"
+  },
+  "battery": {
+    "charger": false,
+    "divider_note": "Powered from USB or a 5 V pack. kitsune's note: the pack must not have a low-current cut-off, or the board never wakes from deep sleep."
+  },
+  "notes": [
+    "A stand-in for the Arduino Nano ESP32 target without Arduino's DFU bootloader in the way.",
+    "Serial: native USB CDC; kitsune's arduino_nano_esp32 env sets ARDUINO_USB_CDC_ON_BOOT, so its lines appear on the same port."
+  ],
+  "silkscreen": null
+}

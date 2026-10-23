@@ -156,7 +156,8 @@ jobs:
         run: |
           # pinned: the versions tools/build_kitsune.py names (PIO_VERSION / ESPTOOL_VERSION) and records in the manifest
           python3 -m pip install -q platformio==6.1.18 esptool==4.8.1
-          python3 tools/build_kitsune.py /tmp/kitsune /tmp/kitsune-out --commit "$KITSUNE_COMMIT"
+          node tools/kitsune_bench_conf.mjs --check
+          python3 tools/build_kitsune.py /tmp/kitsune /tmp/kitsune-out --commit "$KITSUNE_COMMIT" --conf-dir firmware/kitsune/bench --extra-ini-dir firmware/kitsune/extra
           python3 tools/check_catalog.py --manifest /tmp/kitsune-out/manifest.json
       - uses: actions/upload-artifact@v4
         with:
@@ -187,8 +188,11 @@ jobs:
         with:
           name: foxbench-picofox-uf2
           path: /tmp/uf2
-      - name: kitsune images, when that job ran
-        if: needs.kitsune.result == 'success'
+      # Two switches: KITSUNE_BUILD makes the kitsune job build images as a run artifact (download them from the Actions
+      # run, load with "Load merged .bin…"); KITSUNE_HOST additionally puts them into the site. The second stays unset
+      # until the kitsune project agrees to fox-bench hosting their build (docs/kitsune-integration-plan.md §7).
+      - name: kitsune images, when that job ran and hosting is agreed
+        if: needs.kitsune.result == 'success' && vars.KITSUNE_HOST == 'true'
         uses: actions/download-artifact@v4
         with:
           name: kitsune-images

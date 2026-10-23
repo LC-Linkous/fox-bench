@@ -1,0 +1,65 @@
+{
+  "id": "dfrobot_firebeetle2_esp32c5",
+  "name": "DFRobot FireBeetle 2 ESP32-C5 (ESP32-C5-WROOM-1-N4)",
+  "mcu": "ESP32-C5",
+  "radio": "the SoC's own radios: wifi24, wifi5, ble, ieee802154",
+  "radios": [
+    "wifi24",
+    "wifi5",
+    "ble",
+    "ieee802154"
+  ],
+  "design": {
+    "by": "DFRobot",
+    "source": "https://wiki.dfrobot.com/dfr1222/",
+    "license": "see the vendor's page"
+  },
+  "flash": {
+    "method": "esptool",
+    "chip": "esp32c5",
+    "offset": "0x2000",
+    "flash_mb": 4,
+    "bootloader_instructions": "Hold BOOT (GPIO28) while plugging in USB-C, or hold BOOT and tap RST; release after a second. The chip's USB-JTAG-serial port appears.",
+    "note": "Same chip and module class as the XIAO ESP32C5: kitsune's seeed-xiao-esp32c5 builds are what this target flashes. The bootloader offset 0x2000 is the ESP32-C5 convention, to be confirmed on this board. On the bench at fox-bench since 2026-10-23 (serial over native USB confirmed: the ROM banner 'ESP-ROM:esp32c5-eco2-20250121' prints)."
+  },
+  "has_usb_drive": false,
+  "usb": [
+    {
+      "vid": "0x303a",
+      "pid": "0x1001",
+      "when": "ESP32-S3/C5 USB-JTAG-serial (download mode and, with CDC on boot, the running firmware)"
+    }
+  ],
+  "pins": [
+    {
+      "name": "D13",
+      "gpio": 15,
+      "note": "onboard LED (not kitsune's DATA_PIN 27: the XIAO build drives GPIO27, so the status LED does not light on this board)"
+    },
+    {
+      "name": "BOOT",
+      "gpio": 28,
+      "note": "BOOT button"
+    }
+  ],
+  "roles": {},
+  "led": {
+    "kind": "single",
+    "pin": 15,
+    "active_low": false,
+    "note": "onboard LED on GPIO15; the XIAO-C5 build of kitsune drives GPIO27 instead, so expect no status colours on this board until a FireBeetle entry exists in kitsune's rfhsledmacros.h"
+  },
+  "battery": {
+    "charger": false,
+    "divider_note": "Powered from USB or a 5 V pack. kitsune's note: the pack must not have a low-current cut-off, or the board never wakes from deep sleep."
+  },
+  "notes": [
+    "A stand-in for the Seeed XIAO ESP32C5 target: the firmware image is the same, the LED pin differs.",
+    "Serial: native USB CDC (no bridge chip); Listen only shows the ROM banner and kitsune's lines."
+  ],
+  "serial": {
+    "baud": 115200,
+    "notes": "kitsune prints 'ESP32 boot count', 'Awake and screaming', 'Going to sleep' and 'PANIC' on its serial port; no command interface."
+  },
+  "silkscreen": null
+}
