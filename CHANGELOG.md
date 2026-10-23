@@ -14,6 +14,12 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.7.11 · foxlib 1.0.4 · foxlib-c 0.1.10
+
+Page 0.7.11 is a version bump so the release carries foxlib-c 0.1.10 under a
+tag; no page change. The PicoFox is signed off on 0.1.10
+(`docs/hardware-log.md`, 2026-10-23).
+
 ### Page 0.7.10 · foxlib 1.0.4 · foxlib-c 0.1.10
 
 **foxlib-c 0.1.10** — the open firmware items of the October audit, each
