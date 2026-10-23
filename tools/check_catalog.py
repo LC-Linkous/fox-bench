@@ -3,6 +3,7 @@
 
     python3 tools/check_catalog.py              # whole catalog
     python3 tools/check_catalog.py --since REF  # also: version bumps for what changed since REF
+    python3 tools/check_catalog.py --manifest firmware/kitsune/manifest.json   # also: a kitsune image manifest
 
 Checks that every index.json entry exists and nothing is unlisted; that
 board, module, band, template and song descriptors have the fields the
@@ -383,6 +384,32 @@ if "--since" in sys.argv:
 for tid, t in boards.items():
     if t.get("status") == "stable" and not any(tid in tp.get("boards_tested", []) for tp in templates.values()):
         bad(f"boards/{tid}.json", "status: stable, but no template lists it in boards_tested (the Behavior tab would say it was tested on something else)")
+
+# ---------------------------------------------------------------- a kitsune manifest against the catalog (--manifest PATH)
+# tools/build_kitsune.py writes one in CI; the page flashes what it names. Every image must belong to a compiled target,
+# name that target's chip, and be a whole-flash image at offset 0x0 (merge_bin --target-offset 0x0) — the page writes
+# merged images at 0x0, so a manifest saying the bootloader offset would put every piece one offset too high.
+if "--manifest" in sys.argv:
+    mp = sys.argv[sys.argv.index("--manifest") + 1]; rel = os.path.relpath(mp, ROOT)
+    try: man = json.load(open(mp))
+    except Exception as e: man = None; bad(rel, f"not JSON: {e}")
+    if man:
+        for k in ("project", "source", "commit", "images"):
+            if k not in man: bad(rel, f"missing {k}")
+        if man.get("source") and man.get("source") != "https://github.com/rfhs/kitsune": bad(rel, f"source {man.get('source')!r} is not the kitsune repository")
+        if "tools" not in man: bad(rel, "no 'tools' (platformio/esptool versions) — the build is not reproducible without them")
+        for i, im in enumerate(man.get("images", [])):
+            w = f"{rel} images[{i}]"
+            t = boards.get(im.get("board"))
+            if not t or t.get("family") != "compiled": bad(w, f"board {im.get('board')!r} is not a compiled target"); continue
+            hw = hardware.get(t.get("hardware"), {})
+            if im.get("chip") != hw.get("flash", {}).get("chip"): bad(w, f"chip {im.get('chip')!r} but the hardware's is {hw.get('flash', {}).get('chip')!r}")
+            if str(im.get("offset", "")).lower() != "0x0": bad(w, f"offset {im.get('offset')!r}: a merged image is written at 0x0 (the bootloader offset {hw.get('flash', {}).get('offset')} is inside it)")
+            if im.get("template") and im["template"] not in templates: bad(w, f"template {im['template']!r} unknown")
+            if im.get("env") and im["env"] not in [e.get("env") for e in t.get("firmware", {}).get("envs", [])]: bad(w, f"env {im['env']!r} is not one of {t['id']}'s firmware.envs")
+            for k in ("file", "sha256", "size"):
+                if k not in im: bad(w, f"missing {k}")
+            if im.get("sha256") and not re.fullmatch(r"[0-9a-f]{64}", im["sha256"]): bad(w, "sha256 is not 64 hex digits")
 
 # ---------------------------------------------------------------- versions named in prose
 page_version = re.search(r"const VERSION = '([^']+)'", open(os.path.join(ROOT, "js/main.js")).read())

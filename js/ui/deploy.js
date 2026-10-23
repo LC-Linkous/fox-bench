@@ -69,9 +69,9 @@ async function deploy(btn) {
   if (busy) return;
   const overrides = app.issues.filter(e => e.level === 'err' && e.blocking === false);
   if (overrides.length && !confirm(`Deploy anyway?\n\n${overrides.map(o => '• ' + o.msg.replace(/ — .*$/, '')).join('\n')}\n\nThese are outside the ${app.region} amateur band table. Make sure this is intended (bench testing into a load, a different allocation, etc.).`)) return;
-  busy = true; setLast(null); render();
   const d = app.device, cfg = app.validCfg, log = app.console;
-  { const why = app.deployBlocker(); if (why) { log.err(`deploy refused: ${why}`); return; } }
+  { const why = app.deployBlocker(); if (why) { log.err(`deploy refused: ${why}`); return; } }   // before busy: a refusal must not leave the button at "Writing…"
+  busy = true; setLast(null); render();
   const { files } = plan();
   try {
     await d.interrupt();                       // the fox may be running from a previous deploy or restart

@@ -18,8 +18,9 @@ export const stripAnsi = t => t.replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, ''
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 export class ReplLink {
-  constructor(link, log) {
+  constructor(link, log, { timeouts = {} } = {}) {
     this.link = link; this.log = log || (() => {});
+    this.T = { ctrlC: 2500, enter: 2000, exitRaw: 2000, retryGap: 500, ...timeouts };   // ms; tests shrink them
     this.dec = new TextDecoder();
     this.buf = '';
     this.waiters = [];
@@ -69,12 +70,15 @@ export class ReplLink {
   async interrupt() { return this._op(() => this._interrupt()); }
   async _interrupt() {
     this.buf = '';
+    // Known to be in raw mode (our own exec left it there): Ctrl-B is the one thing that gets a prompt, and trying
+    // Ctrl-C first cost 4.5 s on every Bench action. Fall through to the full dance only if that fails.
+    if (this.inRaw) { try { await this._sendAndWait('\r\x02', '>>> ', this.T.exitRaw); this.inRaw = false; return; } catch {} }
     for (let attempt = 0; attempt < 4; attempt++) {
-      try { await this._sendAndWait('\r\x03\x03', '>>> ', 2500); this.inRaw = false; this.log('interrupted → friendly REPL'); return; } catch {}
+      try { await this._sendAndWait('\r\x03\x03', '>>> ', this.T.ctrlC); this.inRaw = false; this.log('interrupted → friendly REPL'); return; } catch {}
       // maybe at "Press any key to enter the REPL", mid-boot, or already in raw mode
-      try { await this._sendAndWait('\r', '>>> ', 2000); this.inRaw = false; return; } catch {}
-      try { await this._sendAndWait('\r\x02', '>>> ', 2000); this.inRaw = false; return; } catch {}
-      await sleep(500);
+      try { await this._sendAndWait('\r', '>>> ', this.T.enter); this.inRaw = false; return; } catch {}
+      try { await this._sendAndWait('\r\x02', '>>> ', this.T.exitRaw); this.inRaw = false; return; } catch {}
+      await sleep(this.T.retryGap);
     }
     throw new Error('no REPL prompt — is this a CircuitPython board? (Try: unplug, replug without holding B, then Connect.)');
   }
@@ -89,7 +93,7 @@ export class ReplLink {
   async exitRaw() { return this._op(() => this._exitRaw()); }
   async _exitRaw() {
     if (!this.inRaw) return;
-    try { await this._sendAndWait('\r\x02', '>>> ', 2000); } catch {}
+    try { await this._sendAndWait('\r\x02', '>>> ', this.T.exitRaw); } catch {}
     this.inRaw = false;
   }
 

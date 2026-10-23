@@ -1,0 +1,14 @@
+{
+  "project": "kitsune",
+  "source": "https://github.com/rfhs/kitsune",
+  "commit": "0000000000000000000000000000000000000000",
+  "built": "2026-10-22T00:00:00Z",
+  "tools": { "platformio": "6.1.18", "esptool": "4.8.1" },
+  "note": "fixture: the shape tools/build_kitsune.py writes, linted by check_catalog.py --manifest; not a real build",
+  "images": [
+    { "board": "m5stack_atom_lite-kitsune", "template": "wifi-ap", "tier": "easy", "mode": "AP", "env": "m5atom-easy-ap", "file": "m5atom-easy-ap.bin",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "size": 1048576, "chip": "esp32", "offset": "0x0",
+      "pieces": [{ "offset": "0x1000", "file": "bootloader.bin" }, { "offset": "0x8000", "file": "partitions.bin" }, { "offset": "0xe000", "file": "boot_app0.bin" }, { "offset": "0x10000", "file": "firmware.bin" }],
+      "bootloader_offset": "0x1000" }
+  ]
+}

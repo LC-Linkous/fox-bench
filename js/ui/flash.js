@@ -15,7 +15,9 @@ export const state = {
   get boardNumber() { return parseInt(localStorage.getItem(KEY_N) || '1', 10) || 1; },
   set boardNumber(n) { try { localStorage.setItem(KEY_N, String(n)); } catch {} },
 };
-if (typeof window !== 'undefined') window.foxbenchFlash = state;   // the smoke test flips simulate
+// Test hooks only: the smoke test flips `simulate` (a simulated esptool, no port) and reads the last simulated write.
+// Nothing in the page sets these; `blocker()` names simulate as a test mode when it is on.
+if (typeof window !== 'undefined') { window.foxbenchFlash = state; state.lastWrite = () => flasher.demoEsptool.lastWrite; }
 const rerenders = new Set();
 export const onChange = fn => rerenders.add(fn);
 const notify = () => rerenders.forEach(fn => fn());
@@ -43,10 +45,14 @@ export async function runFlash(app, { boardNumber = '' } = {}) {
   state.busy = true; state.phase = 'starting'; state.progress = 0; state.last = null; notify();
   const log = app.console;
   log.dim(`flash ${flasher.image.name} → ${b.name}${demo ? ' (demo)' : ''}`);
+  if (state.simulate) log.err('SIMULATED flash (test mode): no port is opened and nothing is written to any board');
   let facts = null, error = null;
   try {
     facts = await flasher.flash({
-      offset: parseInt(b.flash.offset, 16) || 0, eraseAll: state.erase, baud: state.baud, expectChip: b.flash.chip || '',
+      // A merged image (compiled family: esptool merge_bin's output, the site's or the user's) is a whole-flash image padded
+      // from address 0 and goes at 0x0 whatever the chip's bootloader offset; hardware flash.offset is where a bare
+      // CircuitPython image goes (foxlib family).
+      offset: app.isCompiled ? 0 : parseInt(b.flash.offset, 16) || 0, eraseAll: state.erase, baud: state.baud, expectChip: b.flash.chip || '',
       impl: demo ? flasher.demoEsptool() : null,
       onLog: t => log.dim(t), onPhase: p => { state.phase = p; notify(); },
       onProgress: f => { state.progress = f; notify(); },
@@ -112,7 +118,7 @@ export function flashCard(app) {
 }
 
 /** Compiled family (kitsune): a merged image per board × challenge, from the site's manifest (built in CI from a pinned
- * commit, once agreed) or a file built with PlatformIO; esptool at the board's offset, chip checked first. */
+ * commit, once agreed) or a file built with PlatformIO; a merged image is a whole-flash image, written at 0x0; chip checked first. */
 let kManifest;   // undefined = not fetched; null = fetching; false = none on this site; else { commit, source, images: [...] }
 async function loadKitsuneManifest(app) {
   if (kManifest !== undefined) return kManifest;
@@ -151,7 +157,7 @@ function compiledCard(app) {
       : mine.length ? h('div', {}, h('p.hint', {}, `Images for the ${b.name} and the ${app.template.name}:`), tiers)
       : h('p.hint', {}, `The site's manifest (kitsune at ${(kManifest.commit || '?').slice(0, 7)}) has no image for the ${b.name} × ${app.template.name}.`),
     h('details', {}, h('summary.hint', {}, 'A merged image from your own PlatformIO build'),
-      h('p.hint', {}, 'In a kitsune checkout, after ', h('code', {}, `pio run -e <env>`), ' in ', h('code', {}, t.project || 'the project'), ', the pieces are under ', h('code', {}, '.pio/build/<env>/'), ' (bootloader.bin, partitions.bin, firmware.bin, and boot_app0.bin from the framework). Merge them into one file at the board\'s offsets with ', h('code', {}, 'esptool.py --chip ' + (b.flash.chip || 'esp32') + ' merge_bin -o merged.bin …'), ' (PlatformIO prints the exact offsets it flashes with ', h('code', {}, '-v'), '), then load merged.bin here; it is written at ', h('code', {}, b.flash.offset || '0x0'), '.')),
+      h('p.hint', {}, 'In a kitsune checkout, after ', h('code', {}, `pio run -e <env>`), ' in ', h('code', {}, t.project || 'the project'), ', the pieces are under ', h('code', {}, '.pio/build/<env>/'), ' (bootloader.bin, partitions.bin, firmware.bin, and boot_app0.bin from the framework). Merge them into one file at the offsets PlatformIO flashes them to (it prints them with ', h('code', {}, '-v'), ') with ', h('code', {}, 'esptool.py --chip ' + (b.flash.chip || 'esp32') + ' merge_bin -o merged.bin ' + (b.flash.offset || '0x0') + ' bootloader.bin 0x8000 partitions.bin 0xe000 boot_app0.bin 0x10000 firmware.bin'), ', then load merged.bin here. A merged image is a whole-flash image padded from address 0, so it is written at ', h('code', {}, '0x0'), ' — the bootloader lands at ', h('code', {}, b.flash.offset || '0x0'), ' inside it. (Do not pass merge_bin a --target-offset.)')),
     field('Image', h('div.row', {}, h('button.btn.small', { onclick: () => fileIn.click() }, 'Load merged .bin…'), fileIn, h('span.hint', {}, flasher.image.bytes ? `${flasher.image.name} · ${(flasher.image.bytes.length / 1024).toFixed(0)} kB${flasher.image.source === 'fox-bench-kitsune' ? ' · from this site' : ''}` : 'nothing loaded'))),
     state.fetchError ? h('p.hint.err', {}, state.fetchError) : null,
     flasher.image.info ? h('p.hint.err', {}, `${flasher.image.name} is a CircuitPython image; a kitsune board wants a kitsune build.`) : null,

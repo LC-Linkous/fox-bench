@@ -5,7 +5,8 @@ import assert from 'node:assert/strict';
 import { ReplLink, stripAnsi } from '../../js/device/repl-link.js';
 import { FakeBoard } from './fake-board.mjs';
 
-const mk = async opts => { const b = new FakeBoard(opts); const r = new ReplLink(b, () => {}); await b.open(); return { b, r }; };
+const FAST = { ctrlC: 120, enter: 80, exitRaw: 80, retryGap: 20 };   // the retry tests run in milliseconds, not seconds
+const mk = async (opts, timeouts = FAST) => { const b = new FakeBoard(opts); const r = new ReplLink(b, () => {}, { timeouts }); await b.open(); return { b, r }; };
 
 test('stripAnsi removes CircuitPython\'s clear-line and title-bar sequences and CRs', () => {
   assert.equal(stripAnsi('\x1b[2K\x1b[0G>>> '), '>>> ');
@@ -40,6 +41,16 @@ test('interrupt from raw mode (page reloaded mid-session) gets back to friendly'
   const { b, r } = await mk();
   b.state = 'raw';
   await r.interrupt();
+  assert.equal(b.state, 'friendly');
+});
+
+test('interrupt after our own exec sends Ctrl-B first and takes milliseconds, not the 4.5 s Ctrl-C dance', async () => {
+  const { b, r } = await mk(undefined, {});   // production timeouts: the point is that none of them is waited out
+  await r.enterRaw(); await r.exec('print(1)');
+  b.tx.length = 0;
+  const t0 = Date.now(); await r.interrupt();
+  assert.ok(Date.now() - t0 < 500, `took ${Date.now() - t0} ms`);
+  assert.equal(b.tx[0], '\r\x02', 'first thing sent is Ctrl-B');
   assert.equal(b.state, 'friendly');
 });
 

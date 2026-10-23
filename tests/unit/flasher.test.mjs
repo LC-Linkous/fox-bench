@@ -26,6 +26,8 @@ test('flash() with the demo esptool: phases, progress, MD5 verification, facts f
   flasher.setImage('adafruit-circuitpython-seeed_xiao_esp32c3-en_US-10.2.1.bin', bytes);
   const phases = [], logs = [], progress = [];
   const facts = await flasher.flash({ impl: flasher.demoEsptool({ ms: 50 }), offset: 0, eraseAll: true, onPhase: p => phases.push(p), onLog: l => logs.push(l), onProgress: f => progress.push(f) });
+  assert.deepEqual(flasher.demoEsptool.lastWrite, { address: 0, length: bytes.length }, 'the image is written at the offset asked for');
+  assert.equal(facts.offset, '0x0');
   assert.match(facts.chip, /ESP32-C3/);
   assert.equal(facts.mac, '84:f7:03:12:34:56');
   assert.equal(facts.erase_ok, 'yes'); assert.equal(facts.flash_ok, 'yes'); assert.equal(facts.flash_size, '4MB');
@@ -64,4 +66,11 @@ test('expectChip: the wrong chip on the port is refused before anything is erase
   const facts = await flasher.flash({ offset: 0, expectChip: 'esp32s3', impl });
   assert.equal(facts.flash_ok, 'yes');
   flasher.demoEsptool.chipName = '';
+});
+
+test('the write address follows the offset option (a CircuitPython image on an ESP32 goes at 0x1000; a merged image at 0x0)', async () => {
+  await flasher.flash({ impl: flasher.demoEsptool({ ms: 20 }), offset: 0x1000 });
+  assert.equal(flasher.demoEsptool.lastWrite.address, 0x1000);
+  await flasher.flash({ impl: flasher.demoEsptool({ ms: 20 }), offset: 0 });
+  assert.equal(flasher.demoEsptool.lastWrite.address, 0);
 });

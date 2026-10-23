@@ -63,7 +63,7 @@ export async function flash({ offset = 0, eraseAll = true, baud = 460800, expect
   const terminal = { clean() {}, writeLine: t => onLog(t), write: t => onLog(t) };
   const loader = new lib.ESPLoader({ transport, baudrate: baud, romBaudrate: 115200, terminal });
   const t0 = performance.now();
-  const facts = { chip: '', revision: '', features: '', crystal: '', mac: '', flash_size: '', erase_ok: '', flash_ok: '', seconds: 0 };
+  const facts = { chip: '', revision: '', features: '', crystal: '', mac: '', flash_size: '', erase_ok: '', flash_ok: '', seconds: 0, offset: '0x' + offset.toString(16) };
   try {
     onPhase('connecting (hold B if it does not answer)');
     facts.chip = await loader.main();                   // detect, print facts, run stub, change baud
@@ -107,6 +107,7 @@ export function demoEsptool({ ms = 1500 } = {}) {
     async detectFlashSize() { return '4MB'; }
     async eraseFlash() { this.t.writeLine('Erasing flash (this may take a while)...'); await sleep(ms * 0.3); this.t.writeLine('Chip erase completed successfully in 0.4s'); }
     async writeFlash({ fileArray, reportProgress, calculateMD5Hash }) {
+      demoEsptool.lastWrite = { address: fileArray[0].address, length: fileArray[0].data.length };   // what a real esptool would have done; tests read it
       const total = fileArray[0].data.length; const steps = 10;
       for (let i = 1; i <= steps; i++) { await sleep(ms * 0.4 / steps); reportProgress(0, Math.round(total * i / steps), total); }
       this.t.writeLine(`Hash of data verified: ${calculateMD5Hash ? calculateMD5Hash(fileArray[0].data) : '(skipped)'}`);

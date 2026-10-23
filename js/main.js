@@ -27,7 +27,7 @@ import * as tabBench from './ui/bench.js';
 import * as tabFleet from './ui/fleet.js';
 import * as tabAbout from './ui/about.js';
 
-const VERSION = '0.7.8';
+const VERSION = '0.7.9';
 /** Tab subtitles that read differently per device family (null = the page's original text). */
 const LEDES = { drive: {
   board: 'Which fox is on the bench, open its USB drive (or use the simulated one). The vendor firmware stays; the page writes its files.',
@@ -168,7 +168,7 @@ export const app = {
     // Likewise a listen-only session: the same serial port, only the banner parser differs — swap the device, keep the port.
     if (this.device.listening && this.device.link && picofoxFamilies.includes(this.family) && picofoxFamilies.includes(next.family || 'foxlib')) {
       this.console.line(`${next.name} selected: same serial port, still listening`, 'dim');
-      this._swapListenDevice((next.family || 'foxlib') === 'foxlib-c');
+      await this._swapListenDevice((next.family || 'foxlib') === 'foxlib-c');
       return;
     }
     await this.disconnect();

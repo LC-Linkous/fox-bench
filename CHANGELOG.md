@@ -14,6 +14,28 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.7.9 · foxlib 1.0.4 · foxlib-c 0.1.9
+
+Regroup before kitsune hardware (the 2026-10-22 test and documentation
+reviews). Code:
+
+- **Merged-image offset.** `tools/build_kitsune.py` merged images padded
+  from address 0, and the page wrote them at the chip's bootloader offset
+  (0x1000 on the ATOM Lite, 0x2000 on the C5): every piece would have landed
+  one offset too high on the first real board; only the C3 (0x0) was safe by
+  coincidence. Now stated once: a merged image is a whole-flash image, built
+  with `--target-offset 0x0`, written at 0x0, manifest `offset` 0x0;
+  `check_catalog.py --manifest` enforces it, the simulated esptool records
+  the write address and the tests read it. Build tools pinned (PlatformIO
+  6.1.18, esptool 4.8.1) and recorded in the manifest;
+  `build_kitsune.py --selftest`.
+- `ReplLink.interrupt()` from raw mode sends Ctrl-B first instead of a 4.5 s
+  Ctrl-C dance — every XIAO Bench action after a read paid it. Timeouts are
+  injectable; the unit suite dropped from 49 s to 11 s.
+- A refused deploy no longer leaves the button at "Writing…" (the blocker
+  is checked before `busy`); the listen-only device swap is awaited.
+- A simulated flash (test mode) says so in the log.
+
 ### Page 0.7.8 · foxlib 1.0.4 · foxlib-c 0.1.9
 
 The 2026-10-22 bench session on foxlib-c 0.1.9 (`docs/hardware-log.md`):

@@ -69,6 +69,12 @@ jobs:
           fi
       - name: Docs name only files that exist
         run: python3 tools/check_docs.py
+      - name: Workflow file parses strictly (duplicate keys), job graph; kitsune build tool self-test; manifest shape
+        run: |
+          pip install --quiet pyyaml
+          python3 tools/check_ci.py
+          python3 tools/build_kitsune.py --selftest
+          python3 tools/check_catalog.py --manifest tests/fixtures/kitsune/manifest.json
       - name: Simulator — every template, every scenario
         run: python3 firmware/sim/run.py
       - name: Bench script against the simulated board on a pty (tools/hw_smoke.py end to end)
@@ -148,8 +154,10 @@ jobs:
       - name: Build the environments the catalog names and merge each into one image
         env: { KITSUNE_COMMIT: '${{ vars.KITSUNE_COMMIT }}' }
         run: |
-          python3 -m pip install -q -U platformio esptool
+          # pinned: the versions tools/build_kitsune.py names (PIO_VERSION / ESPTOOL_VERSION) and records in the manifest
+          python3 -m pip install -q platformio==6.1.18 esptool==4.8.1
           python3 tools/build_kitsune.py /tmp/kitsune /tmp/kitsune-out --commit "$KITSUNE_COMMIT"
+          python3 tools/check_catalog.py --manifest /tmp/kitsune-out/manifest.json
       - uses: actions/upload-artifact@v4
         with:
           name: kitsune-images

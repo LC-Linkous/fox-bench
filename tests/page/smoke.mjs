@@ -463,6 +463,8 @@ try {
   await page.click('#tab-board button:has-text("Flash")'); await untilFleet("r.action === 'flash' && r.board === 'seeed_xiao_esp32c5-kitsune' && r.result === 'ok'");
   const okRow = await app(() => JSON.parse(localStorage.getItem('fox-bench.fleet') || '[]').filter(r => r.action === 'flash' && r.board === 'seeed_xiao_esp32c5-kitsune').pop());
   check(okRow && okRow.result === 'ok' && okRow.uid === '84f703123456' && /merged\.bin/.test(okRow.notes), 'the right chip flashes; fleet row keyed on the efuse MAC: ' + JSON.stringify(okRow && [okRow.result, okRow.uid]));
+  const lastWrite = await app(() => window.foxbenchFlash.lastWrite?.());
+  check(lastWrite && lastWrite.address === 0 && lastWrite.length === 8192, 'a merged image is written at 0x0 even though the C5\'s bootloader offset is 0x2000: ' + JSON.stringify(lastWrite));
   check(/rebooting into the kitsune firmware/.test(await text('#tab-board')), 'the result text is the kitsune one');
   await app(() => { window.foxbenchFlash.simulate = false; window.foxbenchFlash.simulateChip = ''; });
   await tab('board'); await page.selectOption('#tab-board select', 'seeed_xiao_esp32c3'); await settle(400);

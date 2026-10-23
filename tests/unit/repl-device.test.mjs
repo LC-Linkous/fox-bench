@@ -122,8 +122,9 @@ test('operation queue: concurrent calls run one after another, never interleaved
     if (m) { assert.equal(open, null, `opened ${m[1]} while ${open} was still open`); open = m[1]; }
     if (c.startsWith('f.close()')) open = null;
   }
-  const interrupts = b.tx.filter(s => s === '\r\x03\x03').length;
-  assert.equal(interrupts, 1, 'only the bench action interrupted, once, after the writes');
+  // the bench action interrupted once, after the writes — from raw mode that is a single Ctrl-B, no Ctrl-C dance
+  const ctrl = b.tx.filter(s => /^\r[\x02\x03]/.test(s));
+  assert.deepEqual(ctrl, ['\r\x02'], 'only the bench action interrupted, once, with Ctrl-B');
 });
 
 test('a failed operation does not wedge the queue', async () => {
