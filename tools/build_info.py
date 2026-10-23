@@ -16,6 +16,19 @@ def run(*cmd, **kw):
     try: return subprocess.run(cmd, capture_output=True, text=True, check=True, **kw).stdout.strip()
     except Exception: return ""
 
+def uf2_payload(data):
+    """The flash payload of a UF2, block headers stripped (same walk as js/model/uf2.js uf2Payload)."""
+    out = bytearray()
+    for o in range(0, len(data) - 511, 512):
+        n = min(int.from_bytes(data[o + 16:o + 20], "little"), 476)
+        out += data[o + 32:o + 32 + n]
+    return bytes(out)
+
+def version_tag(data):
+    """'FOXLIBC-VERSION:<v>' inside the image (console.c VERSION_TAG, 0.1.9+), or None."""
+    m = re.search(rb"FOXLIBC-VERSION:(\d+\.\d+\.\d+)", uf2_payload(data))
+    return m.group(1).decode() if m else None
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("build_dir")
@@ -42,6 +55,13 @@ def main():
     if sz:
         cols = sz.splitlines()[-1].split()
         info["text"], info["bss"] = int(cols[0]), int(cols[2])
+    # The image must say what VERSION says: a stale configure (CMake read VERSION once), a dropped VERSION_TAG symbol
+    # or a mis-staged artifact would otherwise ship a UF2 labelled with a version it is not.
+    tag = version_tag(data)
+    if tag != info["version"]:
+        print(f"build_info: the UF2 carries FOXLIBC-VERSION:{tag} but firmware/foxlib-c/VERSION is {info['version']} — stale build dir? (reconfigure)", file=sys.stderr)
+        return 1
+    info["version_tag"] = tag
     out = a.out or os.path.join(a.build_dir, "foxbench-picofox.json")
     json.dump(info, open(out, "w"), indent=2); open(out, "a").write("\n")
     print(json.dumps(info, indent=2))

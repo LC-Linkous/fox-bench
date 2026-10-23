@@ -5,7 +5,47 @@ A critical review of fox-bench's workflow, process and stability at commit
 is tagged. Three independent reads — firmware, page/device layer,
 process/CI/tests — each by a reviewer who had not written the code, every
 claim spot-checked against the tree (and the Pico SDK source where it
-mattered). Nothing here is fixed yet; this document is the worklist.
+mattered). Written as the worklist before anything was fixed; the status
+block below says where each item stands now. The findings themselves are
+left as written — they are the record of what the code was.
+
+## Status at page 0.7.9 / foxlib-c 0.1.9 (2026-10-22)
+
+**Fixed** (see `CHANGELOG.md` 0.6.1–0.7.9 and `docs/hardware-log.md`):
+F1 F2 F3 F4 F5 F6 F7 F8 F9 · W1 W2 W3 W4 W5 W7 W8 W9 W10 W13 W14 · P1 P2 P3
+P4 P5 P6 P7, and of P8 the `firmware/sim/*.mjs` licence note, DESIGN §2, the
+compiler version. A second review on 2026-10-22 (tests and documentation,
+against 0.7.8) produced the regroup series 0.7.9: merged-image offset,
+interrupt-from-raw, CI guards, the documentation drift listed there.
+
+**Open — firmware**: F10 (attenuator word format unverified and dB/step
+unmeasured; written on every reload including 0 — the docs now say so;
+`atten` during a stream still answers `ok`), F11 (I²C at 1 MHz, no readback;
+zero `i2c_errors` across every bench session so far), F12 (`json.c`
+over-read on truncated input, `json_int` cast UB, low surrogates), F13
+(32-bit `now_ms` into 64-bit schedule: resurrection `until` unreachable after
+49.7 days), F14 (Si5351 probed once at boot), F15 (bench actions bypass the
+callsign gate; `reload` mid-bench; VID/PID reuse — see also the `(player late
+on N samples)` note in `firmware/foxlib-c/README.md`). The firmware test blind
+spots: host build compiles only `fox.c`; `console.c`, `si5351.c`, `player.c`
+and the FatFs/MSC drive path have no host coverage.
+
+**Open — page**: W6 (banner-follow rewrites the working form, no undo), W11
+(a clean `done` on the read stream fires no `onDrop`; a port drop
+mid-operation surfaces as a timeout), W12 (some UI handlers await device
+calls without a catch), and the Low list (CSV cells beginning with `= + - @`
+exported raw; `__proto__` as a banner board id; two tabs clobbering
+`fox-bench.fleet`/`working`; unbounded console `entries`; callmessage length
+counted differently in JS / Python / C; Google Fonts). Real serial is never
+exercised by a test: `serial-link.js`, Connect/Listen/banner-follow, the
+1200-baud touch and the UF2 copy run only on the bench.
+
+**Open — process**: P8's licensing question (the page imports
+`flasher/flasher.js` as a runtime ES module; `LICENSES.md` calls it
+aggregation — a deliberate decision is still owed: relicense the page
+GPL-3.0-or-later, or write down why aggregation), `esptool-js` provenance,
+`tools/hw_smoke.py --record`, CONTRIBUTING / SECURITY, the mixed-version
+page for ≤10 min after a deploy, a fuzzer on `json.c`.
 
 Severity: **critical** = can harm a user, a board or the air without warning;
 **high** = a real failure on a realistic path; **medium** = fails under

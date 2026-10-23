@@ -36,6 +36,35 @@ reviews). Code:
   is checked before `busy`); the listen-only device swap is awaited.
 - A simulated flash (test mode) says so in the log.
 
+Documentation, from the same review:
+
+- One sentence about kitsune everywhere it is described (README, About,
+  Board tab, Deploy tab, descriptors, `adding-a-target.md`, DESIGN §10):
+  the page flashes a merged image after the chip check, unverified on real
+  kitsune hardware; hosts nothing today and nothing without agreement
+  (`LICENSES.md` now says what would change and when).
+- `adding-a-target.md`: a `compiled`-family section written from the
+  lint's rules — hardware/target/defaults fields, and that a new compiled
+  template is a code change (`vendor/kitsune.js` `TEMPLATES`).
+- The contracts say what the code does: the band check is a confirmable
+  warning (DESIGN §4, CONFIG `plan`, About → Honest limits); foxlib-c's
+  10-minute hard keydown cap (CONFIG `limits`, the Deploy tab warns when the
+  worst case exceeds it); the attenuator word is written on every reload and
+  its format is unverified (firmware README, `picofox-hardware.md`,
+  hardware log).
+- `releasing.md` rewritten around what CI does: three ways to start a
+  release, what to check, and "re-run the failed job, do not delete the
+  tag".
+- `project-audit-2026-10.md` has a status block (fixed / open by id);
+  CHANGELOG gained the missing 0.7.0–0.7.4 section; DESIGN §1/§2 and the
+  About tab (families, transports, tested, next) brought up to date.
+
+CI guards (each for a slip that happened): `tools/check_ci.py` parses the
+workflow strictly and checks the job graph; `build_info.py` fails when the
+UF2's `FOXLIBC-VERSION:` tag differs from `VERSION`; the page version-bump
+lint counts `hardware/` and `boards/`; the fox-bench USB ids are compared with
+`usb_descriptors.c`; the kitsune build tools are pinned.
+
 ### Page 0.7.8 · foxlib 1.0.4 · foxlib-c 0.1.9
 
 The 2026-10-22 bench session on foxlib-c 0.1.9 (`docs/hardware-log.md`):
@@ -95,6 +124,38 @@ never `code.py` / `fox.json` / `defaults.json` / `boot.py` / `board.json`),
 in step with the page and the C firmware. The page's 0.7.x and foxlib-c's
 0.1.8 are described under their own headings in the commit history; see
 `docs/kitsune-integration-plan.md` for the `compiled` family.
+
+### Page 0.7.0–0.7.4 · foxlib 1.0.3 · foxlib-c 0.1.7–0.1.8
+
+The fourth device family, **compiled**, for foxes whose configuration is
+compiled into their firmware — RF Hackers Sanctuary's kitsune
+(`docs/kitsune-integration-plan.md`; kitsune belongs to its authors,
+https://github.com/rfhs/kitsune, nothing of it hosted here).
+
+- Five kitsune targets (M5Stack ATOM Lite, AtomS3 Lite, StampS3, Arduino
+  Nano ESP32, Seeed XIAO ESP32-C5 — descriptors from public documentation,
+  `experimental` until a board is on the bench) and five templates: Wi-Fi
+  access point, Wi-Fi client, BLE iBeacon, Bluetooth Classic, Zigbee
+  coordinator, each with the challenge/key-phrase fields their build reads.
+- The page's forms check the configuration with kitsune's own constraints
+  (`js/model/vendor/kitsune.js`: channels per band and region, MAC shape,
+  power steps, intervals) and **export the conference header** their
+  PlatformIO build compiles in; an exported header imports back into the
+  form; a random locally-administered MAC per fox; a cycle preview.
+- **Firmware card** for the compiled family: a merged image from the site's
+  manifest (built in CI from a pinned kitsune commit, only when the
+  repository variable `KITSUNE_BUILD` is set — nothing hosted without the
+  project's agreement) or a local merged `.bin`; the flasher checks the
+  port's chip against the target before erasing (`expectChip`); the fleet
+  log keys the fox on its efuse MAC.
+- **Catalog packs** (`?pack=<url>`): another repository's hardware, targets,
+  templates and defaults loaded over this site's, data only, linted with
+  `check_catalog.py --pack` — the mechanism for kitsune to publish its own
+  descriptors later (`tests/fixtures/pack/`).
+- 1200-baud touch: the picked port's USB ids are checked against the
+  hardware descriptor; "port gone"/"still there" verdicts.
+- foxlib-c 0.1.8: `correction_ppm` applied; `fox_drive_changed` by content;
+  banner via `con_puts`; build date = commit author date.
 
 ### Page 0.6.2 · foxlib 1.0.3 · foxlib-c 0.1.7
 

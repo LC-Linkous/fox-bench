@@ -9,7 +9,7 @@
   "kind": "compiled",
   "project": "kitsune",
   "source": "https://github.com/rfhs/kitsune",
-  "note": "RF Hackers Sanctuary's kitsune foxes (Wi-Fi AP/client, BLE iBeacon, Bluetooth Classic, Zigbee) are PlatformIO/Arduino firmware whose configuration is compiled in from a per-conference header. kitsune belongs to its authors (https://github.com/rfhs/kitsune); nothing of it is included here. Today the page prepares and checks that configuration and exports the header; flashing from the page comes later.",
+  "note": "RF Hackers Sanctuary's kitsune foxes (Wi-Fi AP/client, BLE iBeacon, Bluetooth Classic, Zigbee) are PlatformIO/Arduino firmware whose configuration is compiled in from a per-conference header. Today the page prepares and checks that configuration, exports the header their build reads, and can flash a kitsune image (one you built with PlatformIO, or the site's once hosting is agreed with the project) after checking the port's chip — not yet tried on a real kitsune board. Per-fox configuration without a rebuild is Phase 2 (docs/kitsune-integration-plan.md). kitsune belongs to its authors (https://github.com/rfhs/kitsune); nothing of it is hosted here today, and nothing will be without the project's agreement.",
   "stage": "config-only"
  }
 }

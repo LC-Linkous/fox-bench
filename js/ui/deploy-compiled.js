@@ -1,4 +1,4 @@
-// deploy-compiled.js — Deploy tab for the compiled family (RFHS kitsune): no transport yet. Export the conference
+// deploy-compiled.js — Deploy tab for the compiled family (RFHS kitsune): no deploy transport (Phase 2). Export the conference
 // header block kitsune's build reads, import one, record the fox in the fleet log, save as a profile.
 // SPDX-License-Identifier: GPL-2.0-only
 import { h, badge, select, field } from './dom.js';
@@ -64,7 +64,7 @@ export function render(root, render_) {
         h('button.btn', { onclick: () => fileIn.click() }, 'Import a kitsune header…'), fileIn,
         blocking.length ? h('span.hint.err', {}, 'Fix the blocking checks above to export.') : h('span.hint', {}, 'Export records an export-header row in the fleet log (address, SSID/name, challenge, key phrase).')),
       last ? h('p.hint' + (last.ok ? '.ok' : '.err'), {}, last.text) : null,
-      h('p.hint', {}, h('b', {}, 'Not from this page yet: '), 'building and flashing. The next stages (docs/kitsune-integration-plan.md) fetch kitsune images built in CI from a pinned commit and flash them here, then write a per-fox configuration partition so one image serves every fox. kitsune belongs to its authors: ', h('a', { href: v.SOURCE, target: '_blank', rel: 'noopener' }, v.SOURCE), '.')),
+      h('p.hint', {}, h('b', {}, 'Not from this page: '), 'building — the header goes into a kitsune checkout and PlatformIO builds it. Flashing the result is the Board tab\'s firmware card (chip checked first; not yet tried on a real kitsune board). Phase 2 (docs/kitsune-integration-plan.md) writes a per-fox configuration partition so one image serves every fox. kitsune belongs to its authors: ', h('a', { href: v.SOURCE, target: '_blank', rel: 'noopener' }, v.SOURCE), '.')),
     h('div.card', {}, h('h3', {}, 'Save as profile'),
       h('p.hint', {}, 'Keep this fox under a name (Profiles & fleet tab): one profile per fox makes a conference. Saving writes nothing anywhere.'),
       (() => { const nameIn = h('input', { type: 'text', value: cfg.fleet?.profile || '', placeholder: `${cfg.challenge?.name || 'fox'}`, style: 'flex:1;min-width:220px' });

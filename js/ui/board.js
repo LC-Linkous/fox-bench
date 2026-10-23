@@ -188,6 +188,6 @@ function renderCompiled() {
     hw.notes?.length ? h('ul', {}, hw.notes.map(n => h('li.hint', {}, n))) : null);
   const firmware = h('div.card', {}, h('h3', {}, 'Firmware ', badge('kitsune', 'info')),
     h('p.hint', {}, fw.note || ''),
-    h('p.hint', {}, 'kitsune is the work of its authors: ', h('a', { href: fw.source || 'https://github.com/rfhs/kitsune', target: '_blank', rel: 'noopener' }, fw.source || 'https://github.com/rfhs/kitsune'), '. Nothing of it is included in fox-bench; this page only prepares the header their build reads.'));
+    h('p.hint', {}, 'kitsune is the work of its authors: ', h('a', { href: fw.source || 'https://github.com/rfhs/kitsune', target: '_blank', rel: 'noopener' }, fw.source || 'https://github.com/rfhs/kitsune'), '. Nothing of it is hosted here today (the firmware card says if that changes, and only by agreement with the project); the page prepares the header their build reads and flashes the result.'));
   root.replaceChildren(pickerCard(), h('div.cols', {}, deviceCard, firmware), flashCard(app), facts, diagCard());
 }

@@ -90,9 +90,10 @@ diff it against the last one the next time anything changes.
       the site build's commit), what was checked, how, result.
 - [ ] Add the board id to `boards_tested` in each `template.json` that
       passed (the catalog lint checks the id exists).
-- [ ] If the board is new: its descriptor in `boards/`, its row in
-      `boards/index.json`, a defaults file per template, and the silkscreen
-      note for the Board tab if the pin names differ from the printed ones.
+- [ ] If the board is new: its hardware descriptor in `hardware/` (+ index
+      row), a target in `boards/`, a defaults file per template
+      (`docs/adding-a-target.md`), and the silkscreen note for the Board tab
+      if the pin names differ from the printed ones.
 - [ ] File a hardware report issue with the measurements, or add them to
       the module descriptor if they belong there (nominal power).
 - [ ] Fleet log CSV downloaded; the UID will be the key for this board forever.

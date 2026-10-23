@@ -55,8 +55,12 @@ VERSION      firmware version (the banner's foxlib=c-<version>)
   flat deviation (`audio_deviation_hz`), played back to back with the ID on
   one carrier. Keying = CLK0 output enable +
   amplifier enable. Attenuation (rev 3) through the BVA1761 serial interface
-  — written from the datasheet; the board accepts the codes, the dB per step is
-  not yet confirmed with a power meter; never touched at attenuation 0.
+  — the word is written on every config reload (rev 3), attenuation 0
+  included. The board accepts the codes; the dB per step is not confirmed
+  with a power meter, and the word format the firmware clocks out (8 bits,
+  code<<1, `player.c atten_write`) is **unverified** against the datasheet's
+  timing diagram — `docs/picofox-hardware.md` describes the interface it was
+  written from. Until measured, treat the steps as nominal.
 - **Staying off the air when it should**: the cycle's keydown budget is
   enforced by the player in samples *and* by core 0 on the wall clock
   (`keydown_guard`, 2 s grace; 10 min hard cap when the cfg has no limits);

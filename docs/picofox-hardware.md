@@ -89,13 +89,20 @@ appears with the switch on (matches observed behaviour).
   `P/S` and `A0..A2` strapped on the board (serial mode, address 0). RF in
   `RF1`, RF out `RF3/RF4` with L7 270 nH bias feed, C24 output coupling.
   Rev 2 boards do not have the attenuator (rev detect pins above).
-  **Attenuator interface, per the BVA1761 datasheet (serial mode):** a 16-bit
-  word clocked in on `CLK`/`DATA`, attenuation code in 0.25 dB steps
-  (0–127 → 0–31.75 dB) followed by the device address bits, latched by a
-  pulse on `LE`. The I²C peripheral must be released (pins as plain GPIO)
-  while bit-banging, then re-enabled; SCL is held low before SDA moves so the
-  Si5351 does not see an I²C START. *The firmware accepts attenuation codes on a rev 3 board; the resulting
-  dB per step has not been measured with a power meter yet.*
+  **Attenuator interface (BVA1761, serial mode):** the datasheet reading this
+  was written from describes a word clocked in on `CLK`/`DATA` — attenuation
+  code in 0.25 dB steps (0–127 → 0–31.75 dB) with the device address bits —
+  latched by a pulse on `LE`. **What the firmware actually sends**
+  (`picofox/player.c atten_write`, marked UNVERIFIED in the code): 8 bits,
+  MSB first, `code << 1` (D7..D1 = code, D0 = 0), address 0 assumed
+  strapped, clocked on the rising edge of CLK with LE low, then an LE pulse.
+  Whether that is the datasheet's 16-bit framing or a shorter variant has
+  not been checked against the timing diagram, and the dB per step has not
+  been measured — the two may be the same question. The I²C peripheral is
+  released (pins as plain GPIO) while bit-banging, then re-enabled; SCL is
+  held low before SDA moves so the Si5351 does not see an I²C START. The
+  write happens on every config reload on a rev 3 board, attenuation 0
+  included.
   Amplifier enable polarity: `AEN` active **low** — confirmed on the air with
   the fox-bench firmware (October 2026, rev 3 board).
 - Post-amp LPF (same values), then JP1/JP2 jumpers (standalone: both fitted),

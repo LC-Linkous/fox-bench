@@ -372,18 +372,33 @@ if "--since" in sys.argv:
     if (changed("firmware/foxlib-c/core") or changed("firmware/foxlib-c/picofox") or changed(EMBEDDED_DEFAULTS)) and not changed("firmware/foxlib-c/VERSION"):
         bad("firmware/foxlib-c/VERSION", f"foxlib-c firmware changed since {ref} without a version bump")
     # the page: anything it serves to the browser needs js/main.js VERSION bumped (the About tab, the saved form's stamp)
-    if (changed("js") or changed("css") or changed("index.html") or changed("flasher")) and not changed("js/main.js"):
+    PAGE_DIRS = ("js", "css", "index.html", "flasher", "hardware", "boards")   # hardware/ and boards/ are served to the browser (USB ids, flash offsets)
+    if any(changed(d) for d in PAGE_DIRS) and not changed("js/main.js"):
         bad("js/main.js", f"page files changed since {ref} without a VERSION bump in js/main.js")
     elif changed("js/main.js"):
         a = subprocess.run(["git", "show", f"{ref}:js/main.js"], cwd=ROOT, capture_output=True, text=True).stdout
         va = re.search(r"const VERSION = '([^']+)'", a); vb = re.search(r"const VERSION = '([^']+)'", open(os.path.join(ROOT, "js/main.js")).read())
-        if va and vb and va.group(1) == vb.group(1) and (changed("js") or changed("css") or changed("index.html") or changed("flasher")):
+        if va and vb and va.group(1) == vb.group(1) and any(changed(d) for d in PAGE_DIRS):
             bad("js/main.js", f"page files changed since {ref} but VERSION is still {vb.group(1)}")
 
 # ---------------------------------------------------------------- a "stable" target has been seen by a template
 for tid, t in boards.items():
     if t.get("status") == "stable" and not any(tid in tp.get("boards_tested", []) for tp in templates.values()):
         bad(f"boards/{tid}.json", "status: stable, but no template lists it in boards_tested (the Behavior tab would say it was tested on something else)")
+
+# ---------------------------------------------------------------- the fox-bench firmware's USB ids: descriptor file vs the C source
+# The touch matches the picked port against hardware/picofox.json usb[]; the firmware's own ids come from
+# picofox/usb_descriptors.c. The vendor firmware's ids (239a:cafe) are bench-observed and cannot be checked here.
+try:
+    usb_c = open(os.path.join(ROOT, "firmware/foxlib-c/picofox/usb_descriptors.c")).read()
+    vid = re.search(r"#define\s+USB_VID\s+0x([0-9A-Fa-f]{4})", usb_c); pid = re.search(r"#define\s+USB_PID\s+0x([0-9A-Fa-f]{4})", usb_c)
+    ours = [u for u in hardware.get("picofox", {}).get("usb", []) if u.get("label") == "fox-bench firmware"]
+    if vid and pid and ours:
+        u = ours[0]
+        if (u["vid"].lower(), u["pid"].lower()) != ("0x" + vid.group(1).lower(), "0x" + pid.group(1).lower()):
+            bad("hardware/picofox.json", f"usb 'fox-bench firmware' is {u['vid']}:{u['pid']} but usb_descriptors.c says 0x{vid.group(1)}:0x{pid.group(1)}")
+    elif ours and not (vid and pid): bad("firmware/foxlib-c/picofox/usb_descriptors.c", "USB_VID/USB_PID not found (the lint compares them with hardware/picofox.json)")
+except FileNotFoundError: pass
 
 # ---------------------------------------------------------------- a kitsune manifest against the catalog (--manifest PATH)
 # tools/build_kitsune.py writes one in CI; the page flashes what it names. Every image must belong to a compiled target,

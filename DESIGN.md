@@ -33,8 +33,8 @@ before changing any of them.
 
 ## 1. Principles
 
-1. **The page is schema-driven.** It knows three kinds of definition file
-   (boards, modules, templates) and renders everything from them. Adding
+1. **The page is schema-driven.** It knows four kinds of definition file
+   (hardware, targets, modules, templates) and renders everything from them. Adding
    a board, a radio module or a firmware template is adding files, not
    editing the page.
 2. **Firmware is static, configuration is generated.** `code.py` and
@@ -90,13 +90,15 @@ js/
     airtime.js             computed keydown per transmission, duty check
     zip.js                 deploy-set export
     vendor/picofox.js      the vendor PicoFox firmware's files, modelled
+    vendor/kitsune.js      kitsune's compiled-in configuration: validation, header export/import, cycle (compiled family)
   audio/
     morse.js  melody.js  rtttl.js  sstv.js  schedule.js   JS twins of foxlib encoders
     player.js              Web Audio renderer for an event stream
     spectrum.js            event stream → spectrogram (QRSS preview)
     wav.js                 event stream → WAV (the vendor PicoFox's audio file)
   ui/                      one module per tab (board, radio, behavior, plan, id, payload, schedule,
-                           deploy / deploy-drive / deploy-foxlibc, bench, fleet, about), console drawer, flash card, dom helpers
+                           deploy / deploy-drive / deploy-foxlibc / deploy-compiled, kitsune (the compiled family's radio forms),
+                           bench, fleet, about), console.js (the console drawer), flash.js (flash card, firmware cards, touch, UF2 copy), dom helpers
 flasher/                   esptool-js wrapper + vendored esptool-js (Apache-2.0)
 hardware/    <hardware_id>.json       the physical board, see §4
 boards/      <target_id>.json         hardware + firmware + family, see §4
@@ -118,7 +120,10 @@ firmware/
 tools/
   check_catalog.py                    lint for every descriptor, defaults file, index and version bump
   check_docs.py                       every file path named in the *.md files exists
-  build_info.py                       fingerprint JSON beside the UF2, RAM budget
+  build_info.py                       fingerprint JSON beside the UF2, RAM budget, the image's version tag vs VERSION
+  build_kitsune.py                    CI's build of kitsune images + manifest (gated; --selftest)
+  check_ci.py                         strict parse of the workflow file, job graph
+  release_notes.py                    the release body from CHANGELOG.md
   batch_flash.py                      headless batch flasher (same CSV as the Fleet tab)
   hw_smoke.py                         bench script against a real (or pty-simulated) board
 tests/                                unit (node:test) and page smoke (Playwright), see tests/README.md
@@ -262,8 +267,14 @@ validation and explanation:
   "EU": { "2m": [144.0, 146.0], "70cm": [430.0, 440.0] } }
 ```
 
-A frequency is accepted when it lies inside a module range **and** inside
-a band for the chosen region. The page says which test failed.
+A frequency inside a module range **and** inside a band for the chosen
+region passes. One outside the band table is a *warning*, not a rejection:
+the Deploy tab asks "Deploy anyway?" and proceeds if told to (bench work
+into a dummy load, another allocation). Only the module range is enforced
+without appeal — by the page and by the firmware: foxlib drops entries
+outside `radio.ranges_mhz`, foxlib-c additionally refuses anything within
+20 kHz of the 2 m band edges. The operator's licence and band plan are the
+operator's; About → Honest limits says so.
 
 ## 5. Templates and foxlib
 
@@ -478,7 +489,7 @@ bench. A *device family* is the unit that varies:
 | payload | event stream played by `foxlib/tones.py` | `audio.wav` the page **renders from the same event stream** (`js/audio/wav.js`), plus its own Morse-ID file | the same event stream, synthesised in the firmware per sample (`core/synth.c`) into FM | none: the radio itself is the challenge |
 | validation | `schema.js` + `cfg.py` (parity-tested) | the vendor module's `validate()`, which knows what makes that firmware fall silent | `schema.js` (pinless) + `core/cfg.c`, parity-tested against both | `js/model/vendor/kitsune.js`: what the fox checks at boot (address, channel, name) and what the headers only document |
 | bench | `exec-and-capture` | none (no REPL); serial boot log on Listen only | text commands on the console (`key`, `tone`, `id`, `batt`, `status`, …) | none; serial boot lines on Listen only |
-| flashing | esptool (`flasher/`) | UF2 copy to the bootloader drive | the site-built UF2 copied to the bootloader drive; `bootsel` from the console gets there | kitsune's PlatformIO build, by hand (planned: esptool from the page, images built in CI from a pinned commit) |
+| flashing | esptool (`flasher/`) | UF2 copy to the bootloader drive | the site-built UF2 copied to the bootloader drive; `bootsel` from the console gets there | esptool from the page (`flasher/`), a merged whole-flash image written at 0x0 after the chip check — your own PlatformIO build, or the site's once hosting is agreed; unverified on a real kitsune board |
 | reboot after deploy | soft reboot, banner read back | eject + power cycle | the firmware reloads itself ~1.5 s after the last write | rebuild and flash |
 
 Descriptors need not all live here: a **catalog pack** is another site's

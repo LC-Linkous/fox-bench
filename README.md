@@ -27,9 +27,13 @@ family, **compiled**, is for the RF Hackers Sanctuary's
 [kitsune](https://github.com/rfhs/kitsune) foxes — Wi-Fi AP and client, BLE
 iBeacon, Bluetooth Classic and Zigbee on five ESP32-family boards — whose
 configuration is compiled in: the page prepares and checks it with the
-same forms and exports the conference header their build reads; flashing
-and per-fox configuration are planned (`docs/kitsune-integration-plan.md`).
-kitsune belongs to its authors and nothing of it is included here. Every push runs three test layers in CI: the firmware
+same forms, exports the conference header their build reads, and can flash
+a kitsune image after checking the port's chip (one built with PlatformIO,
+or the site's once hosting is agreed) — not yet tried on a real kitsune
+board. Per-fox configuration without a rebuild is Phase 2
+(`docs/kitsune-integration-plan.md`). kitsune belongs to its authors;
+nothing of it is hosted here today, and nothing will be without the
+project's agreement (`LICENSES.md`). Every push runs three test layers in CI: the firmware
 simulator (`firmware/sim/`), the REPL protocol against a fake board and
 the page itself in headless Chromium (`tests/`), and a lint of every
 descriptor (`tools/check_catalog.py`); the site deploys from `main` only
@@ -64,8 +68,9 @@ python -m http.server 8000
 ```
 then open http://localhost:8000/ — module scripts don't load from `file://`.
 
-Tests: `python3 firmware/sim/run.py` · `python3 tools/check_catalog.py` ·
-`cd tests && npm ci && npx playwright install chromium && npm test`.
+Tests: the full local sequence is in `tests/README.md` (catalog and docs
+lint, the two simulators, the C firmware's host tests, the page's unit and
+smoke suites); CI runs the same.
 
 ## Licensing
 

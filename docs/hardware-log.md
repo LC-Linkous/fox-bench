@@ -24,8 +24,10 @@ Board tab shows them for the site's UF2 (`foxbench-picofox.json`).
 ## Not yet verified on hardware
 
 - foxlib-c: attenuator dB per step (needs an S-meter at distance or a power
-  meter); `radio.correction_ppm` (applied since 0.1.8, not measured against a
-  counter); `i2c_errors` recovery path exercised only by construction, never
+  meter) **and** the attenuator word format (`player.c atten_write` sends 8
+  bits; the datasheet reading in `docs/picofox-hardware.md` describes a
+  longer word — possibly the same question); `radio.correction_ppm` (applied
+  since 0.1.8, not measured against a counter); `i2c_errors` recovery path exercised only by construction, never
   seen to fire; watchdog timeout path (a hang has not been provoked).
 - Templates on the PicoFox other than morse-songs and morse-sstv: the
   firmware runs them in the host simulation, not yet on air.

@@ -131,8 +131,10 @@ the Si5351 exciter. `squelch`, `volume` and `high_power` have no meaning there.
 | `announce_qsy` | bool | with more than one frequency, send `QSY <next>` in Morse before moving. |
 
 The page additionally checks each entry against the selected region's
-band plan (`bands.json`) and shows which test a rejected frequency
-failed. The firmware checks only the module range.
+band plan (`bands.json`) and names the test an entry failed — as a
+warning that Deploy asks to confirm ("Deploy anyway?"), not a rejection.
+The firmware checks only the module range (foxlib), plus a 20 kHz margin
+inside the 2 m band edges (foxlib-c).
 
 ## `id`
 
@@ -236,10 +238,14 @@ LED `critical`, recheck every 60 s, resume above `recovery_v`.
 "limits": { "max_keydown_s": null }
 ```
 
-`null` = no limit, and no template sets one. When a number (1–7200) is
-set in the UI, the firmware unkeys when a single transmission reaches it,
-logs `keydown-limit`, and shows that LED pattern once. The page displays
-computed airtime per transmission next to this field.
+`null` = no limit from the configuration, and no template sets one. When
+a number (1–7200) is set in the UI, the firmware unkeys when a single
+transmission reaches it, logs `keydown-limit`, and shows that LED pattern
+once. The page displays computed airtime per transmission next to this
+field. **foxlib-c** additionally caps any single transmission at 600 s
+(+2 s grace) when no limit is set — a wall-clock guard on core 0 — so a
+QRSS message longer than ten minutes is cut on the PicoFox; the Deploy tab
+warns when the worst-case transmission exceeds it.
 
 ## `fleet`
 

@@ -80,7 +80,8 @@ export function render(root, rerender) {
       h('div.card', {}, h('h3', {}, 'Keydown'),
         h('dl.kv', {}, h('dt', {}, 'Typical transmission'), h('dd', {}, fmtDuration(at.typical_ms)), h('dt', {}, 'Worst case'), h('dd', {}, fmtDuration(at.worst_ms)), h('dt', {}, 'Power'), h('dd', {}, powerText(cfg)), h('dt', {}, 'Deviation'), h('dd', {}, `ID ±${cfg.radio.id_deviation_hz} Hz · audio ±${cfg.radio.audio_deviation_hz} Hz`)),
         field('Keydown limit', h('div.row', {}, numInput(lim.max_keydown_s ?? '', { min: 1, max: 7200, step: 1, width: '120px', onchange: v => { lim.max_keydown_s = v; app.changed('limits'); } }), h('span.suffix', {}, 's'), h('button.btn.small', { onclick: () => { lim.max_keydown_s = null; app.changed('limits'); } }, 'no limit')),
-          lim.max_keydown_s ? `The firmware unkeys at ${lim.max_keydown_s} s and logs it.` : 'None set (default).'))),
+          lim.max_keydown_s ? `The firmware unkeys at ${lim.max_keydown_s} s and logs it.` : 'None set: the firmware still cuts any single transmission at 10 minutes (its hard cap).'),
+        !lim.max_keydown_s && at.worst_ms > 600_000 ? h('p.hint.warn', {}, `Worst-case transmission ${fmtDuration(at.worst_ms)} is longer than the firmware's 10-minute hard cap: it will be cut and logged as keydown-limit. Shorten the message or raise the speed.`) : null)),
     h('div.card', {}, h('h3', {}, 'What will be written'),
       h('ul.diff', {}, fs.map(f => h('li.file', {}, h('span', {}, f.path), h('span.to', {}, f.why), h('span.mono', {}, `${(size(f) / 1024).toFixed(1)} kB`)))),
       changes.length ? h('details', { open: changes.length < 12, style: 'margin-top:10px' }, h('summary', { class: 'hint' }, `${changes.length} field${changes.length === 1 ? '' : 's'} differ from the drive's fox.json`), h('ul.diff', {}, changes.map(c => h('li', {}, h('span', {}, c.key), h('span.from', {}, c.from ?? '—'), h('span.to', {}, c.to ?? '—')))))

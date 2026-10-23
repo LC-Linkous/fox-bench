@@ -38,7 +38,7 @@ const LEDES = { drive: {
   schedule: 'The firmware\'s duty cycle, drawn with the carrier offsets and power steps it adds by itself.',
   deploy: 'Render the four files, write them to the drive and read them back; then eject and power-cycle.',
 }, compiled: {
-  board: 'Which kitsune board this fox is. Nothing connects yet: the configuration is compiled into their firmware, so this page prepares and checks it and exports the header. Listen only reads their serial boot lines.',
+  board: 'Which kitsune board this fox is. The configuration is compiled into their firmware: this page prepares and checks it, exports the header, and the firmware card can flash an image after checking the chip (not yet tried on a real kitsune board). Listen only reads their serial boot lines; there is no deploy transport — per-fox configuration without a rebuild is Phase 2.',
   radio: 'Transmit power for the radio this challenge uses, and what this board has.',
   behavior: 'Which kitsune challenge this fox is: Wi-Fi access point or client, BLE iBeacon, Bluetooth Classic, Zigbee coordinator.',
   plan: 'The channel: fixed, or random at every wake.',
@@ -79,7 +79,7 @@ export const app = {
   get usesDrive() { return this.family === 'drive' || this.family === 'foxlib-c'; },
   /** The hardware descriptor behind the selected target. */
   get hardware() { return this.catalog.hardware?.[this.board.hardware] || null; },
-  /** Families whose configuration is compiled into the firmware (kitsune): the page prepares and checks it, no transport yet. */
+  /** Families whose configuration is compiled into the firmware (kitsune): the page prepares and checks it and flashes images; no deploy transport (Phase 2). */
   get isCompiled() { return this.family === 'compiled'; },
   /** The foxlib-c console to send bench commands to: the Listen-only device, or the demo's side console. */
   consoleDevice() { if (this.family !== 'foxlib-c') return null; if (this.device?.kind === 'console') return this.device; return this.sideConsole || null; },

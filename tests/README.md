@@ -23,14 +23,28 @@ chromium` is enough). The smoke test also needs `gcc`, `make` and
 Everything CI runs, locally, from the repository root:
 
 ```
-python3 tools/check_catalog.py && python3 tools/check_docs.py
+python3 tools/check_catalog.py --since origin/main && python3 tools/check_docs.py
+python3 tools/check_ci.py && python3 tools/build_kitsune.py --selftest
+python3 tools/check_catalog.py --manifest tests/fixtures/kitsune/manifest.json
 python3 firmware/sim/run.py
 make -C firmware/foxlib-c/tests check
 cd tests && npm run unit && npm run smoke
 ```
 
 (The firmware itself needs the Arm toolchain named in
-`firmware/foxlib-c/README.md`; the tests above do not.)
+`firmware/foxlib-c/README.md`; the tests above do not. `check_ci.py` needs
+PyYAML.) `--since` is the version-bump lint: give it the base of the series
+you are about to push, not `HEAD`, or a bump missing from an earlier commit
+goes unnoticed until CI.
+
+CI guards that exist because of a real slip: `check_ci.py` (a duplicate `if:`
+made GitHub refuse the workflow, which showed up as no run at all);
+`build_info.py` reads `FOXLIBC-VERSION:` out of the built UF2 and fails when it
+differs from `firmware/foxlib-c/VERSION` (CMake had read the file once, at
+configure time); `check_catalog.py --since` counts `hardware/` and `boards/` as
+page files (a USB id in a descriptor drives the 1200-baud touch) and compares
+the fox-bench firmware's USB ids with `usb_descriptors.c`;
+`check_catalog.py --manifest` pins a merged kitsune image at offset 0x0.
 
 `SHOTS=/some/dir npm run smoke` also saves a screenshot of every tab, which
 CI keeps as an artifact for a week — useful for seeing what a failure looked

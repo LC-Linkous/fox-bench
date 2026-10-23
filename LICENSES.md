@@ -41,7 +41,13 @@ descriptors describe the boards it runs on, and `js/model/vendor/kitsune.js`
 is fox-bench's own description of the configuration header that build
 reads, written from reading the public repository. Their repository carries
 no licence file at the time of writing; nothing of theirs is redistributed
-from here.
+from here today. The repository does contain the machinery to change that
+(`tools/build_kitsune.py`, the `kitsune` CI job): if the project agrees, CI
+would build images from a commit they name and host them under the site's
+kitsune images directory, labelled as fox-bench's build of kitsune at that
+commit and not as a kitsune release (`docs/kitsune-integration-plan.md`
+§7). That switch (`KITSUNE_BUILD`) stays off until then, and this paragraph
+is to be rewritten the day it is turned on.
 
 ## Lineage
 
