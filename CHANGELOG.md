@@ -14,6 +14,28 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.7.8 · foxlib 1.0.4 · foxlib-c 0.1.9
+
+The 2026-10-22 bench session on foxlib-c 0.1.9 (`docs/hardware-log.md`):
+flash from the site, deploy while running, power cycle, eject/replug while
+keyed, Explorer browsing, the target switch both ways — all clean. What it
+turned up, fixed here:
+
+- The vendor target on a drive that holds `board.json`/`fox.json` says the
+  board is running fox-bench's firmware and that `settings.txt` there is a
+  leftover (the mirror of the existing "still running the vendor firmware"
+  line).
+- Listen only survives a switch between the two PicoFox targets (same serial
+  port; the device swaps, the port stays open), as the drive already did.
+- The touch names the matched USB id briefly ("vendor firmware") instead of
+  quoting the descriptor's note; "serial port dropped" also mentions a board
+  switched off or unplugged.
+- The PicoFox vendor target and its template are marked **stable**: on the
+  air since 2026-10-21, every page path exercised on a rev 3 board.
+- Known and left alone: `(player late on N samples)` after a long `status`
+  reply — the console printing on core 0 delays one FM sample on core 1, a
+  sub-millisecond glitch the counter reports honestly.
+
 ### Page 0.7.7 · foxlib 1.0.4 · foxlib-c 0.1.9
 
 - 0.7.7: switching between the two PicoFox targets while the drive is open

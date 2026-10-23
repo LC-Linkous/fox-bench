@@ -85,6 +85,10 @@ VERSION      firmware version (the banner's foxlib=c-<version>)
   so the vendor firmware can go back without touching the button.
 - **No LED, no battery voltage** on this hardware: the log carries the status,
   `batt` reports only whether the charger is active.
+- **`(player late on N samples)`** after a long console reply (`status`, the
+  banner at boot): core 0's printing delays one or two of core 1's 125 µs FM
+  samples. The counter reports it; the glitch is sub-millisecond and has not
+  been heard. A line that appears mid-cycle without a command is worth a look.
 
 ## Build
 

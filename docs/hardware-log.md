@@ -18,13 +18,15 @@ Board tab shows them for the site's UF2 (`foxbench-picofox.json`).
 | 2026-10-22 | AI6YM PicoFox rev 3 | foxlib-c 0.1.6 | `bootsel` (and the page's Reboot into bootloader) while keyed: carrier drops before RPI-RP2 appears | handheld | ok — off the air before the reset |
 | 2026-10-22 | AI6YM PicoFox rev 3 | foxlib-c 0.1.6–0.1.8 | soak across the session's firmware: repeated power cycles, `status` after each | console | ok — `reset=power_on` every time, never `watchdog`, `i2c_errors=0` throughout |
 | 2026-10-22 | AI6YM PicoFox rev 3 | foxlib-c 0.1.8, site build (commit 5aa9529, sha `2e642520…`) | 0.1.8 flashed from the site via the touch (port ids `2e8a:000a` reported, "port gone"); deploy written; Fleet Audit `match` by uid after reconnect; `bootsel` from the drawer → RPI-RP2; vendor firmware `pfoxr3v1` flashed back via the touch (pinned sha `dfd60ffd…`), vendor files written, then fox-bench firmware flashed from the vendor side again — the swap holds both ways. Findings: the vendor firmware enumerates as `239a:cafe` (descriptor corrected, page 0.7.5); a `settings.txt.crswap` left by an editor on the drive; the drawer showed a typed command twice (page 0.7.6); `(player late on 1 samples)` once at boot, benign | handheld; console; drive; fleet log | ok |
+| 2026-10-22 | AI6YM PicoFox rev 3 | foxlib-c 0.1.9, site build `c1c4496d…` (commit 433d7d6), page 0.7.7 | flashed from the site over the vendor firmware (touch on `239a:cafe`); a pre-0.1.9 UF2 loaded by hand is flagged as older than the site's build; deploy while running (`host_writes=87 i2c_errors=0 core1=ok`, reload ~1 s); bench `id`, `batt`, `status` (`reset=software version=0.1.9`); power cycle with the page connected and reconnect; eject and replug while keyed; Explorer browsing of the drive with and without the page connected; vendor ↔ fox-bench target switch with the drive open (page keeps the handle) | handheld; console; drive; Explorer | ok. `(player late on 2 samples)` after a long `status` reply — noted, sub-millisecond, left alone |
+| 2026-10-22 | AI6YM PicoFox rev 3 (vendor firmware) | vendor pfoxr3v1, page 0.7.5–0.7.7 | vendor firmware flashed back from fox-bench's via the touch; its files written from the page; listen only; swapped to fox-bench firmware again. The vendor firmware enumerates as `239a:cafe` | handheld; drive; console | ok → vendor target and template marked stable |
 
 ## Not yet verified on hardware
 
 - foxlib-c: attenuator dB per step (needs an S-meter at distance or a power
-  meter); `radio.correction_ppm` (not applied by the firmware yet);
-  `i2c_errors` recovery path exercised only by construction, never seen to
-  fire; watchdog timeout path (a hang has not been provoked).
+  meter); `radio.correction_ppm` (applied since 0.1.8, not measured against a
+  counter); `i2c_errors` recovery path exercised only by construction, never
+  seen to fire; watchdog timeout path (a hang has not been provoked).
 - Templates on the PicoFox other than morse-songs and morse-sstv: the
   firmware runs them in the host simulation, not yet on air.
 - Every `compiled` (kitsune) target: descriptors come from public

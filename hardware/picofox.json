@@ -21,17 +21,17 @@
   "usb": [
     {
       "vid": "0x2e8a",
-      "pid": "0x0003",
+      "pid": "0x0003", "label": "RP2040 bootloader",
       "when": "RP2040 bootloader (RPI-RP2)"
     },
     {
       "vid": "0x239a",
-      "pid": "0xcafe",
+      "pid": "0xcafe", "label": "vendor firmware",
       "when": "vendor firmware (Arduino RP2040 core: Adafruit's generic TinyUSB ids), drive 'PicoFox' + serial — seen on a rev 3 board"
     },
     {
       "vid": "0x2e8a",
-      "pid": "0x000a",
+      "pid": "0x000a", "label": "fox-bench firmware",
       "when": "fox-bench firmware (foxlib-c): drive FOXBENCH + serial console"
     }
   ],

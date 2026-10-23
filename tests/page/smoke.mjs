@@ -319,6 +319,11 @@ try {
   await page.selectOption('#tab-board select', 'picofox-vendor'); await settle(500);
   eq(await app(() => window.foxbench.connected), true, 'and back to the vendor target, still open');
   eq(await app(() => window.foxbench.onBoard?.settings?.CALLSIGN), 'W1ABC', 'the vendor settings are read again after the switch back');
+  // the reverse case: fox-bench firmware's files on the drive while the vendor target is selected
+  await app(() => { window.__fakeDriveFiles['board.json'] = '{"board":"picofox-foxlibc","uid":"e4654c16431b2321","foxlib":"c-0.1.9"}'; });
+  await app(() => window.foxbench.readDrive());
+  check(/the board is running fox-bench's firmware/.test(await text('#log')), 'vendor target on a drive with board.json: the page says fox-bench firmware is running');
+  await app(() => { delete window.__fakeDriveFiles['board.json']; });
   await app(() => window.foxbench.removeCrswap());
   await settle(300);
   eq(await app(() => 'settings.txt.crswap' in window.__fakeDriveFiles), false, 'removeCrswap() deletes the leftover');

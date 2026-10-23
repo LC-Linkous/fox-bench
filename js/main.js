@@ -27,7 +27,7 @@ import * as tabBench from './ui/bench.js';
 import * as tabFleet from './ui/fleet.js';
 import * as tabAbout from './ui/about.js';
 
-const VERSION = '0.7.7';
+const VERSION = '0.7.8';
 /** Tab subtitles that read differently per device family (null = the page's original text). */
 const LEDES = { drive: {
   board: 'Which fox is on the bench, open its USB drive (or use the simulated one). The vendor firmware stays; the page writes its files.',
@@ -158,10 +158,17 @@ export const app = {
     const was = this.board.name;
     // Both PicoFox targets live on the same USB drive: switching between them while the drive is open is a change of
     // reading, not of transport — keep the handle, read the drive as the other target expects it.
-    if (this.device.kind === 'drive' && ['drive', 'foxlib-c'].includes(next.family || 'foxlib')) {
+    const picofoxFamilies = ['drive', 'foxlib-c'];
+    if (this.device.kind === 'drive' && picofoxFamilies.includes(next.family || 'foxlib')) {
       this.device.board = next;
       this.console.line(`${next.name} selected: same drive, read as that firmware's files`, 'dim');
       this._rereadAfterSwitch = true;
+      return;
+    }
+    // Likewise a listen-only session: the same serial port, only the banner parser differs — swap the device, keep the port.
+    if (this.device.listening && this.device.link && picofoxFamilies.includes(this.family) && picofoxFamilies.includes(next.family || 'foxlib')) {
+      this.console.line(`${next.name} selected: same serial port, still listening`, 'dim');
+      this._swapListenDevice((next.family || 'foxlib') === 'foxlib-c');
       return;
     }
     await this.disconnect();
@@ -245,7 +252,7 @@ export const app = {
     else if (kind === 'demo') device = new DemoDevice({ board: this.board, moduleRanges: this.module.ranges_mhz });
     else {
       const link = new SerialLink(); await link.open();
-      link.onDrop = () => { this.console.err(this.family === 'foxlib-c' ? 'serial port dropped (bootsel or a reboot re-enumerates the USB port — reconnect when it is back)' : 'serial port dropped (a reset re-enumerates the USB port — reconnect)'); this.disconnect(); };
+      link.onDrop = () => { this.console.err(this.family === 'foxlib-c' ? 'serial port dropped (bootsel, a reboot, or the board switched off or unplugged — reconnect when it is back)' : 'serial port dropped (a reset re-enumerates the USB port — reconnect)'); this.disconnect(); };
       device = this.family === 'foxlib-c' || this.isCompiled ? new ConsoleDevice(link) : new ReplDevice(link);   // the foxlib-c family has a text console, not a REPL; kitsune prints lines
     }
     device.onLog = (t, cls) => cls === 'tx' ? this.console.tx(t) : cls === 'reply' ? this.console.reply(t) : cls === 'ok' ? this.console.line(t, 'ok') : cls === 'err' ? this.console.err(t) : this.console.dim(t);
@@ -284,20 +291,23 @@ export const app = {
   /** Listening with another board selected: the banner says which fox this is, so follow it — select that board and, when its
    *  family speaks a different protocol (console vs REPL), put the matching device on the same port. Otherwise an action that
    *  takes control would talk REPL to a console (or the reverse). */
+  /** Put the device that speaks the wanted protocol (console or REPL) on the listening port; true when it was swapped. */
+  async _swapListenDevice(wantConsole) {
+    if (wantConsole === (this.device.kind === 'console') || !this.device.link) return false;
+    const link = this.device.link, onLog = this.device.onLog;
+    const next = wantConsole ? new ConsoleDevice(link) : new ReplDevice(link);
+    if (!wantConsole) await next.listen();
+    next.listening = true; next.onLog = onLog; this.device = next;
+    this.console.setEnabled(wantConsole);
+    return true;
+  },
   async _followBanner(b) {
     if (!this.device?.listening || !b.board || b.board === this.boardId || !this.catalog.boards[b.board] || this.catalog.boards[b.board].status === 'planned') return;
     const wasFamily = this.family;
     this.console.dim(`banner says ${b.board}: selecting that board`);
     await this.setBoard(b.board, { keepDevice: true });
     const wantConsole = this.family === 'foxlib-c';
-    if (wantConsole !== (this.device.kind === 'console') && this.device.link) {
-      const link = this.device.link, onLog = this.device.onLog;
-      const next = wantConsole ? new ConsoleDevice(link) : new ReplDevice(link);
-      if (!wantConsole) await next.listen();
-      next.listening = true; next.onLog = onLog; this.device = next;
-      this.console.setEnabled(wantConsole);
-      if (wasFamily !== this.family) this.changed('connect');
-    }
+    if (await this._swapListenDevice(wantConsole) && wasFamily !== this.family) this.changed('connect');
   },
   /** Drive families: list the drive and read what configures the fox (the vendor's settings file, or fox.json) into onBoard. */
   /** Chrome writes a file as <name>.crswap and renames it on close; an interrupted write (a disconnect, a reboot, the
@@ -339,6 +349,7 @@ export const app = {
     await this._noteCrswap(d, files);
     const raw = await d.readText(v.FILES.settings);
     const marker = await d.readBytes(v.FILES.marker);
+    if (this.board.vendor === 'picofox' && ('board.json' in files || 'fox.json' in files)) this.console.err(`this drive holds fox-bench firmware's files (${['board.json', 'fox.json'].filter(n => n in files).join(', ')}): the board is running fox-bench's firmware, and ${v.FILES.settings} here is a leftover it does not read. Select the "(fox-bench firmware)" target, or flash the vendor firmware from the Board tab to use this one.`);
     const ob = { cfg: null, raw, foxlibVersion: '', foxlibMissing: [], foxlibComplete: true, files, template: raw != null ? this.templatesFor('drive')[0]?.id : null, settings: raw != null ? v.parseSettings(raw) : null, markerOk: null };
     if (raw != null) { ob.cfg = v.cfgFromSettings(ob.settings, this.defaults); ob.markerOk = marker ? v.readMarker(marker) === v.byteSum(raw) : false; }
     this.onBoard = ob;

@@ -1,10 +1,10 @@
 {
   "id": "picofox",
   "name": "PicoFox (vendor firmware, files on its drive)",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "families": ["drive"],
   "vendor": "picofox",
-  "status": "experimental",
+  "status": "stable",
   "description": "For the AI6YM PicoFox. Nothing is deployed to the board's firmware: the page writes settings.txt, an audio.wav rendered from the payload, its own Morse-ID audio (.callsign.wav) and the marker file the firmware checks. One frequency, a fixed duty cycle; the firmware adds its own carrier-offset and power stepping.",
   "foxlib": ">=0.0.0",
   "sections": ["radio", "plan", "id", "payload.songs", "payload.none", "schedule.duty"],
@@ -12,5 +12,5 @@
   "files": [],
   "payloads": [],
   "capabilities": [],
-  "boards_tested": []
+  "boards_tested": ["picofox-vendor"]
 }

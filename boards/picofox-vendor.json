@@ -5,6 +5,7 @@
   "family": "drive",
   "vendor": "picofox",
   "module_fixed": "picofox_si5351",
+  "status": "stable",
   "firmware": {
     "kind": "vendor",
     "note": "The PicoFox runs the vendor's own Arduino firmware (CC BY-NC-SA 4.0), not CircuitPython. fox-bench only writes the files that firmware reads. The firmware itself is fetched from the vendor's GitHub into your browser when you ask for it; nothing of it is hosted here.",
