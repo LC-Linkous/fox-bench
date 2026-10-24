@@ -25,7 +25,7 @@
     {
       "vid": "0x2341",
       "pid": "0x0070",
-      "when": "Arduino's own bootloader (DFU) \u2014 not what esptool talks to"
+      "when": "Arduino's own bootloader (DFU) — not what esptool talks to"
     },
     {
       "vid": "0x303a",
@@ -65,7 +65,9 @@
     "divider_note": "Powered from USB or a 5 V pack. kitsune's note: the pack must not have a low-current cut-off, or the board never wakes from deep sleep."
   },
   "notes": [
-    "Ships with Arduino's DFU bootloader; esptool flashing replaces the whole flash, which is how kitsune's PlatformIO builds are loaded. kitsune notes client mode gets the wrong MAC on this board."
+    "Ships with Arduino's DFU bootloader; esptool flashing replaces the whole flash, which is how kitsune's PlatformIO builds are loaded. kitsune notes client mode gets the wrong MAC on this board.",
+    "Power: kitsune foxes sleep between transmissions; a USB power bank with a low-current auto-off cuts power during the sleep and the fox never wakes (kitsune's README). Use a pack without auto-off.",
+    "Serial: native USB — the console port disappears while the chip sleeps and returns when it wakes (kitsune's README: 'Serial console during sleep: no'). 'serial port dropped' each cycle is expected."
   ],
   "serial": {
     "baud": 115200,

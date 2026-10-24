@@ -61,7 +61,9 @@
   },
   "notes": [
     "A stand-in for the Arduino Nano ESP32 target without Arduino's DFU bootloader in the way.",
-    "Serial: native USB CDC; kitsune's arduino_nano_esp32 env sets ARDUINO_USB_CDC_ON_BOOT, so its lines appear on the same port."
+    "Serial: native USB CDC; kitsune's arduino_nano_esp32 env sets ARDUINO_USB_CDC_ON_BOOT, so its lines appear on the same port.",
+    "Power: kitsune foxes sleep between transmissions; a USB power bank with a low-current auto-off cuts power during the sleep and the fox never wakes (kitsune's README). Use a pack without auto-off.",
+    "Serial: native USB — the console port disappears while the chip sleeps and returns when it wakes (kitsune's README: 'Serial console during sleep: no'). 'serial port dropped' each cycle is expected."
   ],
   "silkscreen": null
 }

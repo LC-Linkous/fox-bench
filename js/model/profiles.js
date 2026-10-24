@@ -35,7 +35,9 @@ export const fleet = {
   append(row) { const all = this.all(); all.push({ timestamp: new Date().toISOString(), ...row }); try { write(KEY_F, all); } catch (e) { if (this.onError) this.onError(`fleet row NOT recorded (${row.action}): ${e.message || e}`); else throw e; } },
   clear() { write(KEY_F, []); },
   toCsv() {
-    const esc = v => { const s = v == null ? '' : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+    // a cell beginning with = + - @ (or a tab/CR) is a formula to Excel/Sheets — banner text and notes reach this file —
+    // so it is prefixed with an apostrophe unless it is a plain number
+    const esc = v => { let s = v == null ? '' : String(v); if (/^[=+\-@\t\r]/.test(s) && !/^-?\d+(\.\d+)?$/.test(s)) s = "'" + s; return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
     return [FLEET_FIELDS.join(','), ...this.all().map(r => FLEET_FIELDS.map(f => esc(r[f])).join(','))].join('\n') + '\n';
   },
 };

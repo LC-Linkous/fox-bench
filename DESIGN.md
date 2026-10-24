@@ -124,6 +124,7 @@ tools/
   build_kitsune.py                    CI's build of kitsune images + manifest (gated; --selftest)
   check_ci.py                         strict parse of the workflow file, job graph
   release_notes.py                    the release body from CHANGELOG.md
+  atten_sweep.py                      the PicoFox attenuator measured: codes × timed carrier × your meter reading → CSV, dB per code
   batch_flash.py                      headless batch flasher (same CSV as the Fleet tab)
   hw_smoke.py                         bench script against a real (or pty-simulated) board
 tests/                                unit (node:test) and page smoke (Playwright), see tests/README.md

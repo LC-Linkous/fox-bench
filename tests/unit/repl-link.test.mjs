@@ -112,3 +112,13 @@ test('unsolicited output reaches onUnsolicited stripped; bare prompts are suppre
   await new Promise(res => setTimeout(res, 10));
   assert.deepEqual(got, ['tx 146.565 song=2\n']);
 });
+
+test('SerialLink: a read stream that ends cleanly (no error) is reported as a drop', async () => {
+  const { SerialLink } = await import('../../js/device/serial-link.js');
+  let ctl; const port = { readable: new ReadableStream({ start: c => { ctl = c; } }), writable: new WritableStream({ write() {} }), open: async () => {}, close: async () => {} };
+  Object.defineProperty(globalThis, 'navigator', { value: { serial: { requestPort: async () => port } }, configurable: true });   // node's navigator is a getter
+  const link = new SerialLink(); const dropped = new Promise(r => { link.onDrop = e => r(e.message); });
+  await link.open();
+  ctl.close();   // the bridge ended the stream without an error
+  assert.match(await dropped, /closed its read stream/);
+});

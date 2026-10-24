@@ -25,7 +25,8 @@ Board tab shows them for the site's UF2 (`foxbench-picofox.json`).
 ## Not yet verified on hardware
 
 - foxlib-c: attenuator dB per step (needs an S-meter at distance or a power
-  meter) **and** the attenuator word format (`player.c atten_write` sends 8
+  meter — `tools/atten_sweep.py` runs the sweep and keeps the table) **and**
+  the attenuator word format (`player.c atten_write` sends 8
   bits; the datasheet reading in `docs/picofox-hardware.md` describes a
   longer word — possibly the same question); `radio.correction_ppm` (applied
   since 0.1.8, not measured against a counter); `i2c_errors` recovery path exercised only by construction, never

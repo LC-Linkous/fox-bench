@@ -51,7 +51,9 @@
     "divider_note": "Powered from USB or a 5 V pack. kitsune's note: the pack must not have a low-current cut-off, or the board never wakes from deep sleep."
   },
   "notes": [
-    "Native USB: kitsune builds with ARDUINO_USB_CDC_ON_BOOT=1 and notes 'serial isn't working' on this board \u2014 Listen only may show nothing until that is sorted."
+    "Native USB: kitsune builds with ARDUINO_USB_CDC_ON_BOOT=1 and notes 'serial isn't working' on this board — Listen only may show nothing until that is sorted.",
+    "Power: kitsune foxes sleep between transmissions; a USB power bank with a low-current auto-off cuts power during the sleep and the fox never wakes (kitsune's README). Use a pack without auto-off.",
+    "Serial: native USB — the console port disappears while the chip sleeps and returns when it wakes (kitsune's README: 'Serial console during sleep: no'). 'serial port dropped' each cycle is expected."
   ],
   "serial": {
     "baud": 115200,

@@ -127,17 +127,43 @@ async function loadKitsuneManifest(app) {
   try { const r = await fetch(url, { cache: 'no-cache' }); kManifest = r.ok ? await r.json() : false; } catch { kManifest = false; }
   notify(); return kManifest;
 }
+/** The CI artifact unzipped on this computer: manifest.json and the .bin files beside it. Picked as a folder (File System
+ *  Access) or as files (Load…: select manifest.json together with the images). Serves the same card, the same sha256
+ *  check, as the hosted manifest — the path the site will use once hosting is agreed, run from a local copy until then. */
+let kLocal = null;   // { name, files: Map<name, File|FileSystemFileHandle> }
+async function loadLocalManifest(app, { handle = null, fileList = null }) {
+  state.fetchError = ''; notify();
+  try {
+    const files = new Map();
+    if (handle) { for await (const e of handle.values()) if (e.kind === 'file') files.set(e.name, e); }
+    else for (const f of fileList) files.set(f.name, f);
+    const mf = files.get('manifest.json'); if (!mf) throw new Error('no manifest.json among the files picked (pick the unzipped kitsune-images artifact folder, or manifest.json together with the .bin files)');
+    const text = await (mf.getFile ? await mf.getFile() : mf).text();
+    const man = JSON.parse(text);
+    if (!Array.isArray(man.images)) throw new Error('manifest.json has no images[]');
+    const missing = man.images.filter(im => !files.has(im.file)).map(im => im.file);
+    kManifest = { ...man, local: true, missing }; kLocal = { name: handle ? handle.name : `${fileList.length} files`, files };
+    app.console.dim(`local kitsune manifest: ${man.images.length} image(s), kitsune at ${(man.commit || '?').slice(0, 7)}, built ${man.built || '?'} with ${man.tools ? `platformio ${man.tools.platformio} / esptool ${man.tools.esptool}` : 'unrecorded tools'}${man.conference ? ' — ' + man.conference : ''}${missing.length ? ` — ${missing.length} image file(s) not among the files picked: ${missing.slice(0, 3).join(', ')}${missing.length > 3 ? '…' : ''}` : ''}`);
+  } catch (e) { if (e.name !== 'AbortError') { state.fetchError = String(e.message || e); app.console.err('local manifest: ' + state.fetchError); } }
+  notify();
+}
 async function fetchKitsuneImage(app, entry) {
   state.fetchError = ''; state.fetching = true; notify();
   try {
-    const r = await fetch(entry.url || `firmware/kitsune/${entry.file}`, { cache: 'no-cache' });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const bytes = new Uint8Array(await r.arrayBuffer());
+    let bytes;
+    if (kManifest?.local) {
+      const f = kLocal.files.get(entry.file); if (!f) throw new Error(`${entry.file} is not among the files picked`);
+      bytes = new Uint8Array(await (await (f.getFile ? f.getFile() : f)).arrayBuffer());
+    } else {
+      const r = await fetch(entry.url || `firmware/kitsune/${entry.file}`, { cache: 'no-cache' });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      bytes = new Uint8Array(await r.arrayBuffer());
+    }
     const d = await crypto.subtle.digest('SHA-256', bytes), sha = [...new Uint8Array(d)].map(x => x.toString(16).padStart(2, '0')).join('');
     if (entry.sha256 && sha !== entry.sha256.toLowerCase()) throw new Error(`sha256 ${sha.slice(0, 12)}… does not match the manifest's ${entry.sha256.slice(0, 12)}… (a deploy may be in progress: reload and try again)`);
     if (entry.size && bytes.length !== entry.size) throw new Error(`size ${bytes.length}, manifest says ${entry.size}`);
     flasher.setImage(entry.file, bytes, 'fox-bench-kitsune');
-    app.console.dim(`fetched ${entry.file} (${(bytes.length / 1024).toFixed(0)} kB, sha256 ${sha.slice(0, 12)}… = manifest) — fox-bench's build of kitsune at ${(kManifest.commit || '').slice(0, 7)}`);
+    app.console.dim(`${kManifest.local ? 'loaded' : 'fetched'} ${entry.file} (${(bytes.length / 1024).toFixed(0)} kB, sha256 ${sha.slice(0, 12)}… = manifest) — fox-bench's build of kitsune at ${(kManifest.commit || '').slice(0, 7)}${kManifest.local ? ' (local artifact)' : ''}`);
   } catch (e) { state.fetchError = String(e.message || e); app.console.err('image fetch failed: ' + state.fetchError); }
   state.fetching = false; notify();
 }
@@ -146,6 +172,12 @@ function compiledCard(app) {
   if (kManifest === undefined) loadKitsuneManifest(app);
   const fileIn = h('input', { type: 'file', accept: '.bin', hidden: true });
   fileIn.addEventListener('change', async () => { const f = fileIn.files[0]; if (!f) return; flasher.setImage(f.name, new Uint8Array(await f.arrayBuffer()), 'file'); state.fetchError = ''; notify(); app.console.dim(`loaded ${f.name} (${f.size} B)`); fileIn.value = ''; });
+  const manIn = h('input', { type: 'file', accept: '.json,.bin', multiple: true, hidden: true });
+  manIn.addEventListener('change', async () => { if (manIn.files.length) await loadLocalManifest(app, { fileList: [...manIn.files] }); manIn.value = ''; });
+  const pickArtifact = async () => {
+    if ('showDirectoryPicker' in window) { try { const d = await window.showDirectoryPicker({ id: 'fox-bench-kitsune-artifact', mode: 'read' }); await loadLocalManifest(app, { handle: d }); } catch (e) { if (e.name !== 'AbortError') app.console.err(String(e.message || e)); } }
+    else manIn.click();
+  };
   const why = blocker(app);
   const mine = Array.isArray(kManifest?.images) ? kManifest.images.filter(im => im.board === b.id && (!im.template || im.template === app.templateId)) : [];
   const tiers = mine.length ? h('div.tools', {}, ...mine.map(im => h('button.btn', { disabled: state.fetching || state.busy, onclick: () => fetchKitsuneImage(app, im) }, state.fetching ? 'Fetching…' : `Get ${im.tier ? im.tier + ' ' : ''}${im.template || ''}${im.band === '5' ? ' 5 GHz' : ''}${im.mode && im.template !== 'wifi-ap' && im.template !== 'wifi-client' ? ' (' + im.mode + ')' : ''}`)),
@@ -153,9 +185,10 @@ function compiledCard(app) {
   return h('div.card', {}, h('h3', {}, 'Firmware ', imageBadge()),
     h('p.hint', {}, h('b', {}, 'Bootloader: '), hw.flash?.bootloader_instructions || '', ' The flasher checks that the port\'s chip is an ', h('code', {}, b.flash.chip), ' before it erases anything.'),
     kManifest === null ? h('p.hint', {}, 'looking for hosted images…')
-      : kManifest === false ? h('p.hint', {}, h('b', {}, 'No kitsune images are hosted on this site. '), 'They will be built in CI from a pinned commit of kitsune once that is agreed with the project (docs/kitsune-integration-plan.md §7); until then, build it yourself with PlatformIO in a kitsune checkout and load the merged image here.')
-      : mine.length ? h('div', {}, h('p.hint', {}, `Images for the ${b.name} and the ${app.template.name}:`), tiers)
-      : h('p.hint', {}, `The site's manifest (kitsune at ${(kManifest.commit || '?').slice(0, 7)}) has no image for the ${b.name} × ${app.template.name}.`),
+      : kManifest === false ? h('p.hint', {}, h('b', {}, 'No kitsune images are hosted on this site. '), 'CI builds them as a run artifact (kitsune-images: manifest.json + the merged .bin files) when the repository variable KITSUNE_BUILD is set; download and unzip it, then ', h('b', {}, 'Open artifact folder…'), ' below gives the same per-board buttons and sha256 checks the hosted manifest would. Nothing is hosted here without the kitsune project\'s agreement (docs/kitsune-integration-plan.md §7).')
+      : mine.length ? h('div', {}, h('p.hint', {}, `Images for the ${b.name} and the ${app.template.name}${kManifest.local ? ` (local artifact ${kLocal.name})` : ''}:`), tiers)
+      : h('p.hint', {}, `The ${kManifest.local ? 'local' : 'site\'s'} manifest (kitsune at ${(kManifest.commit || '?').slice(0, 7)}) has no image for the ${b.name} × ${app.template.name}.`),
+    h('div.tools', {}, h('button.btn.small', { onclick: pickArtifact }, 'Open artifact folder…'), manIn, h('span.hint', {}, kManifest?.local ? `manifest from ${kLocal.name}: ${kManifest.images.length} image(s), ${kManifest.conference || 'conference unrecorded'}` : 'the unzipped kitsune-images artifact from a CI run (manifest.json and the .bin files)')),
     h('details', {}, h('summary.hint', {}, 'A merged image from your own PlatformIO build'),
       h('p.hint', {}, 'In a kitsune checkout, after ', h('code', {}, `pio run -e <env>`), ' in ', h('code', {}, t.project || 'the project'), ', the pieces are under ', h('code', {}, '.pio/build/<env>/'), ' (bootloader.bin, partitions.bin, firmware.bin, and boot_app0.bin from the framework). Merge them into one file at the offsets PlatformIO flashes them to (it prints them with ', h('code', {}, '-v'), ') with ', h('code', {}, 'esptool.py --chip ' + (b.flash.chip || 'esp32') + ' merge_bin -o merged.bin ' + (b.flash.offset || '0x0') + ' bootloader.bin 0x8000 partitions.bin 0xe000 boot_app0.bin 0x10000 firmware.bin'), ', then load merged.bin here. A merged image is a whole-flash image padded from address 0, so it is written at ', h('code', {}, '0x0'), ' — the bootloader lands at ', h('code', {}, b.flash.offset || '0x0'), ' inside it. (Do not pass merge_bin a --target-offset.)')),
     field('Image', h('div.row', {}, h('button.btn.small', { onclick: () => fileIn.click() }, 'Load merged .bin…'), fileIn, h('span.hint', {}, flasher.image.bytes ? `${flasher.image.name} · ${(flasher.image.bytes.length / 1024).toFixed(0)} kB${flasher.image.source === 'fox-bench-kitsune' ? ' · from this site' : ''}` : 'nothing loaded'))),

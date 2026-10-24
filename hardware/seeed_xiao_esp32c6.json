@@ -49,7 +49,9 @@
   },
   "notes": [
     "Adds a second 802.15.4 radio to the bench: a partner for the C5 Zigbee coordinator.",
-    "Candidate for a PR to kitsune ('other platformio supported hardware'): one env stanza and an LED entry."
+    "Candidate for a PR to kitsune ('other platformio supported hardware'): one env stanza and an LED entry.",
+    "Power: kitsune foxes sleep between transmissions; a USB power bank with a low-current auto-off cuts power during the sleep and the fox never wakes (kitsune's README). Use a pack without auto-off.",
+    "Serial: native USB — the console port disappears while the chip sleeps and returns when it wakes (kitsune's README: 'Serial console during sleep: no'). 'serial port dropped' each cycle is expected."
   ],
   "serial": {
     "baud": 115200,

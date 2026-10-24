@@ -64,12 +64,12 @@ page.on('dialog', d => d.dismiss());                                     // defa
 const settle = ms => page.waitForTimeout(ms);
 /** Wait for a condition instead of a fixed time: a slow runner does not under-sleep, a fast one does not over-sleep.
  *  `cond` runs in the page; `name` is what the failure says. Returns true when it came true in time. */
-const until = async (cond, name, ms = 15000) => { try { await page.waitForFunction(cond, null, { timeout: ms, polling: 100 }); return true; } catch { console.log(`  (timed out waiting for ${name})`); return false; } };
+const until = async (cond, name, ms = 15000, arg = null) => { try { await page.waitForFunction(cond, arg, { timeout: ms, polling: 100 }); return true; } catch { console.log(`  (timed out waiting for ${name})`); return false; } };
 const untilTextArgs = async (sel, re, ms = 15000) => { try { await page.waitForFunction(([s, src]) => new RegExp(src).test((document.querySelector(s)?.textContent || '').replace(/\s+/g, ' ')), [sel, re.source], { timeout: ms, polling: 100 }); return true; } catch { console.log(`  (timed out waiting for ${sel} to match ${re})`); return false; } };
 const untilFleet = async (pred, ms = 15000) => { try { await page.waitForFunction(src => (new Function('r', 'return ' + src))(JSON.parse(localStorage.getItem('fox-bench.fleet') || '[]').slice(-1)[0] || {}), pred, { timeout: ms, polling: 100 }); return true; } catch { console.log(`  (timed out waiting for a fleet row where ${pred})`); return false; } };
 const tab = async name => { await page.click(`.rail button[data-tab="${name}"]`); await settle(150); if (SHOTS) await page.screenshot({ path: `${SHOTS}/${name}.png`, fullPage: true }); };
 const text = sel => page.textContent(sel).then(t => (t || '').replace(/\s+/g, ' ').trim());
-const app = fn => page.evaluate(fn);
+const app = (fn, arg) => page.evaluate(fn, arg);
 
 try {
   await page.goto(url, { waitUntil: 'networkidle' });
@@ -611,14 +611,79 @@ try {
   check(/SIMULATED flash \(test mode\)/.test(await text('#log')), 'a simulated flash says so in the log');
   await app(() => { window.foxbenchFlash.simulate = false; window.foxbenchFlash.simulateChip = ''; });
   for (const k of [...overrides.keys()]) overrides.delete(k);
+
+  console.log('local artifact manifest; the bench\'s three stand-in targets (C5 FireBeetle, S3-Nano, C6)');
+  await page.goto(url); await page.waitForFunction(() => window.foxbench?.catalog); await settle(400);   // no hosted manifest now
+  await tab('board'); await page.selectOption('#tab-board select', 'dfrobot_firebeetle2_esp32c5-kitsune'); await settle(300);
+  await tab('behavior'); await page.selectOption('#tab-behavior select', 'wifi-ap'); await settle(300);
+  await tab('board'); await untilTextArgs('#tab-board', /No kitsune images are hosted on this site/, 5000);
+  check(/Open artifact folder…/.test(await text('#tab-board')), 'the card offers the CI artifact folder when nothing is hosted');
+  // the artifact as a fake directory handle: manifest.json + images for the three stand-ins
+  const c5img = Buffer.alloc(16384, 0xc5), s3img = Buffer.alloc(12288, 0x53), c6img = Buffer.alloc(8192, 0xc6);
+  const localMan = { project: 'kitsune', source: 'https://github.com/rfhs/kitsune', commit: 'cdfc0ce39d3d68e44041a3c356c889631d48ade3', built: '2026-10-23T00:00:00Z', tools: { platformio: '6.1.18', esptool: '4.8.1' },
+    conference: 'fox-bench bench values (firmware/kitsune/bench), not any event\'s configuration', images: [
+      { board: 'dfrobot_firebeetle2_esp32c5-kitsune', template: 'wifi-ap', tier: 'easy', mode: 'AP', env: 'seeed-xiao-esp32c5-easy-ap', file: 'seeed-xiao-esp32c5-easy-ap.bin', sha256: sha(c5img), size: c5img.length, chip: 'esp32c5', offset: '0x0' },
+      { board: 'waveshare_esp32s3_nano-kitsune', template: 'wifi-ap', tier: 'easy', mode: 'AP', env: 'arduino-nano-esp32-easy-ap', file: 'arduino-nano-esp32-easy-ap.bin', sha256: sha(s3img), size: s3img.length, chip: 'esp32s3', offset: '0x0' },
+      { board: 'seeed_xiao_esp32c6-kitsune', template: 'wifi-ap', tier: 'easy', mode: 'AP', env: 'fb-seeed-xiao-esp32c6-easy-ap', file: 'fb-seeed-xiao-esp32c6-easy-ap.bin', sha256: sha(c6img), size: c6img.length, chip: 'esp32c6', offset: '0x0' },
+      { board: 'seeed_xiao_esp32c6-kitsune', template: 'wifi-client', tier: 'easy', mode: 'CLIENT', env: 'fb-seeed-xiao-esp32c6-easy-client', file: 'missing.bin', sha256: sha(c6img), size: c6img.length, chip: 'esp32c6', offset: '0x0' } ] };
+  await app(({ man, files }) => {
+    const bytes = Object.fromEntries(Object.entries(files).map(([n, hex]) => [n, Uint8Array.from(hex.match(/../g).map(x => parseInt(x, 16)))]));
+    const all = { 'manifest.json': new TextEncoder().encode(JSON.stringify(man)), ...bytes };
+    const fh = n => ({ kind: 'file', name: n, getFile: async () => new File([all[n]], n) });
+    window.showDirectoryPicker = async () => ({ kind: 'directory', name: 'kitsune-images', values: async function* () { for (const n of Object.keys(all)) yield fh(n); } });
+  }, { man: localMan, files: { 'seeed-xiao-esp32c5-easy-ap.bin': c5img.toString('hex'), 'arduino-nano-esp32-easy-ap.bin': s3img.toString('hex'), 'fb-seeed-xiao-esp32c6-easy-ap.bin': c6img.toString('hex') } });
+  await page.click('#tab-board button:has-text("Open artifact folder…")'); await untilTextArgs('#log', /local kitsune manifest: 4 image\(s\), kitsune at cdfc0ce/, 5000);
+  check(/1 image file\(s\) not among the files picked: missing\.bin/.test(await text('#log')), 'a manifest entry whose file is absent is named');
+  check(/local artifact kitsune-images/.test(await text('#tab-board')) && /Get easy wifi-ap/.test(await text('#tab-board')), 'the card lists the local artifact\'s image for the C5 stand-in');
+  await app(() => { window.foxbenchFlash.simulate = true; });
+  const stand = [['dfrobot_firebeetle2_esp32c5-kitsune', 'ESP32-C5', 'ESP32-C3 (QFN32) (revision v0.4)', 16384], ['waveshare_esp32s3_nano-kitsune', 'ESP32-S3 (QFN56) (revision v0.2)', 'ESP32-C6 (QFN40)', 12288], ['seeed_xiao_esp32c6-kitsune', 'ESP32-C6 (QFN40)', 'ESP32-S3 (QFN56) (revision v0.2)', 8192]];
+  for (const [id, rightChip, wrongChip, size] of stand) {
+    await tab('board'); await page.selectOption('#tab-board select', id); await settle(300);
+    await untilTextArgs('#tab-board', /Get easy wifi-ap/, 5000);
+    await page.click('#tab-board button:has-text("Get easy wifi-ap")'); await untilTextArgs('#log', new RegExp(`loaded \\S+\\.bin .*= manifest.*local artifact`), 5000);
+    await app(c => { window.foxbenchFlash.simulateChip = c; }, wrongChip);
+    await page.click('#tab-board button:has-text("Flash")'); await untilFleet(`r.action === 'flash' && r.board === '${id}'`, 15000);
+    const bad = await app(i => JSON.parse(localStorage.getItem('fox-bench.fleet') || '[]').filter(r => r.action === 'flash' && r.board === i).pop(), id);
+    check(/^fail: the port belongs to an ESP32-/.test(bad.result), `${id}: the wrong chip on the port is refused before the erase (${bad.result.slice(0, 60)})`);
+    await app(c => { window.foxbenchFlash.simulateChip = c; }, rightChip);
+    await page.click('#tab-board button:has-text("Flash")'); await untilFleet(`r.action === 'flash' && r.board === '${id}' && r.result === 'ok'`, 15000);
+    const w = await app(() => window.foxbenchFlash.lastWrite?.());
+    check(w && w.address === 0 && w.length === size, `${id}: the merged image is written at 0x0 (${JSON.stringify(w)})`);
+  }
+  await app(() => { window.foxbenchFlash.simulate = false; window.foxbenchFlash.simulateChip = ''; delete window.showDirectoryPicker; });
   // a page whose saved working form is a kitsune target must boot (every tab renders at boot, before the ID tab's init)
+  const savedKitsune = await app(() => window.foxbench.boardId);
   for (const t of ['radio', 'plan', 'schedule', 'deploy']) {
     await tab(t);
-    await page.goto(url); const booted = await until(() => window.foxbench?.catalog && window.foxbench.boardId === 'm5stack_atom_lite-kitsune', `boot with a saved kitsune form on the ${t} tab`, 5000);
+    await page.goto(url); const booted = await until(id => window.foxbench?.catalog && window.foxbench.boardId === id, `boot with a saved kitsune form on the ${t} tab`, 5000, savedKitsune);
     check(booted, `reload with a kitsune target saved and the ${t} tab open boots`);
   }
   await tab('board'); await page.selectOption('#tab-board select', 'seeed_xiao_esp32c3'); await settle(400);
   await page.click('#demoBtn'); await settle(600);
+
+  console.log('two tabs; undo a banner-follow');
+  // a second tab saving its form makes this one stop overwriting the saved form until it is edited here
+  const page2 = await page.context().newPage(); await page2.goto(url); await page2.waitForFunction(() => window.foxbench?.catalog); await page2.waitForTimeout(300);
+  await page2.click('.rail button[data-tab="id"]'); await page2.fill('#tab-id input[type=text]', 'W9XYZ OTHER TAB'); await page2.waitForTimeout(300);
+  check(await untilTextArgs('#log', /another fox-bench tab just saved its form/, 5000), 'this tab noticed the other tab\'s save');
+  eq(await app(() => window.foxbench._yieldSave), true, 'and yields the saved form');
+  await tab('id'); await page.fill('#tab-id input[type=text]', 'KY4ZR BACK'); await settle(300);
+  eq(await app(() => window.foxbench._yieldSave), false, 'an edit here takes the saved form back');
+  eq(await app(() => JSON.parse(localStorage.getItem('fox-bench.working')).cfg.id.callmessage), 'KY4ZR BACK', 'and the saved form is this tab\'s again');
+  await page2.close();
+  // W6: following a banner keeps the form that was there; undoFollow() restores it
+  await app(() => window.foxbench.disconnect()); await settle(200);
+  await tab('board'); await page.selectOption('#tab-board select', 'seeed_xiao_esp32c3'); await settle(300);
+  if (!(await app(() => !!window.__fakeSerial))) await page.addScriptTag({ type: 'module', url: url + 'tests/page/fake-serial.mjs' });   // the page was reloaded since the fixture was loaded
+  await page.waitForFunction(() => !!window.__fakeSerial);
+  await app(() => window.__fakeSerial.install('console', { uid: 'e4654c16431b2321', callsign: 'KY4ZR TEST', vid: 0x2e8a, pid: 0x000a }));
+  await page.click('#listenBtn'); await until(() => window.foxbench.boardId === 'picofox-foxlibc', 'banner follow', 10000);
+  check(/the form you had is kept: window\.foxbench\.undoFollow\(\)/.test(await text('#log')), 'the follow says how to get the form back');
+  await app(() => window.foxbench.disconnect()); await settle(200);
+  await app(() => window.foxbench.undoFollow()); await settle(400);
+  eq(await app(() => window.foxbench.boardId), 'seeed_xiao_esp32c3', 'undoFollow restores the board');
+  eq(await app(() => window.foxbench.cfg.id.callmessage), 'KY4ZR BACK', 'and the config');
+  await page.click('#demoBtn'); await settle(600);   // the last section expects the demo to be connected
 
   console.log('theme, disconnect');
   await page.click('#themeBtn'); await settle(100);

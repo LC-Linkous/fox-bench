@@ -146,7 +146,7 @@ inside the 2 m band edges (foxlib-c).
 
 | key | type | range | notes |
 |---|---|---|---|
-| `callmessage` | string | 1–64 chars | sent in Morse each transmission. Characters outside the Morse table are skipped. |
+| `callmessage` | string | 1–64 bytes of UTF-8 (the C firmware's buffer; ASCII is one byte per character) | sent in Morse each transmission. Characters outside the Morse table are skipped. |
 | `placeholder` | string | | sentinel. If it appears in `callmessage`, the callsign is unset. Do not personalise. |
 | `wpm` | int | 5–40 | PARIS timing |
 | `tone_hz` | int | 300–3000 | |

@@ -1,6 +1,6 @@
 // main.js — app state and wiring. Tabs live in js/ui/*.js and render from app.cfg.
 // SPDX-License-Identifier: GPL-2.0-only
-import { $, $$ } from './ui/dom.js';
+import { $, $$, setHandlerErrorReporter } from './ui/dom.js';
 import { loadCatalog, loadDefaults } from './model/loaders.js';
 import { mergeAndValidate, pageChecks } from './model/schema.js';
 import { parseBanner } from './device/device.js';
@@ -27,7 +27,7 @@ import * as tabBench from './ui/bench.js';
 import * as tabFleet from './ui/fleet.js';
 import * as tabAbout from './ui/about.js';
 
-const VERSION = '0.7.13';
+const VERSION = '0.7.16';
 /** Tab subtitles that read differently per device family (null = the page's original text). */
 const LEDES = { drive: {
   board: 'Which fox is on the bench, open its USB drive (or use the simulated one). The vendor firmware stays; the page writes its files.',
@@ -51,6 +51,7 @@ const LEDES = { drive: {
   deploy: 'Write fox.json and defaults.json to the FOXBENCH drive; the fox reloads them by itself a second later and prints its banner on the serial port.',
   bench: 'Bench actions for this firmware go over its serial console (Listen only, then type key 2, tone 800 2, id, batt, status).',
 } };
+const TAB_ID = Math.random().toString(36).slice(2, 10);   // this page load, for the saved-form handoff between tabs
 const TABS = { board: tabBoard, radio: tabRadio, behavior: tabBehavior, plan: tabPlan, id: tabId, payload: tabPayload, schedule: tabSchedule, deploy: tabDeploy, bench: tabBench, fleet: tabFleet, about: tabAbout };
 const TAB_KEYS = { radio: ['radio', 'module', 'pins'], plan: ['plan'], id: ['id'], payload: ['payload'], schedule: ['schedule'] };
 
@@ -96,6 +97,7 @@ export const app = {
   /** Re-validate and notify every tab. */
   changed(source) {
     if (!this.cfg) return;
+    if (this._yieldSave && !['boot', 'banner', 'connect', 'reread', 'flash'].includes(source)) { this._yieldSave = false; this.console.dim('this tab owns the saved form again'); }
     // re-entrancy guard: a render that removes a focused input can fire a second change event mid-render
     if (this._notifying) { this._pending = source; return; }
     this._notifying = true;
@@ -125,7 +127,11 @@ export const app = {
     $('.rail button[data-tab="payload"]').hidden = this.isCompiled;
     $('#demoBtn').disabled = this.isCompiled || !!this._connecting; $('#demoBtn').title = this.isCompiled ? 'no simulated kitsune board yet' : '';
     if (!this.device) { $('#connectBtn').textContent = this.usesDrive ? `Open ${this.board.drive?.label || 'drive'}` : 'Connect'; $('#connectBtn').disabled = !!this._connecting || (this.isCompiled ? true : this.usesDrive ? !('showDirectoryPicker' in window) : !hasWebSerial()); $('#connectBtn').title = this.isCompiled ? 'kitsune foxes have no connection yet: prepare the configuration here and export the header (Listen only works on their serial port)' : ''; }
-    try { localStorage.setItem('fox-bench.working', JSON.stringify({ version: VERSION, cfg: this.cfg, boardId: this.boardId, templateId: this.templateId, moduleId: this.moduleId, region: this.region })); this._storageWarned = false; }
+    // Two tabs of the page would overwrite each other's saved form on every change. Each save carries this tab's id; a
+    // save seen from another tab (the `storage` event, wired at boot) makes this tab stop saving until something is
+    // edited here again — whichever tab was touched last owns the saved form, and nothing is lost silently.
+    if (this._yieldSave && source !== 'boot') { /* another tab saved more recently; this tab's form stays in memory */ }
+    else try { localStorage.setItem('fox-bench.working', JSON.stringify({ version: VERSION, tab: TAB_ID, cfg: this.cfg, boardId: this.boardId, templateId: this.templateId, moduleId: this.moduleId, region: this.region })); this._storageWarned = false; }
     catch (e) { if (!this._storageWarned) { this._storageWarned = true; this.console.err(`the form is not being remembered between page loads: browser storage refused it (${e.message || e})`); } }
     for (const [tab, keys] of Object.entries(TAB_KEYS)) {
       const bad = [...this.report.map(x => ({ level: 'err', key: x.key })), ...this.issues].filter(i => keys.some(k => i.key === k || i.key.startsWith(k + '.')));
@@ -307,7 +313,10 @@ export const app = {
   async _followBanner(b) {
     if (!this.device?.listening || !b.board || b.board === this.boardId || !this.catalog.boards[b.board] || this.catalog.boards[b.board].status === 'planned') return;
     const wasFamily = this.family;
-    this.console.dim(`banner says ${b.board}: selecting that board`);
+    // W6: following the banner rewrites the working form (board, maybe template and config); keep what was there
+    const before = { cfg: structuredClone(this.cfg), boardId: this.boardId, templateId: this.templateId, moduleId: this.moduleId };
+    this.undoFollow = async () => { this.undoFollow = null; await this.loadCfg({ ...before.cfg, board: before.boardId, template: before.templateId, module: before.moduleId }, { source: 'undo' }); this.console.line(`form restored to ${before.boardId} / ${before.templateId}`, 'ok'); };
+    this.console.dim(`banner says ${b.board}: selecting that board (the form you had is kept: window.foxbench.undoFollow() in the browser console brings it back)`);
     await this.setBoard(b.board, { keepDevice: true });
     const wantConsole = this.family === 'foxlib-c';
     if (await this._swapListenDevice(wantConsole) && wasFamily !== this.family) this.changed('connect');
@@ -480,5 +489,11 @@ async function boot() {
   app.changed('boot');
   const savedTab = localStorage.getItem('fox-bench.tab'); showTab(savedTab && TABS[savedTab] ? savedTab : 'board');
   window.foxbench = app;   // for the console-curious
+  window.addEventListener('storage', e => {
+    if (e.key !== 'fox-bench.working' || !e.newValue) return;
+    let other = null; try { other = JSON.parse(e.newValue); } catch {}
+    if (other && other.tab && other.tab !== TAB_ID && !app._yieldSave) { app._yieldSave = true; app.console.err('another fox-bench tab just saved its form: this tab keeps its own form in memory and will not overwrite the saved one until you edit something here (one tab at a time is simplest)'); }
+  });
+  setHandlerErrorReporter(e => app.console.err(`${e?.message || e}`));
 }
 boot();

@@ -5,13 +5,17 @@ export const $ = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
 /** h('div.card', {onclick}, children…) */
+/** Where an async UI handler's rejection goes (main.js points it at the console); without it the button would just do nothing. */
+export let reportHandlerError = e => console.error(e);
+export function setHandlerErrorReporter(fn) { reportHandlerError = fn; }
+
 export function h(tag, attrs = {}, ...children) {
   const [name, ...classes] = tag.split('.');
   const el = document.createElement(name || 'div');
   if (classes.length) el.className = classes.join(' ');
   for (const [k, v] of Object.entries(attrs || {})) {
     if (v == null || v === false) continue;
-    if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2), v);
+    if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2), ev => { let r; try { r = v(ev); } catch (e) { reportHandlerError(e); return; } if (r && typeof r.then === 'function') r.catch(reportHandlerError); });
     else if (k === 'html') el.innerHTML = v;
     else if (k === 'value') el.value = v;
     else if (k === 'checked' || k === 'disabled' || k === 'hidden' || k === 'selected') el[k] = !!v;

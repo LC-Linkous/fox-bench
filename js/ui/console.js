@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // Adapted from nanovna-web.
 
-const COLLAPSE_AFTER = 12, MAX_ENTRIES = 800;
+const COLLAPSE_AFTER = 12, MAX_ENTRIES = 800, MAX_KEPT = 5000;   // MAX_KEPT: the download buffer — a long soak's log, not unbounded
 
 export function initConsole({ log, form, input, handle, drawer, toggle, clearBtn, copyBtn, dlBtn, dlMode }, onSend) {
   const history = []; let hIdx = -1; const entries = [];
   const stamp = () => new Date().toISOString().slice(11, 23);
   const scroll = () => { log.scrollTop = log.scrollHeight; };
-  const trim = () => { while (log.childElementCount > MAX_ENTRIES) log.firstChild.remove(); };
+  const trim = () => { while (log.childElementCount > MAX_ENTRIES) log.firstChild.remove(); if (entries.length > MAX_KEPT) entries.splice(0, entries.length - MAX_KEPT); };
   function line(text, cls) { const el = document.createElement('div'); if (cls) el.className = cls; el.textContent = text; log.appendChild(el); entries.push({ t: stamp(), type: cls === 'tx' ? 'tx' : cls === 'err' ? 'err' : 'note', text }); trim(); scroll(); }
   function reply(body) {
     const lines = body.split('\n').filter(l => l.length);

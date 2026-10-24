@@ -21,6 +21,8 @@ export class SerialLink extends Link {
     try {
       this.reader = this.port.readable.getReader();
       for (;;) { const { value, done } = await this.reader.read(); if (done) break; this._feed(value); }
+      // a clean `done` while we did not close is the port going away too (some bridges end the stream instead of erroring)
+      if (!this.closed && this.onDrop) this.onDrop(new Error('the port closed its read stream'));
     } catch (e) { if (!this.closed && this.onDrop) this.onDrop(e); }
   }
   async write(data) {

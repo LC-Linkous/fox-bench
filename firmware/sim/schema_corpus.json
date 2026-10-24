@@ -1442,6 +1442,46 @@
      "images_file": "FOX.JSON"
     }
    }
+  },
+  {
+   "name": "callmessage-64-ascii-ok",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "id": {
+     "callmessage": "KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK"
+    }
+   }
+  },
+  {
+   "name": "callmessage-65-ascii-rejected",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "id": {
+     "callmessage": "KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK"
+    }
+   }
+  },
+  {
+   "name": "callmessage-40-chars-80-bytes-rejected",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "id": {
+     "callmessage": "ÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉ"
+    }
+   }
+  },
+  {
+   "name": "callmessage-30-chars-60-bytes-ok",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "id": {
+     "callmessage": "ÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉ"
+    }
+   }
   }
  ]
 }

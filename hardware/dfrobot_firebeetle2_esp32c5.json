@@ -55,7 +55,9 @@
   },
   "notes": [
     "A stand-in for the Seeed XIAO ESP32C5 target: the firmware image is the same, the LED pin differs.",
-    "Serial: native USB CDC (no bridge chip); Listen only shows the ROM banner and kitsune's lines."
+    "Serial: native USB CDC (no bridge chip); Listen only shows the ROM banner and kitsune's lines.",
+    "Power: kitsune foxes sleep between transmissions; a USB power bank with a low-current auto-off cuts power during the sleep and the fox never wakes (kitsune's README). Use a pack without auto-off.",
+    "Serial: native USB — the console port disappears while the chip sleeps and returns when it wakes (kitsune's README: 'Serial console during sleep: no'). 'serial port dropped' each cycle is expected."
   ],
   "serial": {
     "baud": 115200,

@@ -53,7 +53,9 @@
   },
   "notes": [
     "The only kitsune board with Bluetooth Classic (original ESP32); kitsune pins its BT Classic project to the Arduino core 2.x for Bluedroid.",
-    "ESP32 (not S3/C3): the second-stage bootloader lives at 0x1000, so a merged image starts there."
+    "ESP32 (not S3/C3): the second-stage bootloader lives at 0x1000, so a merged image starts there.",
+    "Power: kitsune foxes sleep between transmissions; a USB power bank with a low-current auto-off cuts power during the sleep and the fox never wakes (kitsune's README). Use a pack without auto-off.",
+    "Serial: through the CH9102 bridge, so the console stays up through sleep — the only kitsune board where it does (kitsune's README)."
   ],
   "serial": {
     "baud": 115200,

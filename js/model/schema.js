@@ -18,6 +18,8 @@ const isNum = v => typeof v === 'number' && Number.isFinite(v);
 const inRange = (v, lo, hi) => isNum(v) && v >= lo && v <= hi;
 
 /** Pin name → board pin entry (accepts aliases). */
+const utf8len = s => new TextEncoder().encode(String(s)).length;
+
 export function findPin(board, name) {
   if (!board || name == null) return null;
   return board.pins.find(p => p.name === name || (p.aliases || []).includes(name)) || null;
@@ -94,7 +96,7 @@ export function mergeAndValidate(user, defaults, board) {
 
   // ---- id
   const d = u.id || {};
-  if ('callmessage' in d) { if (typeof d.callmessage === 'string' && d.callmessage.length >= 1 && d.callmessage.length <= 64) cfg.id.callmessage = d.callmessage; else bad('id.callmessage', '1–64 chars'); }
+  if ('callmessage' in d) { const n = typeof d.callmessage === 'string' ? utf8len(d.callmessage) : 0; if (n >= 1 && n <= 64) cfg.id.callmessage = d.callmessage; else bad('id.callmessage', '1–64 chars'); }   // bytes of UTF-8: the C firmware's buffer
   if ('placeholder' in d) { if (typeof d.placeholder === 'string' && d.placeholder) cfg.id.placeholder = d.placeholder; else bad('id.placeholder', 'string'); }
   if ('wpm' in d) { if (isInt(d.wpm) && inRange(d.wpm, 5, 40)) cfg.id.wpm = d.wpm; else bad('id.wpm', '5–40'); }
   if ('tone_hz' in d) { if (isInt(d.tone_hz) && inRange(d.tone_hz, 300, 3000)) cfg.id.tone_hz = d.tone_hz; else bad('id.tone_hz', '300–3000'); }

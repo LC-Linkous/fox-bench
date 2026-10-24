@@ -44,3 +44,12 @@ test('storage refusing a write is an error the caller sees, not a silent success
   assert.throws(() => { limit = 10; fleet.append({ action: 'x' }); }, StorageError);
   limit = Infinity;
 });
+
+test('fleet CSV: a cell a spreadsheet would evaluate (= + - @) is neutralised; plain numbers are not', () => {
+  fleet.clear();
+  fleet.append({ action: 'deploy', callsign: '=HYPERLINK("x")', notes: '@sum', freq: '146.565', power: '-7', result: '+ok' });
+  const csv = fleet.toCsv();
+  assert.ok(csv.includes(`"'=HYPERLINK(""x"")"`), 'formula cell quoted and prefixed');
+  assert.ok(csv.includes(",'@sum"), '@ prefixed'); assert.ok(csv.includes(",'+ok"), '+ prefixed');
+  assert.ok(csv.includes(',146.565,') && csv.includes(',-7,'), 'numbers untouched');
+});

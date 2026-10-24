@@ -14,7 +14,31 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
-### Page 0.7.13 · foxlib 1.0.4 · foxlib-c 0.1.10 (kitsune branch)
+### Page 0.7.16 · foxlib 1.0.5 · foxlib-c 0.1.10
+
+The page lows left from the October audit, in one pass:
+
+- W6: following a banner no longer loses the form that was there —
+  `window.foxbench.undoFollow()` brings it back (the console line says so).
+- W11: a serial read stream that ends cleanly is a drop like an error is.
+- W12: every UI handler wired through `h()` reports a rejected promise to
+  the console instead of a button that silently does nothing.
+- Two tabs of the page: each save of the working form carries the tab's
+  id; a save seen from another tab makes this one stop overwriting until
+  something is edited here, with a console line.
+- Fleet CSV: a cell beginning with `= + - @` is prefixed with `'` (plain
+  numbers excepted) — banner text and notes reach that file.
+- The console's download buffer is capped (5 000 lines).
+- `id.callmessage` is 1–64 **bytes of UTF-8** in the page, in foxlib and in
+  foxlib-c alike (the page counted UTF-16 units, Python code points).
+- `CONTRIBUTING.md` (branches, the local sequence, when to bump what, when
+  to add a hardware-log row, what never goes in the repository) and
+  `SECURITY.md`; `check_docs.py` now covers every Markdown file at the root.
+- `tools/atten_sweep.py`: the F10 measurement — a sweep of attenuator codes
+  with a timed carrier at each, readings typed in, a CSV and the dB-per-code
+  slope out.
+
+### Page 0.7.13 · foxlib 1.0.4 · foxlib-c 0.1.10
 
 First kitsune build, for the boards on fox-bench's bench:
 
@@ -33,6 +57,14 @@ First kitsune build, for the boards on fox-bench's bench:
 - CI: `KITSUNE_BUILD` builds images as a run artifact; a second switch
   `KITSUNE_HOST` is needed before anything is put into the site.
 - Plan §10: the bench conference, fox-bench envs, the branch convention.
+- The firmware card opens the CI artifact folder (**Open artifact
+  folder…**): the same per-board buttons and sha256 checks as a hosted
+  manifest, from the unzipped `kitsune-images` run artifact. Smoke-tested
+  with the three stand-in targets (chip refusal, written at 0x0).
+- `docs/kitsune-bench.md`: the first-flash checklist per board; the battery
+  auto-off and serial-during-sleep notes from kitsune's README are on every
+  kitsune hardware descriptor. `docs/kitsune-c6-proposal.md`: the PR text
+  for the C6, kept with its evidence.
 
 ### Page 0.7.12 · foxlib 1.0.4 · foxlib-c 0.1.10
 
@@ -82,8 +114,8 @@ without `note=`, `reload` not resetting a console `freq`, a second `ok` after
 `bootsel`) and now follows the firmware. `si5351_ref.py` sweeps the 2 m band
 through the real driver over a fake I²C controller and checks every register
 against the datasheet's formulas, plus the timed-out-write recovery paths and
-`correction_ppm`. `console.c` includes `pico/time.h` itself instead of getting
-it through `pico/bootrom.h`.
+`correction_ppm`. `console.c` includes the SDK's time header itself instead of getting it
+transitively.
 
 
 Two bugs the new tests found, both on the kitsune side:
@@ -141,7 +173,7 @@ Documentation, from the same review:
   (`LICENSES.md` now says what would change and when).
 - `adding-a-target.md`: a `compiled`-family section written from the
   lint's rules — hardware/target/defaults fields, and that a new compiled
-  template is a code change (`vendor/kitsune.js` `TEMPLATES`).
+  template is a code change (`js/model/vendor/kitsune.js` `TEMPLATES`).
 - The contracts say what the code does: the band check is a confirmable
   warning (DESIGN §4, CONFIG `plan`, About → Honest limits); foxlib-c's
   10-minute hard keydown cap (CONFIG `limits`, the Deploy tab warns when the

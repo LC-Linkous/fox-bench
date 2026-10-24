@@ -187,7 +187,7 @@ def validate(user, defaults, board_names, board_id=None):
     # ---- id
     d = u.get("id") if isinstance(u.get("id"), dict) else {}
     if "callmessage" in d:
-        if isinstance(d["callmessage"], str) and 1 <= len(d["callmessage"]) <= 64:
+        if isinstance(d["callmessage"], str) and 1 <= len(d["callmessage"].encode("utf-8")) <= 64:   # bytes, as the C firmware counts
             cfg["id"]["callmessage"] = d["callmessage"]
         else:
             rep.bad("id.callmessage", "1-64 chars")
