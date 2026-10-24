@@ -1,0 +1,62 @@
+{
+  "id": "arduino_nano_33_ble",
+  "name": "Arduino Nano 33 BLE (nRF52840)",
+  "mcu": "nRF52840",
+  "radio": "the SoC's own BLE radio",
+  "radios": [
+    "ble"
+  ],
+  "design": {
+    "by": "Arduino",
+    "source": "https://docs.arduino.cc/hardware/nano-33-ble/",
+    "license": "see the vendor's page"
+  },
+  "circuitpython": {
+    "board_id": "arduino_nano_33_ble",
+    "download": "https://circuitpython.org/board/arduino_nano_33_ble/",
+    "latest_known": "10.3.1",
+    "note": "CircuitPython is installed with Arduino's bossac (double-tap reset → the Arduino bootloader), not from this page: see the CircuitPython board page. After that, deploy from the page as for any board."
+  },
+  "flash": {
+    "method": "bossac",
+    "chip": "nrf52840",
+    "offset": "0x0",
+    "bootloader_instructions": "Double-tap the reset button: the Arduino bootloader (SAM-BA over USB) appears; flash the CircuitPython .bin with bossac from a terminal — this page cannot (no esptool, no UF2). Rev2 and the original board use the same build.",
+    "note": "The one board here this page does not flash itself."
+  },
+  "has_usb_drive": false,
+  "usb": [
+    {
+      "vid": "0x2341",
+      "pid": "0x805a",
+      "when": "Arduino Nano 33 BLE (CDC)"
+    },
+    {
+      "vid": "0x239a",
+      "pid": "0x8140",
+      "when": "CircuitPython CDC (Adafruit ids)"
+    }
+  ],
+  "pins": [
+    {
+      "name": "LED",
+      "gpio": 13,
+      "note": "orange user LED"
+    }
+  ],
+  "roles": {},
+  "battery": {
+    "charger": false,
+    "divider_note": "no battery circuit; 5 V USB or VIN"
+  },
+  "led": {
+    "kind": "single",
+    "pin": 13,
+    "active_low": false,
+    "note": "orange LED, D13"
+  },
+  "notes": [
+    "BLE only: the ble-beacon template. No Wi-Fi.",
+    "Flashing CircuitPython needs bossac from a terminal (Arduino's bootloader); everything after that is from the page."
+  ]
+}

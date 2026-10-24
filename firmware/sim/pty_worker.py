@@ -23,6 +23,8 @@ def effective():
         fox = json.load(open(os.path.join(flash, "fox.json")))
     except Exception:
         fox = {}
+    if defaults and "net" in defaults:
+        return None                             # a network fox: the mocks' defaults (both radios) serve
     if defaults:
         eff, _ = simrun.fwcfg.validate(fox, defaults, simrun.BOARD_NAMES, defaults.get("board"))
         return eff

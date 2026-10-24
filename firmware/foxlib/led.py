@@ -15,6 +15,8 @@ PATTERNS = {
     "critical": [(500, 500)],
     "unconfigured": [(80, 120), (80, 1720)],
     "keydown-limit": [(600, 200)],
+    "tx": [(900, 100)],              # network fox: radio up (mostly on)
+    "fatal": [(100, 100), (100, 1700)],
 }
 
 

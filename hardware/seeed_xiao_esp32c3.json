@@ -138,5 +138,9 @@
     "charger": true,
     "divider_note": "BAT+ -> 200k -> ADC -> 200k -> GND. Known layouts use D2/A2 (carrier PCB) or D0/A0 (Seeed wiki). Leave batt_sense null if no divider is fitted."
   },
-  "silkscreen": null
+  "silkscreen": null,
+  "radios": [
+    "wifi24",
+    "ble"
+  ]
 }

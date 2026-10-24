@@ -11,6 +11,10 @@ import types
 ACTIVE = [True]   # set False by the runner after a run, so generator finalizers of a finished run cannot raise SimDone
 
 
+class Reboot(BaseException):    # a deep sleep's wake: the runner starts code.py again, as the board does
+    pass
+
+
 class SimDone(BaseException):   # BaseException so the firmware's `except Exception` never swallows it
     pass
 
@@ -235,6 +239,72 @@ def install(scenario):
         def deinit(self):
             release(self.pin)
     an.AnalogIn = AnalogIn
+
+    # ---- the SoC's own radios (network foxes): wifi, _bleio, alarm. Up/down is recorded as keyed/unkeyed so the
+    # same stop condition and keyed_intervals serve both kinds of fox; rec.net keeps what went on the air.
+    rec.net = []           # (t_ms, event, detail)
+    def net_event(ev, detail=""):
+        rec.net.append((now_ms(), ev, detail))
+        if ev in ("ap_up", "probe", "adv_up"):
+            rec.ptt.append((now_ms(), True))
+        elif ev in ("ap_down", "probe_done", "adv_down"):
+            rec.ptt.append((now_ms(), False)); rec.unkeys += 1
+            if rec.stop_after_unkeys and rec.unkeys >= rec.stop_after_unkeys:
+                clock.stop_requested = "unkeys"
+    radios = scenario.get("radios", ["wifi24", "ble"])
+    if "wifi24" in radios or "wifi5" in radios:
+        wifi = types.ModuleType("wifi")
+        class _Net:
+            def __init__(self, ssid, rssi, ch): self.ssid, self.rssi, self.channel = ssid, rssi, ch
+        class _Radio:
+            enabled = False; mac_address_ap = bytes(6); mac_address = bytes(6); tx_power = 8.5
+            def start_ap(self, ssid, password="", *, channel=1, max_connections=4, authmode=None):
+                net_event("ap_up", "%s ch=%d mac=%s psk=%s" % (ssid, channel, ":".join("%02X" % b for b in self.mac_address_ap), "open" if not password else "yes"))
+            def stop_ap(self): net_event("ap_down")
+            def connect(self, ssid, password="", *, timeout=None):
+                net_event("probe", "%s mac=%s" % (ssid, ":".join("%02X" % b for b in self.mac_address)))
+                sleep(min(timeout or 2, 2)); net_event("probe_done")
+                raise ConnectionError("no such network")
+            def stop_station(self): pass
+            def start_scanning_networks(self):
+                for n in (("Neighbour", -55, 6), ("AnotherAP", -70, 11)): yield _Net(*n)
+            def stop_scanning_networks(self): pass
+        wifi.radio = _Radio(); wifi.AuthMode = types.SimpleNamespace(OPEN=0, WPA2=1)
+        sys.modules["wifi"] = wifi
+    else:
+        sys.modules.pop("wifi", None)
+    if "ble" in radios:
+        bleio = types.ModuleType("_bleio")
+        class Address:
+            RANDOM_STATIC = 1
+            def __init__(self, b, kind=0): self.b, self.kind = b, kind
+            def __str__(self): return ":".join("%02x" % x for x in self.b) + " (random)"
+        class _Adapter:
+            enabled = False; name = ""; address = Address(bytes(6))
+            def start_advertising(self, data, *, scan_response=b"", connectable=True, interval=0.1, tx_power=0):
+                net_event("adv_up", "len=%d name=%s interval=%.3f tx=%d" % (len(data), scan_response[2:].decode("utf-8", "replace") if len(scan_response) > 2 else "", interval, tx_power))
+            def stop_advertising(self): net_event("adv_down")
+            def start_scan(self, timeout=2, minimum_rssi=-100):
+                sleep(timeout)
+                yield types.SimpleNamespace(rssi=-60, address=Address(bytes([0xC0, 0, 0, 0, 0, 1])), complete_name="Neighbour beacon")
+            def stop_scan(self): pass
+        bleio.adapter = _Adapter(); bleio.Address = Address
+        sys.modules["_bleio"] = bleio
+    else:
+        sys.modules.pop("_bleio", None)
+    alarm = types.ModuleType("alarm")
+    class TimeAlarm:
+        def __init__(self, *, monotonic_time): self.when = monotonic_time
+    alarm.time = types.SimpleNamespace(TimeAlarm=TimeAlarm); alarm.wake_alarm = None
+    def deep_sleep(*alarms):
+        when = max(a.when for a in alarms)
+        net_event("deep_sleep", "%.0f s" % (when - clock.ns / 1e9))
+        clock.advance(max(0.0, when - clock.ns / 1e9) * 1e9)
+        alarm.wake_alarm = alarms[0]
+        raise Reboot()                        # the runner starts code.py again, as the board does after deep sleep
+    alarm.exit_and_deep_sleep_until_alarms = deep_sleep
+    sys.modules["alarm"] = alarm
+    if not hasattr(board, "LED"): board.LED = Pin("LED")
 
     for name, mod in (("time", t), ("board", board), ("microcontroller", mc), ("digitalio", dio), ("pwmio", pwm), ("busio", bus), ("analogio", an)):
         sys.modules[name] = mod

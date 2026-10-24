@@ -1,0 +1,11 @@
+{
+  "id": "seeed_xiao_esp32c6",
+  "name": "Seeed XIAO ESP32-C6 (network fox)",
+  "hardware": "seeed_xiao_esp32c6",
+  "family": "foxlib",
+  "status": "experimental",
+  "firmware": {
+    "kind": "circuitpython+foxlib",
+    "note": "CircuitPython on the board, fox-bench's foxlib and a network-fox template (Wi-Fi beacon, Wi-Fi probe, BLE beacon) deployed over the REPL. The SoC's own radio: no module, no pins. Not yet on the bench."
+  }
+}

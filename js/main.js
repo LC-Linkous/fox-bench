@@ -3,6 +3,7 @@
 import { $, $$, setHandlerErrorReporter } from './ui/dom.js';
 import { loadCatalog, loadDefaults } from './model/loaders.js';
 import { mergeAndValidate, pageChecks } from './model/schema.js';
+import { validate as netValidate, checks as netChecks } from './model/netschema.js';
 import { parseBanner } from './device/device.js';
 import { profiles, fleet, unpackProfileImages } from './model/profiles.js';
 import { deployBlocker } from './model/transport.js';
@@ -27,7 +28,7 @@ import * as tabBench from './ui/bench.js';
 import * as tabFleet from './ui/fleet.js';
 import * as tabAbout from './ui/about.js';
 
-const VERSION = '0.7.16';
+const VERSION = '0.8.0';
 /** Tab subtitles that read differently per device family (null = the page's original text). */
 const LEDES = { drive: {
   board: 'Which fox is on the bench, open its USB drive (or use the simulated one). The vendor firmware stays; the page writes its files.',
@@ -53,7 +54,7 @@ const LEDES = { drive: {
 } };
 const TAB_ID = Math.random().toString(36).slice(2, 10);   // this page load, for the saved-form handoff between tabs
 const TABS = { board: tabBoard, radio: tabRadio, behavior: tabBehavior, plan: tabPlan, id: tabId, payload: tabPayload, schedule: tabSchedule, deploy: tabDeploy, bench: tabBench, fleet: tabFleet, about: tabAbout };
-const TAB_KEYS = { radio: ['radio', 'module', 'pins'], plan: ['plan'], id: ['id'], payload: ['payload'], schedule: ['schedule'] };
+const TAB_KEYS = { radio: ['radio', 'module', 'pins', 'net'], plan: ['plan'], id: ['id'], payload: ['payload'], schedule: ['schedule'] };
 
 export const app = {
   version: VERSION,
@@ -85,13 +86,19 @@ export const app = {
   get hardware() { return this.catalog.hardware?.[this.board.hardware] || null; },
   /** Families whose configuration is compiled into the firmware (kitsune): the page prepares and checks it and flashes images; no deploy transport (Phase 2). */
   get isCompiled() { return this.family === 'compiled'; },
+  /** Network foxes (wifi-beacon, wifi-probe, ble-beacon): the foxlib family on the SoC's own radio — the `net` contract. */
+  get isNet() { return this.template?.contract === 'net'; },
   /** The foxlib-c console to send bench commands to: the Listen-only device, or the demo's side console. */
   consoleDevice() { if (this.family !== 'foxlib-c') return null; if (this.device?.kind === 'console') return this.device; return this.sideConsole || null; },
   get vendor() { return this.board.vendor ? this.catalog.vendors[this.board.vendor] : null; },
   /** Templates that apply to a family. */
   templatesFor(family, board = this.board) {
     const hw = board ? this.catalog.hardware?.[board.hardware] : null;
-    return Object.values(this.catalog.templates).filter(t => (t.families || ['foxlib']).includes(family) && (!t.radios || !hw?.radios || t.radios.every(r => hw.radios.includes(r))));
+    // a template fits a board when the hardware has the radios it names, and (CircuitPython FM templates) the pin roles
+    // it requires; foxlib-c fixes its pins in the firmware, so the roles filter is for the foxlib family only
+    return Object.values(this.catalog.templates).filter(t => (t.families || ['foxlib']).includes(family)
+      && (!t.radios || !hw?.radios || t.radios.every(r => hw.radios.includes(r)))
+      && (family !== 'foxlib' || !t.pins?.required?.length || !hw || t.pins.required.every(r => hw.roles && hw.roles[r] !== undefined)));
   },
 
   /** Re-validate and notify every tab. */
@@ -111,6 +118,9 @@ export const app = {
     } else if (this.isCompiled) {
       const r = this.vendor.validate(this.cfg, this.defaults, this.board);
       this.report = r.report; this.status = r.status; this.validCfg = r.cfg; this.issues = this.vendor.checks(r.cfg, this.hardware);
+    } else if (this.isNet) {
+      const r = netValidate(this.cfg, this.defaults, { ...this.board, radios: this.hardware?.radios });
+      this.report = r.report; this.status = r.status; this.validCfg = r.cfg; this.issues = netChecks(r.cfg, { ...this.board, radios: this.hardware?.radios || [] });
     } else {
       const r = mergeAndValidate(this.cfg, this.defaults, this.board);
       this.report = r.report; this.status = r.status;
@@ -124,7 +134,8 @@ export const app = {
       for (const el of $$('.panel .lede')) if (!(LEDES[this.family] || {})[el.closest('.panel').id.slice(4)] && el.dataset.orig) el.textContent = el.dataset.orig;
     }
     $('.rail button[data-tab="bench"]').hidden = this.family === 'drive' || this.isCompiled;
-    $('.rail button[data-tab="payload"]').hidden = this.isCompiled;
+    $('.rail button[data-tab="payload"]').hidden = this.isCompiled || this.isNet;
+    $('.rail button[data-tab="plan"]').hidden = this.isNet;   // no frequencies on a network fox: the channel is on the Radio tab
     $('#demoBtn').disabled = this.isCompiled || !!this._connecting; $('#demoBtn').title = this.isCompiled ? 'no simulated kitsune board yet' : '';
     if (!this.device) { $('#connectBtn').textContent = this.usesDrive ? `Open ${this.board.drive?.label || 'drive'}` : 'Connect'; $('#connectBtn').disabled = !!this._connecting || (this.isCompiled ? true : this.usesDrive ? !('showDirectoryPicker' in window) : !hasWebSerial()); $('#connectBtn').title = this.isCompiled ? 'kitsune foxes have no connection yet: prepare the configuration here and export the header (Listen only works on their serial port)' : ''; }
     // Two tabs of the page would overwrite each other's saved form on every change. Each save carries this tab's id; a
@@ -150,7 +161,12 @@ export const app = {
     this.defaults = await loadDefaults(id, this.boardId);
     const next = structuredClone(this.defaults);
     if (carry && prev) {
-      for (const k of ['module', 'pins', 'radio', 'plan', 'id', 'battery', 'limits', 'fleet']) next[k] = structuredClone(prev[k]);
+      // carry what both contracts share; between an FM and a network template only the callsign and the fleet notes carry
+      const sameContract = (prev.net ? 'net' : 'fm') === (next.net ? 'net' : 'fm');
+      const keys = sameContract ? (next.net ? ['net', 'id', 'led', 'fleet'] : ['module', 'pins', 'radio', 'plan', 'id', 'battery', 'limits', 'fleet']) : ['fleet'];
+      for (const k of keys) if (k in prev && k in next) next[k] = structuredClone(prev[k]);
+      if (!sameContract && prev.id?.callmessage && next.id) next.id.callmessage = prev.id.callmessage;
+      if (sameContract && next.net && prev.net && prev.net.kind !== this.defaults.net.kind) next.net = structuredClone(this.defaults.net);   // a different radio: its own fields
       const sec = this.template.sections;
       if (prev.payload && (sec.includes(`payload.${prev.payload.kind}`) || sec.includes('payload.*'))) next.payload = structuredClone(prev.payload);
       if (prev.schedule && (sec.includes(`schedule.${prev.schedule.kind}`) || sec.includes('schedule.*'))) next.schedule = structuredClone(prev.schedule);   // compiled-family configs have no payload
@@ -218,7 +234,7 @@ export const app = {
     if (cfg.board && this.catalog.boards[cfg.board]) { await this._leaveFamilyFor(cfg.board, false); this.boardId = cfg.board; }
     if (cfg.module && this.catalog.modules[cfg.module]) this.moduleId = cfg.module;
     this.defaults = await loadDefaults(this.templateId, this.boardId);
-    this.cfg = this.family === 'drive' || this.isCompiled ? this.vendor.validate(cfg, this.defaults, this.board).cfg : mergeAndValidate(cfg, this.defaults, this.board).cfg;
+    this.cfg = this.family === 'drive' || this.isCompiled ? this.vendor.validate(cfg, this.defaults, this.board).cfg : this.isNet ? netValidate(cfg, this.defaults, { ...this.board, radios: this.hardware?.radios }).cfg : mergeAndValidate(cfg, this.defaults, this.board).cfg;
     this.changed(source);
   },
 
@@ -469,7 +485,7 @@ async function boot() {
       if (restored.region && Object.hasOwn(app.catalog.bands || {}, restored.region)) app.region = restored.region;
       if (app.board.module_fixed) app.moduleId = app.board.module_fixed;
       app.defaults = await loadDefaults(app.templateId, app.boardId);
-      const r = app.family === 'drive' || app.isCompiled ? app.vendor.validate(restored.cfg, app.defaults, app.board) : mergeAndValidate(restored.cfg, app.defaults, app.board);
+      const r = app.family === 'drive' || app.isCompiled ? app.vendor.validate(restored.cfg, app.defaults, app.board) : app.isNet ? netValidate(restored.cfg, app.defaults, { ...app.board, radios: app.hardware?.radios }) : mergeAndValidate(restored.cfg, app.defaults, app.board);
       app.cfg = r.cfg; restoredOk = true;
       if (r.report?.length && restored.version !== VERSION) app.console.dim(`saved form from page ${restored.version || '< 0.6.1'}: ${r.report.length} value(s) reset to defaults (${r.report.map(x => x.key).join(', ')})`);
     } catch (e) { app.console.err(`saved form could not be restored (${e.message || e}); starting from the template defaults`); }

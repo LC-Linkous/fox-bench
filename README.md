@@ -10,11 +10,18 @@ to install.
 **Use it:** https://lc-linkous.github.io/fox-bench/ — *Try without
 hardware* runs the whole page against a simulated board.
 
-Status: **v0.7 — four device families.** All seven FM templates have been
+Status: **v0.8 — four device families, two contracts.** All seven FM templates have been
 deployed from the page to a XIAO ESP32-C3 + SA868 and run on both 2 m and
 70 cm (checked with `tools/hw_smoke.py`; `docs/hardware-log.md` records
 what was verified on which board, when, with which firmware); CircuitPython itself can be flashed
 onto a bare board from the Board tab, one at a time or as a batch. The
+same CircuitPython firmware also runs **network foxes** — a Wi-Fi access
+point, a Wi-Fi probing station or a BLE iBeacon on a duty cycle, with the
+callsign or a configured name as the SSID / device name and a chosen MAC —
+on boards with no radio module at all (XIAO ESP32-C3 and -C6, Waveshare
+ESP32-S3-Nano, FireBeetle 2 ESP32-C5, Arduino Nano 33 BLE); these three
+templates and the four module-less targets are **experimental** until a
+hardware-log row says a phone has found them. The
 AI6YM PicoFox is supported two ways: with its **vendor firmware** (the page
 writes its settings, renders its audio and Morse-ID files, and draws the
 cycle that firmware runs — verified on air, `docs/picofox-notes.md`), and

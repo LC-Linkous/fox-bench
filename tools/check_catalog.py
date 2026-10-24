@@ -29,6 +29,10 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 import importlib.util
 _spec = importlib.util.spec_from_file_location("foxcfg", os.path.join(ROOT, "firmware/foxlib/cfg.py"))
 fcfg = importlib.util.module_from_spec(_spec); _spec.loader.exec_module(fcfg)   # the firmware's validator, used as-is (pure Python, no board import)
+import types as _types
+_pkg = _types.ModuleType("_fwpkg"); _pkg.__path__ = [os.path.join(ROOT, "firmware", "foxlib")]; sys.modules["_fwpkg"] = _pkg; sys.modules["_fwpkg.cfg"] = fcfg
+_nspec = importlib.util.spec_from_file_location("_fwpkg.netcfg", os.path.join(ROOT, "firmware", "foxlib", "netcfg.py"))
+fnetcfg = importlib.util.module_from_spec(_nspec); _nspec.loader.exec_module(fnetcfg)   # the network foxes' validator
 
 problems = []
 def bad(where, what): problems.append(f"{where}: {what}")
@@ -144,10 +148,15 @@ for bid in board_ids:
         if "circuitpython" not in hw: bad(rel, "foxlib target on hardware without circuitpython")
         for k in ("board_id", "download"):
             if k not in (hw.get("circuitpython") or {}): bad(rel, f"hardware missing circuitpython.{k}")
-        for role in fcfg.REQUIRED_PINS + fcfg.OPTIONAL_PINS:
-            if role not in hw.get("roles", {}): bad(rel, f"hardware roles.{role} missing (use null if not wired)")
-        for role in fcfg.REQUIRED_PINS:
-            if not hw.get("roles", {}).get(role): bad(rel, f"hardware roles.{role} is required but null")
+        # roles: an FM fox needs every role (null when not wired); a board that runs only network foxes (no module)
+        # has an empty roles map and must then list radios, so at least one template fits it
+        roles = hw.get("roles", {}) or {}
+        if roles:
+            for role in fcfg.REQUIRED_PINS + fcfg.OPTIONAL_PINS:
+                if role not in roles: bad(rel, f"hardware roles.{role} missing (use null if not wired)")
+            for role in fcfg.REQUIRED_PINS:
+                if not roles.get(role): bad(rel, f"hardware roles.{role} is required but null")
+        elif not hw.get("radios"): bad(rel, "hardware has neither pin roles (an FM fox) nor radios (a network fox): no template can run on it")
     if fam == "drive":
         for k in ("vendor", "module_fixed", "drive"):
             if k not in t: bad(rel, f"drive-family target missing {k}")
@@ -283,6 +292,14 @@ for tid in fw["templates"]:
             if not all(r in hw_radios for r in t["radios"]):
                 if exists(drel): bad(drel, f"defaults for a board without the {t['radios']} radio this template needs")
                 continue
+        # an FM template needs the pin roles it lists; a board whose hardware has none of them (a bare ESP32 running
+        # network foxes) does not get it, so no defaults are expected or allowed (the page's templatesFor hides it too)
+        req = t.get("pins", {}).get("required", [])
+        if req and b["_family"] == "foxlib":
+            roles = hardware.get(b.get("hardware"), {}).get("roles", {}) or {}
+            if not all(r in roles for r in req):
+                if exists(drel): bad(drel, f"defaults for a board whose hardware has no {[r for r in req if r not in roles]} role(s) this template needs")
+                continue
         if b["_family"] == "compiled":
             if not exists(drel): bad(drel, "missing — every compiled-family template needs defaults for every board with its radio"); continue
             d = load(drel)
@@ -313,6 +330,15 @@ for tid in fw["templates"]:
         if d.get("schema") != fcfg.SCHEMA: bad(drel, f"schema {d.get('schema')} != firmware SCHEMA {fcfg.SCHEMA}")
         if d.get("template") != tid: bad(drel, f"template {d.get('template')!r} != {tid}")
         if d.get("board") != bid: bad(drel, f"board {d.get('board')!r} != {bid}")
+        if t.get("contract") == "net":
+            # the network contract: its own validator (firmware/foxlib/netcfg.py), fed the defaults as fox.json
+            for k in ("net", "id", "schedule", "led", "fleet"):
+                if k not in d: bad(drel, f"{k} section missing")
+            if d.get("net", {}).get("kind") not in ("wifi-ap", "wifi-probe", "ble"): bad(drel, f"net.kind {d.get('net', {}).get('kind')!r}")
+            if "pins" in d or "payload" in d or "plan" in d: bad(drel, "a network fox has no pins/plan/payload")
+            _, rep = fnetcfg.validate(json.loads(json.dumps(d)), d, bid, hardware.get(b.get("hardware"), {}).get("radios", []))
+            if rep.status() != "ok": bad(drel, f"netcfg.validate() on its own defaults: {rep.status()} {rep.items}")
+            continue
         mod = modules.get(d.get("module"))
         if not mod: bad(drel, f"module {d.get('module')!r} not in modules/");
         else:

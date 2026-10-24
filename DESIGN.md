@@ -81,6 +81,7 @@ js/
   model/
     loaders.js             fetch the descriptors (boards, hardware, modules, bands, templates, versions)
     schema.js              fox.json: defaults merge, validation, page checks
+    netschema.js           the `net` contract (network foxes): validation, page checks, duty-cycle preview; twin of foxlib/netcfg.py
     foxlibc-limits.js      the C firmware's pools as page checks; fox.json serialisation for that family
     compat.js              fox firmware version vs the page (foxlib-c)
     transport.js           which connected device may receive a deploy for which family
@@ -98,6 +99,7 @@ js/
     wav.js                 event stream → WAV (the vendor PicoFox's audio file)
   ui/                      one module per tab (board, radio, behavior, plan, id, payload, schedule,
                            deploy / deploy-drive / deploy-foxlibc / deploy-compiled, kitsune (the compiled family's radio forms),
+                           net (the network foxes' radio / id / schedule forms),
                            bench, fleet, about), console.js (the console drawer), flash.js (flash card, firmware cards, touch, UF2 copy), dom helpers
 flasher/                   esptool-js wrapper + vendored esptool-js (Apache-2.0)
 hardware/    <hardware_id>.json       the physical board, see §4
@@ -108,7 +110,8 @@ bands.json                            amateur allocations by region
 firmware/
   LICENSE                             GPL-3.0-or-later (see §9)
   index.json                          foxlib file list, template list
-  foxlib/                             shared CircuitPython firmware library
+  foxlib/                             shared CircuitPython firmware library: fox.py (FM, SA868), netfox.py + netradio.py + netcfg.py
+                                      (network foxes: the SoC's Wi-Fi / BLE on a duty cycle)
   templates/<id>/
     code.py                           the behaviour file (CircuitPython)
     template.json                     manifest, see §5
@@ -291,6 +294,26 @@ of their code and differ along three independent axes:
 `foxlib` implements all three axes once. A template is a short `code.py`
 that chooses from them, plus a manifest and per-board defaults.
 
+A second **contract** rides on the same family: the *network foxes*
+(`wifi-beacon`, `wifi-probe`, `ble-beacon`; `"contract": "net"` in
+`template.json`) use the SoC's own Wi-Fi or BLE as the transmitter and have
+none of the three axes above — their document is `net` + `id` +
+`schedule.duty` + `led` (CONFIG.md, "The `net` contract"). Same `code.py`
+shape (`NetFox(...).cycles()` instead of `Fox(...).cycles()`), same banner
+line with `freq=none` and `net=/name=/mac=` appended, same deploy path
+(`foxlib/`, `code.py`, `defaults.json`, `fox.json` over the REPL), same
+bench entry points (`key_for`, `rssi`), same simulator (`wifi`, `_bleio`
+and `alarm` are mocked; deep sleep reboots the script). The page hides the
+Plan and Payload tabs and switches the Radio, ID and Schedule tabs to the
+forms in `js/ui/net.js`. A template is offered on a target when its
+hardware lists the `radios` it names (and, for the FM templates, the pin
+roles it requires), so a Nano 33 BLE sees `ble-beacon` only, and a XIAO
+ESP32-C3 sees all ten. Why not the compiled family's kitsune firmware for
+this: these foxes are configured per deploy, from the page, with no
+toolchain — the same process as the FM foxes — and nothing of kitsune's is
+built or hosted. They mimic a ham fox hunt (`id.use_callsign_as_name`) or a
+contest (a configured SSID / name) but carry no event's real configuration.
+
 ```
 firmware/foxlib/
   __init__.py     Fox: loads config, builds radio/battery/led, exposes cycles()
@@ -306,6 +329,9 @@ firmware/foxlib/
   schedule.py     seeded LCG + fixed/popcorn/resurrection schedulers
   led.py          patterns: alive · low · critical · unconfigured · keydown-limit
   cycle.py        the per-cycle prologue every fox repeats (see below)
+  netcfg.py       the `net` contract: defaults → fox.json → validation (twin of js/model/netschema.js)
+  netradio.py     the SoC's radios as transmitters: WifiAp, WifiProbe, BleBeacon (up/down/scan/mac)
+  netfox.py       NetFox: the network foxes' runner — banner, duty cycle, radio-off or deep sleep, bench
   VERSION         single line, e.g. 1.0.0
 ```
 
@@ -432,7 +458,9 @@ the log says it is".
 ## 8. Simulator and CI
 
 `firmware/sim/` is the desktop harness from the earlier foxes, generalised:
-mocked `board`/`busio`/`digitalio`/`pwmio`/`analogio`, a virtual clock,
+mocked `board`/`busio`/`digitalio`/`pwmio`/`analogio` — and, for the
+network foxes, `wifi`/`_bleio`/`alarm` (deep sleep re-executes `code.py`,
+as the board would reboot) — a virtual clock,
 and decoders for the event stream (Morse back to text, SSTV back to
 pixels, schedule back to a timeline). `firmware/sim/scenarios.json`
 lists battery schedules and expected behaviour per template. CI
@@ -483,7 +511,7 @@ bench. A *device family* is the unit that varies:
 
 | | foxlib | drive | foxlib-c | compiled |
 |---|---|---|---|---|
-| example | XIAO ESP32-C3 + SA868 | AI6YM PicoFox with its vendor firmware | AI6YM PicoFox with fox-bench firmware | RFHS kitsune foxes on M5Stack Atom / S3 boards, Nano ESP32, XIAO ESP32C5 |
+| example | XIAO ESP32-C3 + SA868; the same board, a XIAO ESP32-C6, a Waveshare ESP32-S3-Nano, a FireBeetle 2 ESP32-C5 or an Arduino Nano 33 BLE with no module as a **network fox** (`net` contract) | AI6YM PicoFox with its vendor firmware | AI6YM PicoFox with fox-bench firmware | RFHS kitsune foxes on M5Stack Atom / S3 boards, Nano ESP32, XIAO ESP32C5 |
 | firmware | ours (CircuitPython + foxlib), deployed by the page | the vendor's, left alone (CC BY-NC-SA; not in this repo) | ours (C, Pico SDK, `firmware/foxlib-c/`), flashed as a UF2 from the Board tab | theirs (PlatformIO/Arduino, `github.com/rfhs/kitsune`; not in this repo), configuration compiled in from a conference header |
 | transport | `repl-device.js` (raw REPL) | `drive-device.js` (File System Access API on the USB drive) | `drive-device.js` for the files; the serial console for banner, log and bench | none yet: the page exports the header block; Listen only reads their boot lines (`docs/kitsune-integration-plan.md` for the next stages) |
 | config contract | `CONFIG.md` → `fox.json` | the vendor's files, modelled in `js/model/vendor/<id>.js` | `CONFIG.md` → `fox.json`, no `pins`, `si5351fm` radio keys | `CONFIG.md` "compiled family": `challenge`, `wifi`/`ble`/`bt`/`zigbee`, `schedule.duty` |

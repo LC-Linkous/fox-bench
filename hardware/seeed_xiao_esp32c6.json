@@ -57,5 +57,10 @@
     "baud": 115200,
     "notes": "kitsune prints 'ESP32 boot count', 'Awake and screaming', 'Going to sleep' and 'PANIC' on its serial port; no command interface."
   },
-  "silkscreen": null
+  "silkscreen": null,
+  "circuitpython": {
+    "board_id": "seeed_xiao_esp32c6",
+    "download": "https://circuitpython.org/board/seeed_xiao_esp32c6/",
+    "latest_known": "10.3.1"
+  }
 }

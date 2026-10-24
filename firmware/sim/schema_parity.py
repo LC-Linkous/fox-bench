@@ -29,10 +29,23 @@ def canon_pin(bid, name):
         if name == p["name"] or name in p.get("aliases", []): return p["name"]
     return name
 
+import types as _types
+_pkg = _types.ModuleType("_fwpkg"); _pkg.__path__ = [os.path.join(ROOT, "firmware/foxlib")]; sys.modules["_fwpkg"] = _pkg; sys.modules["_fwpkg.cfg"] = cfg
+_nspec = importlib.util.spec_from_file_location("_fwpkg.netcfg", os.path.join(ROOT, "firmware/foxlib/netcfg.py"))
+netcfg = importlib.util.module_from_spec(_nspec); _nspec.loader.exec_module(netcfg)
+def is_net(t): return json.load(open(os.path.join(ROOT, "firmware/templates", t, "template.json"))).get("contract") == "net"
+def radios_of(bid):
+    t = json.load(open(os.path.join(ROOT, "boards", bid + ".json")))
+    return json.load(open(os.path.join(ROOT, "hardware", t["hardware"] + ".json"))).get("radios", []) if t.get("hardware") else []
+
 corpus = json.load(open(os.path.join(HERE, "schema_corpus.json")))
 out = {}
 for c in corpus["cases"]:
     defaults = json.load(open(os.path.join(ROOT, "firmware/templates", c["template"], "defaults", c["board"] + ".json")))
+    if is_net(c["template"]):
+        eff, rep = netcfg.validate(c["user"], defaults, c["board"], radios_of(c["board"]))
+        out[c["name"]] = {"status": rep.status(), "cfg": eff}
+        continue
     eff, rep = cfg.validate(c["user"], defaults, board_names(c["board"]), c["board"])
     for role, v in list(eff.get("pins", {}).items()):
         if v is not None: eff["pins"][role] = canon_pin(c["board"], v)

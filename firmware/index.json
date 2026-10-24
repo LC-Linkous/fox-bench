@@ -2,16 +2,19 @@
   "foxlib": [
     "VERSION",
     "__init__.py",
-    "cfg.py",
-    "radio.py",
-    "tones.py",
-    "morse.py",
-    "melody.py",
-    "sstv.py",
     "battery.py",
-    "schedule.py",
+    "cfg.py",
+    "cycle.py",
     "led.py",
-    "cycle.py"
+    "melody.py",
+    "morse.py",
+    "netcfg.py",
+    "netfox.py",
+    "netradio.py",
+    "radio.py",
+    "schedule.py",
+    "sstv.py",
+    "tones.py"
   ],
   "templates": [
     "morse-songs",
@@ -26,6 +29,9 @@
     "wifi-client",
     "ble-ibeacon",
     "bt-classic",
-    "zigbee-coordinator"
+    "zigbee-coordinator",
+    "wifi-beacon",
+    "wifi-probe",
+    "ble-beacon"
   ]
 }

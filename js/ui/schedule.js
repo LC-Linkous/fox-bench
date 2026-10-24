@@ -1,12 +1,13 @@
 // schedule.js — Schedule tab: fixed / popcorn / resurrection, with the predicted timeline.
 // SPDX-License-Identifier: GPL-2.0-only
 import * as kitsune from './kitsune.js';
+import * as net from './net.js';
 import { h, badge, field, select, numInput, check } from './dom.js';
 import { timeline, drawTimeline } from '../audio/schedule.js';
 import { airtime, fmtDuration } from '../model/airtime.js';
 
 let app, root, horizonH = 4;
-export function init(a, el) { app = a; root = el; kitsune.init(a); app.listeners.add(render); render(); }   // kitsune.init before the first render: a saved kitsune form renders this tab at boot, before the ID tab's init
+export function init(a, el) { app = a; root = el; kitsune.init(a); net.init(a); app.listeners.add(render); render(); }   // kitsune.init before the first render: a saved kitsune form renders this tab at boot, before the ID tab's init
 
 const KINDS = { fixed: 'Fixed delay', popcorn: 'Popcorn — seeded clusters and dark periods', resurrection: 'Resurrection — plays dead on a seeded schedule' };
 const kindsForTemplate = () => { const s = app.template.sections; return s.includes('schedule.*') ? Object.keys(KINDS) : Object.keys(KINDS).filter(k => s.includes('schedule.' + k)); };
@@ -23,6 +24,7 @@ const seedField = () => { const s = app.cfg.schedule; return field('Seed', h('di
 
 function render() {
   if (app.isCompiled) return kitsune.renderSchedule(root);
+  if (app.isNet) return net.renderSchedule(root);
   if (app.family === 'drive') return renderDrive();
   const s = app.cfg.schedule, kinds = kindsForTemplate();
   const at = airtime(app.cfg, { images: app.images });

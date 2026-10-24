@@ -1,0 +1,11 @@
+{
+  "id": "waveshare_esp32s3_nano",
+  "name": "Waveshare ESP32-S3-Nano (network fox)",
+  "hardware": "waveshare_esp32s3_nano",
+  "family": "foxlib",
+  "status": "experimental",
+  "firmware": {
+    "kind": "circuitpython+foxlib",
+    "note": "CircuitPython on the board, fox-bench's foxlib and a network-fox template (Wi-Fi beacon, Wi-Fi probe, BLE beacon) deployed over the REPL. The SoC's own radio: no module, no pins. Not yet on the bench."
+  }
+}

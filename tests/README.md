@@ -9,7 +9,7 @@ the live site as it was.
 |---|---|---|
 | Firmware behaviour (every template × scenario on mocked hardware), encoder parity Python↔JS | `firmware/sim/` | `python3 firmware/sim/run.py` |
 | REPL protocol and device layer against a fake CircuitPython board | `tests/unit/` | `cd tests && npm run unit` |
-| The page itself, every tab × every template on the demo board, in headless Chromium; the zips it exports are unpacked and booted in the firmware simulator (`run.py --deploy-set`) | `tests/page/` | `cd tests && npm run smoke` |
+| The page itself, every tab × every template on the demo board (the seven FM templates and the three network foxes: forms, deploy, net bench), in headless Chromium; the zips it exports are unpacked and booted in the firmware simulator (`run.py --deploy-set`) | `tests/page/` | `cd tests && npm run smoke` |
 
 Setup for the Node tests (once): `cd tests && npm ci && npx playwright
 install --with-deps chromium` (`--with-deps` pulls Chromium's system

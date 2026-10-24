@@ -19,6 +19,11 @@ import mocks, decode  # noqa: E402
 import importlib.util
 _spec = importlib.util.spec_from_file_location("_fwcfg", os.path.join(FW, "foxlib", "cfg.py"))
 fwcfg = importlib.util.module_from_spec(_spec); _spec.loader.exec_module(_spec and fwcfg)
+# netcfg imports from .cfg: give it a package to live in on the host (the mocks are not installed yet here)
+import types as _types
+_pkg = _types.ModuleType("_fwpkg"); _pkg.__path__ = [os.path.join(FW, "foxlib")]; sys.modules["_fwpkg"] = _pkg; sys.modules["_fwpkg.cfg"] = fwcfg
+_nspec = importlib.util.spec_from_file_location("_fwpkg.netcfg", os.path.join(FW, "foxlib", "netcfg.py"))
+fwnetcfg = importlib.util.module_from_spec(_nspec); _nspec.loader.exec_module(fwnetcfg)
 BOARD_NAMES = ["D0", "D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8", "D9", "D10", "A0", "A1", "A2", "A3", "TX", "RX"]
 
 
@@ -53,9 +58,13 @@ def boot_dir(d, cap_ms=180000, stop_after_unkeys=2):
     except Exception:
         fox = {}
     board_id = defaults.get("board")
-    eff, _ = fwcfg.validate(fox, defaults, BOARD_NAMES, board_id)
-    rec = mocks.install({"cap_ms": cap_ms, "stop_after_unkeys": stop_after_unkeys, "module_ranges": eff["radio"]["ranges_mhz"],
-                         "pin_roles": eff["pins"], "board_id": board_id, "divider_ratio": eff["battery"]["divider_ratio"], "board_names": BOARD_NAMES})
+    if "net" in defaults:                       # a network fox's deploy set (netcfg contract)
+        eff, _ = fwnetcfg.validate(fox, defaults, board_id, ["wifi24", "ble"])
+        rec = mocks.install({"cap_ms": cap_ms, "stop_after_unkeys": stop_after_unkeys, "pin_roles": {}, "board_id": board_id, "board_names": BOARD_NAMES})
+    else:
+        eff, _ = fwcfg.validate(fox, defaults, BOARD_NAMES, board_id)
+        rec = mocks.install({"cap_ms": cap_ms, "stop_after_unkeys": stop_after_unkeys, "module_ranges": eff["radio"]["ranges_mhz"],
+                             "pin_roles": eff["pins"], "board_id": board_id, "divider_ratio": eff["battery"]["divider_ratio"], "board_names": BOARD_NAMES})
     rec.effective_cfg = eff
     return _exec_in(d, rec)
 
@@ -74,7 +83,14 @@ def _exec_in(d, rec):
     mocks.ACTIVE[0] = True
     try:
         code = open("code.py").read()
-        exec(compile(code, "code.py", "exec"), {"__name__": "__main__"})
+        for boot in range(200):               # a deep-sleeping fox reboots into code.py each wake
+            try:
+                exec(compile(code, "code.py", "exec"), {"__name__": "__main__"})
+                break
+            except mocks.Reboot:
+                for m in [m for m in sys.modules if m == "foxlib" or m.startswith("foxlib.")]:
+                    del sys.modules[m]
+                continue
     except BaseException as e:
         # Disarm SimDone *before* the traceback (and with it code.py's frame and its suspended cycle generator)
         # is released at the end of this handler: the generator's `finally: unkey` runs then, and must not raise.
@@ -99,14 +115,23 @@ def _exec_in(d, rec):
     return rec, err
 
 
+def is_net(template):
+    return json.load(open(os.path.join(FW, "templates", template, "template.json"))).get("contract") == "net"
+
+
 def run_one(template, scen, verbose=False):
     board_id = scen.get("board_id", "seeed_xiao_esp32c3")
     defaults = json.load(open(os.path.join(FW, "templates", template, "defaults", board_id + ".json")))
     fox_cfg = None if scen.get("no_fox_json") else deep_merge(defaults, scen.get("fox", {}))
     d = stage(template, board_id, fox_cfg, scen.get("raw_fox"))
-    eff, _ = fwcfg.validate(fox_cfg or {}, defaults, BOARD_NAMES, board_id)   # what the firmware will actually use
-    rec = mocks.install({**scen, "pin_roles": eff["pins"], "board_id": board_id, "divider_ratio": eff["battery"]["divider_ratio"], "board_names": BOARD_NAMES})
-    rec.effective_cfg = eff
+    if is_net(template):
+        eff, _ = fwnetcfg.validate(fox_cfg or {}, defaults, board_id, scen.get("radios", ["wifi24", "ble"]))
+        rec = mocks.install({**scen, "pin_roles": {}, "board_id": board_id, "board_names": BOARD_NAMES})
+        rec.effective_cfg = eff
+    else:
+        eff, _ = fwcfg.validate(fox_cfg or {}, defaults, BOARD_NAMES, board_id)   # what the firmware will actually use
+        rec = mocks.install({**scen, "pin_roles": eff["pins"], "board_id": board_id, "divider_ratio": eff["battery"]["divider_ratio"], "board_names": BOARD_NAMES})
+        rec.effective_cfg = eff
     try:
         return _exec_in(d, rec)
     finally:
@@ -132,13 +157,16 @@ def check(template, scen, rec, err):
     if exp.get("ptt_released", True) and rec.ptt and rec.ptt[-1][1]:
         fails.append("PTT left keyed at end")
     eff = rec.effective_cfg
-    tone_hz = eff["id"]["tone_hz"]
-    unit = (eff["payload"].get("dit_s") or (1200 / eff["id"]["wpm"] / 1000)) * 1000 if eff["payload"]["kind"] == "none" else 1200 / eff["id"]["wpm"]
     texts, kinds = [], set()
-    for s, e in keyed:
-        t = decode.tones_in(rec.tones, s, e)
-        texts.append(decode.morse_text(t, tone_hz, unit))
-        kinds |= decode.classify(t, tone_hz)
+    if "net" in eff:          # a network fox: nothing to decode; the radio events are the evidence
+        for s_, e_ in keyed: texts.append(""); 
+    else:
+        tone_hz = eff["id"]["tone_hz"]
+        unit = (eff["payload"].get("dit_s") or (1200 / eff["id"]["wpm"] / 1000)) * 1000 if eff["payload"]["kind"] == "none" else 1200 / eff["id"]["wpm"]
+        for s, e in keyed:
+            t = decode.tones_in(rec.tones, s, e)
+            texts.append(decode.morse_text(t, tone_hz, unit))
+            kinds |= decode.classify(t, tone_hz)
     for i, want in enumerate(exp.get("id_contains", [])):
         if want is None:
             continue
@@ -151,7 +179,7 @@ def check(template, scen, rec, err):
         if k in kinds:
             fails.append("%s heard but should not be" % k)
     if "max_keyed_ms" in exp:
-        worst = max((e - s) for s, e in keyed if e) if keyed else 0
+        worst = max(((e - s) for s, e in keyed if e), default=0)
         if worst > exp["max_keyed_ms"]:
             fails.append("longest keydown %.0f ms > %d" % (worst, exp["max_keyed_ms"]))
     if "retunes_min" in exp and len(rec.retunes) < exp["retunes_min"]:
@@ -165,6 +193,13 @@ def check(template, scen, rec, err):
     for want in exp.get("uart_contains", []):
         if not any(want in l for _, l in rec.uart):
             fails.append("no UART line containing %r" % want)
+    for want in exp.get("net_contains", []):       # a recorded radio event's detail, e.g. "FOXBENCH WiFi Beacon ch=1 mac=F2:B0:00:00:00:01"
+        if not any(want in detail for _, _, detail in getattr(rec, "net", [])):
+            fails.append("no net event containing %r (events: %s)" % (want, [e for _, e, _ in getattr(rec, "net", [])][:8]))
+    for ev, n in exp.get("net_events_min", {}).items():
+        got = sum(1 for _, e, _ in getattr(rec, "net", []) if e == ev)
+        if got < n:
+            fails.append("%d %r event(s), want >= %d" % (got, ev, n))
     for want in exp.get("prints_contain", []):
         if not any(want in l for l in rec.prints):
             fails.append("no print containing %r" % want)
@@ -197,7 +232,7 @@ def main():
     templates = sorted(k for k in scen_all if k != "all" and not k.startswith("_")) if a.template == "all" else [a.template]
     total = failed = 0
     for t in templates:
-        scens = [s for s in scen_all.get("all", []) + scen_all.get(t, []) if not a.scenario or s["name"] == a.scenario]
+        scens = [s for s in ([] if is_net(t) else scen_all.get("all", [])) + scen_all.get(t, []) if not a.scenario or s["name"] == a.scenario]   # the shared FM scenarios do not apply to a network fox
         for s in scens:
             total += 1
             rec, err = run_one(t, s, a.verbose)

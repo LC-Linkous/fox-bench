@@ -5,6 +5,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 import { Device } from './device.js';
 import { mergeAndValidate } from '../model/schema.js';
+import { validate as netValidate } from '../model/netschema.js';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -51,11 +52,22 @@ export class DemoDevice extends Device {
       else { try { user = JSON.parse(this.dec.decode(raw)); } catch { cfgStatus = 'default(parse)'; } }
     }
     let cfg = defaults, report = [];
-    if (defaults && user) { const r = mergeAndValidate(user, defaults, this.board); cfg = r.cfg; report = r.report; cfgStatus = r.fatal ? `fatal(${r.fatal})` : report.length ? `partial(${report.map(x => x.key).join(',')})` : 'ok'; }
+    const isNet = !!defaults?.net;   // a network fox's deploy set: the net contract, the SoC's own radio
+    if (defaults && user) { const r = isNet ? netValidate(user, defaults, { ...this.board, radios: ['wifi24', 'ble'] }) : mergeAndValidate(user, defaults, this.board); cfg = r.cfg; report = r.report; cfgStatus = r.fatal ? `fatal(${r.fatal})` : report.length ? `partial(${report.map(x => x.key).join(',')})` : 'ok'; }
     const template = cfg?.template || '?';
     const codeHead = this.dec.decode(this.fs.get('code.py')).match(/template: ([\w-]+)/)?.[1];
     if (codeHead && cfg && codeHead !== template) cfgStatus = 'default(template)';
     lines.push('initializing system ... ');
+    if (isNet && cfg) {
+      const fl = this.dec.decode(this.fs.get('foxlib/VERSION') || this.enc.encode('?')).trim();
+      const idSet = !cfg.id.callmessage.includes('N0CALL'), name = cfg.id.use_callsign_as_name ? cfg.id.callmessage : (cfg.net.ssid ?? cfg.net.name ?? '');
+      const radio = cfgStatus?.startsWith('fatal') ? 'skipped' : cfg.net.kind === 'wifi-ap' && cfg.net.hidden ? 'ok(hidden_unsupported)' : 'ok';
+      lines.push(`FOX template=${template}/${this._tmplVersion()} foxlib=${fl} board=${this.board?.id || 'seeed_xiao_esp32c3'} uid=${this.uid} cfg=${cfgStatus} radio=${radio} id=${idSet ? 'set' : 'unset'} freq=none net=${cfg.net.kind} name="${name}" mac=${cfg.net.mac}`);
+      if (radio.startsWith('ok(hidden')) lines.push('  note: this firmware cannot hide the SSID; it is broadcast');
+      lines.push('cycle 0', `${cfg.net.kind} up: ${name} (${cfg.net.mac}) for ${cfg.schedule.wake_s} s`);
+      this.lastCfg = cfg; this.lastRadio = radio;
+      return lines.join('\n');
+    }
     const freqs = (cfg?.plan?.frequencies_mhz || []).filter(f => this.moduleRanges.some(([lo, hi]) => f >= lo && f <= hi));
     const radio = cfgStatus?.startsWith('fatal') ? 'skipped' : freqs.length ? 'ok' : 'err(DMOSETGROUP:1)';
     const idSet = cfg && !cfg.id.callmessage.includes(cfg.id.placeholder);
@@ -74,8 +86,9 @@ export class DemoDevice extends Device {
     await sleep(300);
     switch (action) {
       case 'probe': return JSON.stringify(Object.fromEntries((args.freqs || [146.5, 433.5]).map(f => [f, this.moduleRanges.some(([lo, hi]) => f >= lo && f <= hi)])));
-      case 'key': this.log(`demo: keyed ${args.seconds}s into the dummy load`, 'dim'); await sleep((args.seconds || 3) * 1000); return 'ok';
-      case 'rssi': return String(Math.round(60 + Math.random() * 20));
+      case 'key': if (args.net) { this.log(`demo: ${this.lastCfg?.net?.kind || 'wifi-ap'} up for ${args.seconds}s`, 'dim'); await sleep((args.seconds || 3) * 1000); return `ok ${this.lastCfg?.net?.kind || 'wifi-ap'} ${this.lastCfg?.net?.ssid || this.lastCfg?.net?.name || 'demo'} for ${(args.seconds || 3).toFixed(1)} s`; }
+        this.log(`demo: keyed ${args.seconds}s into the dummy load`, 'dim'); await sleep((args.seconds || 3) * 1000); return 'ok';
+      case 'rssi': return args.net ? '-55 Neighbour | -70 AnotherAP' : String(Math.round(60 + Math.random() * 20));
       case 'batt': this.battV = Math.max(3.2, this.battV - 0.005); return this.battV.toFixed(3);
     }
     throw new Error('unknown bench action');

@@ -14,6 +14,45 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.8.0 · foxlib 1.1.0 · foxlib-c 0.1.10
+
+**Network foxes.** The CircuitPython firmware gains a second contract:
+foxes whose transmitter is the SoC's own Wi-Fi or BLE, on boards with no
+radio module. Three templates — `wifi-beacon` (an access point),
+`wifi-probe` (a station probing for a network: the SSID and spoofed MAC in
+its probe requests), `ble-beacon` (an iBeacon) — on a duty cycle, as the
+same deploy over the REPL. Experimental until a phone has found one
+(`docs/hardware-log.md`).
+
+- `firmware/foxlib/netcfg.py` (validator), `netradio.py` (the radios),
+  `netfox.py` (the runner: banner with `freq=none net= name= mac=`, duty
+  cycle, `schedule.sleep` **off** = radio off with USB alive or **deep** =
+  `alarm` deep sleep and reboot, bench `key_for`/`rssi`). foxlib 1.1.0.
+- `CONFIG.md` "The `net` contract": `net.*` per kind, `id.callmessage` +
+  **`id.use_callsign_as_name`** (a ham fox hunt puts the callsign on the
+  air; a contest wants its own SSID / name), `schedule.duty`, `led`.
+  A hidden SSID is accepted and reported — CircuitPython cannot hide an AP,
+  the fox's banner and the page both say so.
+- Page: `js/model/netschema.js` (twin of `netcfg.py`, parity-tested on a
+  shared corpus), `js/ui/net.js` forms on the Radio (SSID / PSK / channel
+  incl. 5 GHz where the hardware has it / power / MAC with **Random**;
+  BLE UUID / major / minor / interval / power), ID and Schedule tabs; Plan
+  and Payload tabs hidden; Deploy shows the duty card; Bench offers
+  **Radio up** and **Scan**; the demo board boots a network fox.
+  Switching between network templates resets the radio section to the new
+  kind's defaults; the callsign carries across every switch.
+- Targets (experimental, `Show experimental targets`): `seeed_xiao_esp32c6`,
+  `waveshare_esp32s3_nano`, `dfrobot_firebeetle2_esp32c5` and
+  `arduino_nano_33_ble` (nRF52840, BLE only; CircuitPython goes on by hand).
+  The XIAO ESP32-C3 lists its radios and offers all ten templates. A
+  template is offered only where the hardware has its `radios` and (FM) its
+  required pin roles.
+- Simulator: `wifi`, `_bleio`, `alarm` mocked; deep sleep re-executes
+  `code.py`; 12 network scenarios (`net_contains`, `net_events_min`).
+  `check_catalog.py` validates network defaults with `netcfg`. Smoke: the
+  three templates deploy on the demo; forms, Random MAC, callsign-as-name,
+  deep-sleep note, net bench.
+
 ### Page 0.7.16 · foxlib 1.0.5 · foxlib-c 0.1.10
 
 The page lows left from the October audit, in one pass:

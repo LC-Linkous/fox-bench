@@ -173,6 +173,12 @@ export class FakeBoard extends Link {
       if (/radio\.rssi\(/.test(code)) return { out: this.bench.rssi + '\n' };
       if (/fox\.batt/.test(code)) return { out: this.bench.batt + '\n' };
     }
+    if (code.startsWith('from foxlib.netfox import NetFox\n') && /fox = NetFox\(/.test(code)) {   // a network fox's bench
+      if (!this.fs.has('foxlib/netfox.py')) throw new Error("ImportError: no module named 'foxlib.netfox'");
+      if (!/fox\.deinit\(\)/.test(code)) throw new Error("RuntimeError: radio in use");
+      if (/fox\.key_for\(/.test(code)) { const m2 = code.match(/key_for\((\d+)\)/); return { out: `ok wifi-ap FOXBENCH WiFi Beacon for ${m2 ? m2[1] : 3}.0 s\n` }; }
+      if (/fox\.rssi\(/.test(code)) return { out: '-55 Neighbour | -70 AnotherAP\n' };
+    }
     if (code.startsWith('print(')) return { out: 'printed\n' };
     throw new Error("NameError: unrecognised snippet: " + code.split('\n')[0].slice(0, 60));
   }

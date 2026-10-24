@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 const here = dirname(fileURLToPath(import.meta.url)), root = join(here, '..', '..');
 const { mergeAndValidate } = await import(join(root, 'js/model/schema.js'));
+const net = await import(join(root, 'js/model/netschema.js'));
+const isNet = t => JSON.parse(readFileSync(join(root, 'firmware/templates', t, 'template.json'))).contract === 'net';
 
 const canon = v => JSON.stringify(v, (k, x) => x && typeof x === 'object' && !Array.isArray(x) ? Object.fromEntries(Object.keys(x).sort().map(k => [k, x[k]])) : x);
 if (process.argv[2] === '--compare') {
@@ -29,7 +31,7 @@ for (const c of corpus.cases) {
   const target = JSON.parse(readFileSync(join(root, 'boards', c.board + '.json')));
   const hw = target.hardware ? JSON.parse(readFileSync(join(root, 'hardware', target.hardware + '.json'))) : {};
   const board = { ...hw, ...target };   // a target merged with its hardware, as the page's loader does
-  const r = mergeAndValidate(c.user, defaults, board);
+  const r = isNet(c.template) ? net.validate(c.user, defaults, board) : mergeAndValidate(c.user, defaults, board);
   out[c.name] = { status: r.status, cfg: r.cfg };
 }
 process.stdout.write(canon(out));

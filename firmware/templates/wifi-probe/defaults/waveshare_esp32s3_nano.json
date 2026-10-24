@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "template": "wifi-probe",
+  "board": "waveshare_esp32s3_nano",
+  "net": {
+    "kind": "wifi-probe",
+    "ssid": "FOXBENCH WiFi Probe",
+    "mac": "F2:B0:00:00:00:05",
+    "tx_power_dbm": 17
+  },
+  "id": {
+    "callmessage": "N0CALL DECOY DECOY N0CALL",
+    "use_callsign_as_name": false
+  },
+  "schedule": {
+    "kind": "duty",
+    "wake_s": 15,
+    "sleep_s": 5,
+    "sleep": "off"
+  },
+  "led": {
+    "enabled": true
+  },
+  "fleet": {
+    "profile": "",
+    "number": null,
+    "event": "",
+    "notes": ""
+  }
+}

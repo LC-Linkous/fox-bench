@@ -301,6 +301,49 @@ Templates: `wifi-ap` and `wifi-client` fill `wifi`, `ble-ibeacon` fills
 names the radio it needs (`radios` in `template.json`) and is offered only
 on hardware that lists it (`hardware/<id>.json` `radios`).
 
+## The `net` contract (network foxes on CircuitPython)
+
+The `wifi-beacon`, `wifi-probe` and `ble-beacon` templates use the SoC's
+own radio as the transmitter — no module, no `module`/`pins`/`radio`/`plan`/
+`payload`/`battery`/`limits` sections. `template.json` says
+`"contract": "net"`, and the document is validated by
+`firmware/foxlib/netcfg.py` on the board and `js/model/netschema.js` in the
+page (held equal by `firmware/sim/schema_parity.*`). Everything that does
+not fit falls back to the defaults file, reported in the banner as
+`cfg=partial(<keys>)`, like the FM contract. The runner is
+`firmware/foxlib/netfox.py`; the radios are `firmware/foxlib/netradio.py`.
+
+| key | type | meaning |
+|---|---|---|
+| `net.kind` | `wifi-ap` \| `wifi-probe` \| `ble` | fixed by the template |
+| `net.ssid` | string, 1–32 bytes | `wifi-ap`, `wifi-probe`: the network name on the air (unless `id.use_callsign_as_name`) |
+| `net.psk` | string, empty or 8–63 bytes | `wifi-ap`: empty = open network (the page says so), otherwise WPA2 |
+| `net.channel` | int | `wifi-ap`: 1–13, or one of 36 40 44 48 149 153 157 161 165 when the hardware lists the `wifi5` radio |
+| `net.hidden` | bool | `wifi-ap`: **CircuitPython cannot hide an AP** — accepted and reported, the SSID is broadcast; `radio=ok(hidden_unsupported)` and a `note:` line in the banner |
+| `net.max_clients` | 1–8 | `wifi-ap` |
+| `net.name` | string, 1–32 bytes | `ble`: the complete local name (in the scan response, cut to 29 bytes) |
+| `net.uuid` | 8-4-4-4-12 hex | `ble`: iBeacon proximity UUID |
+| `net.major`, `net.minor` | 0–65535 | `ble` |
+| `net.signal_power_dbm` | −128–0 | `ble`: the iBeacon calibration byte (measured power at 1 m) |
+| `net.adv_min`, `net.adv_max` | 20–10240 ms | `ble`: advertising interval; `adv_min ≤ adv_max` |
+| `net.tx_power_dbm` | Wi-Fi: one of 2 5 7 8.5 11 13 15 17 18.5 19 19.5; BLE: one of −12 −9 −6 −3 0 3 6 9 | radio power |
+| `net.mac` | `XX:XX:XX:XX:XX:XX` | the address the fox uses, locally administered unicast (the defaults use `F2:B0:00:00:00:xx`); the Radio tab's **Random** draws one. Not every CircuitPython port lets the BLE address be set — the beacon still runs on the chip's own |
+| `id.callmessage` | string, 1–64 bytes | the operator's callsign (the usual gate: `N0CALL` is refused at deploy) |
+| `id.use_callsign_as_name` | bool | the callsign is the SSID / BLE name on the air (a ham fox hunt); off, the configured `net.ssid`/`net.name` is (a contest) |
+| `schedule.kind` | `duty` | the only kind |
+| `schedule.wake_s` | 1–3600 | radio up for this long each cycle |
+| `schedule.sleep_s` | 0–86400 | then off for this long; 0 = always on |
+| `schedule.sleep` | `off` \| `deep` | how the off time is spent: radio off with USB alive (the page keeps its connection), or **deep sleep** (`alarm`): the board reboots at the end, the USB port disappears meanwhile, the cycle count restarts at 0 |
+| `led.enabled` | bool | status LED: 900/100 ms blink while the radio is up, a double flash every 2 s when unconfigured |
+| `fleet.*` | | as the FM contract |
+
+`wifi-probe` is a station that keeps trying to join `net.ssid` with a
+password that cannot be right: the probe requests carry the SSID and the
+spoofed MAC, which is what a hunter's sniffer sees, and the fox never
+joins anything. The bench's **Radio up** is `key_for(seconds)` (radio up
+for N s); **Scan** is `rssi()`, the strongest neighbours this radio can see
+— a liveness check, not a receiver's RSSI.
+
 ## Boot banner
 
 One line, space-separated `key=value`, printed after setup and before the
@@ -312,6 +355,16 @@ FOX template=<id>/<ver> foxlib=<ver> board=<board_id> uid=<hex> cfg=<status> rad
 
 `cfg`: `ok` · `partial(<dotted.keys>)` · `default(missing|parse|schema|template|board)` · `fatal(<key>)`.
 `radio`: `ok` · `err(<reply>)` · `noreply`.
+
+A network fox (`net` contract) prints the same keys with `freq=none`, then
+its own: `net=<kind> name=<name> mac=<XX:…>` — `name` is quoted when it has
+spaces. `radio`: `ok` · `ok(hidden_unsupported)` · `nowifi` · `noble` ·
+`wifi(<Error>)` · `ble(<Error>)`. After `woke from deep sleep` the cycle
+count has restarted.
+
+```
+FOX template=wifi-beacon/1.0.0 foxlib=1.1.0 board=seeed_xiao_esp32c3 uid=… cfg=ok radio=ok id=set freq=none net=wifi-ap name="KY4ZR FOX" mac=F2:B0:00:00:00:01
+```
 
 ## Migrations
 

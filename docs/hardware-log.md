@@ -33,6 +33,21 @@ Board tab shows them for the site's UF2 (`foxbench-picofox.json`).
   seen to fire; watchdog timeout path (a hang has not been provoked).
 - Templates on the PicoFox other than morse-songs and morse-sstv: the
   firmware runs them in the host simulation, not yet on air.
+- The network foxes (`wifi-beacon`, `wifi-probe`, `ble-beacon`, foxlib
+  1.1.0) on every board: run only in the simulator (`firmware/sim/`, mocked
+  `wifi`/`_bleio`/`alarm`) and on the page's demo board. To verify per
+  board, with a phone as the receiver: the SSID appears in the phone's
+  Wi-Fi list with the configured name and MAC (a Wi-Fi analyser app shows
+  the BSSID and channel); the beacon appears in a BLE scanner app (nRF
+  Connect or similar) with the UUID/major/minor and the name; the probe
+  shows in a sniffer only; the radio goes away for `sleep_s` and comes
+  back; deep sleep drops the USB port and the fox reboots with `woke from
+  deep sleep`; `tx_power_dbm` steps change the RSSI the phone reports.
+  Board ids to confirm in `hardware/*.json` `circuitpython.board_id`:
+  `waveshare_esp32_s3_nano`, `espressif_esp32c5_devkitc_1_n8r8` (the
+  FireBeetle 2 C5 has no CircuitPython board of its own yet). The Nano 33
+  BLE (nRF52840) cannot be flashed from the page (`bossac`, no esptool):
+  CircuitPython goes on by hand, then the page deploys over the REPL.
 - Every `compiled` (kitsune) target: descriptors come from public
   documentation; nothing has been flashed or listened to from this page
   (the firmware card's flash path has run only against the simulated

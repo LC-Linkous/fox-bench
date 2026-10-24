@@ -1,6 +1,7 @@
 // radio.js — Radio tab: module, Probe, power, bandwidth, squelch/volume.
 // SPDX-License-Identifier: GPL-2.0-only
 import * as kitsune from './kitsune.js';
+import * as net from './net.js';
 import { h, badge, field, select, numInput, check } from './dom.js';
 import { REQUIRED_PINS, OPTIONAL_PINS, PIN_FLAGS } from '../model/schema.js';
 
@@ -35,7 +36,7 @@ function pinCard() {
 }
 
 let app, root, probeOut = null;
-export function init(a, el) { app = a; root = el; kitsune.init(a); app.listeners.add(render); render(); }   // kitsune.init before the first render: a saved kitsune form renders this tab at boot, before the ID tab's init
+export function init(a, el) { app = a; root = el; kitsune.init(a); net.init(a); app.listeners.add(render); render(); }   // kitsune.init before the first render: a saved kitsune form renders this tab at boot, before the ID tab's init
 
 async function probe(btn) {
   btn.disabled = true; btn.textContent = 'Probing…'; probeOut = null;
@@ -51,6 +52,7 @@ async function probe(btn) {
 
 function render() {
   if (app.isCompiled) return kitsune.renderRadio(root);
+  if (app.isNet) return net.renderRadio(root);
   const cfg = app.cfg, r = cfg.radio, m = app.module;
   if (app.family === 'drive') return renderDrive();
   if (app.family === 'foxlib-c') return renderFoxlibC();

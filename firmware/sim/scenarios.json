@@ -533,5 +533,277 @@
     ]
    }
   }
+ ],
+ "wifi-beacon": [
+  {
+   "name": "ap-up-and-down-on-duty",
+   "stop_after_unkeys": 3,
+   "cap_ms": 120000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "ok",
+     "radio": "ok",
+     "net": "wifi-ap"
+    },
+    "keyed_min": 3,
+    "net_contains": [
+     "FOXBENCH WiFi Beacon ch=1 mac=F2:B0:00:00:00:01 psk=open"
+    ],
+    "gap_ms": [
+     4000,
+     6000
+    ],
+    "prints_contain": [
+     "wifi-ap up: FOXBENCH WiFi Beacon",
+     "sleep 5 s"
+    ]
+   }
+  },
+  {
+   "name": "callsign-as-ssid",
+   "stop_after_unkeys": 1,
+   "cap_ms": 60000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX",
+     "use_callsign_as_name": true
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "ok"
+    },
+    "net_contains": [
+     "W1ABC FOX ch=1"
+    ]
+   }
+  },
+  {
+   "name": "deep-sleep-between-beacons",
+   "stop_after_unkeys": 2,
+   "cap_ms": 120000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "schedule": {
+     "sleep": "deep",
+     "wake_s": 10,
+     "sleep_s": 20
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "ok"
+    },
+    "keyed_min": 2,
+    "net_events_min": {
+     "deep_sleep": 1
+    },
+    "prints_contain": [
+     "deep sleep 20 s",
+     "woke from deep sleep"
+    ]
+   }
+  },
+  {
+   "name": "hidden-ssid-noted-not-silent",
+   "stop_after_unkeys": 1,
+   "cap_ms": 60000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "net": {
+     "hidden": true
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "ok",
+     "radio": "ok(hidden_unsupported)"
+    },
+    "keyed_min": 1,
+    "prints_contain": [
+     "cannot hide the SSID"
+    ]
+   }
+  },
+  {
+   "name": "bad-channel-and-mac-fall-back",
+   "stop_after_unkeys": 1,
+   "cap_ms": 60000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "net": {
+     "channel": 14,
+     "mac": "01:02:03:04:05:06",
+     "psk": "short"
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "partial(net.psk,net.channel,net.mac)"
+    },
+    "net_contains": [
+     "ch=1 mac=F2:B0:00:00:00:01"
+    ]
+   }
+  },
+  {
+   "name": "5ghz-channel-on-a-board-without-it",
+   "stop_after_unkeys": 1,
+   "cap_ms": 60000,
+   "radios": [
+    "wifi24"
+   ],
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "net": {
+     "channel": 36
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "partial(net.channel)"
+    }
+   }
+  },
+  {
+   "name": "no-wifi-radio-stays-silent",
+   "stop_after_unkeys": 1,
+   "cap_ms": 60000,
+   "radios": [
+    "ble"
+   ],
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    }
+   },
+   "expect": {
+    "banner": {
+     "radio": "nowifi"
+    },
+    "never_keyed": true,
+    "prints_contain": [
+     "unconfigured (nowifi): silent"
+    ]
+   }
+  }
+ ],
+ "wifi-probe": [
+  {
+   "name": "probes-carry-ssid-and-mac",
+   "stop_after_unkeys": 2,
+   "cap_ms": 120000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "ok",
+     "net": "wifi-probe"
+    },
+    "keyed_min": 2,
+    "net_contains": [
+     "FOXBENCH WiFi Probe mac=F2:B0:00:00:00:05"
+    ],
+    "net_events_min": {
+     "probe": 2
+    }
+   }
+  }
+ ],
+ "ble-beacon": [
+  {
+   "name": "ibeacon-advertises-on-duty",
+   "stop_after_unkeys": 2,
+   "cap_ms": 120000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "ok",
+     "net": "ble"
+    },
+    "keyed_min": 2,
+    "net_contains": [
+     "len=27 name=FOXBENCH Beacon interval=0.100 tx=0"
+    ],
+    "prints_contain": [
+     "ble up: FOXBENCH Beacon"
+    ]
+   }
+  },
+  {
+   "name": "ble-name-from-callsign",
+   "stop_after_unkeys": 1,
+   "cap_ms": 60000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX",
+     "use_callsign_as_name": true
+    }
+   },
+   "expect": {
+    "net_contains": [
+     "name=W1ABC FOX"
+    ]
+   }
+  },
+  {
+   "name": "bad-uuid-falls-back",
+   "stop_after_unkeys": 1,
+   "cap_ms": 60000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "net": {
+     "uuid": "not-a-uuid",
+     "major": 70000
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "partial(net.uuid,net.major)"
+    },
+    "keyed_min": 1
+   }
+  },
+  {
+   "name": "no-ble-radio-stays-silent",
+   "stop_after_unkeys": 1,
+   "cap_ms": 60000,
+   "radios": [
+    "wifi24"
+   ],
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    }
+   },
+   "expect": {
+    "banner": {
+     "radio": "noble"
+    },
+    "never_keyed": true
+   }
+  }
  ]
 }

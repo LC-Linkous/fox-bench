@@ -16,6 +16,9 @@ const setLast = r => { lastResult = r; app.lastDeploy = r ? { ...r, at: new Date
 export function init(a, el) { app = a; root = el; drive.init(a); foxlibc.init(a); compiled.init(a); app.listeners.add(render); render(); }
 
 /** Flatten a config to dotted key → JSON value for diffing. */
+/** The fleet-log 'freq' and 'power' columns: the FM plan, or for a network fox its kind (and channel) and radio power. */
+const freqText = cfg => app.isNet ? `${cfg.net.kind}${cfg.net.kind === 'wifi-ap' ? ' ch' + cfg.net.channel : ''}` : cfg.plan.frequencies_mhz.join(' ');
+const powerText = cfg => app.isNet ? `${cfg.net.tx_power_dbm}dBm` : `${cfg.radio.high_power ? 'high' : 'low'}${cfg.radio.power_dbm != null ? ' ' + cfg.radio.power_dbm + 'dBm' : ''}`;
 function flat(o, pre = '', out = {}) { for (const [k, v] of Object.entries(o || {})) { const key = pre ? `${pre}.${k}` : k; if (v && typeof v === 'object' && !Array.isArray(v)) flat(v, key, out); else out[key] = JSON.stringify(v); } return out; }
 
 function plan() {
@@ -26,7 +29,7 @@ function plan() {
   if (!app.connected || ob.template !== app.templateId || fwNeeded) files.push({ path: 'code.py', why: ob.template && ob.template !== app.templateId ? `${ob.template} → ${app.templateId}` : `${app.templateId} ${app.template.version}`, kind: 'code' });
   files.push({ path: 'defaults.json', why: `${app.templateId} defaults for ${app.boardId}`, kind: 'defaults' });
   files.push({ path: 'fox.json', why: 'configuration', kind: 'cfg' });
-  if (cfg.payload.kind === 'sstv') files.push({ path: cfg.payload.images_file, why: app.images.length ? `${app.images.length} image${app.images.length === 1 ? '' : 's'}` : 'no images — firmware will use its test card', kind: 'images' });
+  if (cfg.payload?.kind === 'sstv') files.push({ path: cfg.payload.images_file, why: app.images.length ? `${app.images.length} image${app.images.length === 1 ? '' : 's'}` : 'no images — firmware will use its test card', kind: 'images' });
   const a = flat(ob.cfg || {}), b = flat(cfg), changes = [];
   for (const k of new Set([...Object.keys(a), ...Object.keys(b)])) if (a[k] !== b[k] && !k.startsWith('fleet.')) changes.push({ key: k, from: a[k], to: b[k] });
   return { files, changes };
@@ -45,13 +48,13 @@ async function _exportZip() {
   files.push({ path: 'code.py', data: await loadTemplateCode(app.templateId) });
   files.push({ path: 'defaults.json', data: JSON.stringify(app.defaults) });
   files.push({ path: 'fox.json', data: JSON.stringify(cfg, null, 1) });
-  if (cfg.payload.kind === 'sstv') files.push({ path: cfg.payload.images_file, data: packImages(app.images) });
+  if (cfg.payload?.kind === 'sstv') files.push({ path: cfg.payload.images_file, data: packImages(app.images) });
   files.push({ path: 'README.txt', data: [
     `fox-bench deploy set — ${app.templateId} ${app.template.version}, foxlib ${app.catalog.foxlibVersion}, board ${app.boardId}`,
-    `callsign ${cfg.id.callmessage} · ${cfg.plan.frequencies_mhz.join(', ')} MHz · exported ${new Date().toISOString()}`,
+    `callsign ${cfg.id.callmessage} · ${app.isNet ? freqText(cfg) : cfg.plan.frequencies_mhz.join(', ') + ' MHz'} · exported ${new Date().toISOString()}`,
     '',
     'Copy everything in this zip to the root of the CircuitPython board, keeping the foxlib/ folder:',
-    '  code.py  defaults.json  fox.json  foxlib/  ' + (cfg.payload.kind === 'sstv' ? cfg.payload.images_file : ''),
+    '  code.py  defaults.json  fox.json  foxlib/  ' + (cfg.payload?.kind === 'sstv' ? cfg.payload.images_file : ''),
     'With Thonny: File → Open each file → File → Save As → CircuitPython device, same name and path.',
     'With a board that mounts a CIRCUITPY drive: drag the files onto the drive.',
     'Then reset (Ctrl-D in the REPL, or the R button). The boot log prints a line starting with "FOX" that reports',
@@ -61,7 +64,7 @@ async function _exportZip() {
   ].join('\n') });
   const safe = s => s.replace(/[^A-Za-z0-9._-]+/g, '_');
   download(`fox-${safe(cfg.id.callmessage.split(' ')[0])}-${app.templateId}.zip`, makeZip(files));
-  fleet.append({ board_number: '', uid: app.info?.uid || '', board: app.boardId, action: 'export-zip', template: `${app.templateId}/${app.template.version}`, profile: cfg.fleet?.profile || '', callsign: cfg.id.callmessage, freq: cfg.plan.frequencies_mhz.join(' '), power: `${cfg.radio.high_power ? 'high' : 'low'}${cfg.radio.power_dbm != null ? ' ' + cfg.radio.power_dbm + 'dBm' : ''}`, seed: cfg.schedule.seed ?? '', result: 'zip', notes: '' });
+  fleet.append({ board_number: '', uid: app.info?.uid || '', board: app.boardId, action: 'export-zip', template: `${app.templateId}/${app.template.version}`, profile: cfg.fleet?.profile || '', callsign: cfg.id.callmessage, freq: freqText(cfg), power: powerText(cfg), seed: cfg.schedule?.seed ?? '', result: 'zip', notes: '' });
   app.console.dim(`exported deploy set (${files.length} files)`);
 }
 
@@ -90,7 +93,7 @@ async function deploy(btn) {
     app.onBoard = { ...app.onBoard, cfg: structuredClone(cfg), raw: JSON.stringify(cfg), template: app.templateId, foxlibVersion: app.catalog.foxlibVersion, foxlibComplete: true, foxlibMissing: [], files: { ...app.onBoard.files, ...written } };
     app.info.foxlibVersion = app.catalog.foxlibVersion;
     app.setStatus(`${d.kind === 'demo' ? 'Demo · ' : ''}${app.info.boardId} · uid ${app.info.uid.slice(-6)} · foxlib ${app.catalog.foxlibVersion} · fox running`, d.kind === 'demo' ? 'demo' : 'tx');
-    fleet.append({ board_number: '', uid: app.info.uid, board: app.info.boardId, action: 'deploy', template: `${app.templateId}/${app.template.version}`, profile: cfg.fleet?.profile || '', callsign: cfg.id.callmessage, freq: cfg.plan.frequencies_mhz.join(' '), power: `${cfg.radio.high_power ? 'high' : 'low'}${cfg.radio.power_dbm != null ? ' ' + cfg.radio.power_dbm + 'dBm' : ''}`, seed: cfg.schedule.seed ?? '', result: lastResult.ok ? 'ok' : (banner ? `${banner.cfg} ${banner.radio} ${banner.id}` : 'no banner'), notes: app.device.kind === 'demo' ? 'demo' : '' });
+    fleet.append({ board_number: '', uid: app.info.uid, board: app.info.boardId, action: 'deploy', template: `${app.templateId}/${app.template.version}`, profile: cfg.fleet?.profile || '', callsign: cfg.id.callmessage, freq: freqText(cfg), power: powerText(cfg), seed: cfg.schedule?.seed ?? '', result: lastResult.ok ? 'ok' : (banner ? `${banner.cfg} ${banner.radio} ${banner.id}` : 'no banner'), notes: app.device.kind === 'demo' ? 'demo' : '' });
   } catch (e) { setLast({ error: String(e.message || e) + (/HTTP 404/.test(e.message || '') ? ' — a firmware file is missing from the site; the repo needs a .nojekyll marker so GitHub Pages serves foxlib/__init__.py' : '') }); log.err(lastResult.error); }
   busy = false; gateOk = false; app.changed('deploy');
 }
@@ -100,19 +103,23 @@ function render() {
   if (app.family === 'foxlib-c') return foxlibc.render(root, render);
   if (app.isCompiled) return compiled.render(root, render);
   const cfg = app.cfg, { files, changes } = plan();
-  const at = airtime(cfg, { images: app.images });
+  // a network fox has no keydown: its "transmission" is the wake time on the Schedule tab
+  const at = app.isNet ? { typical_ms: cfg.schedule.wake_s * 1000, worst_ms: cfg.schedule.wake_s * 1000 } : airtime(cfg, { images: app.images });
   const errs = [...app.report.map(r => ({ level: 'err', key: r.key, msg: r.reason })), ...app.issues];
   const blocking = errs.filter(e => e.level === 'err' && e.blocking !== false);
   const overrides = errs.filter(e => e.level === 'err' && e.blocking === false);
   const transportWhy = app.deployBlocker();
   const ready = !transportWhy && !blocking.length && gateOk && !busy;
-  const lim = cfg.limits;
+  const lim = cfg.limits || {};
   root.replaceChildren(
     h('div.cols', {},
       h('div.card', {}, h('h3', {}, 'Checks ', blocking.length ? badge(`${blocking.length} blocking`, 'err') : badge('all pass', 'ok')),
         errs.length ? h('ul', { style: 'margin:0;padding-left:1.2em' }, errs.map(e => h('li', { class: e.level === 'err' ? 'hint err' : e.level === 'warn' ? 'hint warn' : 'hint', style: 'font-size:.9rem' }, h('code', {}, e.key), ' ', e.msg))) : h('p.hint', {}, 'fox.json validates against CONFIG.md; callsign set; all frequencies in range and in band.'),
         h('p.hint', { style: 'margin-top:8px' }, 'Status the firmware would report: ', h('code', {}, `cfg=${app.status}`), '. Blocking: invalid config, unset callsign, missing required pins. Not blocking: frequencies outside the band table (confirmed at deploy).')),
-      h('div.card', {}, h('h3', {}, 'Keydown'),
+      app.isNet ? h('div.card', {}, h('h3', {}, 'On the air'),
+        h('dl.kv', {}, h('dt', {}, 'Each wake'), h('dd', {}, fmtDuration(at.typical_ms)), h('dt', {}, 'Then'), h('dd', {}, cfg.schedule.sleep_s ? `${cfg.schedule.sleep_s} s ${cfg.schedule.sleep === 'deep' ? 'deep sleep' : 'radio off'}` : 'no off time: always on')),
+        h('p.hint', {}, 'No Morse, no keydown limit: a Part 15 radio on a duty cycle. The name and MAC on the Radio and ID tabs are what hunters see.'))
+      : h('div.card', {}, h('h3', {}, 'Keydown'),
         h('dl.kv', {}, h('dt', {}, 'Typical transmission'), h('dd', {}, fmtDuration(at.typical_ms)), h('dt', {}, 'Worst case'), h('dd', {}, fmtDuration(at.worst_ms))),
         field('Keydown limit', h('div.row', {}, numInput(lim.max_keydown_s ?? '', { min: 1, max: 7200, step: 1, width: '120px', onchange: v => { lim.max_keydown_s = v; app.changed('limits'); } }), h('span.suffix', {}, 's'), h('button.btn.small', { onclick: () => { lim.max_keydown_s = null; app.changed('limits'); } }, 'no limit')),
           lim.max_keydown_s ? `The firmware unkeys at ${lim.max_keydown_s} s and logs it.` : 'None set (default). No template imposes one; a QRSS fox keys as long as its message takes.'),

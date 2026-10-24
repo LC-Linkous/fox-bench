@@ -1482,6 +1482,141 @@
      "callmessage": "ÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉ"
     }
    }
+  },
+  {
+   "name": "net-wifi-beacon-defaults",
+   "template": "wifi-beacon",
+   "board": "seeed_xiao_esp32c3",
+   "user": {}
+  },
+  {
+   "name": "net-wifi-beacon-good",
+   "template": "wifi-beacon",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "net": {
+     "ssid": "KY4ZR FOX 1",
+     "psk": "foxhunt2026",
+     "mac": "f2:b0:00:00:00:11",
+     "channel": 6,
+     "tx_power_dbm": 8.5,
+     "max_clients": 2
+    },
+    "id": {
+     "callmessage": "KY4ZR",
+     "use_callsign_as_name": true
+    },
+    "schedule": {
+     "wake_s": 20,
+     "sleep_s": 40,
+     "sleep": "deep"
+    }
+   }
+  },
+  {
+   "name": "net-wifi-beacon-bad-everything",
+   "template": "wifi-beacon",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "net": {
+     "ssid": "",
+     "psk": "short",
+     "mac": "01:02:03:04:05:06",
+     "channel": 36,
+     "hidden": "yes",
+     "tx_power_dbm": 12,
+     "max_clients": 0,
+     "kind": "ble",
+     "extra": 1
+    },
+    "id": {
+     "callmessage": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+     "use_callsign_as_name": "no"
+    },
+    "schedule": {
+     "kind": "fixed",
+     "wake_s": 0,
+     "sleep_s": -1,
+     "sleep": "light"
+    },
+    "led": {
+     "enabled": 1
+    }
+   }
+  },
+  {
+   "name": "net-wifi-beacon-callsign-too-long-for-name",
+   "template": "wifi-beacon",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "id": {
+     "callmessage": "KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK",
+     "use_callsign_as_name": true
+    }
+   }
+  },
+  {
+   "name": "net-wifi-beacon-wrong-template",
+   "template": "wifi-beacon",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "template": "morse-songs"
+   }
+  },
+  {
+   "name": "net-wifi-probe-good",
+   "template": "wifi-probe",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "net": {
+     "ssid": "Hunters Guest",
+     "mac": "F2:00:00:00:00:02"
+    }
+   }
+  },
+  {
+   "name": "net-wifi-probe-ap-fields-unknown",
+   "template": "wifi-probe",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "net": {
+     "channel": 6,
+     "psk": "longenough"
+    }
+   }
+  },
+  {
+   "name": "net-ble-beacon-good",
+   "template": "ble-beacon",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "net": {
+     "name": "KY4ZR beacon",
+     "uuid": "e2c56db5-dffb-48d2-b060-d0f5a71096e0",
+     "major": 7,
+     "minor": 65535,
+     "signal_power_dbm": -65,
+     "adv_min": 200,
+     "adv_max": 400,
+     "tx_power_dbm": -6
+    }
+   }
+  },
+  {
+   "name": "net-ble-beacon-bad",
+   "template": "ble-beacon",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "net": {
+     "uuid": "nope",
+     "major": -1,
+     "minor": 70000,
+     "signal_power_dbm": 5,
+     "adv_min": 500,
+     "adv_max": 100,
+     "tx_power_dbm": 4
+    }
+   }
   }
  ]
 }

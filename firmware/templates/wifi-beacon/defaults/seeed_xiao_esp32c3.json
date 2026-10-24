@@ -1,0 +1,34 @@
+{
+  "schema": 1,
+  "template": "wifi-beacon",
+  "board": "seeed_xiao_esp32c3",
+  "net": {
+    "kind": "wifi-ap",
+    "ssid": "FOXBENCH WiFi Beacon",
+    "psk": "",
+    "mac": "F2:B0:00:00:00:01",
+    "channel": 1,
+    "hidden": false,
+    "tx_power_dbm": 17,
+    "max_clients": 1
+  },
+  "id": {
+    "callmessage": "N0CALL DECOY DECOY N0CALL",
+    "use_callsign_as_name": false
+  },
+  "schedule": {
+    "kind": "duty",
+    "wake_s": 15,
+    "sleep_s": 5,
+    "sleep": "off"
+  },
+  "led": {
+    "enabled": true
+  },
+  "fleet": {
+    "profile": "",
+    "number": null,
+    "event": "",
+    "notes": ""
+  }
+}

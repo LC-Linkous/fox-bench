@@ -208,22 +208,28 @@ def main():
         try:
             tdir = os.path.join(ROOT, "firmware/templates", tid)
             manifest = json.load(open(os.path.join(tdir, "template.json")))
-            defaults = json.load(open(os.path.join(tdir, "defaults", a.board + ".json")))
+            dpath = os.path.join(tdir, "defaults", a.board + ".json")
+            if not os.path.exists(dpath):
+                res["ok"] = None; print("  no defaults for %s: not offered on this board, skipped" % a.board); continue
+            defaults = json.load(open(dpath))
+            net = manifest.get("contract") == "net"          # a network fox: no module, no plan, no payload
             fox = json.loads(json.dumps(defaults))
             fox["id"]["callmessage"] = a.call
-            if a.module:
+            if net:
+                fox["id"]["use_callsign_as_name"] = True        # what a hunter's phone shows is the callsign
+            if a.module and not net:
                 mod = json.load(open(os.path.join(ROOT, "modules", a.module + ".json")))
                 fox["module"] = mod["id"]
                 fox["radio"]["family"] = mod["family"]
                 fox["radio"]["ranges_mhz"] = mod["ranges_mhz"]
-            if a.freq: fox["plan"]["frequencies_mhz"] = [a.freq]
+            if a.freq and not net: fox["plan"]["frequencies_mhz"] = [a.freq]
             fox.setdefault("fleet", {})["notes"] = "hw_smoke"
             res["template_version"] = manifest["version"]
             r.interrupt()
             r.write_file("code.py", open(os.path.join(tdir, "code.py"), "rb").read())
             r.write_file("defaults.json", json.dumps(defaults))
             r.write_file("fox.json", json.dumps(fox, indent=1))
-            if fox["payload"]["kind"] == "sstv":
+            if not net and fox["payload"]["kind"] == "sstv":
                 r.write_file(fox["payload"]["images_file"], b"")      # firmware falls back to its built-in test card
             t0 = time.monotonic()
             boot = r.reboot_and_capture()
@@ -246,13 +252,22 @@ def main():
             r.interrupt()
             m = r.exec("import gc, time\ngc.collect()\na=gc.mem_free()\nt=time.monotonic()\nimport foxlib\nprint(a, gc.mem_free(), time.monotonic()-t)\n", timeout=60).split()
             res["mem_free_before"], res["mem_free_after_import"], res["import_s"] = int(m[0]), int(m[1]), round(float(m[2]), 2)
-            pre = "import foxlib, gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfox = foxlib.Fox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\n"
-            out = r.exec(pre + "print(gc.mem_free())\nprint(fox.radio.probe((146.5, 433.5)))\nprint(fox.radio.rssi())\nprint(fox.batt.read() if fox.batt else None)\n", timeout=60).strip().splitlines()
-            res["mem_free_with_fox"], res["probe"], res["rssi"], res["batt_v"] = int(out[0]), out[1], out[2], out[3]
-            print("  import %.1fs · free %d → %d → %d B · probe %s · rssi %s · batt %s" % (res["import_s"], res["mem_free_before"], res["mem_free_after_import"], res["mem_free_with_fox"], out[1], out[2], out[3]))
-            if a.key_seconds > 0 and "keytest" in manifest.get("capabilities", []):
-                res["key"] = r.exec(pre + "print(fox.radio.key_for(%s))\n" % a.key_seconds, timeout=60 + a.key_seconds).strip()
-                print("  key test %ss: %s" % (a.key_seconds, res["key"]))
+            if net:
+                pre = "import gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfrom foxlib.netfox import NetFox\nfox = NetFox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\n"
+                out = r.exec(pre + "print(gc.mem_free())\nprint(fox.radio.status)\nprint(fox.rssi())\nprint(fox.radio.mac())\n", timeout=60).strip().splitlines()
+                res["mem_free_with_fox"], res["probe"], res["rssi"], res["batt_v"] = int(out[0]), out[1], out[2], None
+                print("  import %.1fs · free %d → %d → %d B · radio %s · scan %s · mac %s" % (res["import_s"], res["mem_free_before"], res["mem_free_after_import"], res["mem_free_with_fox"], out[1], out[2][:120], out[3]))
+                if a.key_seconds > 0:
+                    res["key"] = r.exec(pre + "print(fox.key_for(%s))\n" % a.key_seconds, timeout=60 + a.key_seconds).strip()
+                    print("  radio up %ss: %s" % (a.key_seconds, res["key"]))
+            else:
+                pre = "import foxlib, gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfox = foxlib.Fox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\n"
+                out = r.exec(pre + "print(gc.mem_free())\nprint(fox.radio.probe((146.5, 433.5)))\nprint(fox.radio.rssi())\nprint(fox.batt.read() if fox.batt else None)\n", timeout=60).strip().splitlines()
+                res["mem_free_with_fox"], res["probe"], res["rssi"], res["batt_v"] = int(out[0]), out[1], out[2], out[3]
+                print("  import %.1fs · free %d → %d → %d B · probe %s · rssi %s · batt %s" % (res["import_s"], res["mem_free_before"], res["mem_free_after_import"], res["mem_free_with_fox"], out[1], out[2], out[3]))
+                if a.key_seconds > 0 and "keytest" in manifest.get("capabilities", []):
+                    res["key"] = r.exec(pre + "print(fox.radio.key_for(%s))\n" % a.key_seconds, timeout=60 + a.key_seconds).strip()
+                    print("  key test %ss: %s" % (a.key_seconds, res["key"]))
         except Exception as e:
             res["ok"] = False; res["error"] = str(e); print("  ERROR:", e)
 
@@ -273,9 +288,9 @@ def main():
     json.dump(report, open(path, "w"), indent=1)
     print("\n%-14s %-5s %6s %7s %8s %6s %-8s" % ("template", "ok", "boot s", "import", "free B", "rssi", "key"))
     for tid, res in report["templates"].items():
-        print("%-14s %-5s %6s %7s %8s %6s %-8s" % (tid, "ok" if res.get("ok") else "FAIL", res.get("boot_s", ""), res.get("import_s", ""), res.get("mem_free_with_fox", ""), res.get("rssi", ""), res.get("key", res.get("error", "")[:30] if not res.get("ok") else "")))
+        print("%-14s %-5s %6s %7s %8s %6s %-8s" % (tid, "skip" if res.get("ok") is None else "ok" if res.get("ok") else "FAIL", res.get("boot_s", ""), res.get("import_s", ""), res.get("mem_free_with_fox", ""), str(res.get("rssi", ""))[:6], res.get("key", res.get("error", "")[:30] if not res.get("ok") else "")))
     print("report: %s" % path)
-    failed = [t for t, x in report["templates"].items() if not x.get("ok")]
+    failed = [t for t, x in report["templates"].items() if x.get("ok") is False]
     if not failed:
         print("every template booted clean on %s — add %r to boards_tested in those template.json files if it is not there" % (board_id, board_id))
     sys.exit(1 if failed else 0)

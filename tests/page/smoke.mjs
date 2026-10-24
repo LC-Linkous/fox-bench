@@ -57,7 +57,7 @@ await ctx.route(/^https?:\/\/(?!127\.0\.0\.1)/, r => r.fulfill({ status: 200, co
 const page = await ctx.newPage();
 const errors = [];
 page.on('console', m => { if (m.type() === 'error' || m.type() === 'warning') errors.push(`${m.type()}: ${m.text()}`); });
-page.on('pageerror', e => errors.push('pageerror: ' + e.message));
+page.on('pageerror', e => errors.push('pageerror: ' + e.message + (process.env.TRACE ? '\n' + e.stack : '')));
 page.on('response', r => { if (r.status() >= 400) errors.push(`http ${r.status()} ${r.url()}`); });
 page.on('requestfailed', r => errors.push(`request failed ${r.url()} ${r.failure()?.errorText}`));
 page.on('dialog', d => d.dismiss());                                     // default: refuse confirms; tests opt in below
@@ -67,7 +67,7 @@ const settle = ms => page.waitForTimeout(ms);
 const until = async (cond, name, ms = 15000, arg = null) => { try { await page.waitForFunction(cond, arg, { timeout: ms, polling: 100 }); return true; } catch { console.log(`  (timed out waiting for ${name})`); return false; } };
 const untilTextArgs = async (sel, re, ms = 15000) => { try { await page.waitForFunction(([s, src]) => new RegExp(src).test((document.querySelector(s)?.textContent || '').replace(/\s+/g, ' ')), [sel, re.source], { timeout: ms, polling: 100 }); return true; } catch { console.log(`  (timed out waiting for ${sel} to match ${re})`); return false; } };
 const untilFleet = async (pred, ms = 15000) => { try { await page.waitForFunction(src => (new Function('r', 'return ' + src))(JSON.parse(localStorage.getItem('fox-bench.fleet') || '[]').slice(-1)[0] || {}), pred, { timeout: ms, polling: 100 }); return true; } catch { console.log(`  (timed out waiting for a fleet row where ${pred})`); return false; } };
-const tab = async name => { await page.click(`.rail button[data-tab="${name}"]`); await settle(150); if (SHOTS) await page.screenshot({ path: `${SHOTS}/${name}.png`, fullPage: true }); };
+const tab = async name => { const sel = `.rail button[data-tab="${name}"]`; if (await page.isHidden(sel)) return false; await page.click(sel); await settle(150); if (SHOTS) await page.screenshot({ path: `${SHOTS}/${name}.png`, fullPage: true }); return true; };
 const text = sel => page.textContent(sel).then(t => (t || '').replace(/\s+/g, ' ').trim());
 const app = (fn, arg) => page.evaluate(fn, arg);
 
@@ -120,6 +120,42 @@ try {
   }
   const rows = await app(() => JSON.parse(localStorage.getItem('fox-bench.fleet') || '[]').filter(r => r.action === 'deploy').length);
   eq(rows, templates.length, 'fleet log has one row per deploy');
+
+  console.log('network foxes (wifi-beacon / wifi-probe / ble-beacon): forms, deploy, bench on the demo');
+  await tab('behavior'); await page.selectOption('#tab-behavior select', 'wifi-beacon'); await settle(300);
+  eq(await app(() => window.foxbench.isNet), true, 'wifi-beacon is a network-contract template');
+  check(await page.isHidden('.rail button[data-tab="plan"]') && await page.isHidden('.rail button[data-tab="payload"]'), 'Plan and Payload tabs hidden for a network fox');
+  eq(await app(() => window.foxbench.cfg.id.callmessage), 'W1ABC FOX DE W1ABC', 'the callsign carried from the FM template');
+  await tab('radio');
+  check(/Wi-Fi access point/.test(await text('#tab-radio')) && /SSID/.test(await text('#tab-radio')) && /MAC address/.test(await text('#tab-radio')), 'Radio tab shows the Wi-Fi AP form');
+  await page.click('#tab-radio button:has-text("Random")'); await settle(200);
+  check(/^F2(:[0-9A-F]{2}){5}$/.test(await app(() => window.foxbench.cfg.net.mac)), 'Random gives a locally administered unicast MAC: ' + (await app(() => window.foxbench.cfg.net.mac)));
+  await tab('id');
+  await page.check('#tab-id input[type=checkbox]'); await settle(300);
+  check(/W1ABC FOX DE W1ABC/.test(await text('#tab-id')) && (await app(() => window.foxbench.cfg.id.use_callsign_as_name)), 'the callsign becomes the name on the air');
+  await tab('schedule');
+  await page.selectOption('#tab-schedule select', 'deep'); await settle(300);
+  check(/deep sleep/.test(await text('#tab-deploy, #tab-schedule')) && (await app(() => window.foxbench.issues.some(i => i.key === 'schedule.sleep'))), 'deep sleep chosen: the page says what that means');
+  await page.selectOption('#tab-schedule select', 'off'); await settle(200);
+  await tab('deploy'); await page.check('#tab-deploy .gate input');
+  check(/On the air/.test(await text('#tab-deploy')) && !/Keydown limit/.test(await text('#tab-deploy')), 'Deploy tab shows the duty card, no keydown card');
+  await app(() => { window.foxbench.lastDeploy = null; });
+  await page.click('#tab-deploy button.btn.primary'); await until(() => !!window.foxbench.lastDeploy, 'the network fox deploy', 20000); await settle(300);
+  const nb = await app(() => window.foxbench.lastBanner || null);
+  check(nb && nb.net === 'wifi-ap' && nb.name === 'W1ABC FOX DE W1ABC' && /^F2:/.test(nb.mac) && nb.radio === 'ok', 'the demo boots the network fox: banner net=wifi-ap, name is the callsign, mac set: ' + JSON.stringify(nb));
+  await tab('bench');
+  check(/Radio up/.test(await text('#tab-bench')) && /Scan/.test(await text('#tab-bench')), 'Bench offers Radio up and Scan for a network fox');
+  await page.click('#tab-bench button:has-text("Scan")'); await untilTextArgs('#tab-bench', /Neighbour/, 10000);
+  check(/-55 Neighbour/.test(await text('#tab-bench')), 'Scan reports what the radio hears');
+  await page.click('#tab-bench button:has-text("Radio up")'); await untilTextArgs('#tab-bench pre.out', /ok wifi-ap .* for 3\.0 s/, 20000);
+  check(/ok wifi-ap .* for 3\.0 s/.test(await text('#tab-bench pre.out')), 'Radio up logged');
+  await tab('behavior'); await page.selectOption('#tab-behavior select', 'ble-beacon'); await settle(300);
+  await tab('radio');
+  check(/BLE beacon/.test(await text('#tab-radio')) && /iBeacon UUID/.test(await text('#tab-radio')), 'Radio tab shows the BLE form');
+  eq(await app(() => window.foxbench.cfg.net.kind), 'ble', 'switching to the BLE template brings its own net section');
+  await tab('behavior'); await page.selectOption('#tab-behavior select', 'morse-songs'); await settle(300);
+  eq(await app(() => window.foxbench.isNet), false, 'back to an FM template');
+  check(await page.isVisible('.rail button[data-tab="plan"]'), 'Plan tab back');
 
   console.log('bench');
   await tab('bench');
@@ -431,7 +467,8 @@ try {
   check(/Show experimental targets/.test(await text('#tab-board')) && new RegExp(nExp + ' hidden').test(await text('#tab-board')), `the picker says how many targets are hidden (${nExp})`);
   await page.check('#tab-board .card:first-child input[type=checkbox]'); await settle(300);   // the picker card's checkbox, not the flash card's erase box
   const optsAll = await page.$$eval('#tab-board select option', els => els.map(e => e.value));
-  check(optsAll.filter(v => v.endsWith('-kitsune')).length === nExp, `the checkbox lists the ${nExp} kitsune targets`);
+  const nK = optsAll.filter(v => v.endsWith('-kitsune')).length, nNet = optsAll.filter(v => ['seeed_xiao_esp32c6', 'waveshare_esp32s3_nano', 'dfrobot_firebeetle2_esp32c5', 'arduino_nano_33_ble'].includes(v)).length;
+  check(nK + nNet === nExp && nK >= 8 && nNet === 4, `the checkbox lists the ${nExp} experimental targets: ${nK} kitsune + ${nNet} network-fox boards`);
   await page.selectOption('#tab-board select', 'seeed_xiao_esp32c5-kitsune'); await settle(400);
   eq(await app(() => window.foxbench.family), 'compiled', 'family switches to compiled');
   eq(await app(() => window.foxbench.templateId), 'wifi-ap', 'first kitsune template selected');

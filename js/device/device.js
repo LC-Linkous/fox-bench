@@ -18,8 +18,8 @@ export function parseBanner(text) {
   const m = text.match(/^FOX (.*)$/m);
   if (!m) return null;
   const out = { _raw: m[0] };
-  for (const kv of m[1].match(/\S+=(?:\([^)]*\)|\S)*/g) || []) {
-    const i = kv.indexOf('='); out[kv.slice(0, i)] = kv.slice(i + 1);
+  for (const kv of m[1].match(/\S+=(?:"[^"]*"|\([^)]*\)|\S)*/g) || []) {   // a value may be "quoted with spaces" (a network fox's name=)
+    const i = kv.indexOf('='); let v = kv.slice(i + 1); if (v.length >= 2 && v[0] === '"' && v.endsWith('"')) v = v.slice(1, -1); out[kv.slice(0, i)] = v;
   }
   return out;
 }

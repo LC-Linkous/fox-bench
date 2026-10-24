@@ -63,5 +63,11 @@
     "baud": 115200,
     "notes": "kitsune prints 'ESP32 boot count', 'Awake and screaming', 'Going to sleep' and 'PANIC' on its serial port; no command interface."
   },
-  "silkscreen": null
+  "silkscreen": null,
+  "circuitpython": {
+    "board_id": "espressif_esp32c5_devkitc_1_n8r8",
+    "download": "https://circuitpython.org/board/espressif_esp32c5_devkitc_1_n8r8/",
+    "latest_known": "10.3.1",
+    "note": "the Espressif DevKitC-1 build (same module class); a FireBeetle-specific build may appear — to verify on the board"
+  }
 }

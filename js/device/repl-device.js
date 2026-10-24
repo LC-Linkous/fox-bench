@@ -122,8 +122,14 @@ export class ReplDevice extends Device {
   async bench(action, args = {}) { return this._run(() => this._bench(action, args)); }
   async _bench(action, args = {}) {
     await this.repl.interrupt();
-const pre = "import foxlib\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfox = foxlib.Fox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\n";
-    const body = {
+    // a network fox (args.net) is a NetFox: the same two bench entry points live on the fox itself
+    const pre = args.net
+      ? "from foxlib.netfox import NetFox\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfox = NetFox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\n"
+      : "import foxlib\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfox = foxlib.Fox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\n";
+    const body = args.net ? {
+      key:   `print(fox.key_for(${+args.seconds || 3}))`,
+      rssi:  `print(fox.rssi())`,
+    }[action] : {
       probe: `import json\nprint(json.dumps(fox.radio.probe(${JSON.stringify(args.freqs || [146.5, 433.5]).replace(/\[|\]/g, m => m === '[' ? '(' : ')')})))`,   // a Python dict repr is not JSON
       key:   `print(fox.radio.key_for(${+args.seconds || 3}))`,
       rssi:  `print(fox.radio.rssi())`,
