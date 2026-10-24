@@ -15,7 +15,11 @@
     "board_id": "arduino_nano_33_ble",
     "download": "https://circuitpython.org/board/arduino_nano_33_ble/",
     "latest_known": "10.3.1",
-    "note": "CircuitPython is installed with Arduino's bossac (double-tap reset → the Arduino bootloader), not from this page: see the CircuitPython board page. After that, deploy from the page as for any board."
+    "note": "CircuitPython is installed with Arduino's bossac (double-tap reset → the Arduino bootloader), not from this page: see the CircuitPython board page. After that, deploy from the page as for any board. The Rev2 board has its own build (arduino_nano_33_ble_rev2: a different IMU, the same nRF52840 and radio) and reports that id; both map to this target.",
+    "board_ids": [
+      "arduino_nano_33_ble",
+      "arduino_nano_33_ble_rev2"
+    ]
   },
   "flash": {
     "method": "bossac",

@@ -81,7 +81,7 @@ function render() {
         h('p.hint', {}, h('b', {}, 'The board must already be running CircuitPython.'), ' A bare board gets it from the Flash CircuitPython card here (hold B while plugging in, pick the port, click).'),
         h('p.hint', {}, h('b', {}, 'Board already running fox or other firmware?'), ' Plug in normally (no B button). ', h('b', {}, 'Connect'), ' interrupts whatever is running and takes the REPL; ', h('b', {}, 'Listen only'), ' just opens the port and shows the fox\'s output without stopping it. If Connect times out waiting for a prompt, tap the board\'s R (reset) button and try again.'))
       : h('dl.kv', {},
-        h('dt', {}, 'Board id'), h('dd', {}, info.boardId, app.catalog.boards[info.boardId] ? '' : badge('unknown to fox-bench', 'warn')),
+        h('dt', {}, 'Board id'), h('dd', {}, info.boardId, app.targetForBoardId(info.boardId) ? (app.targetForBoardId(info.boardId) === info.boardId ? '' : h('span.hint', {}, ` — the ${app.board.name} runs this build`)) : badge('unknown to fox-bench', 'warn')),
         h('dt', {}, 'Chip UID'), h('dd', {}, info.uid),
         h('dt', {}, 'CircuitPython'), h('dd', {}, info.cpVersion || '?'),
         h('dt', {}, 'foxlib on board'), h('dd', {}, ob.foxlibVersion || '—', ob.foxlibVersion && !ob.foxlibComplete ? badge(`incomplete: ${ob.foxlibMissing.length} missing`, 'err') : ob.foxlibVersion && ob.foxlibVersion !== app.catalog.foxlibVersion ? badge(`repo has ${app.catalog.foxlibVersion}`, 'warn') : ''),

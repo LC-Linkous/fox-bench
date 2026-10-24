@@ -14,6 +14,29 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.8.1 · foxlib 1.1.1 · foxlib-c 0.1.10
+
+- **Listen only reconnects by itself.** When the port goes away during a
+  listen-only session (deep sleep, `bootsel`, a reset, a power cycle) the
+  page waits for the same device — Chrome keeps the grant — and listens
+  again when it is back, without the port chooser; the status line says
+  so, the top button becomes **Stop waiting**, and the wait gives up after
+  10 minutes. A REPL or console session still reconnects by hand (the
+  board lost that state). Smoke-tested through the fake Web Serial port
+  (drop, replug, stop).
+- **CircuitPython board ids checked** against circuitpython.org: the
+  Waveshare ESP32-S3-Nano has no build of its own and runs as
+  `arduino_nano_esp32s3`; the FireBeetle 2 ESP32-C5 runs as
+  `espressif_esp32c5_devkitc_1_n8r8`; the Nano 33 BLE Rev2 reports
+  `arduino_nano_33_ble_rev2`. `hardware.circuitpython.board_ids` lists what
+  a target may report, the page maps a connected board or a banner back to
+  its target (`app.targetForBoardId`; Board tab says "runs this build"),
+  the flash card accepts an image for any listed id, and the firmware
+  (foxlib 1.1.1: `cfg.py`, `netcfg.py`, JS twins unchanged on the parity
+  corpus) accepts a `fox.json` naming the same target as the `defaults.json`
+  deployed with it. The lint refuses two hardware entries claiming one id.
+- Following a banner while the port drops no longer throws.
+
 ### Page 0.8.0 · foxlib 1.1.0 · foxlib-c 0.1.10
 
 **Network foxes.** The CircuitPython firmware gains a second contract:

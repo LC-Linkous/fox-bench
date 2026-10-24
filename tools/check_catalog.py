@@ -35,6 +35,8 @@ _nspec = importlib.util.spec_from_file_location("_fwpkg.netcfg", os.path.join(RO
 fnetcfg = importlib.util.module_from_spec(_nspec); _nspec.loader.exec_module(fnetcfg)   # the network foxes' validator
 
 problems = []
+CP_IDS = {}   # CircuitPython board_id -> hardware id, to catch two targets claiming one build
+
 def bad(where, what): problems.append(f"{where}: {what}")
 
 # --pack DIR: lint a catalog pack (another repository's hardware/, boards/, firmware/templates/, modules/ with a
@@ -148,6 +150,12 @@ for bid in board_ids:
         if "circuitpython" not in hw: bad(rel, "foxlib target on hardware without circuitpython")
         for k in ("board_id", "download"):
             if k not in (hw.get("circuitpython") or {}): bad(rel, f"hardware missing circuitpython.{k}")
+        cp = hw.get("circuitpython") or {}
+        ids = cp.get("board_ids")
+        if ids is not None and (not isinstance(ids, list) or cp.get("board_id") not in ids): bad(rel, "circuitpython.board_ids must be a list that includes board_id")
+        for cid in ids or [cp.get("board_id")]:
+            if cid and cid in CP_IDS and CP_IDS[cid] != t["hardware"]: bad(rel, f"CircuitPython id {cid!r} also claimed by hardware {CP_IDS[cid]!r}: the page could not tell the boards apart")
+            if cid: CP_IDS[cid] = t["hardware"]
         # roles: an FM fox needs every role (null when not wired); a board that runs only network foxes (no module)
         # has an empty roles map and must then list radios, so at least one template fits it
         roles = hw.get("roles", {}) or {}

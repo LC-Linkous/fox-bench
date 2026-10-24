@@ -54,7 +54,7 @@ Rules that apply everywhere:
 |---|---|---|
 | `schema` | int | `1`. The page migrates older files forward; the firmware refuses a newer schema (`cfg=default(schema)`). |
 | `template` | string | Must equal the template id of the `code.py` on the board. Mismatch → `cfg=default(template)`. |
-| `board` | string | CircuitPython `board.board_id`. Mismatch with the running board → `cfg=default(board)`: pins from another board are never applied. |
+| `board` | string | the target id (`boards/<id>.json`), which for most boards is also CircuitPython's `board.board_id`. Mismatch with the running board → `cfg=default(board)`: pins from another board are never applied. A target that runs a sibling board's CircuitPython build (`hardware.circuitpython.board_ids`) reports that sibling's id; the firmware then accepts a `fox.json` naming the same target as the `defaults.json` deployed with it, since the page writes both for one target. |
 | `module` | string | A `modules/<id>.json` id. Used by the page for range validation; the firmware uses `radio.ranges_mhz` below, which the page copies in. |
 
 ## `pins`

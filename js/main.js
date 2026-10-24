@@ -28,7 +28,7 @@ import * as tabBench from './ui/bench.js';
 import * as tabFleet from './ui/fleet.js';
 import * as tabAbout from './ui/about.js';
 
-const VERSION = '0.8.0';
+const VERSION = '0.8.1';
 /** Tab subtitles that read differently per device family (null = the page's original text). */
 const LEDES = { drive: {
   board: 'Which fox is on the bench, open its USB drive (or use the simulated one). The vendor firmware stays; the page writes its files.',
@@ -92,6 +92,17 @@ export const app = {
   consoleDevice() { if (this.family !== 'foxlib-c') return null; if (this.device?.kind === 'console') return this.device; return this.sideConsole || null; },
   get vendor() { return this.board.vendor ? this.catalog.vendors[this.board.vendor] : null; },
   /** Templates that apply to a family. */
+  /** The target a CircuitPython board_id belongs to: its own target when one has that id, otherwise the foxlib target whose
+   *  hardware runs that build (`circuitpython.board_id` / `board_ids`: the Waveshare S3-Nano reports arduino_nano_esp32s3).
+   *  The current target wins when it fits, so a board already selected is never switched away from itself. */
+  targetForBoardId(cpId) {
+    if (!cpId) return null;
+    const fits = t => { const hw = this.catalog.hardware?.[t.hardware]; const cp = hw?.circuitpython; return t.family === 'foxlib' && cp && (cp.board_id === cpId || (cp.board_ids || []).includes(cpId)); };
+    if (this.board && (this.board.id === cpId || fits(this.board))) return this.board.id;
+    if (this.catalog.boards[cpId]) return cpId;
+    const hit = Object.values(this.catalog.boards).find(t => fits(t) && t.status !== 'planned');
+    return hit ? hit.id : null;
+  },
   templatesFor(family, board = this.board) {
     const hw = board ? this.catalog.hardware?.[board.hardware] : null;
     // a template fits a board when the hardware has the radios it names, and (CircuitPython FM templates) the pin roles
@@ -137,7 +148,8 @@ export const app = {
     $('.rail button[data-tab="payload"]').hidden = this.isCompiled || this.isNet;
     $('.rail button[data-tab="plan"]').hidden = this.isNet;   // no frequencies on a network fox: the channel is on the Radio tab
     $('#demoBtn').disabled = this.isCompiled || !!this._connecting; $('#demoBtn').title = this.isCompiled ? 'no simulated kitsune board yet' : '';
-    if (!this.device) { $('#connectBtn').textContent = this.usesDrive ? `Open ${this.board.drive?.label || 'drive'}` : 'Connect'; $('#connectBtn').disabled = !!this._connecting || (this.isCompiled ? true : this.usesDrive ? !('showDirectoryPicker' in window) : !hasWebSerial()); $('#connectBtn').title = this.isCompiled ? 'kitsune foxes have no connection yet: prepare the configuration here and export the header (Listen only works on their serial port)' : ''; }
+    if (!this.device && this._waiting) { $('#connectBtn').textContent = 'Stop waiting'; $('#connectBtn').disabled = false; $('#listenBtn').hidden = true; }
+    else if (!this.device) { $('#connectBtn').textContent = this.usesDrive ? `Open ${this.board.drive?.label || 'drive'}` : 'Connect'; $('#connectBtn').disabled = !!this._connecting || (this.isCompiled ? true : this.usesDrive ? !('showDirectoryPicker' in window) : !hasWebSerial()); $('#connectBtn').title = this.isCompiled ? 'kitsune foxes have no connection yet: prepare the configuration here and export the header (Listen only works on their serial port)' : ''; }
     // Two tabs of the page would overwrite each other's saved form on every change. Each save carries this tab's id; a
     // save seen from another tab (the `storage` event, wired at boot) makes this tab stop saving until something is
     // edited here again — whichever tab was touched last owns the saved form, and nothing is lost silently.
@@ -267,8 +279,9 @@ export const app = {
     }).finally(() => { this._connecting = null; for (const b of btns) b.disabled = false; this.changed('connect'); });
     return this._connecting;
   },
-  async _connect(kind, { listen = false } = {}) {
+  async _connect(kind, { listen = false, port = null } = {}) {
     if (this.device) await this.disconnect();
+    this._stopWaiting();
     let device;
     if (this.usesDrive && !listen) {
       if (kind === 'demo') device = this.family === 'drive' ? await demoDrive(this.board, { MemDirectoryHandle }) : await demoFoxbenchDrive(this.board, this.defaults, { MemDirectoryHandle });
@@ -276,8 +289,13 @@ export const app = {
     }
     else if (kind === 'demo') device = new DemoDevice({ board: this.board, moduleRanges: this.module.ranges_mhz });
     else {
-      const link = new SerialLink(); await link.open();
-      link.onDrop = () => { this.console.err(this.family === 'foxlib-c' ? 'serial port dropped (bootsel, a reboot, or the board switched off or unplugged — reconnect when it is back)' : 'serial port dropped (a reset re-enumerates the USB port — reconnect)'); this.disconnect(); };
+      const link = new SerialLink(); await link.open(115200, port);
+      link.onDrop = () => {
+        // Listen only: the port going away is part of what we are watching (deep sleep, bootsel, a power cycle), so wait
+        // for the same device to come back and listen again; a REPL or console session has state the board lost — reconnect by hand
+        if (this.onBoard?.listening) { this.console.dim('serial port gone (deep sleep, a reset, or switched off) — waiting for it to come back; Disconnect stops waiting'); this.disconnect({ waitFor: link.port }); return; }
+        this.console.err(this.family === 'foxlib-c' ? 'serial port dropped (bootsel, a reboot, or the board switched off or unplugged — reconnect when it is back)' : 'serial port dropped (a reset re-enumerates the USB port — reconnect)'); this.disconnect();
+      };
       device = this.family === 'foxlib-c' || this.isCompiled ? new ConsoleDevice(link) : new ReplDevice(link);   // the foxlib-c family has a text console, not a REPL; kitsune prints lines
     }
     device.onLog = (t, cls) => cls === 'tx' ? this.console.tx(t) : cls === 'reply' ? this.console.reply(t) : cls === 'ok' ? this.console.line(t, 'ok') : cls === 'err' ? this.console.err(t) : this.console.dim(t);
@@ -308,7 +326,7 @@ export const app = {
     this.console.setEnabled((kind !== 'demo' && !this.usesDrive) || !!this.sideConsole);
     if (this.usesDrive) { this.setStatus(`${kind === 'demo' ? 'Demo · ' : ''}${this.board.name} · drive "${this.info.driveName || ''}"`, kind === 'demo' ? 'demo' : 'ok'); await this.readDrive(); this.changed('connect'); return; }
     this.setStatus(`${kind === 'demo' ? 'Demo · ' : ''}${this.info.boardId} · uid ${this.info.uid.slice(-6)}${this.info.foxlibVersion ? ' · foxlib ' + this.info.foxlibVersion : ' · no fox firmware'}`, kind === 'demo' ? 'demo' : 'ok');
-    if (this.catalog.boards[this.info.boardId] && this.info.boardId !== this.boardId) await this.setBoard(this.info.boardId);
+    { const t = this.targetForBoardId(this.info.boardId); if (t && t !== this.boardId) await this.setBoard(t); }
     try { await this.readBoard(); }
     catch (e) { this.console.err(`connected, but reading the board failed: ${e.message || e} — Re-read board on the Board tab retries`); }
     this.changed('connect');
@@ -318,7 +336,7 @@ export const app = {
    *  takes control would talk REPL to a console (or the reverse). */
   /** Put the device that speaks the wanted protocol (console or REPL) on the listening port; true when it was swapped. */
   async _swapListenDevice(wantConsole) {
-    if (wantConsole === (this.device.kind === 'console') || !this.device.link) return false;
+    if (!this.device || wantConsole === (this.device.kind === 'console') || !this.device.link) return false;   // the port may have gone while the board switch ran
     const link = this.device.link, onLog = this.device.onLog;
     const next = wantConsole ? new ConsoleDevice(link) : new ReplDevice(link);
     if (!wantConsole) await next.listen();
@@ -327,13 +345,15 @@ export const app = {
     return true;
   },
   async _followBanner(b) {
-    if (!this.device?.listening || !b.board || b.board === this.boardId || !this.catalog.boards[b.board] || this.catalog.boards[b.board].status === 'planned') return;
+    const target = this.targetForBoardId(b.board);
+    if (!this.device?.listening || !b.board || !target || target === this.boardId || this.catalog.boards[target].status === 'planned') return;
     const wasFamily = this.family;
     // W6: following the banner rewrites the working form (board, maybe template and config); keep what was there
     const before = { cfg: structuredClone(this.cfg), boardId: this.boardId, templateId: this.templateId, moduleId: this.moduleId };
     this.undoFollow = async () => { this.undoFollow = null; await this.loadCfg({ ...before.cfg, board: before.boardId, template: before.templateId, module: before.moduleId }, { source: 'undo' }); this.console.line(`form restored to ${before.boardId} / ${before.templateId}`, 'ok'); };
-    this.console.dim(`banner says ${b.board}: selecting that board (the form you had is kept: window.foxbench.undoFollow() in the browser console brings it back)`);
-    await this.setBoard(b.board, { keepDevice: true });
+    this.console.dim(`banner says ${b.board}: selecting ${target === b.board ? 'that board' : `the ${this.catalog.boards[target].name} (it runs that CircuitPython build)`} (the form you had is kept: window.foxbench.undoFollow() in the browser console brings it back)`);
+    await this.setBoard(target, { keepDevice: true });
+    if (!this.device) return;                       // dropped meanwhile (deep sleep, a reset): nothing to swap
     const wantConsole = this.family === 'foxlib-c';
     if (await this._swapListenDevice(wantConsole) && wasFamily !== this.family) this.changed('connect');
   },
@@ -437,8 +457,10 @@ export const app = {
     };
   },
   pageErrors: [],
-  async disconnect() {
+  /** `waitFor`: a SerialPort that just went away during Listen only — keep watching for it and listen again when it returns. */
+  async disconnect({ waitFor = null } = {}) {
     this._crswapNoted = null;   // a new drive gets its own note
+    this._stopWaiting();
     try { await this.device?.close(); } catch {}
     try { await this.sideConsole?.close(); } catch {} this.sideConsole = null;
     this.lastBanner = null;
@@ -446,7 +468,34 @@ export const app = {
     $('#demoBtn').setAttribute('aria-pressed', 'false'); $('#listenBtn').hidden = false;
     this.console.setEnabled(false); this.setStatus('Not connected');
     this.changed('disconnect');       // also resets the Connect button label for the family
+    if (waitFor) this._waitForPort(waitFor);
   },
+  /** Listen only, port gone: poll the granted ports (and Chrome's `connect` event) for the same device, up to 10 minutes. */
+  _waitForPort(port) {
+    const started = Date.now(), LIMIT_MS = 10 * 60 * 1000;
+    const w = this._waiting = { port, timer: null, tries: 0, busy: false };
+    this.setStatus(`Listening paused — port gone, waiting for the ${this.board.name} to come back (Disconnect stops)`, 'warn');
+    $('#connectBtn').textContent = 'Stop waiting'; $('#listenBtn').hidden = true;
+    const tick = async () => {
+      if (this._waiting !== w || w.busy) return;
+      if (Date.now() - started > LIMIT_MS) { this._stopWaiting(); this.console.dim('stopped waiting for the port after 10 minutes'); this.setStatus('Not connected'); this.changed('disconnect'); return; }
+      w.tries++;
+      const back = (await SerialLink.granted()).find(p => SerialLink.same(p, port));
+      if (!back) return;
+      w.busy = true;
+      try { await this._connect('serial', { listen: true, port: back }); this.console.line('port is back — listening again', 'ok'); }
+      catch (e) { w.busy = false; if (this._waiting === w) this.console.dim(`port seen but not ready yet (${e.message || e}) — still waiting`); }   // enumerated before it accepts an open: try again next tick
+    };
+    w.timer = setInterval(tick, 1000);
+    w.onConnect = () => tick();
+    try { navigator.serial.addEventListener('connect', w.onConnect); } catch {}
+  },
+  _stopWaiting() {
+    const w = this._waiting; if (!w) return;
+    this._waiting = null; clearInterval(w.timer);
+    try { navigator.serial.removeEventListener('connect', w.onConnect); } catch {}
+  },
+  get waiting() { return !!this._waiting; },
 };
 
 function setFlag(tab, cls) { const f = $(`.rail button[data-tab="${tab}"] .flag`); if (f) f.className = 'flag ' + cls; }
@@ -494,7 +543,7 @@ async function boot() {
 
   for (const [name, mod] of Object.entries(TABS)) mod.init(app, $(`#tab-${name} .body`));
   $$('.rail button').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
-  $('#connectBtn').addEventListener('click', () => app.device ? app.disconnect() : app.connect(app.usesDrive ? 'drive' : 'serial'));
+  $('#connectBtn').addEventListener('click', () => app.device ? app.disconnect() : app.waiting ? (app._stopWaiting(), app.console.dim('stopped waiting for the port'), app.setStatus('Not connected'), app.changed('disconnect')) : app.connect(app.usesDrive ? 'drive' : 'serial'));
   $('#listenBtn').addEventListener('click', () => app.device ? app.disconnect() : app.connect('serial', { listen: true }));
   if (!hasWebSerial()) $('#listenBtn').disabled = true;
   $('#demoBtn').addEventListener('click', () => app.device?.kind === 'demo' ? app.disconnect() : app.connect('demo'));

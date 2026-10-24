@@ -10,6 +10,7 @@
 //   window.__fakeSerial.install('console', { uid, template, ... })   // FakeConsoleLink options
 //   window.__fakeSerial.install('dumb', { vid, pid })                // a port that answers nothing (another device)
 //   window.__fakeSerial.port.drop()                                  // unplug: the read stream errors → onDrop
+//   window.__fakeSerial.port.replug()                                // the same device back on the bus (getPorts lists it, `connect` fires)
 //   window.__fakeSerial.port.signals / .opens / .connected            // what the page did to it
 import { FakeBoard } from '../unit/fake-board.mjs';
 import { FakeConsoleLink } from '../../js/device/console-device.js';
@@ -37,6 +38,8 @@ class FakePort {
   async close() { this.closedByPage = true; try { this._ctl?.close(); } catch {} }
   /** Unplug while open: the page's read loop rejects, SerialLink calls onDrop. */
   drop() { this.connected = false; try { this._ctl?.error(new DOMException('The device has been lost.', 'NetworkError')); } catch {} }
+  /** The device comes back (deep sleep over, reset done): the same granted port is enumerated again and Chrome fires `connect`. */
+  replug() { this.connected = true; try { navigator.serial.dispatchEvent?.(new Event('connect')); } catch {} }
 }
 
 const api = {
@@ -47,7 +50,8 @@ const api = {
     api.link = link; api.port = new FakePort(link, { vid, pid, disappearOnTouch });
     if (!navigator.serial) Object.defineProperty(navigator, 'serial', { value: {}, configurable: true });
     navigator.serial.requestPort = async () => api.port;
-    navigator.serial.getPorts = async () => [api.port];
+    navigator.serial.getPorts = async () => api.port.connected ? [api.port] : [];      // a dropped device is not enumerated until replug()
+    if (!navigator.serial.addEventListener) { const t = new EventTarget(); navigator.serial.addEventListener = (...a) => t.addEventListener(...a); navigator.serial.removeEventListener = (...a) => t.removeEventListener(...a); navigator.serial.dispatchEvent = e => t.dispatchEvent(e); }
     return api.port;
   },
   /** FakeBoard's filesystem as { name: text } for assertions. */

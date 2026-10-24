@@ -43,9 +43,15 @@ Board tab shows them for the site's UF2 (`foxbench-picofox.json`).
   shows in a sniffer only; the radio goes away for `sleep_s` and comes
   back; deep sleep drops the USB port and the fox reboots with `woke from
   deep sleep`; `tx_power_dbm` steps change the RSSI the phone reports.
-  Board ids to confirm in `hardware/*.json` `circuitpython.board_id`:
-  `waveshare_esp32_s3_nano`, `espressif_esp32c5_devkitc_1_n8r8` (the
-  FireBeetle 2 C5 has no CircuitPython board of its own yet). The Nano 33
+  CircuitPython builds (checked against circuitpython.org 2026-10-24): the
+  XIAO ESP32-C6 has its own (`seeed_xiao_esp32c6`); the Waveshare
+  ESP32-S3-Nano has none and runs the Arduino Nano ESP32 build
+  (`arduino_nano_esp32s3`, same S3R8 / 16 MB / 8 MB layout); the FireBeetle
+  2 ESP32-C5 has none and runs the ESP32-C5-DevKitC-1-N8R8 build
+  (`espressif_esp32c5_devkitc_1_n8r8`, same module class — LED/button GPIOs
+  may differ); the Nano 33 BLE and its Rev2 each have one. The page maps
+  those reported ids back to the targets; whether the sibling builds run
+  right on these boards is what the first session has to show. The Nano 33
   BLE (nRF52840) cannot be flashed from the page (`bossac`, no esptool):
   CircuitPython goes on by hand, then the page deploys over the REPL.
 - Every `compiled` (kitsune) target: descriptors come from public

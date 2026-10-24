@@ -35,7 +35,7 @@ export function validate(user, defaults, board) {
   const radios = board?.radios || null;
   if (u.schema !== undefined && u.schema !== SCHEMA) return { cfg, report: [{ key: 'schema', reason: `schema ${u.schema} not supported` }], fatal: null, status: 'default(schema)' };
   if (u.template !== undefined && u.template !== defaults.template) return { cfg, report: [{ key: 'template', reason: 'does not match firmware' }], fatal: null, status: 'default(template)' };
-  if (u.board !== undefined && board && u.board !== board.id) return { cfg, report: [{ key: 'board', reason: 'config is for another board' }], fatal: null, status: 'default(board)' };
+  if (u.board !== undefined && board && u.board !== board.id && u.board !== defaults.board) return { cfg, report: [{ key: 'board', reason: 'config is for another board' }], fatal: null, status: 'default(board)' };
 
   const n = u.net && typeof u.net === 'object' ? u.net : {};
   const kind = cfg.net.kind;

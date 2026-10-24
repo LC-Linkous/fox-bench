@@ -573,8 +573,41 @@ try {
   eq(await app(() => window.foxbench.device?.kind), 'console', 'and back to the console device for the fox-bench target');
   await page.fill('#sendInput', 'status'); await page.press('#sendInput', 'Enter'); await untilTextArgs('#log', /revision=3/, 5000);
   eq(((await text('#log')).match(/> status/g) || []).length, 1, 'a typed console command is shown once');
+  // 2b. the port goes away during Listen only (deep sleep, bootsel, a power cycle): the page waits for the same device and listens again
+  const opensBefore = await app(() => window.__fakeSerial.port.opens);
+  await app(() => window.__fakeSerial.port.drop()); await settle(400);
+  eq(await app(() => window.foxbench.connected), false, 'listen only: the drop disconnects');
+  check(await app(() => window.foxbench.waiting), 'and the page waits for the port instead of giving up');
+  check(/waiting for it to come back/.test(await text('#log')) && /Stop waiting/.test(await text('#connectBtn')) && /waiting for the/.test(await text('#statusText')), 'console, button and status say it is waiting');
+  await settle(1500);
+  eq(await app(() => window.foxbench.connected), false, 'nothing reconnects while the device is away');
+  await app(() => window.__fakeSerial.port.replug());
+  check(await until(() => window.foxbench.connected && window.foxbench.device?.listening === true, 'the page to listen again after the replug', 8000), 'the same port is opened again and listened to');
+  eq(await app(() => window.__fakeSerial.port.opens), opensBefore + 1, 'opened once more, without the chooser');
+  check(/port is back — listening again/.test(await text('#log')), 'console says the port is back');
+  check(await untilTextArgs('#statusText', /Listening · picofox-foxlibc/, 5000), 'the banner printed on the reopen was parsed: status shows the board again');
+  check(!(await app(() => window.foxbench.waiting)), 'no longer waiting');
+  // Disconnect while waiting stops the wait
+  await app(() => window.__fakeSerial.port.drop()); await settle(400);
+  check(await app(() => window.foxbench.waiting), 'dropped again: waiting');
+  await page.click('#connectBtn'); await settle(200);
+  check(!(await app(() => window.foxbench.waiting)) && /stopped waiting/.test(await text('#log')) && (await text('#connectBtn')) !== 'Stop waiting', 'Stop waiting stops it; the button is Connect again');
+  await app(() => window.__fakeSerial.port.replug()); await settle(1500);
+  eq(await app(() => window.foxbench.connected), false, 'a replug after Stop waiting does not reconnect on its own');
   eq(await app(() => window.__fakeSerial.link.sent.filter(l => l === 'status').length), 1, 'and sent once');
   await app(() => window.foxbench.disconnect()); await settle(200);
+  // 2c. a board that runs a sibling's CircuitPython build: the Waveshare S3-Nano reports arduino_nano_esp32s3 — the page maps it to the target
+  await tab('board'); await page.selectOption('#tab-board select', 'seeed_xiao_esp32c3'); await settle(300);
+  await app(() => window.__fakeSerial.install('board', { identity: { boardId: 'arduino_nano_esp32s3', uid: 'a1b2c3d4e5f6' }, files: { 'foxlib/VERSION': '1.1.0\n' } }));
+  await app(() => { localStorage.setItem('fox-bench.experimental', '1'); });
+  await page.click('#connectBtn'); await until(() => window.foxbench.connected, 'connect to the fake S3-Nano', 15000); await settle(400);
+  eq(await app(() => window.foxbench.boardId), 'waveshare_esp32s3_nano', 'arduino_nano_esp32s3 is resolved to the Waveshare ESP32-S3-Nano target');
+  check(/runs this build/.test(await text('#tab-board')), 'Board tab explains the id');
+  eq(await app(() => window.foxbench.targetForBoardId('arduino_nano_33_ble_rev2')), 'arduino_nano_33_ble', 'the Nano 33 BLE Rev2 build maps to the Nano 33 BLE target');
+  eq(await app(() => window.foxbench.targetForBoardId('seeed_xiao_esp32c3')), 'seeed_xiao_esp32c3', 'a target of its own keeps its id');
+  eq(await app(() => window.foxbench.targetForBoardId('no_such_board')), null, 'an unknown id stays unknown');
+  await app(() => window.foxbench.disconnect()); await settle(200);
+  await page.selectOption('#tab-board select', 'picofox-foxlibc'); await settle(300);   // back to the target the touch test below expects
   // 3. The 1200-baud touch: the fox's port (ids match, the port goes away) and a wrong port (ids differ, stays).
   await app(() => window.__fakeSerial.install('dumb', { vid: 0x2e8a, pid: 0x000a, disappearOnTouch: true }));
   await tab('board'); await page.click('#tab-board button:has-text("1. Reboot into bootloader")'); await untilTextArgs('#log', /1200-baud touch sent, port gone/, 8000);

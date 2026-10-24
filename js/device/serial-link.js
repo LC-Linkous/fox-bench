@@ -11,8 +11,9 @@ export const hasWebSerial = () => 'serial' in navigator;
 export class SerialLink extends Link {
   constructor() { super(); this.port = null; this.reader = null; this.writer = null; }
 
-  async open(baudRate = 115200) {
-    this.port = await navigator.serial.requestPort();
+  /** `port`: an already granted SerialPort (from `granted()` or a previous session) opens without the chooser. */
+  async open(baudRate = 115200, port = null) {
+    this.port = port || await navigator.serial.requestPort();
     await this.port.open({ baudRate });
     this.writer = this.port.writable.getWriter();
     this._readLoop();
@@ -32,6 +33,13 @@ export class SerialLink extends Link {
   /** Pulse DTR/RTS low→high: resets most boards without touching the flash button. */
   async reset() {
     try { await this.port.setSignals({ dataTerminalReady: false, requestToSend: true }); await new Promise(r => setTimeout(r, 100)); await this.port.setSignals({ dataTerminalReady: true, requestToSend: false }); } catch {}
+  }
+  /** The ports the user has already granted this site (Chrome keeps the grant across unplug/replug). */
+  static async granted() { try { return await navigator.serial.getPorts(); } catch { return []; } }
+  /** Same device as `port`: the same object (Chrome keeps it for a granted device that comes back), or the same usb ids. */
+  static same(a, b) {
+    if (a === b) return true;
+    try { const x = a.getInfo(), y = b.getInfo(); return x.usbVendorId != null && x.usbVendorId === y.usbVendorId && x.usbProductId === y.usbProductId; } catch { return false; }
   }
   info() {
     try { const i = this.port.getInfo(); return `usb ${i.usbVendorId?.toString(16).padStart(4, '0')}:${i.usbProductId?.toString(16).padStart(4, '0')}`; } catch { return 'serial'; }

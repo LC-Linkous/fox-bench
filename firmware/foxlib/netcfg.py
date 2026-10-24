@@ -55,7 +55,10 @@ def validate(user, defaults, board_id=None, radios=None):
     if "template" in u and u["template"] != defaults.get("template"):
         rep.mode = "default(template)"
         return cfg, rep
-    if "board" in u and board_id and u["board"] != board_id:
+    # fox.json names a target; the running board may report another CircuitPython board_id when a target runs a
+    # sibling board's build (the Waveshare S3-Nano runs as arduino_nano_esp32s3): the defaults.json written with it
+    # names the same target, so a fox.json for that target is for this board
+    if "board" in u and board_id and u["board"] != board_id and u["board"] != defaults.get("board"):
         rep.mode = "default(board)"
         return cfg, rep
 

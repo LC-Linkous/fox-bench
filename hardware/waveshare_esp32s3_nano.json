@@ -67,9 +67,12 @@
   ],
   "silkscreen": null,
   "circuitpython": {
-    "board_id": "waveshare_esp32_s3_nano",
-    "download": "https://circuitpython.org/board/waveshare_esp32_s3_nano/",
+    "board_id": "arduino_nano_esp32s3",
+    "board_ids": [
+      "arduino_nano_esp32s3"
+    ],
+    "download": "https://circuitpython.org/board/arduino_nano_esp32s3/",
     "latest_known": "10.3.1",
-    "note": "if no Waveshare build is listed, the Arduino Nano ESP32 build (arduino_nano_esp32s3) is the same chip and pinout — to verify"
+    "note": "CircuitPython has no Waveshare ESP32-S3-Nano build (checked 2026-10-24). The board is an Arduino Nano ESP32 clone (ESP32-S3R8, 16 MB flash, 8 MB PSRAM, same pinout), so the Arduino Nano ESP32 build is what goes on it and the board reports itself as arduino_nano_esp32s3; the page maps that id back to this target. An actual Arduino Nano ESP32 running that build behaves the same way here. To verify on the board."
   }
 }

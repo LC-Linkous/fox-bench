@@ -100,7 +100,7 @@ export function flashCard(app) {
     const f = fileIn.files[0]; if (!f) return;
     flasher.setImage(f.name, new Uint8Array(await f.arrayBuffer()), 'file'); state.fetchError = ''; notify(); app.console.dim(`loaded ${f.name} (${f.size} B)`); fileIn.value = '';
   });
-  const mism = flasher.image.info && flasher.image.info.boardId !== b.circuitpython.board_id;
+  const mism = flasher.image.info && flasher.image.info.boardId !== b.circuitpython.board_id && !(b.circuitpython.board_ids || []).includes(flasher.image.info.boardId);
   const why = blocker(app);
   return h('div.card', {}, h('h3', {}, 'Flash CircuitPython ', imageBadge()),
     h('p.hint', {}, 'For a bare board, or to reset one to factory CircuitPython. ', h('b', {}, b.flash.bootloader_instructions), ' The board then shows up as a new serial port; pick that one when asked.'),
