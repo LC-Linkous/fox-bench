@@ -9,7 +9,7 @@ import { flashCard, onChange as onFlashChange } from './flash.js';
 let app, root;
 export function init(a, el) { app = a; root = el; app.listeners.add(render); onFlashChange(render); render(); }
 
-const FAMILY_LABEL = { foxlib: 'CircuitPython board + radio module', drive: 'Drive-configured fox (vendor firmware)', 'foxlib-c': 'fox-bench native firmware (UF2)', compiled: 'Compiled-in configuration (kitsune)' };
+const FAMILY_LABEL = { foxlib: 'CircuitPython board + radio module', 'foxlib-net': 'CircuitPython board (Wi-Fi / BLE fox, no module)', drive: 'Drive-configured fox (vendor firmware)', 'foxlib-c': 'fox-bench native firmware (UF2)', compiled: 'Compiled-in configuration (kitsune)' };
 
 /** The board picker, grouped by family. This one choice drives every other tab. */
 function pickerCard() {
@@ -17,7 +17,9 @@ function pickerCard() {
   // Targets not yet verified on hardware (status experimental: the kitsune boards, until one is on the bench) stay out
   // of the list unless asked for — a release is what the hardware log vouches for. The selected target is always listed.
   const hidden = Object.values(app.catalog.boards).filter(b => b.status === 'experimental' && !app.showExperimental && b.id !== app.boardId);
-  for (const b of Object.values(app.catalog.boards)) if (!hidden.includes(b)) (groups[b.family || 'foxlib'] ??= []).push(b);
+  // the foxlib family splits by what the board is: a module-less board runs only the network foxes (hardware roles empty)
+  const groupOf = b => { const fam = b.family || 'foxlib'; if (fam !== 'foxlib') return fam; const hw = app.catalog.hardware?.[b.hardware]; return hw && Object.keys(hw.roles || {}).length === 0 ? 'foxlib-net' : 'foxlib'; };
+  for (const b of Object.values(app.catalog.boards)) if (!hidden.includes(b)) (groups[groupOf(b)] ??= []).push(b);
   const sel = h('select', { onchange: e => app.setBoard(e.target.value) });
   for (const [fam, list] of Object.entries(groups)) {
     const og = h('optgroup', { label: FAMILY_LABEL[fam] || fam });

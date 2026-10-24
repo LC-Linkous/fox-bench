@@ -469,6 +469,9 @@ try {
   const optsAll = await page.$$eval('#tab-board select option', els => els.map(e => e.value));
   const nK = optsAll.filter(v => v.endsWith('-kitsune')).length, nNet = optsAll.filter(v => ['seeed_xiao_esp32c6', 'waveshare_esp32s3_nano', 'dfrobot_firebeetle2_esp32c5', 'arduino_nano_33_ble'].includes(v)).length;
   check(nK + nNet === nExp && nK >= 8 && nNet === 4, `the checkbox lists the ${nExp} experimental targets: ${nK} kitsune + ${nNet} network-fox boards`);
+  const groupsAll = await page.$$eval('#tab-board select optgroup', els => els.map(e => [e.label, [...e.querySelectorAll('option')].map(o => o.value)]));
+  const netGroup = groupsAll.find(([l]) => /no module/.test(l)), fmGroup = groupsAll.find(([l]) => /\+ radio module/.test(l));
+  check(netGroup && netGroup[1].length === 4 && !netGroup[1].includes('seeed_xiao_esp32c3') && fmGroup && fmGroup[1].includes('seeed_xiao_esp32c3'), 'picker groups: the four module-less boards under "CircuitPython board (Wi-Fi / BLE fox, no module)", the XIAO + SA868 under "+ radio module"');
   await page.selectOption('#tab-board select', 'seeed_xiao_esp32c5-kitsune'); await settle(400);
   eq(await app(() => window.foxbench.family), 'compiled', 'family switches to compiled');
   eq(await app(() => window.foxbench.templateId), 'wifi-ap', 'first kitsune template selected');

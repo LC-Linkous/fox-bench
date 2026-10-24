@@ -14,6 +14,15 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.8.2 · foxlib 1.1.1 · foxlib-c 0.1.10
+
+- Board picker: the module-less Wi-Fi / BLE boards (XIAO ESP32-C6,
+  Waveshare ESP32-S3-Nano, FireBeetle 2 ESP32-C5, Nano 33 BLE) have their
+  own group, **CircuitPython board (Wi-Fi / BLE fox, no module)**;
+  **CircuitPython board + radio module** keeps the combined units. The
+  split follows the hardware's role map (empty = no module), not a new
+  descriptor field.
+
 ### Page 0.8.1 · foxlib 1.1.1 · foxlib-c 0.1.10
 
 - **Listen only reconnects by itself.** When the port goes away during a
