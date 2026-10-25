@@ -304,8 +304,11 @@ on hardware that lists it (`hardware/<id>.json` `radios`).
 ## The `net` contract (network foxes on CircuitPython)
 
 The `wifi-beacon`, `wifi-probe` and `ble-beacon` templates use the SoC's
-own radio as the transmitter — no module, no `module`/`pins`/`radio`/`plan`/
-`payload`/`battery`/`limits` sections. `template.json` says
+own radio as the transmitter — no module, no `module`/`radio`/`plan`/
+`payload`/`battery`/`limits` sections, and a two-role `pins` section (LED,
+battery sense) instead of the module wiring. They run on **chip targets**
+(`boards/esp32c5.json` …), each covering the physical boards of that chip
+as `variants`; the FM templates run on board + module targets, never both. `template.json` says
 `"contract": "net"`, and the document is validated by
 `firmware/foxlib/netcfg.py` on the board and `js/model/netschema.js` in the
 page (held equal by `firmware/sim/schema_parity.*`). Everything that does
@@ -315,6 +318,10 @@ not fit falls back to the defaults file, reported in the banner as
 
 | key | type | meaning |
 |---|---|---|
+| `board` | string | the **chip target** (`esp32c3`, `esp32c6`, `esp32c5`, `esp32s3`, `nrf52840`): the firmware is the same for every board of that chip |
+| `variant` | string | the physical board (a hardware id: `seeed_xiao_esp32c5`, `dfrobot_firebeetle2_esp32c5`, …), recorded for the fleet and hardware logs; the page sets it from the Board dropdown on the Radio tab, or from the id a connected board reports |
+| `pins.led` | pin name or `null` | the status LED, resolved with `getattr(board, name)`; `null` = no LED (the bare XIAO C3). Defaults come from the variant's descriptor |
+| `pins.batt_sense` | pin name or `null` | reserved: a battery divider on an ADC pin; no board in the catalog has one wired |
 | `net.kind` | `wifi-ap` \| `wifi-probe` \| `ble` | fixed by the template |
 | `net.ssid` | string, 1–32 bytes | `wifi-ap`, `wifi-probe`: the network name on the air (unless `id.use_callsign_as_name`) |
 | `net.psk` | string, empty or 8–63 bytes | `wifi-ap`: empty = open network (the page says so), otherwise WPA2 |

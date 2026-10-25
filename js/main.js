@@ -28,7 +28,7 @@ import * as tabBench from './ui/bench.js';
 import * as tabFleet from './ui/fleet.js';
 import * as tabAbout from './ui/about.js';
 
-const VERSION = '0.8.2';
+const VERSION = '0.9.0';
 /** Tab subtitles that read differently per device family (null = the page's original text). */
 const LEDES = { drive: {
   board: 'Which fox is on the bench, open its USB drive (or use the simulated one). The vendor firmware stays; the page writes its files.',
@@ -61,13 +61,20 @@ export const app = {
   catalog: null,
   device: null, info: null,            // connected device and what connect() returned
   onBoard: { cfg: null, raw: null, foxlibVersion: '', foxlibMissing: [], foxlibComplete: false, files: {} },   // what was read from the board
-  boardId: 'seeed_xiao_esp32c3', templateId: 'morse-songs', moduleId: 'sa868_vhf', region: 'US',
+  boardId: 'seeed_xiao_esp32c3', variantId: null, templateId: 'morse-songs', moduleId: 'sa868_vhf', region: 'US',
   defaults: null, cfg: null,           // template defaults for the board; the working config
   images: [],                           // sstv payload images
   issues: [], report: [], status: 'ok',
   console: null,
   listeners: new Set(),
-  get board() { return this.catalog.boards[this.boardId]; },
+  /** The selected target, merged with its hardware — for a chip target, with the selected variant's hardware. */
+  get board() { const t = this.catalog.boards[this.boardId]; return t?.variantBoards && this.variantId && t.variantBoards[this.variantId] ? t.variantBoards[this.variantId] : t; },
+  /** The chip target's variants (physical boards) in catalog order, or [] for a target that is one board. */
+  get variants() { const t = this.catalog.boards[this.boardId]; return t?.variants ? t.variants.map(id => t.variantBoards[id]).filter(Boolean) : []; },
+  /** Do this chip's variants differ in the pins a network fox uses? Decides whether the wiring card shows the board dropdown. */
+  get variantsDifferInPins() { const ps = this.variants.map(v => JSON.stringify(this.netRolesOf(v))); return new Set(ps).size > 1; },
+  /** A network fox's pin roles for a board: `net` overrides `roles` (the bare XIAO C3 has module roles but no LED of its own). */
+  netRolesOf(b) { const r = b?.net || b?.roles || {}; return { led: r.led ?? null, batt_sense: r.batt_sense ?? null }; },
   get template() { return this.catalog.templates[this.templateId]; },
   get module() { return this.catalog.modules[this.moduleId]; },
   get connected() { return !!this.device; },
@@ -95,19 +102,31 @@ export const app = {
   /** The target a CircuitPython board_id belongs to: its own target when one has that id, otherwise the foxlib target whose
    *  hardware runs that build (`circuitpython.board_id` / `board_ids`: the Waveshare S3-Nano reports arduino_nano_esp32s3).
    *  The current target wins when it fits, so a board already selected is never switched away from itself. */
-  targetForBoardId(cpId) {
+  targetForBoardId(cpId) { return this.resolveBoardId(cpId)?.target || null; },
+  /** { target, variant } for a reported CircuitPython board_id: the target with that id; else the foxlib target (and, for
+   *  a chip target, the variant) whose hardware runs that build. The selected target/variant wins when it fits, so a
+   *  board already selected is never switched away from itself — and two variants sharing one build (the C5s) keep
+   *  the one the user picked. */
+  resolveBoardId(cpId) {
     if (!cpId) return null;
-    const fits = t => { const hw = this.catalog.hardware?.[t.hardware]; const cp = hw?.circuitpython; return t.family === 'foxlib' && cp && (cp.board_id === cpId || (cp.board_ids || []).includes(cpId)); };
-    if (this.board && (this.board.id === cpId || fits(this.board))) return this.board.id;
-    if (this.catalog.boards[cpId]) return cpId;
-    const hit = Object.values(this.catalog.boards).find(t => fits(t) && t.status !== 'planned');
-    return hit ? hit.id : null;
+    const runs = hw => { const cp = hw?.circuitpython; return !!cp && (cp.board_id === cpId || (cp.board_ids || []).includes(cpId)); };
+    const cur = this.catalog.boards[this.boardId];
+    if (cur && (cur.id === cpId || (cur.family === 'foxlib' && runs(this.catalog.hardware?.[this.board.hardware])))) return { target: cur.id, variant: this.variantId };
+    if (this.catalog.boards[cpId]) return { target: cpId, variant: null };
+    for (const t of Object.values(this.catalog.boards)) {
+      if (t.family !== 'foxlib' || t.status === 'planned') continue;
+      if (t.variants) { const v = t.variants.find(vid => runs(this.catalog.hardware?.[vid])); if (v) return { target: t.id, variant: v }; }
+      else if (runs(this.catalog.hardware?.[t.hardware])) return { target: t.id, variant: null };
+    }
+    return null;
   },
   templatesFor(family, board = this.board) {
-    const hw = board ? this.catalog.hardware?.[board.hardware] : null;
+    const hw = board ? this.catalog.hardware?.[board.hardware] : null;      // for a chip target, the selected variant's hardware
     // a template fits a board when the hardware has the radios it names, and (CircuitPython FM templates) the pin roles
     // it requires; foxlib-c fixes its pins in the firmware, so the roles filter is for the foxlib family only
+    const chip = !!board?.variants;      // a chip target (a bare board, no module) runs the network foxes only; a board + module combo the FM foxes only
     return Object.values(this.catalog.templates).filter(t => (t.families || ['foxlib']).includes(family)
+      && (family !== 'foxlib' || !board || (t.contract === 'net') === chip)
       && (!t.radios || !hw?.radios || t.radios.every(r => hw.radios.includes(r)))
       && (family !== 'foxlib' || !t.pins?.required?.length || !hw || t.pins.required.every(r => hw.roles && hw.roles[r] !== undefined)));
   },
@@ -175,7 +194,7 @@ export const app = {
     if (carry && prev) {
       // carry what both contracts share; between an FM and a network template only the callsign and the fleet notes carry
       const sameContract = (prev.net ? 'net' : 'fm') === (next.net ? 'net' : 'fm');
-      const keys = sameContract ? (next.net ? ['net', 'id', 'led', 'fleet'] : ['module', 'pins', 'radio', 'plan', 'id', 'battery', 'limits', 'fleet']) : ['fleet'];
+      const keys = sameContract ? (next.net ? ['net', 'pins', 'variant', 'id', 'led', 'fleet'] : ['module', 'pins', 'radio', 'plan', 'id', 'battery', 'limits', 'fleet']) : ['fleet'];
       for (const k of keys) if (k in prev && k in next) next[k] = structuredClone(prev[k]);
       if (!sameContract && prev.id?.callmessage && next.id) next.id.callmessage = prev.id.callmessage;
       if (sameContract && next.net && prev.net && prev.net.kind !== this.defaults.net.kind) next.net = structuredClone(this.defaults.net);   // a different radio: its own fields
@@ -184,6 +203,7 @@ export const app = {
       if (prev.schedule && (sec.includes(`schedule.${prev.schedule.kind}`) || sec.includes('schedule.*'))) next.schedule = structuredClone(prev.schedule);   // compiled-family configs have no payload
     }
     this.cfg = next;
+    if (!carry || !prev?.net) this._applyVariant();      // a fresh net config takes the selected variant's pins
     this.changed('template');
   },
   /** Selecting a board of another family while a device is connected: that device speaks the old family's protocol
@@ -211,11 +231,13 @@ export const app = {
     await this.disconnect();
     this.console.line(`disconnected from the ${was}: ${next.name} is a different kind of board (${(next.family || 'foxlib') === 'foxlib' ? 'REPL' : 'USB drive'}), connect it when you are ready to deploy`, 'ok');
   },
-  async setBoard(id, { keepDevice = false } = {}) {
+  async setBoard(id, { keepDevice = false, variant = null } = {}) {
     if (this.catalog.boards[id]?.status === 'planned') { this.console.err(`${this.catalog.boards[id].name} is not available yet`); this.changed('board'); return; }
     await this._leaveFamilyFor(id, keepDevice);
     const prevFamily = this.family, prev = this.cfg;
     this.boardId = id;
+    const t = this.catalog.boards[id];
+    this.variantId = t.variants ? (variant && t.variants.includes(variant) ? variant : t.variants[0]) : null;
     if (this.board.module_fixed) this.moduleId = this.board.module_fixed;
     if (!this.templatesFor(this.family).some(t => t.id === this.templateId)) {
       // the current template has no meaning for this board: switch to the first one that does, keeping the callsign and fleet notes
@@ -229,7 +251,21 @@ export const app = {
     this.defaults = await loadDefaults(this.templateId, id);
     this.cfg.board = id; if (this.defaults.pins) this.cfg.pins = structuredClone(this.defaults.pins);
     if (this.board.module_fixed) { this.cfg.module = this.moduleId; this.cfg.radio = { ...this.cfg.radio, ...structuredClone(this.defaults.radio) }; }
+    this._applyVariant();
     this.changed('board'); await this._rereadIfSwitched();
+  },
+  /** Chip targets: choose the physical board. Sets its pins (LED, battery sense) into the form and records it in fox.json. */
+  setVariant(vid) {
+    const t = this.catalog.boards[this.boardId];
+    if (!t?.variants?.includes(vid) || vid === this.variantId) return;
+    this.variantId = vid; this._applyVariant(); this.changed('variant');
+  },
+  /** The variant a config names, when this target has it; else the default. */
+  _variantFromCfg(cfg) { const t = this.catalog.boards[this.boardId]; if (!t?.variants) return null; return cfg?.variant && t.variants.includes(cfg.variant) ? cfg.variant : t.variants[0]; },
+  _applyVariant() {
+    if (!this.variantId || !this.cfg) return;
+    this.cfg.variant = this.variantId;
+    this.cfg.pins = { ...this.netRolesOf(this.board) };
   },
   async _rereadIfSwitched() {
     if (!this._rereadAfterSwitch) return;
@@ -244,6 +280,7 @@ export const app = {
   async loadCfg(cfg, { source = 'load' } = {}) {
     if (cfg.template && this.catalog.templates[cfg.template]) this.templateId = cfg.template;
     if (cfg.board && this.catalog.boards[cfg.board]) { await this._leaveFamilyFor(cfg.board, false); this.boardId = cfg.board; }
+    this.variantId = this._variantFromCfg(cfg);
     if (cfg.module && this.catalog.modules[cfg.module]) this.moduleId = cfg.module;
     this.defaults = await loadDefaults(this.templateId, this.boardId);
     this.cfg = this.family === 'drive' || this.isCompiled ? this.vendor.validate(cfg, this.defaults, this.board).cfg : this.isNet ? netValidate(cfg, this.defaults, { ...this.board, radios: this.hardware?.radios }).cfg : mergeAndValidate(cfg, this.defaults, this.board).cfg;
@@ -326,7 +363,7 @@ export const app = {
     this.console.setEnabled((kind !== 'demo' && !this.usesDrive) || !!this.sideConsole);
     if (this.usesDrive) { this.setStatus(`${kind === 'demo' ? 'Demo · ' : ''}${this.board.name} · drive "${this.info.driveName || ''}"`, kind === 'demo' ? 'demo' : 'ok'); await this.readDrive(); this.changed('connect'); return; }
     this.setStatus(`${kind === 'demo' ? 'Demo · ' : ''}${this.info.boardId} · uid ${this.info.uid.slice(-6)}${this.info.foxlibVersion ? ' · foxlib ' + this.info.foxlibVersion : ' · no fox firmware'}`, kind === 'demo' ? 'demo' : 'ok');
-    { const t = this.targetForBoardId(this.info.boardId); if (t && t !== this.boardId) await this.setBoard(t); }
+    { const r = this.resolveBoardId(this.info.boardId); if (r && (r.target !== this.boardId || (r.variant && r.variant !== this.variantId))) await this.setBoard(r.target, { variant: r.variant }); if (r?.variant && this.board.circuitpython?.shared_build) this.console.dim(`${this.info.boardId} is a build shared by ${this.variants.map(v => v.variantName).join(' and ')}: keeping ${this.board.variantName || this.board.name} as the board`); }
     try { await this.readBoard(); }
     catch (e) { this.console.err(`connected, but reading the board failed: ${e.message || e} — Re-read board on the Board tab retries`); }
     this.changed('connect');
@@ -345,14 +382,14 @@ export const app = {
     return true;
   },
   async _followBanner(b) {
-    const target = this.targetForBoardId(b.board);
-    if (!this.device?.listening || !b.board || !target || target === this.boardId || this.catalog.boards[target].status === 'planned') return;
+    const res = this.resolveBoardId(b.board), target = res?.target;
+    if (!this.device?.listening || !b.board || !target || (target === this.boardId && (!res.variant || res.variant === this.variantId)) || this.catalog.boards[target].status === 'planned') return;
     const wasFamily = this.family;
     // W6: following the banner rewrites the working form (board, maybe template and config); keep what was there
     const before = { cfg: structuredClone(this.cfg), boardId: this.boardId, templateId: this.templateId, moduleId: this.moduleId };
     this.undoFollow = async () => { this.undoFollow = null; await this.loadCfg({ ...before.cfg, board: before.boardId, template: before.templateId, module: before.moduleId }, { source: 'undo' }); this.console.line(`form restored to ${before.boardId} / ${before.templateId}`, 'ok'); };
     this.console.dim(`banner says ${b.board}: selecting ${target === b.board ? 'that board' : `the ${this.catalog.boards[target].name} (it runs that CircuitPython build)`} (the form you had is kept: window.foxbench.undoFollow() in the browser console brings it back)`);
-    await this.setBoard(target, { keepDevice: true });
+    await this.setBoard(target, { keepDevice: true, variant: res.variant });
     if (!this.device) return;                       // dropped meanwhile (deep sleep, a reset): nothing to swap
     const wantConsole = this.family === 'foxlib-c';
     if (await this._swapListenDevice(wantConsole) && wasFamily !== this.family) this.changed('connect');
@@ -529,7 +566,7 @@ async function boot() {
   let restoredOk = false;
   if (restored?.cfg && Object.hasOwn(app.catalog.templates, restored.templateId) && Object.hasOwn(app.catalog.boards, restored.boardId) && app.catalog.boards[restored.boardId].status !== 'planned') {
     try {
-      app.templateId = restored.templateId; app.boardId = restored.boardId;
+      app.templateId = restored.templateId; app.boardId = restored.boardId; app.variantId = app._variantFromCfg(restored.cfg);
       if (restored.moduleId && Object.hasOwn(app.catalog.modules, restored.moduleId)) app.moduleId = restored.moduleId;
       if (restored.region && Object.hasOwn(app.catalog.bands || {}, restored.region)) app.region = restored.region;
       if (app.board.module_fixed) app.moduleId = app.board.module_fixed;

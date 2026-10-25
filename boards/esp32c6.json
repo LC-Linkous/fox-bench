@@ -1,0 +1,14 @@
+{
+  "id": "esp32c6",
+  "name": "ESP32-C6",
+  "hardware": "seeed_xiao_esp32c6",
+  "variants": [
+    "seeed_xiao_esp32c6"
+  ],
+  "family": "foxlib",
+  "status": "experimental",
+  "firmware": {
+    "kind": "circuitpython+foxlib",
+    "note": "CircuitPython on the board, fox-bench's foxlib and a network-fox template (Wi-Fi beacon, Wi-Fi probe, BLE beacon) deployed over the REPL. The SoC's own radio: no module. The board variant sets the CircuitPython build and the LED / battery pins; a connected board's reported id picks it. Not yet on the bench."
+  }
+}

@@ -1,7 +1,12 @@
 {
   "schema": 1,
   "template": "wifi-beacon",
-  "board": "seeed_xiao_esp32c6",
+  "board": "esp32c5",
+  "variant": "seeed_xiao_esp32c5",
+  "pins": {
+    "led": "IO27",
+    "batt_sense": null
+  },
   "net": {
     "kind": "wifi-ap",
     "ssid": "FOXBENCH WiFi Beacon",

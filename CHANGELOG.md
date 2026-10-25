@@ -14,6 +14,44 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.9.0 · foxlib 1.2.0 · foxlib-c 0.1.10
+
+**The board picker regrouped around what a fox is**, not its firmware
+family, and the bare boards listed by chip:
+
+- **CircuitPython board + radio module** — the combinations, config after
+  selection (the XIAO ESP32-C3 + SA868, as before; it no longer offers the
+  network templates).
+- **Drive-configured fox** — both PicoFox lines, vendor firmware first,
+  fox-bench firmware second (the "native firmware (UF2)" group is gone).
+- **CircuitPython board** — bare boards whose own Wi-Fi / BLE is the
+  transmitter, **by chip**: `esp32c3`, `esp32c6`, `esp32c5`, `esp32s3`,
+  `nrf52840`. Each chip target lists its physical boards as **variants**
+  (XIAO C3; XIAO C6; XIAO C5 + FireBeetle 2 C5; XIAO S3 + Waveshare
+  S3-Nano; Nano 33 BLE / Rev2). The Radio tab's wiring card — same shape as
+  the FM family's — shows a **Board** dropdown when a chip has more than
+  one, and the two pins a network fox uses (`led`, `batt_sense`) with the
+  variant's defaults, editable, with reset. The variant sets the
+  CircuitPython build to flash; a connected board's reported id picks it,
+  and two variants sharing one build (the two C5s run the DevKitC-1 build)
+  keep whichever is selected, with a console line. New hardware: Seeed
+  XIAO ESP32S3 (own build). The 0.8.x per-board targets fold into the chip
+  targets (unreleased, so no migration).
+- **Compiled-in configuration (kitsune)** — unchanged, by board. The
+  FireBeetle 2 ESP32-C5 kitsune stand-in is removed: the XIAO ESP32C5 is on
+  the bench and is the board kitsune builds for.
+- `fox.json` (`net` contract): `board` is the chip target, new `variant`
+  and `pins` (`led`, `batt_sense`; CONFIG.md); the firmware takes the LED
+  from `pins.led` (null = no LED, as on the bare XIAO C3) and reports a
+  name the board lacks as `partial(pins.led)`. foxlib 1.2.0. Simulator:
+  LED edges checked per variant; per-chip defaults; `check_catalog`: chip
+  targets, variants, one radio set per chip, shared builds only within a
+  chip when both declare `shared_build`, net defaults' pins match the
+  default variant. `tools/hw_smoke.py --board <chip> --variant <hardware>`.
+- `docs/network-fox-bench.md`: the per-board bench list; hardware-log table
+  of the seven boards and the build each runs; `docs/adding-a-target.md`
+  on combos vs chips vs variants.
+
 ### Page 0.8.2 · foxlib 1.1.1 · foxlib-c 0.1.10
 
 - Board picker: the module-less Wi-Fi / BLE boards (XIAO ESP32-C6,

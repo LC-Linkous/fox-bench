@@ -20,10 +20,12 @@ export class DemoDevice extends Device {
     this.uid = Array.from({ length: 8 }, () => Math.floor(Math.random() * 256).toString(16).padStart(2, '0')).join('');
     this.battV = 3.92;
   }
+  /** What board.board_id reports on the simulated board: the CircuitPython build's id (a chip target's variant may run a sibling's build). */
+  cpBoardId() { return this.board?.circuitpython?.board_id || this.board?.id || 'seeed_xiao_esp32c3'; }
   async connect() {
-    await sleep(250); this.log('demo board: CircuitPython 10.x on XIAO ESP32-C3 (simulated)', 'dim');
+    await sleep(250); this.log(`demo board: CircuitPython 10.x on ${this.board?.variantName || this.board?.name || 'XIAO ESP32-C3'} (simulated)`, 'dim');
     const v = this.fs.get('foxlib/VERSION');
-    return { boardId: this.board?.id || 'seeed_xiao_esp32c3', uid: this.uid, foxlibVersion: v ? this.dec.decode(v).trim() : '', cpVersion: '10.0.0-demo', files: await this.list('') };
+    return { boardId: this.cpBoardId(), uid: this.uid, foxlibVersion: v ? this.dec.decode(v).trim() : '', cpVersion: '10.0.0-demo', files: await this.list('') };
   }
   async list(path = '') {
     const out = {}; const pre = path ? path + '/' : '';
@@ -62,7 +64,7 @@ export class DemoDevice extends Device {
       const fl = this.dec.decode(this.fs.get('foxlib/VERSION') || this.enc.encode('?')).trim();
       const idSet = !cfg.id.callmessage.includes('N0CALL'), name = cfg.id.use_callsign_as_name ? cfg.id.callmessage : (cfg.net.ssid ?? cfg.net.name ?? '');
       const radio = cfgStatus?.startsWith('fatal') ? 'skipped' : cfg.net.kind === 'wifi-ap' && cfg.net.hidden ? 'ok(hidden_unsupported)' : 'ok';
-      lines.push(`FOX template=${template}/${this._tmplVersion()} foxlib=${fl} board=${this.board?.id || 'seeed_xiao_esp32c3'} uid=${this.uid} cfg=${cfgStatus} radio=${radio} id=${idSet ? 'set' : 'unset'} freq=none net=${cfg.net.kind} name="${name}" mac=${cfg.net.mac}`);
+      lines.push(`FOX template=${template}/${this._tmplVersion()} foxlib=${fl} board=${this.cpBoardId()} uid=${this.uid} cfg=${cfgStatus} radio=${radio} id=${idSet ? 'set' : 'unset'} freq=none net=${cfg.net.kind} name="${name}" mac=${cfg.net.mac}`);
       if (radio.startsWith('ok(hidden')) lines.push('  note: this firmware cannot hide the SSID; it is broadcast');
       lines.push('cycle 0', `${cfg.net.kind} up: ${name} (${cfg.net.mac}) for ${cfg.schedule.wake_s} s`);
       this.lastCfg = cfg; this.lastRadio = radio;
@@ -72,7 +74,7 @@ export class DemoDevice extends Device {
     const radio = cfgStatus?.startsWith('fatal') ? 'skipped' : freqs.length ? 'ok' : 'err(DMOSETGROUP:1)';
     const idSet = cfg && !cfg.id.callmessage.includes(cfg.id.placeholder);
     const fl = this.dec.decode(this.fs.get('foxlib/VERSION') || this.enc.encode('?')).trim();
-    lines.push(`FOX template=${template}/${this._tmplVersion()} foxlib=${fl} board=${this.board?.id || 'seeed_xiao_esp32c3'} uid=${this.uid} cfg=${cfgStatus} radio=${radio} id=${idSet ? 'set' : 'unset'} freq=${freqs.join(',') || 'none'}`);
+    lines.push(`FOX template=${template}/${this._tmplVersion()} foxlib=${fl} board=${this.cpBoardId()} uid=${this.uid} cfg=${cfgStatus} radio=${radio} id=${idSet ? 'set' : 'unset'} freq=${freqs.join(',') || 'none'}`);
     if (!idSet) lines.push('** callsign not set: staying silent (id.tx_without_callsign=false) **');
     if (cfg?.pins?.batt_sense) lines.push(`battery: ${this.battV.toFixed(2)} V`);
     this.lastCfg = cfg; this.lastRadio = radio;

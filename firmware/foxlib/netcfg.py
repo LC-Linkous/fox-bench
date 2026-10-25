@@ -3,7 +3,8 @@
 # own radio, no pins, no audio. Same shape of result as cfg.validate(): (cfg, Report) with the same status words, so
 # the banner, the page and the parity tests treat both contracts alike. The JS twin is js/model/netschema.js.
 #
-#   { "schema": 1, "template": "wifi-beacon", "board": "...",
+#   { "schema": 1, "template": "wifi-beacon", "board": "<chip target>", "variant": "<board>",
+#     "pins": { "led": "LED" | null, "batt_sense": null },        the board variant's pins (names in dir(board))
 #     "net": { "kind": "wifi-ap", "ssid": "...", "psk": "...", "mac": "F2:..", "channel": 1, "hidden": false,
 #              "tx_power_dbm": 17, "max_clients": 1 }                       (wifi-ap)
 #     "net": { "kind": "wifi-probe", "ssid": "...", "mac": "F2:..", "tx_power_dbm": 17 }   (wifi-probe)
@@ -22,6 +23,7 @@ BLE_POWER_DBM = (-12, -9, -6, -3, 0, 3, 6, 9)
 MAX_NAME = 32         # Wi-Fi SSID and BLE name: 32 bytes
 MAX_PSK = 63
 PLACEHOLDER = "N0CALL"
+NET_PINS = ("led", "batt_sense")      # optional, both: a network fox has no module to wire
 
 
 def parse_mac(s, n=6):
@@ -44,8 +46,9 @@ def _blen(s):
     return len(s.encode("utf-8"))
 
 
-def validate(user, defaults, board_id=None, radios=None):
-    """Returns (cfg, report). radios: what the hardware has ("wifi24", "wifi5", "ble", ...) or None = don't check."""
+def validate(user, defaults, board_id=None, radios=None, board_names=None):
+    """Returns (cfg, report). radios: what the hardware has ("wifi24", "wifi5", "ble", ...) or None = don't check.
+    board_names: names the board module exposes (dir(board)) for the pins section, or None = don't check names."""
     cfg = _copy(defaults)
     rep = Report()
     u = _intify(user) if isinstance(user, dict) else {}
@@ -61,6 +64,25 @@ def validate(user, defaults, board_id=None, radios=None):
     if "board" in u and board_id and u["board"] != board_id and u["board"] != defaults.get("board"):
         rep.mode = "default(board)"
         return cfg, rep
+
+    # ---- variant (which physical board of this chip; recorded, shown in the fleet log) and its pins
+    if "variant" in u:
+        if isinstance(u["variant"], str) and 1 <= len(u["variant"]) <= 40:
+            cfg["variant"] = u["variant"]
+        else:
+            rep.bad("variant", "string")
+    pins = u.get("pins") if isinstance(u.get("pins"), dict) else {}
+    for role in NET_PINS:
+        if role not in pins:
+            continue
+        v = pins[role]
+        if v is None or (isinstance(v, str) and (board_names is None or v in board_names)):
+            cfg.setdefault("pins", {})[role] = v
+        else:
+            rep.bad("pins." + role, "no pin %s on this board" % v if isinstance(v, str) else "name or null")
+    for k in pins:
+        if k not in NET_PINS:
+            rep.bad("pins." + k, "unknown role")
 
     # ---- net
     n = u.get("net") if isinstance(u.get("net"), dict) else {}
@@ -206,7 +228,7 @@ def display_name(cfg):
     return cfg["net"].get("ssid") or cfg["net"].get("name") or ""
 
 
-def load(path, defaults_path, board_id=None, radios=None):
+def load(path, defaults_path, board_id=None, radios=None, board_names=None):
     rep = Report()
     try:
         with open(defaults_path) as f:
@@ -225,4 +247,4 @@ def load(path, defaults_path, board_id=None, radios=None):
     except ValueError:
         rep.mode = "default(parse)"
         return _copy(defaults), rep
-    return validate(user, defaults, board_id, radios)
+    return validate(user, defaults, board_id, radios, board_names)

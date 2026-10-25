@@ -61,22 +61,24 @@ pin-compatible, RGB LED included).
    This row is evidence for the **Waveshare** target only; the Arduino Nano
    ESP32 target stays experimental until a real one is on the bench.
 
-## DFRobot FireBeetle 2 ESP32-C5 (target `dfrobot_firebeetle2_esp32c5-kitsune`)
+## Seeed XIAO ESP32C5 (target `seeed_xiao_esp32c5-kitsune`)
 
-Flashes kitsune's **XIAO ESP32C5** build (same chip and module class). The
-FireBeetle's LED is on GPIO 15; the build drives GPIO 27, so **no status
-colours on this board** — expected, not a fault.
+The board kitsune's `xiao-esp32c5` environments are written for — its LED
+(GPIO 27) is the one the build drives, so status colours should work.
+(Until 2026-10-24 a FireBeetle 2 ESP32-C5 stood in for this board; that
+target is gone. The FireBeetle remains in the catalog as a network-fox
+variant of the ESP32-C5 chip target.)
 
-1. Hold **BOOT** (GPIO 28), plug in, release (or hold BOOT, tap RST).
+1. Hold **BOOT**, plug in, release (or hold BOOT, tap RST).
 2. Target, **Wi-Fi access point**, **Get easy wifi-ap**
    (`seeed-xiao-esp32c5-easy-ap.bin`), **Flash**. Expect `Chip is
    ESP32-C5`. This is also the test of the C5's `0x2000` bootloader offset:
    the merged image is written at `0x0` with the bootloader inside it at
    0x2000; if the board does not boot afterwards (no serial at all after
-   the reset, no SSID), the offset in `hardware/dfrobot_firebeetle2_esp32c5.json`
-   (and the XIAO's) is wrong — record exactly that.
+   the reset, no SSID), the offset in `hardware/seeed_xiao_esp32c5.json`
+   is wrong — record exactly that.
 3. Listen only: the ROM banner `ESP-ROM:esp32c5-eco2-…` then kitsune's
-   lines. Phone: **FOXBENCH WiFi AP Easy**.
+   lines. Phone: **FOXBENCH WiFi AP Easy**. LED as kitsune's state colours.
 4. **5 GHz**: `seeed-xiao-esp32c5-fiveeasy-ap.bin` → **FOXBENCH WiFi 5GHz
    AP Easy** on channel 36 — a 5 GHz-capable phone sees it, a 2.4-only one
    does not. Then `fivehard` (channel 149, hidden).
@@ -84,9 +86,8 @@ colours on this board** — expected, not a fault.
    the coordinator forming a network on channel 15. Seeing it over the air
    needs a sniffer or the C6 (below); without one, "boots, sleeps, wakes" is
    the result.
-6. Hardware-log row as above, for the **FireBeetle** target. The 5 GHz and
-   Zigbee templates get `boards_tested: dfrobot_firebeetle2_esp32c5-kitsune`
-   once seen on air.
+6. Hardware-log row as above. The 5 GHz and Zigbee templates get
+   `boards_tested: seeed_xiao_esp32c5-kitsune` once seen on air.
 
 ## Seeed XIAO ESP32C6 (target `seeed_xiao_esp32c6-kitsune`)
 
@@ -121,5 +122,5 @@ Not for the first session.
   terminal to separate the page from the image.
 - Serial ok, no SSID → the configuration (the bench header); report the
   serial lines.
-- SSID ok, LED wrong → expected on the FireBeetle and the C6; a finding on
-  the S3-Nano.
+- SSID ok, LED wrong → expected on the C6; a finding on the XIAO C5 and the
+  S3-Nano.

@@ -5,8 +5,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { validate, checks, cycle, displayName, parseMac, randomMac } from '../../js/model/netschema.js';
 
-const defaults = t => JSON.parse(readFileSync(new URL(`../../firmware/templates/${t}/defaults/seeed_xiao_esp32c3.json`, import.meta.url)));
-const C3 = { id: 'seeed_xiao_esp32c3', name: 'XIAO C3', radios: ['wifi24', 'ble'] };
+const defaults = t => JSON.parse(readFileSync(new URL(`../../firmware/templates/${t}/defaults/esp32c3.json`, import.meta.url)));
+const C3 = { id: 'esp32c3', name: 'ESP32-C3', radios: ['wifi24', 'ble'], pins: [{ name: 'D0' }, { name: 'D10' }] };
 
 test('defaults validate clean for all three templates', () => {
   for (const t of ['wifi-beacon', 'wifi-probe', 'ble-beacon']) { const r = validate({}, defaults(t), C3); assert.equal(r.status, 'ok', t); assert.equal(r.cfg.template, t); }

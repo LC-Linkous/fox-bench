@@ -8,7 +8,7 @@
   "contract": "net",
   "status": "experimental",
   "description": "A station that keeps probing for a network that does not exist: the probe requests carry the SSID and the spoofed MAC, which a hunter's sniffer sees. Never joins anything. The SoC's own radio.",
-  "foxlib": ">=1.1.0 <2.0.0",
+  "foxlib": ">=1.2.0 <2.0.0",
   "radios": [
     "wifi24"
   ],

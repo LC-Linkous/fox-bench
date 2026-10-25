@@ -157,7 +157,8 @@ def pick_port(explicit):
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0], formatter_class=argparse.RawDescriptionHelpFormatter, epilog=__doc__)
     ap.add_argument("--port")
-    ap.add_argument("--board", default="seeed_xiao_esp32c3")
+    ap.add_argument("--board", default="seeed_xiao_esp32c3", help="target id: the defaults file to use (seeed_xiao_esp32c3 for the C3 + SA868; esp32c3, esp32c6, esp32c5, esp32s3, nrf52840 for the bare boards)")
+    ap.add_argument("--variant", help="network foxes: the physical board (hardware id, e.g. dfrobot_firebeetle2_esp32c5) when the chip target has several; sets fox.json variant and its LED pin")
     ap.add_argument("--templates", default="all", help="comma list or all")
     ap.add_argument("--call", default="N0CALL DECOY DECOY N0CALL", help="callmessage; with the placeholder the fox stays silent (id=unset)")
     ap.add_argument("--freq", type=float, help="frequency in MHz (default: the template default)")
@@ -217,6 +218,11 @@ def main():
             fox["id"]["callmessage"] = a.call
             if net:
                 fox["id"]["use_callsign_as_name"] = True        # what a hunter's phone shows is the callsign
+                if a.variant:
+                    vhw = json.load(open(os.path.join(ROOT, "hardware", a.variant + ".json")))
+                    nr = vhw.get("net") or vhw.get("roles") or {}
+                    fox["variant"] = a.variant
+                    fox["pins"] = {"led": nr.get("led"), "batt_sense": nr.get("batt_sense")}
             if a.module and not net:
                 mod = json.load(open(os.path.join(ROOT, "modules", a.module + ".json")))
                 fox["module"] = mod["id"]

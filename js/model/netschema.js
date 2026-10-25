@@ -10,6 +10,7 @@ export const WIFI5_CHANNELS = [36, 40, 44, 48, 149, 153, 157, 161, 165];
 export const WIFI_POWER_DBM = [2, 5, 7, 8.5, 11, 13, 15, 17, 18.5, 19, 19.5];
 export const BLE_POWER_DBM = [-12, -9, -6, -3, 0, 3, 6, 9];
 export const MAX_NAME = 32, MAX_PSK = 63, PLACEHOLDER = 'N0CALL';
+export const NET_PINS = ['led', 'batt_sense'];   // optional, both: a network fox has no module to wire
 export { randomMac };
 
 const isInt = v => Number.isInteger(v);
@@ -36,6 +37,18 @@ export function validate(user, defaults, board) {
   if (u.schema !== undefined && u.schema !== SCHEMA) return { cfg, report: [{ key: 'schema', reason: `schema ${u.schema} not supported` }], fatal: null, status: 'default(schema)' };
   if (u.template !== undefined && u.template !== defaults.template) return { cfg, report: [{ key: 'template', reason: 'does not match firmware' }], fatal: null, status: 'default(template)' };
   if (u.board !== undefined && board && u.board !== board.id && u.board !== defaults.board) return { cfg, report: [{ key: 'board', reason: 'config is for another board' }], fatal: null, status: 'default(board)' };
+
+  // variant (which physical board of this chip) and its pins: names the board module exposes, or null
+  if ('variant' in u) { if (typeof u.variant === 'string' && u.variant.length >= 1 && u.variant.length <= 40) cfg.variant = u.variant; else bad('variant', 'string'); }
+  const names = board?.pins ? new Set(board.pins.flatMap(p => [p.name, ...(p.aliases || [])])) : null;
+  const pins = u.pins && typeof u.pins === 'object' ? u.pins : {};
+  for (const role of NET_PINS) {
+    if (!(role in pins)) continue;
+    const v = pins[role];
+    if (v === null || (typeof v === 'string' && (!names || names.has(v)))) (cfg.pins ??= {})[role] = v;
+    else bad('pins.' + role, typeof v === 'string' ? `no pin ${v} on this board` : 'name or null');
+  }
+  for (const k of Object.keys(pins)) if (!NET_PINS.includes(k)) bad('pins.' + k, 'unknown role');
 
   const n = u.net && typeof u.net === 'object' ? u.net : {};
   const kind = cfg.net.kind;

@@ -1,7 +1,12 @@
 {
   "schema": 1,
   "template": "ble-beacon",
-  "board": "dfrobot_firebeetle2_esp32c5",
+  "board": "esp32c3",
+  "variant": "seeed_xiao_esp32c3",
+  "pins": {
+    "led": null,
+    "batt_sense": null
+  },
   "net": {
     "kind": "ble",
     "name": "FOXBENCH Beacon",

@@ -9,5 +9,6 @@
   "dfrobot_firebeetle2_esp32c5",
   "waveshare_esp32s3_nano",
   "seeed_xiao_esp32c6",
-  "arduino_nano_33_ble"
+  "arduino_nano_33_ble",
+  "seeed_xiao_esp32s3"
 ]

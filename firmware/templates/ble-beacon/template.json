@@ -8,7 +8,7 @@
   "contract": "net",
   "status": "experimental",
   "description": "An iBeacon advertisement \u2014 UUID, major, minor, measured power \u2014 with a name (or the callsign), on a duty cycle. Any BLE scanner app sees it. The SoC's own radio; also the nRF52 boards.",
-  "foxlib": ">=1.1.0 <2.0.0",
+  "foxlib": ">=1.2.0 <2.0.0",
   "radios": [
     "ble"
   ],

@@ -48,7 +48,10 @@
       "note": "orange user LED"
     }
   ],
-  "roles": {},
+  "roles": {
+    "led": "LED",
+    "batt_sense": null
+  },
   "battery": {
     "charger": false,
     "divider_note": "no battery circuit; 5 V USB or VIN"

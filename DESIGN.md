@@ -131,7 +131,7 @@ tools/
   batch_flash.py                      headless batch flasher (same CSV as the Fleet tab)
   hw_smoke.py                         bench script against a real (or pty-simulated) board
 tests/                                unit (node:test) and page smoke (Playwright), see tests/README.md
-docs/                                 first-hardware-session, hardware-log, adding-a-target, picofox hardware/notes, releasing, project audit, kitsune plan
+docs/                                 first-hardware-session, hardware-log, adding-a-target, network-fox-bench, picofox hardware/notes, releasing, project audit, kitsune plan
 CONFIG.md                             fox.json schema — the contract
 PROTOCOL.md                           REPL exchange byte by byte; the foxlib-c console
 LICENSES.md                           which licence covers what
@@ -191,13 +191,27 @@ for vendor-firmware designs the quirks their firmware has. **`boards/<id>.json`*
 is a *target*: one hardware entry plus one firmware and therefore one
 family — `foxlib` (CircuitPython + our foxlib), `drive` (the vendor's
 firmware, configured by files on its USB drive) or `foxlib-c` (our native
-firmware as a UF2). The Board tab lists targets, grouped by family, with
-the firmware named in the tag: "AI6YM PicoFox (vendor firmware)" and
-"AI6YM PicoFox (fox-bench firmware)" share `hardware/picofox.json`. A
-target with `"status": "planned"` is listed greyed out. The loader merges
-hardware under target, so the page reads one object. Templates list the
-families they apply to; the lint requires defaults for every target of
-those families.
+firmware as a UF2). The Board tab lists targets in four groups that follow
+what the fox *is* and how it is configured rather than the firmware family:
+**CircuitPython board + radio module** (one board wired to one module: the
+XIAO ESP32-C3 + SA868; config after selection, the wiring hidden in the
+Radio tab), **Drive-configured fox** (the PicoFox, vendor firmware first,
+fox-bench firmware second — two families, one drive), **CircuitPython
+board** (a bare board whose own Wi-Fi / BLE is the transmitter, listed *by
+chip*: `boards/esp32c5.json` carries `variants`, the physical boards of that
+chip, chosen on the Radio tab's wiring card — the choice sets the LED /
+battery pins and the CircuitPython build, and a connected board's reported
+id picks it; two variants may share a build when both say so), and
+**Compiled-in configuration** (kitsune, by board). "AI6YM PicoFox (vendor
+firmware)" and "AI6YM PicoFox (fox-bench firmware)" share
+`hardware/picofox.json`; the XIAO ESP32-C3 is both the combo target and a
+variant of the `esp32c3` chip target. A target with `"status": "planned"`
+is listed greyed out. The loader merges hardware under target (for a chip
+target, the selected variant's), so the page reads one object. Templates
+list the families they apply to, and the two foxlib contracts do not mix:
+`contract: net` templates run on chip targets, the FM templates on
+board + module targets; the lint requires defaults for every target a
+template fits.
 
 The example below shows the merged shape for the XIAO (hardware fields and
 target fields together).
@@ -511,7 +525,7 @@ bench. A *device family* is the unit that varies:
 
 | | foxlib | drive | foxlib-c | compiled |
 |---|---|---|---|---|
-| example | XIAO ESP32-C3 + SA868; the same board, a XIAO ESP32-C6, a Waveshare ESP32-S3-Nano, a FireBeetle 2 ESP32-C5 or an Arduino Nano 33 BLE with no module as a **network fox** (`net` contract) | AI6YM PicoFox with its vendor firmware | AI6YM PicoFox with fox-bench firmware | RFHS kitsune foxes on M5Stack Atom / S3 boards, Nano ESP32, XIAO ESP32C5 |
+| example | XIAO ESP32-C3 + SA868; the chip targets ESP32-C3 / -C6 / -C5 / -S3 / nRF52840 (XIAO C3, C6, C5, S3; Waveshare S3-Nano; FireBeetle 2 C5; Nano 33 BLE) with no module as **network foxes** (`net` contract) | AI6YM PicoFox with its vendor firmware | AI6YM PicoFox with fox-bench firmware | RFHS kitsune foxes on M5Stack Atom / S3 boards, Nano ESP32, XIAO ESP32C5 |
 | firmware | ours (CircuitPython + foxlib), deployed by the page | the vendor's, left alone (CC BY-NC-SA; not in this repo) | ours (C, Pico SDK, `firmware/foxlib-c/`), flashed as a UF2 from the Board tab | theirs (PlatformIO/Arduino, `github.com/rfhs/kitsune`; not in this repo), configuration compiled in from a conference header |
 | transport | `repl-device.js` (raw REPL) | `drive-device.js` (File System Access API on the USB drive) | `drive-device.js` for the files; the serial console for banner, log and bench | none yet: the page exports the header block; Listen only reads their boot lines (`docs/kitsune-integration-plan.md` for the next stages) |
 | config contract | `CONFIG.md` → `fox.json` | the vendor's files, modelled in `js/model/vendor/<id>.js` | `CONFIG.md` → `fox.json`, no `pins`, `si5351fm` radio keys | `CONFIG.md` "compiled family": `challenge`, `wifi`/`ble`/`bt`/`zigbee`, `schedule.duty` |

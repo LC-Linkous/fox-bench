@@ -30,22 +30,39 @@
   ],
   "pins": [
     {
-      "name": "LED_R",
+      "name": "LED",
+      "gpio": 48,
+      "note": "the Nano ESP32 build's board.LED (orange builtin, GPIO48) — the S3-Nano has this LED as well; to verify"
+    },
+    {
+      "name": "LED_RED",
       "gpio": 46,
-      "note": "red"
+      "aliases": [
+        "LED_R"
+      ],
+      "note": "RGB red (active low)"
     },
     {
-      "name": "LED_G",
+      "name": "LED_GREEN",
       "gpio": 0,
-      "note": "green"
+      "aliases": [
+        "LED_G"
+      ],
+      "note": "RGB green (active low)"
     },
     {
-      "name": "LED_B",
+      "name": "LED_BLUE",
       "gpio": 45,
-      "note": "blue"
+      "aliases": [
+        "LED_B"
+      ],
+      "note": "RGB blue (active low)"
     }
   ],
-  "roles": {},
+  "roles": {
+    "led": "LED",
+    "batt_sense": null
+  },
   "led": {
     "kind": "rgb_pins",
     "pins": {

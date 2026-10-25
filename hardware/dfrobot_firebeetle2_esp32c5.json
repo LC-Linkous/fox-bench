@@ -32,17 +32,26 @@
   ],
   "pins": [
     {
-      "name": "D13",
+      "name": "IO15",
       "gpio": 15,
-      "note": "onboard LED (not kitsune's DATA_PIN 27: the XIAO build drives GPIO27, so the status LED does not light on this board)"
+      "aliases": [
+        "D13"
+      ],
+      "note": "onboard LED; IO15 in the DevKitC-1 CircuitPython build's pin names (kitsune's XIAO build drives GPIO27 instead, so no status LED under kitsune)"
     },
     {
-      "name": "BOOT",
+      "name": "IO28",
       "gpio": 28,
+      "aliases": [
+        "BOOT"
+      ],
       "note": "BOOT button"
     }
   ],
-  "roles": {},
+  "roles": {
+    "led": "IO15",
+    "batt_sense": null
+  },
   "led": {
     "kind": "single",
     "pin": 15,
@@ -68,9 +77,10 @@
     "board_id": "espressif_esp32c5_devkitc_1_n8r8",
     "download": "https://circuitpython.org/board/espressif_esp32c5_devkitc_1_n8r8/",
     "latest_known": "10.3.1",
-    "note": "CircuitPython has no FireBeetle 2 ESP32-C5 build (checked 2026-10-24); the Espressif ESP32-C5-DevKitC-1-N8R8 build is the same module class (ESP32-C5-WROOM-1 N8R8) and the board then reports itself as espressif_esp32c5_devkitc_1_n8r8; the page maps that id back to this target. GPIO numbers for the LED and button may differ from the DevKit — to verify on the board.",
+    "note": "CircuitPython has no FireBeetle 2 ESP32-C5 build (checked 2026-10-24); the ESP32-C5-DevKitC-1-N8R8 build is the same module class and runs here, reporting espressif_esp32c5_devkitc_1_n8r8 — the same id the XIAO ESP32C5 reports, so the page keeps whichever of the two is selected. Pin names are the DevKit's IOxx. To verify on the board.",
     "board_ids": [
       "espressif_esp32c5_devkitc_1_n8r8"
-    ]
+    ],
+    "shared_build": true
   }
 }

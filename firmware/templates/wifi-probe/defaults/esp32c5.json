@@ -1,18 +1,17 @@
 {
   "schema": 1,
-  "template": "ble-beacon",
-  "board": "waveshare_esp32s3_nano",
+  "template": "wifi-probe",
+  "board": "esp32c5",
+  "variant": "seeed_xiao_esp32c5",
+  "pins": {
+    "led": "IO27",
+    "batt_sense": null
+  },
   "net": {
-    "kind": "ble",
-    "name": "FOXBENCH Beacon",
-    "uuid": "F0B0F0B0-0000-4000-8000-000000000001",
-    "major": 1,
-    "minor": 1,
-    "signal_power_dbm": -59,
-    "adv_min": 100,
-    "adv_max": 100,
-    "tx_power_dbm": 0,
-    "mac": "F2:B0:00:00:00:07"
+    "kind": "wifi-probe",
+    "ssid": "FOXBENCH WiFi Probe",
+    "mac": "F2:B0:00:00:00:05",
+    "tx_power_dbm": 17
   },
   "id": {
     "callmessage": "N0CALL DECOY DECOY N0CALL",

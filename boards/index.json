@@ -7,11 +7,11 @@
   "m5stack_stamps3-kitsune",
   "arduino_nano_esp32-kitsune",
   "seeed_xiao_esp32c5-kitsune",
-  "dfrobot_firebeetle2_esp32c5-kitsune",
   "waveshare_esp32s3_nano-kitsune",
   "seeed_xiao_esp32c6-kitsune",
-  "seeed_xiao_esp32c6",
-  "waveshare_esp32s3_nano",
-  "dfrobot_firebeetle2_esp32c5",
-  "arduino_nano_33_ble"
+  "esp32c3",
+  "esp32c6",
+  "esp32c5",
+  "esp32s3",
+  "nrf52840"
 ]

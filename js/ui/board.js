@@ -9,7 +9,11 @@ import { flashCard, onChange as onFlashChange } from './flash.js';
 let app, root;
 export function init(a, el) { app = a; root = el; app.listeners.add(render); onFlashChange(render); render(); }
 
-const FAMILY_LABEL = { foxlib: 'CircuitPython board + radio module', 'foxlib-net': 'CircuitPython board (Wi-Fi / BLE fox, no module)', drive: 'Drive-configured fox (vendor firmware)', 'foxlib-c': 'fox-bench native firmware (UF2)', compiled: 'Compiled-in configuration (kitsune)' };
+// The picker groups by what the fox is and how it is configured, not by firmware family: a board wired to a radio module;
+// a bare board whose own radio is the transmitter (listed by chip, the physical board chosen on the Radio tab); a fox
+// configured through its USB drive (the PicoFox, vendor firmware first, fox-bench firmware second); a compiled-in one.
+const GROUP_LABEL = { combo: 'CircuitPython board + radio module', chip: 'CircuitPython board', drive: 'Drive-configured fox', compiled: 'Compiled-in configuration (kitsune)' };
+const GROUP_ORDER = ['combo', 'drive', 'chip', 'compiled'];
 
 /** The board picker, grouped by family. This one choice drives every other tab. */
 function pickerCard() {
@@ -17,12 +21,14 @@ function pickerCard() {
   // Targets not yet verified on hardware (status experimental: the kitsune boards, until one is on the bench) stay out
   // of the list unless asked for — a release is what the hardware log vouches for. The selected target is always listed.
   const hidden = Object.values(app.catalog.boards).filter(b => b.status === 'experimental' && !app.showExperimental && b.id !== app.boardId);
-  // the foxlib family splits by what the board is: a module-less board runs only the network foxes (hardware roles empty)
-  const groupOf = b => { const fam = b.family || 'foxlib'; if (fam !== 'foxlib') return fam; const hw = app.catalog.hardware?.[b.hardware]; return hw && Object.keys(hw.roles || {}).length === 0 ? 'foxlib-net' : 'foxlib'; };
+  const groupOf = b => { const fam = b.family || 'foxlib'; return fam === 'foxlib' ? (b.variants ? 'chip' : 'combo') : fam === 'foxlib-c' ? 'drive' : fam; };
   for (const b of Object.values(app.catalog.boards)) if (!hidden.includes(b)) (groups[groupOf(b)] ??= []).push(b);
+  if (groups.drive) groups.drive.sort((a, b) => (a.family === 'drive' ? 0 : 1) - (b.family === 'drive' ? 0 : 1));   // vendor firmware first
+  if (groups.chip) groups.chip.sort((a, b) => a.name.localeCompare(b.name));
   const sel = h('select', { onchange: e => app.setBoard(e.target.value) });
-  for (const [fam, list] of Object.entries(groups)) {
-    const og = h('optgroup', { label: FAMILY_LABEL[fam] || fam });
+  for (const fam of [...GROUP_ORDER, ...Object.keys(groups).filter(g => !GROUP_ORDER.includes(g))]) {
+    const list = groups[fam]; if (!list) continue;
+    const og = h('optgroup', { label: GROUP_LABEL[fam] || fam });
     for (const b of list) { const o = h('option', { value: b.id }, b.name + (b.status === 'planned' ? ' — planned' : b.status === 'experimental' ? ' — experimental' : '') + (b._pack ? ` [${b._pack}]` : '')); if (b.id === app.boardId) o.selected = true; if (b.status === 'planned') o.disabled = true; og.appendChild(o); }
     sel.appendChild(og);
   }

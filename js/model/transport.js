@@ -20,7 +20,8 @@ export function deployBlocker({ device, board, onBoard }) {
   if (family === 'compiled') return 'kitsune foxes are not written from the page yet: the configuration is compiled into their firmware. Export the header on this tab.';
   if (!device) return 'not connected';
   if (!deployTransports(family).includes(device.transport)) return `the connected device is ${name(device.transport)}; ${board.name} is deployed over ${family === 'foxlib' ? 'the REPL' : 'its drive'}. Disconnect, then connect the ${board.name} the right way.`;
-  if (device.kind === 'demo' && device.board && device.board.id !== board.id) return `the demo board is a ${device.board.name}; start the demo again for ${board.name}.`;
+  // the demo simulates a physical board: the same XIAO C3 serves the C3 + SA868 combo and the bare ESP32-C3 chip target
+  if (device.kind === 'demo' && device.board && (device.board.hardware || device.board.id) !== (board.hardware || board.id)) return `the demo board is a ${device.board.variantName || device.board.name}; start the demo again for ${board.name}.`;
   if (onBoard?.listening) return 'Listen only: the board has not been identified. Connect (or Re-read board) first.';
   if (device.transport === 'drive' && device.looksRight === false && !device.confirmedFolder) return `"${device.handle?.name || 'the folder picked'}" has none of the files a ${board.name} drive carries (${(board.drive?.files || []).join(', ')}): it may be a folder on your computer. Confirm it is the fox's drive to write there.`;
   return null;

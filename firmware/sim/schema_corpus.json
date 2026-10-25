@@ -1486,13 +1486,13 @@
   {
    "name": "net-wifi-beacon-defaults",
    "template": "wifi-beacon",
-   "board": "seeed_xiao_esp32c3",
+   "board": "esp32c3",
    "user": {}
   },
   {
    "name": "net-wifi-beacon-good",
    "template": "wifi-beacon",
-   "board": "seeed_xiao_esp32c3",
+   "board": "esp32c3",
    "user": {
     "net": {
      "ssid": "KY4ZR FOX 1",
@@ -1516,7 +1516,7 @@
   {
    "name": "net-wifi-beacon-bad-everything",
    "template": "wifi-beacon",
-   "board": "seeed_xiao_esp32c3",
+   "board": "esp32c3",
    "user": {
     "net": {
      "ssid": "",
@@ -1547,7 +1547,7 @@
   {
    "name": "net-wifi-beacon-callsign-too-long-for-name",
    "template": "wifi-beacon",
-   "board": "seeed_xiao_esp32c3",
+   "board": "esp32c3",
    "user": {
     "id": {
      "callmessage": "KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK",
@@ -1558,7 +1558,7 @@
   {
    "name": "net-wifi-beacon-wrong-template",
    "template": "wifi-beacon",
-   "board": "seeed_xiao_esp32c3",
+   "board": "esp32c3",
    "user": {
     "template": "morse-songs"
    }
@@ -1566,7 +1566,7 @@
   {
    "name": "net-wifi-probe-good",
    "template": "wifi-probe",
-   "board": "seeed_xiao_esp32c3",
+   "board": "esp32c3",
    "user": {
     "net": {
      "ssid": "Hunters Guest",
@@ -1577,7 +1577,7 @@
   {
    "name": "net-wifi-probe-ap-fields-unknown",
    "template": "wifi-probe",
-   "board": "seeed_xiao_esp32c3",
+   "board": "esp32c3",
    "user": {
     "net": {
      "channel": 6,
@@ -1588,7 +1588,7 @@
   {
    "name": "net-ble-beacon-good",
    "template": "ble-beacon",
-   "board": "seeed_xiao_esp32c3",
+   "board": "esp32c3",
    "user": {
     "net": {
      "name": "KY4ZR beacon",
@@ -1605,7 +1605,7 @@
   {
    "name": "net-ble-beacon-bad",
    "template": "ble-beacon",
-   "board": "seeed_xiao_esp32c3",
+   "board": "esp32c3",
    "user": {
     "net": {
      "uuid": "nope",
@@ -1615,6 +1615,63 @@
      "adv_min": 500,
      "adv_max": 100,
      "tx_power_dbm": 4
+    }
+   }
+  },
+  {
+   "name": "net-pins-good@esp32c6",
+   "template": "wifi-beacon",
+   "board": "esp32c6",
+   "user": {
+    "variant": "seeed_xiao_esp32c6",
+    "pins": {
+     "led": "LED",
+     "batt_sense": null
+    },
+    "id": {
+     "callmessage": "W1ABC FOX"
+    }
+   }
+  },
+  {
+   "name": "net-pins-bad-name-and-role@esp32s3",
+   "template": "ble-beacon",
+   "board": "esp32s3",
+   "user": {
+    "variant": "",
+    "pins": {
+     "led": "D99",
+     "batt_sense": 7,
+     "ptt": "D3"
+    },
+    "id": {
+     "callmessage": "W1ABC FOX"
+    }
+   }
+  },
+  {
+   "name": "net-pins-other-variants-pin-rejected@esp32c5",
+   "template": "wifi-probe",
+   "board": "esp32c5",
+   "user": {
+    "variant": "dfrobot_firebeetle2_esp32c5",
+    "pins": {
+     "led": "D13"
+    },
+    "id": {
+     "callmessage": "W1ABC FOX"
+    }
+   }
+  },
+  {
+   "name": "net-board-sibling-id-pair@esp32s3",
+   "template": "wifi-beacon",
+   "board": "esp32s3",
+   "user": {
+    "board": "esp32s3",
+    "variant": "waveshare_esp32s3_nano",
+    "id": {
+     "callmessage": "W1ABC FOX"
     }
    }
   }

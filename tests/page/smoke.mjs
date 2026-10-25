@@ -121,13 +121,38 @@ try {
   const rows = await app(() => JSON.parse(localStorage.getItem('fox-bench.fleet') || '[]').filter(r => r.action === 'deploy').length);
   eq(rows, templates.length, 'fleet log has one row per deploy');
 
-  console.log('network foxes (wifi-beacon / wifi-probe / ble-beacon): forms, deploy, bench on the demo');
+  console.log('network foxes (wifi-beacon / wifi-probe / ble-beacon) on the ESP32-C3 chip target: forms, deploy, bench on the demo');
+  const fmTemplates = await app(() => window.foxbench.templatesFor('foxlib').map(t => t.id));
+  check(fmTemplates.length === 7 && !fmTemplates.includes('wifi-beacon'), 'the XIAO C3 + SA868 combo offers the seven FM templates and no network one');
+  await app(() => window.foxbench.setBoard('esp32c3')); await settle(400);     // the chip target (experimental: not in the picker yet, reachable by id)
+  eq(await app(() => window.foxbench.connected), true, 'the demo REPL stays connected across a switch within the foxlib family');
+  const netTemplates = await app(() => window.foxbench.templatesFor('foxlib').map(t => t.id).sort());
+  eq(netTemplates.join(), 'ble-beacon,wifi-beacon,wifi-probe', 'the bare ESP32-C3 offers the three network templates only');
+  eq(await app(() => window.foxbench.variantId), 'seeed_xiao_esp32c3', 'its one variant is selected');
   await tab('behavior'); await page.selectOption('#tab-behavior select', 'wifi-beacon'); await settle(300);
   eq(await app(() => window.foxbench.isNet), true, 'wifi-beacon is a network-contract template');
+  eq(await app(() => JSON.stringify(window.foxbench.cfg.pins)), '{"led":null,"batt_sense":null}', 'the bare XIAO C3 has no LED: pins from the variant');
+  eq(await app(() => window.foxbench.cfg.variant), 'seeed_xiao_esp32c3', 'fox.json records the variant');
   check(await page.isHidden('.rail button[data-tab="plan"]') && await page.isHidden('.rail button[data-tab="payload"]'), 'Plan and Payload tabs hidden for a network fox');
   eq(await app(() => window.foxbench.cfg.id.callmessage), 'W1ABC FOX DE W1ABC', 'the callsign carried from the FM template');
   await tab('radio');
   check(/Wi-Fi access point/.test(await text('#tab-radio')) && /SSID/.test(await text('#tab-radio')) && /MAC address/.test(await text('#tab-radio')), 'Radio tab shows the Wi-Fi AP form');
+  check(/Wiring: Seeed Studio XIAO ESP32-C3/.test(await text('#tab-radio')) && /seeed_xiao_esp32c3\) \+ foxlib/.test(await text('#tab-radio')), 'wiring card names the board and its CircuitPython build');
+  check(!/Board/.test((await page.$$eval('#tab-radio label', els => els.map(e => e.textContent))).join('|')), 'one variant: no board dropdown');
+  // the ESP32-S3 chip has two variants with different LEDs: the dropdown appears and switches pins + build
+  await app(() => window.foxbench.setBoard('esp32s3')); await settle(400); await tab('radio');
+  check(/Wiring: Seeed XIAO ESP32S3/.test(await text('#tab-radio')), 'ESP32-S3 defaults to the XIAO ESP32S3 variant');
+  const vsel = await page.$('#tab-radio select:has(option[value="waveshare_esp32s3_nano"])');
+  check(!!vsel, 'two variants: the Board dropdown is shown');
+  eq(await app(() => window.foxbench.cfg.pins.led), 'LED', 'XIAO S3 LED pin from the variant');
+  await vsel.selectOption('waveshare_esp32s3_nano'); await settle(300);
+  eq(await app(() => window.foxbench.variantId), 'waveshare_esp32s3_nano', 'variant switched');
+  check(/Wiring: Waveshare ESP32-S3-Nano/.test(await text('#tab-radio')) && /arduino_nano_esp32s3\) \+ foxlib/.test(await text('#tab-radio')), 'the wiring card follows: name and the Nano ESP32 build');
+  eq(await app(() => window.foxbench.cfg.variant), 'waveshare_esp32s3_nano', 'fox.json variant follows');
+  await page.selectOption('#tab-radio select:has(option[value="LED_RED"])', 'LED_RED'); await settle(200);
+  eq(await app(() => window.foxbench.cfg.pins.led), 'LED_RED', 'a pin can be changed by hand');
+  check(/reset/.test(await text('#tab-radio')), 'and the reset button appears against the default');
+  await app(() => window.foxbench.setBoard('esp32c3')); await settle(400); await tab('radio');
   await page.click('#tab-radio button:has-text("Random")'); await settle(200);
   check(/^F2(:[0-9A-F]{2}){5}$/.test(await app(() => window.foxbench.cfg.net.mac)), 'Random gives a locally administered unicast MAC: ' + (await app(() => window.foxbench.cfg.net.mac)));
   await tab('id');
@@ -153,8 +178,9 @@ try {
   await tab('radio');
   check(/BLE beacon/.test(await text('#tab-radio')) && /iBeacon UUID/.test(await text('#tab-radio')), 'Radio tab shows the BLE form');
   eq(await app(() => window.foxbench.cfg.net.kind), 'ble', 'switching to the BLE template brings its own net section');
+  await app(() => window.foxbench.setBoard('seeed_xiao_esp32c3')); await settle(400);
   await tab('behavior'); await page.selectOption('#tab-behavior select', 'morse-songs'); await settle(300);
-  eq(await app(() => window.foxbench.isNet), false, 'back to an FM template');
+  eq(await app(() => window.foxbench.isNet), false, 'back to the combo and an FM template');
   check(await page.isVisible('.rail button[data-tab="plan"]'), 'Plan tab back');
 
   console.log('bench');
@@ -467,11 +493,13 @@ try {
   check(/Show experimental targets/.test(await text('#tab-board')) && new RegExp(nExp + ' hidden').test(await text('#tab-board')), `the picker says how many targets are hidden (${nExp})`);
   await page.check('#tab-board .card:first-child input[type=checkbox]'); await settle(300);   // the picker card's checkbox, not the flash card's erase box
   const optsAll = await page.$$eval('#tab-board select option', els => els.map(e => e.value));
-  const nK = optsAll.filter(v => v.endsWith('-kitsune')).length, nNet = optsAll.filter(v => ['seeed_xiao_esp32c6', 'waveshare_esp32s3_nano', 'dfrobot_firebeetle2_esp32c5', 'arduino_nano_33_ble'].includes(v)).length;
-  check(nK + nNet === nExp && nK >= 8 && nNet === 4, `the checkbox lists the ${nExp} experimental targets: ${nK} kitsune + ${nNet} network-fox boards`);
+  const nK = optsAll.filter(v => v.endsWith('-kitsune')).length, nNet = optsAll.filter(v => ['esp32c3', 'esp32c6', 'esp32c5', 'esp32s3', 'nrf52840'].includes(v)).length;
+  check(nK + nNet === nExp && nK >= 7 && nNet === 5, `the checkbox lists the ${nExp} experimental targets: ${nK} kitsune + ${nNet} chip targets`);
   const groupsAll = await page.$$eval('#tab-board select optgroup', els => els.map(e => [e.label, [...e.querySelectorAll('option')].map(o => o.value)]));
-  const netGroup = groupsAll.find(([l]) => /no module/.test(l)), fmGroup = groupsAll.find(([l]) => /\+ radio module/.test(l));
-  check(netGroup && netGroup[1].length === 4 && !netGroup[1].includes('seeed_xiao_esp32c3') && fmGroup && fmGroup[1].includes('seeed_xiao_esp32c3'), 'picker groups: the four module-less boards under "CircuitPython board (Wi-Fi / BLE fox, no module)", the XIAO + SA868 under "+ radio module"');
+  const chipGroup = groupsAll.find(([l]) => l === 'CircuitPython board'), fmGroup = groupsAll.find(([l]) => /\+ radio module/.test(l)), driveGroup = groupsAll.find(([l]) => l === 'Drive-configured fox');
+  check(chipGroup && chipGroup[1].join() === 'esp32c3,esp32c5,esp32c6,esp32s3,nrf52840' && fmGroup && fmGroup[1].join() === 'seeed_xiao_esp32c3', 'picker groups: the five chips under "CircuitPython board", the XIAO + SA868 under "+ radio module": ' + JSON.stringify(chipGroup?.[1]));
+  check(driveGroup && driveGroup[1].join() === 'picofox-vendor,picofox-foxlibc', 'both PicoFox lines under "Drive-configured fox", vendor first');
+  eq(groupsAll.map(([l]) => l).join(' | '), 'CircuitPython board + radio module | Drive-configured fox | CircuitPython board | Compiled-in configuration (kitsune)', 'group order');
   await page.selectOption('#tab-board select', 'seeed_xiao_esp32c5-kitsune'); await settle(400);
   eq(await app(() => window.foxbench.family), 'compiled', 'family switches to compiled');
   eq(await app(() => window.foxbench.templateId), 'wifi-ap', 'first kitsune template selected');
@@ -604,9 +632,12 @@ try {
   await app(() => window.__fakeSerial.install('board', { identity: { boardId: 'arduino_nano_esp32s3', uid: 'a1b2c3d4e5f6' }, files: { 'foxlib/VERSION': '1.1.0\n' } }));
   await app(() => { localStorage.setItem('fox-bench.experimental', '1'); });
   await page.click('#connectBtn'); await until(() => window.foxbench.connected, 'connect to the fake S3-Nano', 15000); await settle(400);
-  eq(await app(() => window.foxbench.boardId), 'waveshare_esp32s3_nano', 'arduino_nano_esp32s3 is resolved to the Waveshare ESP32-S3-Nano target');
+  eq(await app(() => window.foxbench.boardId + '/' + window.foxbench.variantId), 'esp32s3/waveshare_esp32s3_nano', 'arduino_nano_esp32s3 is resolved to the ESP32-S3 chip target, Waveshare S3-Nano variant');
   check(/runs this build/.test(await text('#tab-board')), 'Board tab explains the id');
-  eq(await app(() => window.foxbench.targetForBoardId('arduino_nano_33_ble_rev2')), 'arduino_nano_33_ble', 'the Nano 33 BLE Rev2 build maps to the Nano 33 BLE target');
+  eq(await app(() => JSON.stringify(window.foxbench.resolveBoardId('arduino_nano_33_ble_rev2'))), '{"target":"nrf52840","variant":"arduino_nano_33_ble"}', 'the Nano 33 BLE Rev2 build maps to the nRF52840 target');
+  eq(await app(() => JSON.stringify(window.foxbench.resolveBoardId('espressif_esp32c5_devkitc_1_n8r8'))), '{"target":"esp32c5","variant":"seeed_xiao_esp32c5"}', 'the shared C5 build maps to the ESP32-C5 target, first variant when none is selected');
+  await app(() => window.foxbench.setBoard('esp32c5', { variant: 'dfrobot_firebeetle2_esp32c5' }));
+  eq(await app(() => JSON.stringify(window.foxbench.resolveBoardId('espressif_esp32c5_devkitc_1_n8r8'))), '{"target":"esp32c5","variant":"dfrobot_firebeetle2_esp32c5"}', 'with the FireBeetle selected, the shared build keeps it');
   eq(await app(() => window.foxbench.targetForBoardId('seeed_xiao_esp32c3')), 'seeed_xiao_esp32c3', 'a target of its own keeps its id');
   eq(await app(() => window.foxbench.targetForBoardId('no_such_board')), null, 'an unknown id stays unknown');
   await app(() => window.foxbench.disconnect()); await settle(200);
@@ -685,9 +716,9 @@ try {
   await app(() => { window.foxbenchFlash.simulate = false; window.foxbenchFlash.simulateChip = ''; });
   for (const k of [...overrides.keys()]) overrides.delete(k);
 
-  console.log('local artifact manifest; the bench\'s three stand-in targets (C5 FireBeetle, S3-Nano, C6)');
+  console.log('local artifact manifest; the bench\'s three kitsune targets (XIAO C5, S3-Nano, C6)');
   await page.goto(url); await page.waitForFunction(() => window.foxbench?.catalog); await settle(400);   // no hosted manifest now
-  await tab('board'); await page.selectOption('#tab-board select', 'dfrobot_firebeetle2_esp32c5-kitsune'); await settle(300);
+  await tab('board'); await page.selectOption('#tab-board select', 'seeed_xiao_esp32c5-kitsune'); await settle(300);
   await tab('behavior'); await page.selectOption('#tab-behavior select', 'wifi-ap'); await settle(300);
   await tab('board'); await untilTextArgs('#tab-board', /No kitsune images are hosted on this site/, 5000);
   check(/Open artifact folder…/.test(await text('#tab-board')), 'the card offers the CI artifact folder when nothing is hosted');
@@ -695,7 +726,7 @@ try {
   const c5img = Buffer.alloc(16384, 0xc5), s3img = Buffer.alloc(12288, 0x53), c6img = Buffer.alloc(8192, 0xc6);
   const localMan = { project: 'kitsune', source: 'https://github.com/rfhs/kitsune', commit: 'cdfc0ce39d3d68e44041a3c356c889631d48ade3', built: '2026-10-23T00:00:00Z', tools: { platformio: '6.1.18', esptool: '4.8.1' },
     conference: 'fox-bench bench values (firmware/kitsune/bench), not any event\'s configuration', images: [
-      { board: 'dfrobot_firebeetle2_esp32c5-kitsune', template: 'wifi-ap', tier: 'easy', mode: 'AP', env: 'seeed-xiao-esp32c5-easy-ap', file: 'seeed-xiao-esp32c5-easy-ap.bin', sha256: sha(c5img), size: c5img.length, chip: 'esp32c5', offset: '0x0' },
+      { board: 'seeed_xiao_esp32c5-kitsune', template: 'wifi-ap', tier: 'easy', mode: 'AP', env: 'seeed-xiao-esp32c5-easy-ap', file: 'seeed-xiao-esp32c5-easy-ap.bin', sha256: sha(c5img), size: c5img.length, chip: 'esp32c5', offset: '0x0' },
       { board: 'waveshare_esp32s3_nano-kitsune', template: 'wifi-ap', tier: 'easy', mode: 'AP', env: 'arduino-nano-esp32-easy-ap', file: 'arduino-nano-esp32-easy-ap.bin', sha256: sha(s3img), size: s3img.length, chip: 'esp32s3', offset: '0x0' },
       { board: 'seeed_xiao_esp32c6-kitsune', template: 'wifi-ap', tier: 'easy', mode: 'AP', env: 'fb-seeed-xiao-esp32c6-easy-ap', file: 'fb-seeed-xiao-esp32c6-easy-ap.bin', sha256: sha(c6img), size: c6img.length, chip: 'esp32c6', offset: '0x0' },
       { board: 'seeed_xiao_esp32c6-kitsune', template: 'wifi-client', tier: 'easy', mode: 'CLIENT', env: 'fb-seeed-xiao-esp32c6-easy-client', file: 'missing.bin', sha256: sha(c6img), size: c6img.length, chip: 'esp32c6', offset: '0x0' } ] };
@@ -707,9 +738,9 @@ try {
   }, { man: localMan, files: { 'seeed-xiao-esp32c5-easy-ap.bin': c5img.toString('hex'), 'arduino-nano-esp32-easy-ap.bin': s3img.toString('hex'), 'fb-seeed-xiao-esp32c6-easy-ap.bin': c6img.toString('hex') } });
   await page.click('#tab-board button:has-text("Open artifact folder…")'); await untilTextArgs('#log', /local kitsune manifest: 4 image\(s\), kitsune at cdfc0ce/, 5000);
   check(/1 image file\(s\) not among the files picked: missing\.bin/.test(await text('#log')), 'a manifest entry whose file is absent is named');
-  check(/local artifact kitsune-images/.test(await text('#tab-board')) && /Get easy wifi-ap/.test(await text('#tab-board')), 'the card lists the local artifact\'s image for the C5 stand-in');
+  check(/local artifact kitsune-images/.test(await text('#tab-board')) && /Get easy wifi-ap/.test(await text('#tab-board')), 'the card lists the local artifact\'s image for the XIAO C5');
   await app(() => { window.foxbenchFlash.simulate = true; });
-  const stand = [['dfrobot_firebeetle2_esp32c5-kitsune', 'ESP32-C5', 'ESP32-C3 (QFN32) (revision v0.4)', 16384], ['waveshare_esp32s3_nano-kitsune', 'ESP32-S3 (QFN56) (revision v0.2)', 'ESP32-C6 (QFN40)', 12288], ['seeed_xiao_esp32c6-kitsune', 'ESP32-C6 (QFN40)', 'ESP32-S3 (QFN56) (revision v0.2)', 8192]];
+  const stand = [['seeed_xiao_esp32c5-kitsune', 'ESP32-C5', 'ESP32-C3 (QFN32) (revision v0.4)', 16384], ['waveshare_esp32s3_nano-kitsune', 'ESP32-S3 (QFN56) (revision v0.2)', 'ESP32-C6 (QFN40)', 12288], ['seeed_xiao_esp32c6-kitsune', 'ESP32-C6 (QFN40)', 'ESP32-S3 (QFN56) (revision v0.2)', 8192]];
   for (const [id, rightChip, wrongChip, size] of stand) {
     await tab('board'); await page.selectOption('#tab-board select', id); await settle(300);
     await untilTextArgs('#tab-board', /Get easy wifi-ap/, 5000);

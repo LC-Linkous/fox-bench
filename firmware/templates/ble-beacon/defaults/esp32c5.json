@@ -1,7 +1,12 @@
 {
   "schema": 1,
   "template": "ble-beacon",
-  "board": "arduino_nano_33_ble",
+  "board": "esp32c5",
+  "variant": "seeed_xiao_esp32c5",
+  "pins": {
+    "led": "IO27",
+    "batt_sense": null
+  },
   "net": {
     "kind": "ble",
     "name": "FOXBENCH Beacon",

@@ -36,7 +36,10 @@
       "note": "yellow user LED, active low"
     }
   ],
-  "roles": {},
+  "roles": {
+    "led": "LED",
+    "batt_sense": null
+  },
   "led": {
     "kind": "single",
     "pin": 15,
@@ -61,6 +64,7 @@
   "circuitpython": {
     "board_id": "seeed_xiao_esp32c6",
     "download": "https://circuitpython.org/board/seeed_xiao_esp32c6/",
-    "latest_known": "10.3.1"
+    "latest_known": "10.3.1",
+    "note": "board.LED is the yellow user LED (GPIO15, active low). Battery: the XIAO C6 has a charger but no divider on an ADC pin by default."
   }
 }

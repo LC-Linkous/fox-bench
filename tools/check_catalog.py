@@ -36,6 +36,7 @@ fnetcfg = importlib.util.module_from_spec(_nspec); _nspec.loader.exec_module(fne
 
 problems = []
 CP_IDS = {}   # CircuitPython board_id -> hardware id, to catch two targets claiming one build
+CHIP_OF = {}  # hardware id -> the chip target it is a variant of
 
 def bad(where, what): problems.append(f"{where}: {what}")
 
@@ -147,24 +148,49 @@ for bid in board_ids:
     if "kind" not in t.get("firmware", {}): bad(rel, "firmware.kind missing")
     if t.get("status") not in (None, "planned", "experimental", "stable"): bad(rel, f"status {t.get('status')!r}")
     if fam == "foxlib":
-        if "circuitpython" not in hw: bad(rel, "foxlib target on hardware without circuitpython")
-        for k in ("board_id", "download"):
-            if k not in (hw.get("circuitpython") or {}): bad(rel, f"hardware missing circuitpython.{k}")
-        cp = hw.get("circuitpython") or {}
-        ids = cp.get("board_ids")
-        if ids is not None and (not isinstance(ids, list) or cp.get("board_id") not in ids): bad(rel, "circuitpython.board_ids must be a list that includes board_id")
-        for cid in ids or [cp.get("board_id")]:
-            if cid and cid in CP_IDS and CP_IDS[cid] != t["hardware"]: bad(rel, f"CircuitPython id {cid!r} also claimed by hardware {CP_IDS[cid]!r}: the page could not tell the boards apart")
-            if cid: CP_IDS[cid] = t["hardware"]
-        # roles: an FM fox needs every role (null when not wired); a board that runs only network foxes (no module)
-        # has an empty roles map and must then list radios, so at least one template fits it
-        roles = hw.get("roles", {}) or {}
-        if roles:
+        # a chip target ("esp32c5") covers several physical boards (variants); the network foxes run on it. A target
+        # without variants is one board wired to a module: the FM foxes run on it, with every role named
+        variants = t.get("variants")
+        if variants is not None:
+            if not isinstance(variants, list) or not variants or t["hardware"] not in variants: bad(rel, "variants must be a non-empty list that includes the default hardware")
+            for vid in variants or []:
+                if vid not in hardware: bad(rel, f"variant {vid!r}: no such hardware")
+            radios0 = set((hw or {}).get("radios") or [])
+            for vid in variants or []:
+                vhw = hardware.get(vid) or {}
+                if vid in CHIP_OF and CHIP_OF[vid] != bid: bad(rel, f"variant {vid!r} already belongs to chip target {CHIP_OF[vid]!r}")
+                CHIP_OF[vid] = bid
+                if set(vhw.get("radios") or []) != radios0: bad(rel, f"variant {vid!r} lists radios {sorted(vhw.get('radios') or [])}, the default variant {sorted(radios0)}: one chip, one radio set")
+                if not vhw.get("radios"): bad(rel, f"variant {vid!r} lists no radios: no network template can run on it")
+                for role in fnetcfg.NET_PINS:
+                    nr = vhw.get("net") or vhw.get("roles") or {}
+                    v = nr.get(role)
+                    names = {n for p in vhw.get("pins", []) for n in [p["name"]] + p.get("aliases", [])}
+                    if v is not None and v not in names: bad(rel, f"variant {vid!r}: net pin {role}={v!r} is not among its pins")
+        hws = [hardware[v] for v in (variants or [t["hardware"]]) if v in hardware]
+        for vhw in hws:
+            vrel = f"hardware/{vhw['id']}.json"
+            if "circuitpython" not in vhw: bad(vrel, "foxlib target on hardware without circuitpython"); continue
+            cp = vhw.get("circuitpython") or {}
+            for k in ("board_id", "download"):
+                if k not in cp: bad(vrel, f"hardware missing circuitpython.{k}")
+            ids = cp.get("board_ids")
+            if ids is not None and (not isinstance(ids, list) or cp.get("board_id") not in ids): bad(vrel, "circuitpython.board_ids must be a list that includes board_id")
+            for cid in ids or [cp.get("board_id")]:
+                if not cid: continue
+                if cid in CP_IDS and CP_IDS[cid] != vhw["id"]:
+                    # two boards running one build is allowed only as variants of one chip that both declare it (the two C5s)
+                    other = hardware.get(CP_IDS[cid]) or {}
+                    if not (cp.get("shared_build") and (other.get("circuitpython") or {}).get("shared_build") and CHIP_OF.get(vhw["id"]) and CHIP_OF.get(vhw["id"]) == CHIP_OF.get(CP_IDS[cid])):
+                        bad(vrel, f"CircuitPython id {cid!r} also claimed by hardware {CP_IDS[cid]!r}: the page could not tell the boards apart (variants of one chip may share a build when both say shared_build)")
+                CP_IDS.setdefault(cid, vhw["id"])
+        if variants is None:
+            roles = hw.get("roles", {}) or {}
+            if not roles: bad(rel, "a board + module target needs the hardware's pin roles (a bare board belongs in a chip target with variants)")
             for role in fcfg.REQUIRED_PINS + fcfg.OPTIONAL_PINS:
                 if role not in roles: bad(rel, f"hardware roles.{role} missing (use null if not wired)")
             for role in fcfg.REQUIRED_PINS:
                 if not roles.get(role): bad(rel, f"hardware roles.{role} is required but null")
-        elif not hw.get("radios"): bad(rel, "hardware has neither pin roles (an FM fox) nor radios (a network fox): no template can run on it")
     if fam == "drive":
         for k in ("vendor", "module_fixed", "drive"):
             if k not in t: bad(rel, f"drive-family target missing {k}")
@@ -300,8 +326,12 @@ for tid in fw["templates"]:
             if not all(r in hw_radios for r in t["radios"]):
                 if exists(drel): bad(drel, f"defaults for a board without the {t['radios']} radio this template needs")
                 continue
-        # an FM template needs the pin roles it lists; a board whose hardware has none of them (a bare ESP32 running
-        # network foxes) does not get it, so no defaults are expected or allowed (the page's templatesFor hides it too)
+        # the two foxlib contracts do not mix: network templates run on chip targets (variants), FM templates on a board +
+        # module target — mirrors the page's templatesFor
+        if b["_family"] == "foxlib" and (t.get("contract") == "net") != ("variants" in b):
+            if exists(drel): bad(drel, "defaults for the wrong kind of target (network templates belong to chip targets, FM templates to board + module targets)")
+            continue
+        # an FM template needs the pin roles it lists; a board whose hardware has none of them does not get it
         req = t.get("pins", {}).get("required", [])
         if req and b["_family"] == "foxlib":
             roles = hardware.get(b.get("hardware"), {}).get("roles", {}) or {}
@@ -343,8 +373,15 @@ for tid in fw["templates"]:
             for k in ("net", "id", "schedule", "led", "fleet"):
                 if k not in d: bad(drel, f"{k} section missing")
             if d.get("net", {}).get("kind") not in ("wifi-ap", "wifi-probe", "ble"): bad(drel, f"net.kind {d.get('net', {}).get('kind')!r}")
-            if "pins" in d or "payload" in d or "plan" in d: bad(drel, "a network fox has no pins/plan/payload")
-            _, rep = fnetcfg.validate(json.loads(json.dumps(d)), d, bid, hardware.get(b.get("hardware"), {}).get("radios", []))
+            if "payload" in d or "plan" in d: bad(drel, "a network fox has no plan/payload")
+            if d.get("variant") != b.get("hardware"): bad(drel, f"variant {d.get('variant')!r} should be the chip target's default hardware {b.get('hardware')!r}")
+            if set((d.get("pins") or {}).keys()) != set(fnetcfg.NET_PINS): bad(drel, f"pins must be exactly {list(fnetcfg.NET_PINS)}")
+            vhw = hardware.get(b.get("hardware"), {})
+            nr = vhw.get("net") or vhw.get("roles") or {}
+            for role in fnetcfg.NET_PINS:
+                if (d.get("pins") or {}).get(role) != nr.get(role): bad(drel, f"pins.{role} = {(d.get('pins') or {}).get(role)!r} != the default variant's {nr.get(role)!r}")
+            names = [n for p in vhw.get("pins", []) for n in [p["name"]] + p.get("aliases", [])]
+            _, rep = fnetcfg.validate(json.loads(json.dumps(d)), d, bid, vhw.get("radios", []), names)
             if rep.status() != "ok": bad(drel, f"netcfg.validate() on its own defaults: {rep.status()} {rep.items}")
             continue
         mod = modules.get(d.get("module"))

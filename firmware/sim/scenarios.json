@@ -699,6 +699,74 @@
      "unconfigured (nowifi): silent"
     ]
    }
+  },
+  {
+   "name": "led-from-the-variant-on-a-c6",
+   "board_id": "esp32c6",
+   "cp_board_id": "seeed_xiao_esp32c6",
+   "stop_after_unkeys": 2,
+   "cap_ms": 90000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "ok",
+     "radio": "ok"
+    },
+    "keyed_min": 2,
+    "led_edges_min": 20,
+    "prints_contain": [
+     "wifi-ap up: FOXBENCH WiFi Beacon"
+    ]
+   }
+  },
+  {
+   "name": "no-led-on-the-bare-c3",
+   "board_id": "esp32c3",
+   "stop_after_unkeys": 2,
+   "cap_ms": 90000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "ok",
+     "radio": "ok"
+    },
+    "keyed_min": 2,
+    "led_edges_max": 0
+   }
+  },
+  {
+   "name": "wrong-led-name-falls-back-and-is-reported",
+   "board_id": "esp32s3",
+   "cp_board_id": "arduino_nano_esp32s3",
+   "stop_after_unkeys": 2,
+   "cap_ms": 90000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "variant": "waveshare_esp32s3_nano",
+    "pins": {
+     "led": "NOPE"
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "partial(pins.led)",
+     "radio": "ok"
+    },
+    "keyed_min": 2,
+    "prints_contain": [
+     "cfg: pins.led -> default"
+    ]
+   }
   }
  ],
  "wifi-probe": [

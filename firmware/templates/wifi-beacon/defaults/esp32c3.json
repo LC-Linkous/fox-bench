@@ -1,12 +1,21 @@
 {
   "schema": 1,
-  "template": "wifi-probe",
-  "board": "waveshare_esp32s3_nano",
+  "template": "wifi-beacon",
+  "board": "esp32c3",
+  "variant": "seeed_xiao_esp32c3",
+  "pins": {
+    "led": null,
+    "batt_sense": null
+  },
   "net": {
-    "kind": "wifi-probe",
-    "ssid": "FOXBENCH WiFi Probe",
-    "mac": "F2:B0:00:00:00:05",
-    "tx_power_dbm": 17
+    "kind": "wifi-ap",
+    "ssid": "FOXBENCH WiFi Beacon",
+    "psk": "",
+    "mac": "F2:B0:00:00:00:01",
+    "channel": 1,
+    "hidden": false,
+    "tx_power_dbm": 17,
+    "max_clients": 1
   },
   "id": {
     "callmessage": "N0CALL DECOY DECOY N0CALL",

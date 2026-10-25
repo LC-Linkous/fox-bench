@@ -25,6 +25,7 @@ _pkg = _types.ModuleType("_fwpkg"); _pkg.__path__ = [os.path.join(FW, "foxlib")]
 _nspec = importlib.util.spec_from_file_location("_fwpkg.netcfg", os.path.join(FW, "foxlib", "netcfg.py"))
 fwnetcfg = importlib.util.module_from_spec(_nspec); _nspec.loader.exec_module(fwnetcfg)
 BOARD_NAMES = ["D0", "D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8", "D9", "D10", "A0", "A1", "A2", "A3", "TX", "RX"]
+NET_BOARD_NAMES = BOARD_NAMES + ["LED", "IO27", "IO15"]      # the module-less boards' LED names (XIAO C6/S3, Nano 33; the C5 DevKit build's IOxx)
 
 
 def deep_merge(base, over):
@@ -59,8 +60,8 @@ def boot_dir(d, cap_ms=180000, stop_after_unkeys=2):
         fox = {}
     board_id = defaults.get("board")
     if "net" in defaults:                       # a network fox's deploy set (netcfg contract)
-        eff, _ = fwnetcfg.validate(fox, defaults, board_id, ["wifi24", "ble"])
-        rec = mocks.install({"cap_ms": cap_ms, "stop_after_unkeys": stop_after_unkeys, "pin_roles": {}, "board_id": board_id, "board_names": BOARD_NAMES})
+        eff, _ = fwnetcfg.validate(fox, defaults, board_id, ["wifi24", "ble"], NET_BOARD_NAMES)
+        rec = mocks.install({"cap_ms": cap_ms, "stop_after_unkeys": stop_after_unkeys, "pin_roles": {}, "board_id": board_id, "board_names": NET_BOARD_NAMES})
     else:
         eff, _ = fwcfg.validate(fox, defaults, BOARD_NAMES, board_id)
         rec = mocks.install({"cap_ms": cap_ms, "stop_after_unkeys": stop_after_unkeys, "module_ranges": eff["radio"]["ranges_mhz"],
@@ -120,13 +121,17 @@ def is_net(template):
 
 
 def run_one(template, scen, verbose=False):
-    board_id = scen.get("board_id", "seeed_xiao_esp32c3")
+    net = is_net(template)
+    # network foxes: the defaults file is per chip target ("esp32c3"); the mocked board reports a CircuitPython board_id
+    # (the variant's), as a real board does — the firmware's board gate accepts the pair via defaults.board
+    board_id = scen.get("board_id", "esp32c3" if net else "seeed_xiao_esp32c3")
     defaults = json.load(open(os.path.join(FW, "templates", template, "defaults", board_id + ".json")))
     fox_cfg = None if scen.get("no_fox_json") else deep_merge(defaults, scen.get("fox", {}))
     d = stage(template, board_id, fox_cfg, scen.get("raw_fox"))
-    if is_net(template):
-        eff, _ = fwnetcfg.validate(fox_cfg or {}, defaults, board_id, scen.get("radios", ["wifi24", "ble"]))
-        rec = mocks.install({**scen, "pin_roles": {}, "board_id": board_id, "board_names": BOARD_NAMES})
+    if net:
+        cp_id = scen.get("cp_board_id", "seeed_xiao_esp32c3")
+        eff, _ = fwnetcfg.validate(fox_cfg or {}, defaults, cp_id, scen.get("radios", ["wifi24", "ble"]), NET_BOARD_NAMES)
+        rec = mocks.install({**scen, "pin_roles": {"led": (eff.get("pins") or {}).get("led") or "__no_led__"}, "board_id": cp_id, "board_names": NET_BOARD_NAMES})
         rec.effective_cfg = eff
     else:
         eff, _ = fwcfg.validate(fox_cfg or {}, defaults, BOARD_NAMES, board_id)   # what the firmware will actually use
@@ -141,6 +146,8 @@ def run_one(template, scen, verbose=False):
 def check(template, scen, rec, err):
     exp = scen.get("expect", {})
     fails = []
+    if "led_edges_min" in exp and len(rec.led) < exp["led_edges_min"]: fails.append("led edges %d < %d" % (len(rec.led), exp["led_edges_min"]))
+    if "led_edges_max" in exp and len(rec.led) > exp["led_edges_max"]: fails.append("led edges %d > %d" % (len(rec.led), exp["led_edges_max"]))
     banner = next((l for l in rec.prints if l.startswith("FOX ")), None)
     kv = dict(re.findall(r"(\w+)=(\S+)", banner or ""))
     if err:

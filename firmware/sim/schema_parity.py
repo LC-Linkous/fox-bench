@@ -37,13 +37,18 @@ def is_net(t): return json.load(open(os.path.join(ROOT, "firmware/templates", t,
 def radios_of(bid):
     t = json.load(open(os.path.join(ROOT, "boards", bid + ".json")))
     return json.load(open(os.path.join(ROOT, "hardware", t["hardware"] + ".json"))).get("radios", []) if t.get("hardware") else []
+def net_board_names(bid):
+    """The default variant's pin names and aliases, as dir(board) would list them."""
+    t = json.load(open(os.path.join(ROOT, "boards", bid + ".json")))
+    hw = json.load(open(os.path.join(ROOT, "hardware", t["hardware"] + ".json")))
+    return [n for p in hw.get("pins", []) for n in [p["name"]] + p.get("aliases", [])]
 
 corpus = json.load(open(os.path.join(HERE, "schema_corpus.json")))
 out = {}
 for c in corpus["cases"]:
     defaults = json.load(open(os.path.join(ROOT, "firmware/templates", c["template"], "defaults", c["board"] + ".json")))
     if is_net(c["template"]):
-        eff, rep = netcfg.validate(c["user"], defaults, c["board"], radios_of(c["board"]))
+        eff, rep = netcfg.validate(c["user"], defaults, c["board"], radios_of(c["board"]), net_board_names(c["board"]))
         out[c["name"]] = {"status": rep.status(), "cfg": eff}
         continue
     eff, rep = cfg.validate(c["user"], defaults, board_names(c["board"]), c["board"])

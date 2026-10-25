@@ -1,7 +1,12 @@
 {
   "schema": 1,
   "template": "wifi-beacon",
-  "board": "waveshare_esp32s3_nano",
+  "board": "esp32c6",
+  "variant": "seeed_xiao_esp32c6",
+  "pins": {
+    "led": "LED",
+    "batt_sense": null
+  },
   "net": {
     "kind": "wifi-ap",
     "ssid": "FOXBENCH WiFi Beacon",

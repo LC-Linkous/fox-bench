@@ -2,10 +2,11 @@
 
 Status: 2026-10-23 — Phase 0 (§3), catalog packs (§6) and the page side of
 Phase 1 (§4) are in; nothing has been flashed on a kitsune board from the
-page yet. Hardware on fox-bench's bench: a FireBeetle 2 ESP32-C5 (stands in
-for the XIAO C5), a Waveshare ESP32-S3-Nano (stands in for the Arduino Nano
+page yet. Hardware on fox-bench's bench: a XIAO ESP32C5 (a board kitsune
+builds for), a Waveshare ESP32-S3-Nano (stands in for the Arduino Nano
 ESP32) and a XIAO ESP32C6 (not a kitsune board; fox-bench carries an env for
 it) — targets `*-kitsune` for all three, behind "Show experimental targets".
+(A FireBeetle 2 ESP32-C5 stood in for the XIAO C5 until 2026-10-24.)
 The first images come from the `kitsune` CI job on the `kitsune` branch as
 a **run artifact** (`KITSUNE_BUILD`), built with fox-bench's bench
 conference (§10) — nothing hosted (`KITSUNE_HOST` stays unset, §7). Phase 2

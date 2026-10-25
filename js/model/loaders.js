@@ -68,6 +68,17 @@ export async function loadCatalog() {
     const hw = hardware[t.hardware];
     if (!hw) { console.warn(`boards/${id}.json: unknown hardware ${t.hardware} — target skipped`); continue; }
     boards[id] = { ...hw, ...t, flash: { ...hw.flash, ...(t.flash || {}) }, hw };
+    // a chip target ("ESP32-C5") lists the physical boards it covers as variants; each is the target merged with that
+    // board's hardware, selected on the page by app.variantId (the listed order is the default order; t.hardware is the default)
+    if (Array.isArray(t.variants)) {
+      boards[id].variantBoards = {};
+      for (const vid of t.variants) {
+        const vhw = hardware[vid];
+        if (!vhw) { console.warn(`boards/${id}.json: unknown variant hardware ${vid} — skipped`); continue; }
+        boards[id].variantBoards[vid] = { ...vhw, ...t, hardware: vid, variantName: vhw.name, flash: { ...vhw.flash, ...(t.flash || {}) }, hw: vhw, variantBoards: null };
+      }
+      for (const v of Object.values(boards[id].variantBoards)) v.variantBoards = boards[id].variantBoards;
+    }
   }
   const foxlibVersion = (await get('firmware/foxlib/VERSION', 'text')).trim();
   // foxlib-c: the version this site builds (the Board tab compares a connected fox against it); a site without the file has no C targets

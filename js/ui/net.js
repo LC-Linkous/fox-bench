@@ -62,10 +62,40 @@ export function renderRadio(root) {
   }
   root.replaceChildren(h('div.cols', {},
     h('div.card', {}, h('h3', {}, { 'wifi-ap': 'Wi-Fi access point', 'wifi-probe': 'Wi-Fi probe', ble: 'BLE beacon' }[n.kind] || n.kind, ' ', badge(name || 'no name', 'info')), main, issueList('net')),
-    h('div.card', {}, h('h3', {}, 'This board'),
-      h('dl.kv', {}, h('dt', {}, 'Radios'), h('dd', {}, radios.map(r => labels[r] || r).join(', ') || 'unknown'), h('dt', {}, 'Firmware'), h('dd', {}, `CircuitPython + foxlib ${app.catalog.foxlibVersion}: the SoC's own radio, no module, no pins`)),
-      h('p.hint', {}, 'What the firmware cannot do, it says in its banner rather than ignoring: a hidden SSID, a radio the chip lacks. The page checks the same things here.'),
-      hw.notes?.length ? h('ul', {}, hw.notes.map(x => h('li.hint', {}, x))) : null)));
+    wiringCard(labels)));
+}
+
+const NET_ROLE_HELP = { led: 'status LED: blinks while the radio is up; "none" for a board without one (the bare XIAO C3)', batt_sense: 'battery divider on an ADC pin — reserved; no board in the catalog has one wired yet' };
+
+/** Wiring card for a chip target: which physical board (when the chip's variants differ in pins), its radios and build,
+ *  and the two pins a network fox may use — same shape as the FM family's wiring table. */
+function wiringCard(labels) {
+  const b = app.board, cfg = app.cfg, hw = app.hardware || {}, radios = hw.radios || [], pins = cfg.pins || (cfg.pins = { led: null, batt_sense: null });
+  const probs = Object.fromEntries(app.report.filter(r => r.key.startsWith('pins.')).map(r => [r.key.slice(5), r.reason]));
+  const defaults = app.netRolesOf(b);
+  const variants = app.variants;
+  const boardRow = variants.length > 1
+    ? field('Board', select(variants.map(v => [v.hardware, v.variantName]), app.variantId, v => app.setVariant(v)),
+        app.variantsDifferInPins ? 'the physical board this chip is on: sets the LED / battery pins below and the CircuitPython build to flash' : 'these boards wire the same way; the choice records which one this is (fleet log, hardware log) and picks the CircuitPython build')
+    : null;
+  const rows = ['led', 'batt_sense'].map(role => {
+    const opts = [['', '— none —'], ...(b.pins || []).map(p => [p.name, `${p.name}  (GPIO${p.gpio}${p.aliases?.length ? ', ' + p.aliases.join('/') : ''})${p.note ? '  · ' + p.note : ''}`])];
+    const sel = select(opts, pins[role] || '', v => { pins[role] = v || null; app.changed('pins'); });
+    const def = defaults[role];
+    return h('tr', { class: probs[role] ? 'bad' : '' },
+      h('td.mono', {}, role, h('span.hint', {}, ' optional')),
+      h('td', {}, sel),
+      h('td.mono', {}, def || '—', def !== (pins[role] || null) ? h('button.btn.small', { style: 'margin-left:8px', onclick: () => { pins[role] = def; app.changed('pins'); } }, 'reset') : null),
+      h('td', {}, probs[role] ? h('span.hint.err', {}, probs[role]) : h('span.hint', {}, NET_ROLE_HELP[role])));
+  });
+  return h('div.card', {}, h('h3', {}, `Wiring: ${b.variantName || b.name} `, app.report.some(r => r.key.startsWith('pins.')) ? badge('check', 'err') : badge('ok', 'ok')),
+    boardRow,
+    h('dl.kv', {}, h('dt', {}, 'Radios'), h('dd', {}, radios.map(r => labels[r] || r).join(', ') || 'unknown'),
+      h('dt', {}, 'Firmware'), h('dd', {}, `CircuitPython (${b.circuitpython?.board_id || '?'}) + foxlib ${app.catalog.foxlibVersion}: the SoC's own radio, no module`)),
+    h('p.hint', {}, 'Defaults come from the board descriptor; change them if yours is wired differently. The firmware resolves each name with ', h('code', {}, 'getattr(board, name)'), ' at boot; a name the board does not have falls back to the default and is reported in the banner.'),
+    h('div.grid-wrap', {}, h('table.grid', {}, h('thead', {}, h('tr', {}, h('th', {}, 'Role'), h('th', {}, 'Pin'), h('th', {}, 'Default'), h('th', {}, ''))), h('tbody', {}, rows))),
+    h('p.hint', {}, 'What the firmware cannot do, it says in its banner rather than ignoring: a hidden SSID, a radio the chip lacks. The page checks the same things here.'),
+    hw.notes?.length ? h('ul', {}, hw.notes.map(x => h('li.hint', {}, x))) : null);
 }
 
 /** ID tab: the callsign, and whether it is the name on the air. */

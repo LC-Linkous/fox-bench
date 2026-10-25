@@ -44,7 +44,7 @@ class NetFox:
         self.board_id = getattr(board, "board_id", "unknown")
         self.uid = "".join("%02x" % b for b in microcontroller.cpu.uid)
         self.radios = self._radios()
-        self.cfg, self.report = netcfg.load(path, defaults, self.board_id, self.radios)
+        self.cfg, self.report = netcfg.load(path, defaults, self.board_id, self.radios, dir(board))
         self.fatal = self.report.fatal
         self.radio = None
         self.led = led.Status(None)
@@ -56,8 +56,9 @@ class NetFox:
             return
         c = self.cfg
         try:
-            pin = getattr(board, "LED", None)
-            self.led = led.Status(pin if c["led"]["enabled"] else None)
+            name = (c.get("pins") or {}).get("led")                 # the variant's LED pin; null = no LED on this board
+            pin = getattr(board, name, None) if isinstance(name, str) else None
+            self.led = led.Status(pin if (c["led"]["enabled"] and pin is not None) else None)
         except Exception:
             self.led = led.Status(None)
         self.id_ok = netcfg.id_ok(c)

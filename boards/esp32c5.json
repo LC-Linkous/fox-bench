@@ -1,0 +1,15 @@
+{
+  "id": "esp32c5",
+  "name": "ESP32-C5",
+  "hardware": "seeed_xiao_esp32c5",
+  "variants": [
+    "seeed_xiao_esp32c5",
+    "dfrobot_firebeetle2_esp32c5"
+  ],
+  "family": "foxlib",
+  "status": "experimental",
+  "firmware": {
+    "kind": "circuitpython+foxlib",
+    "note": "CircuitPython on the board, fox-bench's foxlib and a network-fox template (Wi-Fi beacon, Wi-Fi probe, BLE beacon) deployed over the REPL. The SoC's own radio: no module. The board variant sets the CircuitPython build and the LED / battery pins; a connected board's reported id picks it. Not yet on the bench."
+  }
+}

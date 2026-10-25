@@ -32,12 +32,18 @@
   ],
   "pins": [
     {
-      "name": "D0",
+      "name": "IO27",
       "gpio": 27,
-      "note": "yellow LED (kitsune's DATA_PIN)"
+      "aliases": [
+        "D0"
+      ],
+      "note": "yellow user LED (kitsune's DATA_PIN); IO27 in the DevKitC-1 CircuitPython build's pin names"
     }
   ],
-  "roles": {},
+  "roles": {
+    "led": "IO27",
+    "batt_sense": null
+  },
   "led": {
     "kind": "single",
     "pin": 27,
@@ -57,5 +63,15 @@
     "baud": 115200,
     "notes": "kitsune prints 'ESP32 boot count', 'Awake and screaming', 'Going to sleep' and 'PANIC' on its serial port; no command interface."
   },
-  "silkscreen": null
+  "silkscreen": null,
+  "circuitpython": {
+    "board_id": "espressif_esp32c5_devkitc_1_n8r8",
+    "board_ids": [
+      "espressif_esp32c5_devkitc_1_n8r8"
+    ],
+    "shared_build": true,
+    "download": "https://circuitpython.org/board/espressif_esp32c5_devkitc_1_n8r8/",
+    "latest_known": "10.3.1",
+    "note": "CircuitPython has no XIAO ESP32C5 build (checked 2026-10-24); the ESP32-C5-DevKitC-1-N8R8 build is the same chip and runs here, reporting espressif_esp32c5_devkitc_1_n8r8 — the same id the FireBeetle 2 ESP32-C5 reports, so the page keeps whichever of the two is selected. Pin names are the DevKit's IOxx. To verify on the board."
+  }
 }

@@ -34,26 +34,25 @@ Board tab shows them for the site's UF2 (`foxbench-picofox.json`).
 - Templates on the PicoFox other than morse-songs and morse-sstv: the
   firmware runs them in the host simulation, not yet on air.
 - The network foxes (`wifi-beacon`, `wifi-probe`, `ble-beacon`, foxlib
-  1.1.0) on every board: run only in the simulator (`firmware/sim/`, mocked
-  `wifi`/`_bleio`/`alarm`) and on the page's demo board. To verify per
-  board, with a phone as the receiver: the SSID appears in the phone's
-  Wi-Fi list with the configured name and MAC (a Wi-Fi analyser app shows
-  the BSSID and channel); the beacon appears in a BLE scanner app (nRF
-  Connect or similar) with the UUID/major/minor and the name; the probe
-  shows in a sniffer only; the radio goes away for `sleep_s` and comes
-  back; deep sleep drops the USB port and the fox reboots with `woke from
-  deep sleep`; `tx_power_dbm` steps change the RSSI the phone reports.
-  CircuitPython builds (checked against circuitpython.org 2026-10-24): the
-  XIAO ESP32-C6 has its own (`seeed_xiao_esp32c6`); the Waveshare
-  ESP32-S3-Nano has none and runs the Arduino Nano ESP32 build
-  (`arduino_nano_esp32s3`, same S3R8 / 16 MB / 8 MB layout); the FireBeetle
-  2 ESP32-C5 has none and runs the ESP32-C5-DevKitC-1-N8R8 build
-  (`espressif_esp32c5_devkitc_1_n8r8`, same module class — LED/button GPIOs
-  may differ); the Nano 33 BLE and its Rev2 each have one. The page maps
-  those reported ids back to the targets; whether the sibling builds run
-  right on these boards is what the first session has to show. The Nano 33
-  BLE (nRF52840) cannot be flashed from the page (`bossac`, no esptool):
-  CircuitPython goes on by hand, then the page deploys over the REPL.
+  1.2.0) on every chip target: run only in the simulator (`firmware/sim/`,
+  mocked `wifi`/`_bleio`/`alarm`) and on the page's demo board. The bench
+  list per board is `docs/network-fox-bench.md`. Boards on the bench and the
+  CircuitPython build each runs (checked against circuitpython.org
+  2026-10-24):
+
+  | chip target | board (variant) | CircuitPython build | notes |
+  |---|---|---|---|
+  | `esp32c3` | Seeed XIAO ESP32C3 | its own (`seeed_xiao_esp32c3`) | no user LED on the bare board; the same board as the FM combo, without the module |
+  | `esp32c6` | Seeed XIAO ESP32C6 (×2) | its own (`seeed_xiao_esp32c6`) | yellow LED `board.LED`; two boards: one radio-off, one deep-sleep side by side |
+  | `esp32c5` | Seeed XIAO ESP32C5 | ESP32-C5-DevKitC-1-N8R8 (`espressif_esp32c5_devkitc_1_n8r8`), no build of its own | LED `IO27`; also the real kitsune C5 target |
+  | `esp32c5` | DFRobot FireBeetle 2 ESP32-C5 | the same DevKitC-1 build (shared) | LED `IO15`; the two C5s report the same id — the page keeps the one selected |
+  | `esp32s3` | Seeed XIAO ESP32S3 | its own (`seeed_xiao_esp32s3`) | LED `board.LED` (GPIO21) |
+  | `esp32s3` | Waveshare ESP32-S3-Nano | Arduino Nano ESP32 (`arduino_nano_esp32s3`), no build of its own | `board.LED` to verify; RGB `LED_RED/GREEN/BLUE` |
+  | `nrf52840` | Arduino Nano 33 BLE Rev2 | `arduino_nano_33_ble_rev2` (Rev1: `arduino_nano_33_ble`) | BLE only; CircuitPython by `bossac`, not from the page |
+
+  Whether the sibling builds (C5s, S3-Nano) run right is what the first
+  session has to show; the pin names in `hardware/*.json` for those three
+  follow the sibling build's naming and are to be confirmed from `dir(board)`.
 - Every `compiled` (kitsune) target: descriptors come from public
   documentation; nothing has been flashed or listened to from this page
   (the firmware card's flash path has run only against the simulated

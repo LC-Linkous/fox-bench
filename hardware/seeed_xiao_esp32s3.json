@@ -1,0 +1,143 @@
+{
+  "id": "seeed_xiao_esp32s3",
+  "name": "Seeed XIAO ESP32S3",
+  "mcu": "ESP32-S3R8",
+  "radio": "the SoC's own radios: wifi24, ble",
+  "radios": [
+    "wifi24",
+    "ble"
+  ],
+  "design": {
+    "by": "Seeed Studio",
+    "source": "https://wiki.seeedstudio.com/xiao_esp32s3_getting_started/",
+    "license": "see the vendor's page"
+  },
+  "flash": {
+    "method": "esptool",
+    "chip": "esp32s3",
+    "offset": "0x0",
+    "flash_mb": 8,
+    "bootloader_instructions": "Hold B (BOOT) while plugging in USB-C; release after a second. The chip's USB-JTAG-serial port (303a:1001) appears.",
+    "note": "8 MB flash, 8 MB PSRAM; u.FL antenna connector (the supplied antenna must be fitted). Not yet flashed from this page."
+  },
+  "has_usb_drive": false,
+  "usb": [
+    {
+      "vid": "0x303a",
+      "pid": "0x1001",
+      "when": "ESP32-S3 USB-JTAG-serial (download mode and, with CDC on boot, the running firmware)"
+    }
+  ],
+  "pins": [
+    {
+      "name": "LED",
+      "gpio": 21,
+      "note": "yellow user LED, active low"
+    },
+    {
+      "name": "D0",
+      "gpio": 1,
+      "aliases": [
+        "A0"
+      ]
+    },
+    {
+      "name": "D1",
+      "gpio": 2,
+      "aliases": [
+        "A1"
+      ]
+    },
+    {
+      "name": "D2",
+      "gpio": 3,
+      "aliases": [
+        "A2"
+      ]
+    },
+    {
+      "name": "D3",
+      "gpio": 4,
+      "aliases": [
+        "A3"
+      ]
+    },
+    {
+      "name": "D4",
+      "gpio": 5,
+      "aliases": [
+        "A4",
+        "SDA"
+      ]
+    },
+    {
+      "name": "D5",
+      "gpio": 6,
+      "aliases": [
+        "A5",
+        "SCL"
+      ]
+    },
+    {
+      "name": "D6",
+      "gpio": 43,
+      "aliases": [
+        "TX"
+      ]
+    },
+    {
+      "name": "D7",
+      "gpio": 44,
+      "aliases": [
+        "RX"
+      ]
+    },
+    {
+      "name": "D8",
+      "gpio": 7,
+      "aliases": [
+        "SCK"
+      ]
+    },
+    {
+      "name": "D9",
+      "gpio": 8,
+      "aliases": [
+        "MISO"
+      ]
+    },
+    {
+      "name": "D10",
+      "gpio": 9,
+      "aliases": [
+        "MOSI"
+      ]
+    }
+  ],
+  "roles": {
+    "led": "LED",
+    "batt_sense": null
+  },
+  "led": {
+    "kind": "single",
+    "pin": 21,
+    "active_low": true,
+    "note": "yellow user LED on GPIO21"
+  },
+  "battery": {
+    "charger": true,
+    "divider_note": "charger on board (BAT pads); no divider to an ADC pin by default — as the XIAO C3"
+  },
+  "circuitpython": {
+    "board_id": "seeed_xiao_esp32s3",
+    "board_ids": [
+      "seeed_xiao_esp32s3"
+    ],
+    "download": "https://circuitpython.org/board/seeed_xiao_esp32s3/",
+    "latest_known": "10.3.1",
+    "note": "its own build; board.LED is the yellow LED. The Sense variant (camera, mic) reports the same id."
+  },
+  "notes": [
+    "Network fox today (no module). The D-pins are the XIAO footprint's, so a XIAO ESP32S3 + SA868 combination would wire like the XIAO ESP32C3 + SA868 — a future target of its own."
+  ]
+}

@@ -142,5 +142,10 @@
   "radios": [
     "wifi24",
     "ble"
-  ]
+  ],
+  "net": {
+    "led": null,
+    "batt_sense": null,
+    "note": "the bare XIAO ESP32C3 has no user LED (only the charge LED); as a network fox it runs dark unless a LED is wired to a pin"
+  }
 }
