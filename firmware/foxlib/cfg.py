@@ -4,10 +4,16 @@
 # validate() is pure so the simulator and desktop tests can run it.
 
 import json
-import re
 
 SCHEMA = 1
-_IMAGES_FILE_OK = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$")
+# A plain file name: letters, digits, . _ - (first character alphanumeric), 1-32 characters. Written out rather than as a
+# regex: CircuitPython's `re` has no counted repetition ({m,n}), so the pattern silently never matched on the board and every
+# images_file fell back to the default (seen on a XIAO ESP32-C3, foxlib 1.2.0).
+_FNAME_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-"
+
+
+def _plain_file_name(s):
+    return isinstance(s, str) and 1 <= len(s) <= 32 and s[0] not in "._-" and all(c in _FNAME_CHARS for c in s)
 _RESERVED_FILES = {"code.py", "boot.py", "fox.json", "defaults.json", "board.json", "settings.txt", "audio.wav", ".callsign.wav", ".settings_crc.bin", "readme.txt"}
 REQUIRED_PINS = ("ptt", "pd", "hl", "uart_tx", "uart_rx", "audio")
 OPTIONAL_PINS = ("led", "batt_sense")
@@ -254,7 +260,7 @@ def validate(user, defaults, board_names, board_id=None):
                 if "mode" in pl and pl["mode"] != "robot36-gray":
                     rep.bad("payload.mode", "robot36-gray only")
                 imf = pl.get("images_file", "images.bin")
-                if isinstance(imf, str) and _IMAGES_FILE_OK.match(imf) and imf.lower() not in _RESERVED_FILES:
+                if _plain_file_name(imf) and imf.lower() not in _RESERVED_FILES:
                     out["images_file"] = imf
                 else:
                     rep.bad("payload.images_file", "a plain file name (letters, digits, . _ -), not code.py / fox.json / defaults.json / boot.py / board.json")

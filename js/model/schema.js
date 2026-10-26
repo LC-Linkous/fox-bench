@@ -177,6 +177,9 @@ export function mergeAndValidate(user, defaults, board) {
 /** Page-side checks that go beyond the firmware: callsign set, band plan, Morse characters. */
 export function pageChecks(cfg, { bands, region, morseTable, templateManifest, module, pinless = false }) {
   const issues = [];   // { level: 'err'|'warn', key, msg }
+  // the radio section must be the selected module's driver family: a config carried from a PicoFox (si5351fm) onto a
+  // XIAO + SA868 (dmo) boots fatal(hardware) on the board — caught here first
+  if (module && cfg.radio?.family && cfg.radio.family !== module.family) issues.push({ level: 'err', key: 'radio.family', msg: `radio.family is ${cfg.radio.family} but the ${module.name || module.id} is a ${module.family} module: the fox would boot silent (fatal hardware). Re-select the board to reset the radio section.` });
   if (cfg.id.callmessage.includes(cfg.id.placeholder)) issues.push({ level: 'err', key: 'id.callmessage', msg: `callsign not set (still contains ${cfg.id.placeholder})` });
   const unsendable = [...new Set(cfg.id.callmessage.toLowerCase().split('').filter(c => c !== ' ' && !(c in morseTable)))];
   if (unsendable.length) issues.push({ level: 'warn', key: 'id.callmessage', msg: `not in the Morse table, will be skipped: ${unsendable.join(' ')}` });

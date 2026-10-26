@@ -8,7 +8,7 @@
   "contract": "net",
   "status": "experimental",
   "description": "A Wi-Fi access point that appears for wake_s and disappears for sleep_s: SSID (or the callsign), spoofed BSSID, channel, TX power. Visible to any phone's Wi-Fi list; the BSSID is the fox's fingerprint. The SoC's own radio: no module, no pins. This firmware cannot hide the SSID.",
-  "foxlib": ">=1.2.0 <2.0.0",
+  "foxlib": ">=1.2.1 <2.0.0",
   "radios": [
     "wifi24"
   ],

@@ -14,6 +14,37 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.9.2 · foxlib 1.2.1 · foxlib-c 0.1.10
+
+- Bench finding 2026-10-26: flashing a second board while the page was
+  still connected to the first left the Flash button disabled, its reason
+  only in a tooltip. With a REPL / console / listen session open the button
+  now reads **Disconnect and flash** and does exactly that — closes the
+  session (console line), then asks for the port to flash. Same on the
+  Batch flashing card and the kitsune image card. A drive session is left
+  alone (another path). Other reasons (no image, no Web Serial) are shown
+  as a visible warning beside the button.
+
+### Page 0.9.1 · foxlib 1.2.1 · foxlib-c 0.1.10
+
+Two bench findings from 2026-10-25 (XIAO ESP32-C3 + SA868 after a PicoFox
+session), both fixed:
+
+- **A form carried from the PicoFox onto the XIAO kept the PicoFox's radio
+  section** (`radio.family: si5351fm`), and the XIAO booted
+  `cfg=fatal(hardware(ValueError: radio.family 'si5351fm' has no driver))`,
+  silent. Switching targets across firmware families now resets module,
+  radio, pins, battery and limits to the new board's defaults (plan, ID,
+  payload, schedule and fleet notes carry), with a console line; and the
+  page refuses to deploy a `radio.family` that is not the selected module's
+  (blocking error on the Deploy tab).
+- **`payload.images_file` always fell back to the default on the board**
+  (`cfg: payload.images_file -> default`): the check was a regex with a
+  counted repetition (`{0,31}`), which CircuitPython's `re` does not
+  support, so it never matched. Written out as a plain check. foxlib 1.2.1.
+- Console wording when a board runs a `code.py` that is not a fox-bench
+  template: says so, and that Deploy replaces it.
+
 ### Page 0.9.0 · foxlib 1.2.0 · foxlib-c 0.1.10
 
 **The board picker regrouped around what a fox is**, not its firmware

@@ -481,6 +481,17 @@ try {
   await tab('board'); await page.selectOption('#tab-board select', 'seeed_xiao_esp32c3'); await settle(400);
   eq(await app(() => window.foxbench.family), 'foxlib', 'back to the C3: family foxlib');
   check(await page.isVisible('.rail button[data-tab="bench"]'), 'Bench tab back');
+  // the bench finding of 2026-10-25: a config carried from the PicoFox kept radio.family si5351fm and the XIAO booted fatal(hardware)
+  eq(await app(() => window.foxbench.cfg.radio.family + '/' + window.foxbench.cfg.module), 'dmo/sa868_vhf', 'PicoFox → XIAO: the radio section and module are the XIAO\'s, not the PicoFox\'s si5351fm');
+  check(/radio, module and pins reset to this board/.test(await text('#log')), 'the console says the hardware sections were reset');
+  eq(await app(() => window.foxbench.cfg.pins.ptt), 'D3', 'pins from the XIAO defaults');
+  check(!(await app(() => window.foxbench.issues.some(i => i.key === 'radio.family'))), 'no radio.family issue after the switch');
+  await app(() => { window.foxbench.cfg.radio.family = 'si5351fm'; window.foxbench.changed('radio'); }); await settle(200);
+  check(await app(() => window.foxbench.issues.some(i => i.key === 'radio.family' && i.level === 'err')), 'a radio.family that is not the module\'s is a blocking error on the page');
+  await tab('deploy'); await page.check('#tab-deploy .gate input'); await settle(100);
+  check(await page.isDisabled('#tab-deploy button.btn.primary'), 'and the deploy button is disabled');
+  await page.uncheck('#tab-deploy .gate input');
+  await app(() => { window.foxbench.cfg.radio.family = 'dmo'; window.foxbench.changed('radio'); }); await settle(200);
   await tab('behavior');
   check((await page.$$eval('#tab-behavior select option', els => els.length)) >= 7, 'template dropdown back to the foxlib set');
   await page.click('#demoBtn'); await settle(600);
@@ -573,6 +584,21 @@ try {
   await tab('board'); await page.selectOption('#tab-board select', 'seeed_xiao_esp32c3'); await settle(300);
   await app(() => window.__fakeSerial.install('board', { running: true, noise: true, noiseMs: 50, ansi: true, chunk: 17, latency: 2, files: { 'foxlib/__init__.py': '# old\n', 'foxlib/VERSION': '0.9.0\n' } }));
   await page.click('#connectBtn'); await until(() => window.foxbench.connected && window.foxbench.info.uid === '85c818eae840', 'the REPL connect to finish', 20000);
+  // 1a. the bench finding of 2026-10-26: flashing a second board while still connected to the first — the Flash button
+  // closes the session itself instead of sitting disabled with a tooltip (the image is still loaded from the demo flash above)
+  await tab('board');
+  { const bin = Buffer.alloc(80000); for (let i = 0; i < bin.length; i++) bin[i] = (i * 7) & 0xff;
+    await page.setInputFiles('#tab-board input[type=file][accept=".bin"]', { name: 'adafruit-circuitpython-seeed_xiao_esp32c3-en_US-10.3.1.bin', mimeType: 'application/octet-stream', buffer: bin }); await settle(300); }
+  check(await page.isVisible('#tab-board button:has-text("Disconnect and flash CircuitPython")') && !(await page.isDisabled('#tab-board button:has-text("Disconnect and flash CircuitPython")')), 'connected over the REPL: the Flash button offers "Disconnect and flash" and is enabled');
+  await app(() => { window.foxbenchFlash.simulate = true; });
+  await page.click('#tab-board button:has-text("Disconnect and flash CircuitPython")'); await settle(300);
+  eq(await app(() => window.foxbench.connected), false, 'the REPL session was closed first');
+  check(/disconnecting from the board so the flasher can open a port/.test(await text('#log')), 'console says why');
+  await untilTextArgs('#tab-board', /Flashed in .* ESP32-C3/, 20000);
+  check(/Flashed in .* ESP32-C3/.test(await text('#tab-board')), 'and the (simulated) flash ran');
+  await app(() => { window.foxbenchFlash.simulate = false; });
+  await app(() => window.__fakeSerial.install('board', { running: true, noise: true, noiseMs: 50, ansi: true, chunk: 17, latency: 2, files: { 'foxlib/__init__.py': '# old\n', 'foxlib/VERSION': '0.9.0\n' } }));
+  await page.click('#connectBtn'); await until(() => window.foxbench.connected && window.foxbench.info.uid === '85c818eae840', 'the REPL connect to finish again', 20000);
   eq(await app(() => window.foxbench.device?.kind), 'repl', 'a ReplDevice on a SerialLink');
   eq(await app(() => window.__fakeSerial.port.baud), 115200, 'port opened at 115200');
   check(/foxlib/.test(await text('#tab-board')), 'Board tab read the board\'s foxlib version over the real link');

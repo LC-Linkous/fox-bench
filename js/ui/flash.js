@@ -32,9 +32,17 @@ function imageBadge() {
 export function blocker(app) {
   if (state.busy) return 'flashing…';
   if (!flasher.image.bytes) return app.isCompiled ? 'get or load an image first' : 'load a CircuitPython .bin first';
-  if (app.device && app.device.kind !== 'demo') return 'disconnect from the board first (top bar) — the flasher opens the port itself';
+  if (app.device && app.device.kind !== 'demo' && !canDisconnectFirst(app)) return 'disconnect from the board first (top bar) — the flasher opens the port itself';
   if (!app.device && !('serial' in navigator)) return 'Web Serial is not available in this browser';
   return '';
+}
+/** A serial session (REPL, console, listen) is in the flasher's way, and the Flash button can close it itself: the
+ *  flasher opens its own port through the chooser anyway. A drive is another path and is left alone. */
+export function canDisconnectFirst(app) { return !!app.device && app.device.kind !== 'demo' && app.device.transport !== 'drive'; }
+/** Close a serial session that would hold the port, then flash. One click when flashing board after board. */
+async function disconnectAndFlash(app, opts) {
+  if (canDisconnectFirst(app)) { app.console.dim('disconnecting from the board so the flasher can open a port'); await app.disconnect(); }
+  return runFlash(app, opts);
 }
 
 /** Run one flash, log to the console, append a fleet row. Returns facts or throws. */
@@ -111,8 +119,8 @@ export function flashCard(app) {
       check('Erase the whole flash first', state.erase, v => { state.erase = v; notify(); }, 'Also wipes the board\'s files (fox.json, foxlib). What a fleet reset wants; off only for a quick CircuitPython upgrade that keeps the files.'),
       field('Speed', select([[921600, '921600 baud'], [460800, '460800 baud (default)'], [230400, '230400 baud'], [115200, '115200 baud (safe)']], state.baud, v => { state.baud = +v; }), 'Drop it if the write fails part way.')),
     h('div.tools', {},
-      h('button.btn.primary', { disabled: !!why, title: why, onclick: () => runFlash(app).catch(() => {}) }, state.busy ? 'Flashing…' : 'Flash CircuitPython'),
-      why && !state.busy ? h('span.hint', {}, why) : null),
+      h('button.btn.primary', { disabled: !!why, title: why, onclick: () => disconnectAndFlash(app).catch(() => {}) }, state.busy ? 'Flashing…' : canDisconnectFirst(app) ? 'Disconnect and flash CircuitPython' : 'Flash CircuitPython'),
+      why && !state.busy ? h('span.hint.warn', {}, why) : canDisconnectFirst(app) ? h('span.hint', {}, 'the page is connected to a board; flashing closes that session first and asks for the port to flash') : null),
     ...statusBlock(),
     h('p.hint', {}, 'The flasher is a separate component of fox-bench (', h('code', {}, 'flasher/'), ', Apache-2.0) built on ', h('a', { href: 'https://github.com/espressif/esptool-js', target: '_blank', rel: 'noopener' }, 'esptool-js'), ` ${flasher.ESPTOOL_VERSION}. Works offline. From a terminal, `, h('code', {}, 'tools/batch_flash.py'), ' does the same with the same log columns.'));
 }
@@ -198,7 +206,7 @@ function compiledCard(app) {
       check('Erase the whole flash first', state.erase, val => { state.erase = val; notify(); }, 'Recommended for a board coming from other firmware; a merged image covers everything a bare board needs anyway.'),
       field('Speed', select([[921600, '921600 baud'], [460800, '460800 baud (default)'], [230400, '230400 baud'], [115200, '115200 baud (safe)']], state.baud, val => { state.baud = +val; }), 'Drop it if the write fails part way.')),
     h('div.tools', {},
-      h('button.btn.primary', { disabled: !!why || !!flasher.image.info, title: why, onclick: () => runFlash(app).catch(() => {}) }, state.busy ? 'Flashing…' : 'Flash'),
+      h('button.btn.primary', { disabled: !!why || !!flasher.image.info, title: why, onclick: () => disconnectAndFlash(app).catch(() => {}) }, state.busy ? 'Flashing…' : canDisconnectFirst(app) ? 'Disconnect and flash' : 'Flash'),
       why && !state.busy ? h('span.hint', {}, why) : null),
     ...statusBlock(),
     h('p.hint', {}, 'The fleet log gets a flash row with the chip\'s efuse MAC as the fox\'s UID — the one identity a kitsune fox has until it prints a banner. kitsune belongs to its authors: ', h('a', { href: v?.SOURCE || 'https://github.com/rfhs/kitsune', target: '_blank', rel: 'noopener' }, v?.SOURCE || 'https://github.com/rfhs/kitsune'), '.'));
@@ -213,7 +221,7 @@ export function batchCard(app) {
     h('p.hint', {}, 'Plug a board in with B held → click → it is erased, flashed and logged with its MAC and chip facts → unplug → next. One click per board because the browser grants each port by hand. Same CSV columns as ', h('code', {}, 'tools/batch_flash.py'), '.'),
     flasher.image.bytes ? null : h('p.hint.warn', {}, 'Load the CircuitPython image on the Board tab first.'),
     h('div.tools', {},
-      h('button.btn.primary', { disabled: !!why, title: why, onclick: () => runFlash(app, { boardNumber: n }).then(() => { state.boardNumber = n + 1; notify(); }).catch(() => {}) }, state.busy ? 'Flashing…' : `Flash board #${n}`),
+      h('button.btn.primary', { disabled: !!why, title: why, onclick: () => disconnectAndFlash(app, { boardNumber: n }).then(() => { state.boardNumber = n + 1; notify(); }).catch(() => {}) }, state.busy ? 'Flashing…' : canDisconnectFirst(app) ? `Disconnect and flash board #${n}` : `Flash board #${n}`),
       h('span.hint', {}, 'next number '), h('input', { type: 'number', min: 1, value: n, style: 'width:80px', onchange: e => { state.boardNumber = Math.max(1, parseInt(e.target.value, 10) || 1); notify(); } }),
       why && !state.busy ? h('span.hint', {}, why) : null),
     ...statusBlock());
