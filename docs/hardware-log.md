@@ -9,6 +9,14 @@ kitsune targets, say which kind of board, never which event's kits.
 Commit hashes are the fox-bench commit the firmware was built from; the
 Board tab shows them for the site's UF2 (`foxbench-picofox.json`).
 
+`python3 tools/bench_queue.py` reads this table against the catalog and
+prints what the next sessions have to show: a stable target whose last row
+predates the firmware the catalog ships is a **re-run**; an experimental
+one is a **first session**. CI fails if a stable target has no row at all.
+A row is matched to a board by the `log_names` in its `hardware/*.json`
+(or, failing that, the descriptor's name), so name the board the same way
+each time.
+
 | date | board | firmware | checked | how | result |
 |---|---|---|---|---|---|
 | 2026-10-18 | Seeed XIAO ESP32-C3 + SA868 (2 m and 70 cm modules) | foxlib 1.0.1–1.0.2, CircuitPython 10.2.1 | all seven FM templates deployed from the page; keying, ID, songs, SSTV, QRSS, popcorn/resurrection schedules, keydown limit; `tools/hw_smoke.py` end to end | handheld receiver; bench key test | ok on both bands |

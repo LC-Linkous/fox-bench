@@ -1,5 +1,6 @@
 {
   "id": "picofox",
+  "log_names": ["AI6YM PicoFox"],
   "name": "AI6YM PicoFox (RP2040 + SI5351, 2 m FM)",
   "mcu": "RP2040",
   "radio": "SI5351 clock generator (TCXO) + amplifier; FM by retuning the PLL per audio sample",

@@ -14,6 +14,36 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.9.3 · foxlib 1.2.1 · foxlib-c 0.1.10
+
+Pre-pause cleanup, 2026-11-06: documentation brought level with the tree,
+and tests for the flasher's real transport, before the remaining boards go
+on the bench and kitsune work pauses.
+
+- **Tests: the vendored esptool-js runs in CI** against a fake ESP32-C3 ROM
+  (`tests/unit/fake-rom-port.mjs`, `esptool-real.test.mjs`): sync, chip
+  identification, eFuse reads, baud change and port reopen; the reset
+  strategy per port kind (USB-JTAG vs classic DTR/RTS with its 100 ms
+  hold); the wrong-chip refusal and the not-in-download-mode failure
+  through the real detector. `flash()` takes a `port` for this. Erase and
+  write stay bench-only; `tests/README.md` says where the fake stops.
+- Tests: `npm run smoke` reports per section and names the section an
+  exception happened in. CI's pty bench run covers all seven FM templates,
+  not three.
+- Page: the remaining Board-tab handlers that awaited a device call with no
+  catch go through `app.guard` (a rejection is a console line, audit W12);
+  `parseBanner` and the catalog's board map are prototype-free, so a banner
+  saying `board=__proto__` is a plain unknown id (`banner.test.mjs`).
+- Catalog: a target must say `status` (`stable` | `experimental` |
+  `planned`); absent used to mean stable. `seeed_xiao_esp32c3` says so.
+- Docs: `project-audit-2026-10.md` has a 2026-11-06 status block — most of
+  the "open" page items were fixed in 0.7–0.9 and are now listed as such,
+  with what remains; `CONTRIBUTING.md` no longer describes a `kitsune`
+  branch (experimental targets on `main` are the gate);
+  `kitsune-integration-plan.md` marked paused; `releasing.md` lists the
+  pinned tooling (Arm toolchain, Pico SDK, esptool-js, Playwright).
+
+
 ### Page 0.9.2 · foxlib 1.2.1 · foxlib-c 0.1.10
 
 - Bench finding 2026-10-26: flashing a second board while the page was

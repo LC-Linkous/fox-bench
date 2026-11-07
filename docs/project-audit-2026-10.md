@@ -9,6 +9,47 @@ mattered). Written as the worklist before anything was fixed; the status
 block below says where each item stands now. The findings themselves are
 left as written — they are the record of what the code was.
 
+## Status at page 0.9.3 / foxlib 1.2.1 / foxlib-c 0.1.10 (2026-11-06)
+
+A re-check of every item the 2026-10-22 block left open, against the tree,
+before kitsune work was paused and the remaining boards go on the bench.
+
+**Fixed since that block** (each has a test or a CI guard unless noted):
+W6 (banner-follow keeps the previous form; `undoFollow`, smoke "undo a
+banner-follow"), W11 (a clean `done` on the read stream fires `onDrop`,
+`serial-link.js`; smoke "a port drop"), W12 (the remaining `board.js`
+handlers go through `app.guard`, which turns a rejection into a console
+line — 0.9.3), `__proto__` as a banner board id (`parseBanner` and the
+catalog's board map are prototype-free; `tests/unit/banner.test.mjs` —
+0.9.3), CSV cells beginning with `= + - @` (`profiles.js toCsv`,
+`profiles.test.mjs`), two tabs clobbering `working` (the `storage` event;
+smoke "two tabs"), unbounded console `entries` (`MAX_KEPT`), callmessage
+length (bytes of UTF-8 in all three validators; schema parity corpus), P1
+(tests gate the deploy), the release path (`release` job, `docs/releasing.md`
+— no tag cut yet, see below), CONTRIBUTING and SECURITY (exist),
+`json.c` fuzzer (`make check`).
+
+**Still open — firmware**: F10 (attenuator word format and dB/step: needs
+a meter), F11 (I²C 1 MHz without readback: zero errors across every session
+so far; left), `player.c` and the FatFs/MSC path have no host test.
+
+**Still open — page**: Google Fonts loaded from fonts.googleapis.com (a
+privacy and offline question, not a bug; the page works without them);
+P8's licensing wording (`LICENSES.md` calls the flasher import aggregation —
+a deliberate choice is still owed); the mixed-version page for ≤10 min
+after a deploy (Pages caching; the asset links carry no version — see
+`docs/releasing.md`).
+
+**Still open — tests**: the flasher's real transport. `flasher.test.mjs`
+and the smoke run against `demoEsptool()`; esptool-js itself is exercised
+only on the bench. A recorded-transcript test (the esptool-js log of a real
+flash, replayed) is the next step; see `tests/README.md` "What is not
+tested here".
+
+**No release tag exists yet.** `docs/releasing.md` describes the path; the
+first tag should be cut at this version, so that the hardware sessions that
+follow have a known page and firmware to report against.
+
 ## Status at page 0.7.9 / foxlib-c 0.1.9 (2026-10-22)
 
 **Fixed** (see `CHANGELOG.md` 0.6.1–0.7.9 and `docs/hardware-log.md`):

@@ -1,5 +1,13 @@
 # Releasing
 
+> **Pinned tooling.** Three things are pinned on purpose and bumped by a
+> deliberate commit, never by drift: the Arm toolchain and Pico SDK (by hash
+> and commit, `ci.yml`), esptool-js (`flasher/vendor/esptool-js/VERSION`,
+> `flasher/README.md`), and Playwright (`tests/package.json`, 1.49.1 with
+> Node 20 — the smoke's fake Web Serial port relies on Chromium's
+> `navigator.serial` shape; test a bump with `npm run smoke` before
+> committing it).
+
 A release is a git tag `vX.Y.Z` where `X.Y.Z` is the page version in
 `js/main.js`. The `release` job in `.github/workflows/ci.yml` creates a
 GitHub Release titled `fox-bench vX.Y.Z` carrying:

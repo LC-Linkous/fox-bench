@@ -69,6 +69,8 @@ jobs:
           fi
       - name: Docs name only files that exist
         run: python3 tools/check_docs.py
+      - name: Every stable target has a hardware-log row; the bench queue prints for the run log
+        run: python3 tools/bench_queue.py --check
       - name: Workflow file parses strictly (duplicate keys), job graph; kitsune build tool self-test; manifest shape
         run: |
           pip install --quiet pyyaml

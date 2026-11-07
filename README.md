@@ -65,6 +65,7 @@ after all three passed, carrying the UF2 that run built
 | `tests/` | page smoke test (Playwright) and REPL protocol tests (fake board) |
 | `tools/check_catalog.py` | lint for every descriptor, defaults file and index; runs in CI |
 | `tools/hw_smoke.py` | bench script: every template on a real board, banner + bench + memory, JSON report |
+| `tools/bench_queue.py` | what the next bench sessions have to show, derived from the catalog and `docs/hardware-log.md`; `--check` runs in CI |
 | `flasher/` | CircuitPython flashing component (esptool-js bundled; Apache-2.0, licensed separately) |
 | `tools/batch_flash.py` | headless CircuitPython batch flasher, same CSV as the Fleet tab |
 | `docs/first-hardware-session.md` | checklist for a new board, module or CircuitPython build |

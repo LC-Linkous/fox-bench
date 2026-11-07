@@ -97,8 +97,8 @@ function render() {
         h('dt', {}, 'fox.json'), h('dd', {}, ob.cfg ? `${ob.cfg.id?.callmessage} · ${(ob.cfg.plan?.frequencies_mhz || []).join(', ')} MHz` : ob.raw ? badge('invalid JSON', 'err') : '—'),
         h('dt', {}, 'Files'), h('dd', {}, Object.keys(ob.files).sort().join('  ') || '(empty)')),
     info ? h('div.tools', { style: 'margin-top:10px' },
-      ob.cfg ? h('button.btn', { onclick: async () => { await app.loadCfg(ob.cfg, { source: 'board' }); app.console.dim('working config replaced with the board\'s fox.json'); } }, 'Load the board\'s config into the form') : null,
-      h('button.btn.small', { title: 'Interrupts a running fox and lists its files again', onclick: async () => { await app.readBoard(); app.changed('reread'); } }, 'Re-read board'),
+      ob.cfg ? h('button.btn', { onclick: () => app.guard(async () => { await app.loadCfg(ob.cfg, { source: 'board' }); app.console.dim('working config replaced with the board\'s fox.json'); }) }, 'Load the board\'s config into the form') : null,
+      h('button.btn.small', { title: 'Interrupts a running fox and lists its files again', onclick: () => app.guard(async () => { await app.readBoard(); app.changed('reread'); }) }, 'Re-read board'),
       ob.template ? h('button.btn.small', { title: 'Soft-reboot so code.py runs (Ctrl-D)', onclick: () => app.restartFox() }, 'Restart fox') : null,
       h('span.hint', {}, ob.cfg ? 'Otherwise the form keeps what you were editing; Deploy shows the difference.' : '')) : null);
 
@@ -129,8 +129,8 @@ function renderDrive() {
         h('dt', {}, 'Settings'), h('dd', {}, ob.settings ? `${ob.settings.CALLSIGN || '(no callsign — silent)'} · ${ob.settings.FREQ_MHZ} MHz · zone ${ob.settings.ITU_ZONE} · duty ${ob.settings.DUTY_CYCLE} % · atten ${ob.settings.ATTENUATION}` : '—'),
         h('dt', {}, 'ID audio'), h('dd', {}, ob.markerOk == null ? '—' : ob.markerOk ? badge('kept by the firmware (marker matches)', 'ok') : badge('firmware will regenerate its own at power-on', 'warn'))),
     info ? h('div.tools', { style: 'margin-top:10px' },
-      ob.cfg ? h('button.btn', { onclick: async () => { await app.loadCfg(ob.cfg, { source: 'board' }); app.console.dim(`form replaced with the drive's ${v.FILES.settings}`); } }, 'Load the drive\'s settings into the form') : null,
-      h('button.btn.small', { onclick: async () => { await app.readDrive(); app.changed('reread'); } }, 'Re-read drive'),
+      ob.cfg ? h('button.btn', { onclick: () => app.guard(async () => { await app.loadCfg(ob.cfg, { source: 'board' }); app.console.dim(`form replaced with the drive's ${v.FILES.settings}`); }) }, 'Load the drive\'s settings into the form') : null,
+      h('button.btn.small', { onclick: () => app.guard(async () => { await app.readDrive(); app.changed('reread'); }) }, 'Re-read drive'),
       h('span.hint', {}, 'Only settings come back: the audio on the drive is not reversible into a playlist.')) : null);
   const notes = h('div.card', {}, h('h3', {}, 'Things this firmware does quietly'), h('ul', {}, (b.notes || []).map(n => h('li', {}, n))));
   const flow = h('div.card', {}, h('h3', {}, 'How a deploy works here'),
@@ -163,8 +163,8 @@ function renderFoxlibC() {
         h('dt', {}, 'Template on board'), h('dd', {}, ob.template || '—'),
         h('dt', {}, 'fox.json'), h('dd', {}, ob.cfg ? `${ob.cfg.id?.callmessage} · ${(ob.cfg.plan?.frequencies_mhz || []).join(', ')} MHz` : ob.raw ? badge('invalid JSON', 'err') : '—')),
     info && !ob.listening ? h('div.tools', { style: 'margin-top:10px' },
-      ob.cfg ? h('button.btn', { onclick: async () => { await app.loadCfg(ob.cfg, { source: 'board' }); app.console.dim('working config replaced with the drive\'s fox.json'); } }, 'Load the drive\'s config into the form') : null,
-      h('button.btn.small', { onclick: async () => { await app.readDrive(); app.changed('reread'); } }, 'Re-read drive'),
+      ob.cfg ? h('button.btn', { onclick: () => app.guard(async () => { await app.loadCfg(ob.cfg, { source: 'board' }); app.console.dim('working config replaced with the drive\'s fox.json'); }) }, 'Load the drive\'s config into the form') : null,
+      h('button.btn.small', { onclick: () => app.guard(async () => { await app.readDrive(); app.changed('reread'); }) }, 'Re-read drive'),
       h('span.hint', {}, ob.cfg ? 'Otherwise the form keeps what you were editing; Deploy shows the difference.' : '')) : null,
     app.consoleDevice() ? h('div.tools', { style: 'margin-top:10px' },
       h('button.btn.small', { onclick: async e => { if (!confirm('Jump to the UF2 bootloader? The fox stops, this port disappears and an RPI-RP2 drive appears. Copy a .uf2 there to come back (fox-bench or the vendor\'s).')) return; e.currentTarget.disabled = true; const ok = await app.consoleDevice().bootsel(); app.console.line(ok ? 'bootsel sent — look for the RPI-RP2 drive' : 'bootsel: no reply', ok ? 'ok' : 'err'); } }, 'Enter UF2 bootloader (bootsel)'),

@@ -63,7 +63,7 @@ export async function loadCatalog() {
   }
   // A board entry is a *target*: hardware + firmware + family. Merge the physical facts in so the rest of the page
   // reads one object (board.pins, board.flash, board.notes …); target keys win where both have one.
-  const boards = {};
+  const boards = Object.create(null);   // a banner-reported id indexes this: no prototype keys (`__proto__`, `constructor`)
   for (const [id, t] of Object.entries(targets)) {
     const hw = hardware[t.hardware];
     if (!hw) { console.warn(`boards/${id}.json: unknown hardware ${t.hardware} — target skipped`); continue; }

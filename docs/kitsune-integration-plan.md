@@ -1,6 +1,9 @@
 # Plan: RFHS kitsune foxes on the bench
 
-Status: 2026-10-23 — Phase 0 (§3), catalog packs (§6) and the page side of
+Status: **paused 2026-11-06** — no further kitsune work until the other
+boards in the catalog have been through the bench (`docs/hardware-log.md`,
+"Not yet verified on hardware"). What exists stays as it is: experimental
+targets, no hosted images. As of 2026-10-23 — Phase 0 (§3), catalog packs (§6) and the page side of
 Phase 1 (§4) are in; nothing has been flashed on a kitsune board from the
 page yet. Hardware on fox-bench's bench: a XIAO ESP32C5 (a board kitsune
 builds for), a Waveshare ESP32-S3-Nano (stands in for the Arduino Nano

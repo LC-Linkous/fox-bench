@@ -1,5 +1,6 @@
 {
   "id": "seeed_xiao_esp32c3",
+  "log_names": ["XIAO ESP32-C3"],
   "name": "Seeed Studio XIAO ESP32-C3",
   "mcu": "ESP32-C3",
   "radio": "external module on the carrier (SA818/SA868 family)",

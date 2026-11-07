@@ -11,8 +11,13 @@ templates), `tests/README.md` (what the tests cover) and
 - `main` is what the live page is built from, and what the hardware log
   vouches for. Every push to `main` runs CI and, when every job is green,
   deploys the page and the firmware it built.
-- Work that is not yet verified on hardware lives on a branch (the kitsune
-  family is on `kitsune`). Branches run the tests but do not deploy.
+- Work that is not yet verified on hardware is on `main` but gated: its
+  target is `status: experimental`, which keeps it off the Board picker
+  until "Show experimental targets" is ticked, and nothing about it is
+  called stable in the docs until `docs/hardware-log.md` has a row. (The
+  kitsune family is such work; its development is paused as of 2026-11-06,
+  `docs/kitsune-integration-plan.md`.) Branches run the tests but do not
+  deploy.
 - A change comes in as a pull request against the branch it belongs to,
   with the local sequence below green first.
 

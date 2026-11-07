@@ -17,7 +17,7 @@ export const PROBE_FREQS = [146.5, 433.5];
 export function parseBanner(text) {
   const m = text.match(/^FOX (.*)$/m);
   if (!m) return null;
-  const out = { _raw: m[0] };
+  const out = Object.create(null); out._raw = m[0];   // keys come off the wire: `__proto__=` must stay a plain key
   for (const kv of m[1].match(/\S+=(?:"[^"]*"|\([^)]*\)|\S)*/g) || []) {   // a value may be "quoted with spaces" (a network fox's name=)
     const i = kv.indexOf('='); let v = kv.slice(i + 1); if (v.length >= 2 && v[0] === '"' && v.endsWith('"')) v = v.slice(1, -1); out[kv.slice(0, i)] = v;
   }

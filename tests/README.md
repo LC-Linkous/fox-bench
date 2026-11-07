@@ -29,7 +29,7 @@ drive; the drive vanishing mid-close). Chromium can be pointed at an existing bu
 Everything CI runs, locally, from the repository root:
 
 ```
-python3 tools/check_catalog.py --since origin/main && python3 tools/check_docs.py
+python3 tools/check_catalog.py --since origin/main && python3 tools/check_docs.py && python3 tools/bench_queue.py --check
 python3 tools/check_ci.py && python3 tools/build_kitsune.py --selftest
 python3 tools/check_catalog.py --manifest tests/fixtures/kitsune/manifest.json
 python3 firmware/sim/run.py

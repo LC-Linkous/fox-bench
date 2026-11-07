@@ -28,7 +28,7 @@ import * as tabBench from './ui/bench.js';
 import * as tabFleet from './ui/fleet.js';
 import * as tabAbout from './ui/about.js';
 
-const VERSION = '0.9.2';
+const VERSION = '0.9.3';
 /** Tab subtitles that read differently per device family (null = the page's original text). */
 const LEDES = { drive: {
   board: 'Which fox is on the bench, open its USB drive (or use the simulated one). The vendor firmware stays; the page writes its files.',
@@ -112,7 +112,7 @@ export const app = {
     const runs = hw => { const cp = hw?.circuitpython; return !!cp && (cp.board_id === cpId || (cp.board_ids || []).includes(cpId)); };
     const cur = this.catalog.boards[this.boardId];
     if (cur && (cur.id === cpId || (cur.family === 'foxlib' && runs(this.catalog.hardware?.[this.board.hardware])))) return { target: cur.id, variant: this.variantId };
-    if (this.catalog.boards[cpId]) return { target: cpId, variant: null };
+    if (Object.hasOwn(this.catalog.boards, cpId)) return { target: cpId, variant: null };
     for (const t of Object.values(this.catalog.boards)) {
       if (t.family !== 'foxlib' || t.status === 'planned') continue;
       if (t.variants) { const v = t.variants.find(vid => runs(this.catalog.hardware?.[vid])); if (v) return { target: t.id, variant: v }; }
@@ -231,6 +231,9 @@ export const app = {
     await this.disconnect();
     this.console.line(`disconnected from the ${was}: ${next.name} is a different kind of board (${(next.family || 'foxlib') === 'foxlib' ? 'REPL' : 'USB drive'}), connect it when you are ready to deploy`, 'ok');
   },
+  /** Run a device action from a button: a rejection becomes a console line instead of a silent no-op (audit W12). */
+  async guard(fn) { try { return await fn(); } catch (e) { this.console.err(e?.message || String(e)); return undefined; } },
+
   async setBoard(id, { keepDevice = false, variant = null } = {}) {
     if (this.catalog.boards[id]?.status === 'planned') { this.console.err(`${this.catalog.boards[id].name} is not available yet`); this.changed('board'); return; }
     await this._leaveFamilyFor(id, keepDevice);
