@@ -10,6 +10,7 @@
 #include "si5351.h"
 
 uint64_t sim_now_us;
+void sim_tick(uint64_t us) { sim_now_us += us; }
 static i2c_hw_t hw0; static i2c_inst_t inst0 = { &hw0, false }; i2c_inst_t *i2c0 = &inst0;
 static uint8_t regs[256]; static int writes, fail_at, inits, deinits; static unsigned char last_reg; static int last_len;
 static struct { uint8_t reg; int len; } wlog[64]; static int nlog;

@@ -14,7 +14,13 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
-### Page 0.9.4 · foxlib 1.2.1 · foxlib-c 0.1.10
+### Page 0.9.4 · foxlib 1.2.1 · foxlib-c 0.1.11
+
+**foxlib-c 0.1.11** — `player.c`'s mailbox carries the play request pointer
+as `uintptr_t` (was `uint32_t`: the same 32 bits on the RP2040, a truncated
+pointer on the 64-bit host the new test runs on). No behaviour change on the
+board.
+
 
 - Tests: Playwright 1.49.1 → 1.65.0 (Chrome for Testing 158), the
   deliberate bump `docs/releasing.md` describes; no change to the smoke or
@@ -30,6 +36,14 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
   change — `check_catalog --since` already insists (`docs/releasing.md`).
 - Tests: the real esptool-js through a whole flash — see 0.9.3's entry;
   the stub-mode fake, erase, compressed write and MD5 landed here.
+- Tests: `player.c` on the host (`firmware/foxlib-c/tests/player_test.py`,
+  in `make check`): the real core-1 code and `si5351.c`, core 1 a thread on
+  the virtual clock, a fake I²C controller that decodes every offset write
+  back to deviation counts. Morse for `PARIS` comes back off the bus edge
+  for edge against `core_dump morse`; two plays, STOP, `max_samples`, the
+  empty list, the flash bus hold, the attenuator word and a rev 2 board, a
+  hung core 1 (core 0 unkeys by itself). Closes the audit's "player.c has no
+  host test"; the FatFs/MSC path is what remains.
 
 
 ### Page 0.9.3 · foxlib 1.2.1 · foxlib-c 0.1.10

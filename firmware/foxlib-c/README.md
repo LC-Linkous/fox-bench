@@ -147,6 +147,22 @@ run on this board.
   6-byte FM offset write and its no-op on an unchanged value, the recovery
   path after a timed-out write (controller abort; bus clear + re-init when
   the abort sticks), `correction_ppm`.
+- `player_test.py`: the real `picofox/player.c` and `si5351.c` on the host
+  (`build/player_sim`): core 1 is a thread on the virtual clock and the only
+  thing that advances it, so what the fake bus records is core 1's timing
+  alone. The fake decodes every Si5351 offset write back to deviation counts
+  and logs the AMP_EN, SCL/SDA and ATTN_LE edges, so the keyer, the synth
+  and the sample pump are checked as one chain: the Morse events for
+  `PARIS` at 20 wpm from `core_dump morse` come back off the bus edge for
+  edge (each tone starts within one 5 ms ramp of its event edge, lasts the
+  event's length, every write lands on a 125 µs sample boundary, no sample
+  late); two plays under one key; STOP mid-stream (`cut`, offset returned
+  to 0, `cur` cleared in µs); `max_samples`; an empty event list (done at
+  once, nothing on the bus); the flash-write bus hold (no write during the
+  hold, exactly one resync); the attenuator word (`code<<1`, MSB first, one
+  LE pulse, refused mid-stream and on a rev 2 board, the Si5351 fine after
+  the pins are handed back); and a hung core 1 (core 0 gives up after
+  `CALL_TIMEOUT_US`, unkeys the amplifier itself, fails later calls fast).
 - The page smoke test boots a deploy set exported for this target in the
   same host simulation.
 
@@ -155,9 +171,10 @@ run on this board.
   ASan/UBSan — 20 000 per CI run; `FUZZ_ITERS=200000 make fuzz` for a longer
   session, and the seed in the Makefile reproduces any report.
 
-Not on the host: `player.c` (core 1, the FM loop, PTT/attenuator GPIO),
-`flash_disk.c` / `msc_disk.c` / `fs.c` (the USB drive) — those run only on a
-board.
+Not on the host: `flash_disk.c` / `msc_disk.c` / `fs.c` (the USB drive) —
+those run only on a board. `player.c`'s host run is a model of time (the fake
+I²C write takes no time; the real one takes ~100 µs of the 125 µs period), so
+`i2c_write_us` and bus contention are still bench measurements.
 
 ## Switching between the two firmwares
 

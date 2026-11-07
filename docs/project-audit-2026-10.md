@@ -31,7 +31,8 @@ length (bytes of UTF-8 in all three validators; schema parity corpus), P1
 
 **Still open — firmware**: F10 (attenuator word format and dB/step: needs
 a meter), F11 (I²C 1 MHz without readback: zero errors across every session
-so far; left), `player.c` and the FatFs/MSC path have no host test.
+so far; left), the FatFs/MSC path has no host test (`player.c` has one
+since 0.9.4: `tests/player_test.py`).
 
 **Still open — page**: P8's licensing wording (`LICENSES.md` calls the flasher import aggregation —
 a deliberate choice is still owed); (The fonts are served from `css/fonts/` and the deploy stamps `?v=` onto the
@@ -41,8 +42,18 @@ asset links since 0.9.3 — both closed.)
 esptool-js runs in CI against a fake ESP32-C3 ROM and stub
 (`tests/unit/fake-rom-port.mjs`, `esptool-real.test.mjs`): reset strategy
 per port kind, sync, identification, erase, compressed write and
-esptool-js's own MD5 check over what landed. `player.c` and the FatFs/MSC
-path remain the untested firmware paths.
+esptool-js's own MD5 check over what landed.
+
+**Tests, closed in 0.9.4**: `player.c`. The real core-1 code and `si5351.c`
+run on the host with core 1 as a thread on the virtual clock
+(`tests/host_sim/player_main.c`, `tests/player_test.py`): Morse timing edge
+for edge off the fake bus, two plays, STOP, `max_samples`, the empty list,
+the bus hold, the attenuator word, a rev 2 board, a hung core 1. Found on
+the way: the mailbox carried the `play_req_t*` in a `uint32_t` (fine on the
+RP2040, truncated on a 64-bit host; now `uintptr_t`), and `atten_write`
+clocks a 9th rising edge when it hands SCL back to I²C idle after the LE
+pulse — after the latch, so harmless, noted for F10. The FatFs/MSC path
+remains the untested firmware path.
 
 **No release tag exists yet.** `docs/releasing.md` describes the path; the
 first tag should be cut at this version, so that the hardware sessions that
@@ -69,7 +80,7 @@ AN619.
 unmeasured — needs a meter), F11 (I²C at 1 MHz, no readback; zero
 `i2c_errors` across every bench session so far), F15's VID/PID reuse
 (2E8A:000A is the SDK's generic CDC PID on a composite device). Not on the
-host: `player.c` (core 1), the FatFs/MSC drive path.
+host: the FatFs/MSC drive path.
 
 **Open — page**: W6 (banner-follow rewrites the working form, no undo), W11
 (a clean `done` on the read stream fires no `onDrop`; a port drop

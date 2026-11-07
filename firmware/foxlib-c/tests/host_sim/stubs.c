@@ -13,6 +13,7 @@
 
 uint64_t sim_now_us;
 void sim_spin(void) {}
+void sim_tick(uint64_t us) { sim_now_us += us; }
 const char *sim_dir = ".";
 int sim_host_drive = 0, sim_charging = 0;
 

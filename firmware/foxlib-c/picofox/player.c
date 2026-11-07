@@ -12,7 +12,7 @@
 
 /* Commands travel through a mailbox in RAM, not the inter-core FIFO: the SDK's multicore
  * lockout (used by flash_safe_execute while the host writes the drive) owns the FIFO. */
-static volatile struct { uint32_t seq, cmd, arg, ack_seq, result; } mbox;
+static volatile struct { uint32_t seq, cmd; uintptr_t arg; uint32_t ack_seq, result; } mbox;   /* arg carries a play_req_t* for CMD_PLAY: pointer-sized (32 bits on the RP2040; the host build is 64) */
 static uint32_t handled_seq;
 static inline bool mbox_pending(void) { return mbox.seq != handled_seq; }
 
@@ -121,7 +121,7 @@ static void core1_main(void) {
     core1_ready = true;
     for (;;) {
         while (!mbox_pending()) tight_loop_contents();
-        uint32_t cmd = mbox.cmd, arg = mbox.arg, result = RESP_OK;
+        uint32_t cmd = mbox.cmd, result = RESP_OK; uintptr_t arg = mbox.arg;
         volatile play_req_t *req = NULL;
         switch (cmd) {
             case CMD_CARRIER: { bool ok = si5351_set_carrier((double)arg); if (ok) st.carrier_hz = si5351_carrier_hz(); result = ok ? RESP_OK : RESP_FAIL; break; }
@@ -150,7 +150,7 @@ void player_emergency_unkey(void) { gpio_put(PICOFOX_PIN_AMP_EN, 1); st.keyed = 
 static void core1_lost(void) { if (!dead) { dead = true; st.core1_alive = false; player_emergency_unkey(); } }
 bool player_alive(void) { return !dead; }
 
-static uint32_t call1(uint32_t cmd, uint32_t arg) {
+static uint32_t call1(uint32_t cmd, uintptr_t arg) {
     if (dead) return RESP_FAIL;
     uint32_t seq = mbox.seq + 1;
     mbox.cmd = cmd; mbox.arg = arg; __dmb(); mbox.seq = seq;
@@ -176,7 +176,7 @@ void player_play(play_req_t *req) {
     req->done = false; req->cut = false; req->played = 0; req->late = 0;
     if (player_busy()) player_stop();
     if (!req->src && (!req->ev || req->ev->n == 0)) { req->done = true; return; }
-    call1(CMD_PLAY, (uint32_t)req);
+    call1(CMD_PLAY, (uintptr_t)req);
 }
 
 void player_stop(void) {
