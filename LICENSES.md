@@ -24,6 +24,7 @@ three licences can coexist in one repository.
 | FatFs R0.16 (ChaN) | `firmware/foxlib-c/` | FatFs licence (BSD-1-clause style) | `firmware/foxlib-c/third_party/fatfs/LICENSE.txt` |
 | Raspberry Pi Pico SDK 2.1.x and TinyUSB | linked into the foxlib-c UF2, not in this repository | BSD-3-Clause / MIT | `firmware/foxlib-c/NOTICE` |
 | CircuitPython | runs the foxlib family; downloaded by the user from circuitpython.org, never shipped here | MIT | — |
+| Atkinson Hyperlegible (Braille Institute of America) and Spline Sans Mono (Sorkin Type) | the page's typefaces, latin subsets as woff2 | SIL OFL 1.1 | `css/fonts/LICENSE-*.txt` |
 
 ## Hardware and firmware that are *not* here
 

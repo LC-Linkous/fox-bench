@@ -80,10 +80,16 @@ the **vendored esptool-js bundle itself** through `flasher.flash()` against
 it, so a vendor bump that changes the API the wrapper relies on, or the
 reset strategy it picks (USB-JTAG for a native-USB chip, DTR/RTS classic
 for a UART bridge — asserted by the signal sequence and the 100 ms EN hold),
-fails here instead of on the bench. The fake stops at chip identification:
-it refuses the stub upload, the erase and the write with a ROM error, and
-the test asserts the wrapper's failure path from there (facts gathered,
-nothing erased). Every other flasher test uses `demoEsptool()`.
+fails here instead of on the bench. In its default ROM-only mode the fake
+stops at chip identification (it refuses the stub upload, and the test
+asserts the wrapper's failure path: facts gathered, nothing erased). With
+`stub: true` it also plays the flasher stub — the chip erase, the compressed
+write (zlib blocks inflated into an in-memory flash) and `SPI_FLASH_MD5`
+over that flash — so **esptool-js's own MD5 verification runs for real**: a
+byte-exact write passes it, a write the fake corrupts by one bit fails it
+with "MD5 of file does not match" and the wrapper reports `flash_ok: no`.
+The write offset and `eraseAll: false` are checked through the same path.
+Every other flasher test uses `demoEsptool()`.
 
 `npm run smoke` prints its sections as it goes and ends with the list of
 sections that had failures; an exception names the section it happened in
@@ -92,9 +98,10 @@ and says the later ones did not run.
 ## What is not tested here
 
 Anything that needs a real board: USB enumeration, Web Serial permission,
-timing of the real CircuitPython VM, RF, and — for flashing — everything
-after chip identification: the stub upload, erase, write and MD5 check run
-on a board only (`docs/hardware-log.md`, 2026-10-26). `tools/hw_smoke.py`
+timing of the real CircuitPython VM, RF, and — for flashing — the physical
+side: the real reset timing, the stub actually running on the chip, the
+chip's own flash (`docs/hardware-log.md`, 2026-10-26). The protocol from
+reset through MD5 is covered above. `tools/hw_smoke.py`
 covers the firmware side from the bench, and
 `docs/first-hardware-session.md` is the manual checklist.
 

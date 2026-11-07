@@ -14,6 +14,20 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.9.4 · foxlib 1.2.1 · foxlib-c 0.1.10
+
+- The page's typefaces are served from `css/fonts/` (woff2, OFL 1.1,
+  112 kB); the page makes no third-party request and works on a laptop
+  with no internet. `LICENSES.md` lists them.
+- The deploy stamps `?v=<VERSION>` onto the page's asset links
+  (`tools/stamp_assets.py`, in the deploy and release jobs, self-tested in
+  CI), so a new version is a new URL to a browser that cached the last one
+  (audit: the mixed-version window). Bump `VERSION` on any user-visible
+  change — `check_catalog --since` already insists (`docs/releasing.md`).
+- Tests: the real esptool-js through a whole flash — see 0.9.3's entry;
+  the stub-mode fake, erase, compressed write and MD5 landed here.
+
+
 ### Page 0.9.3 · foxlib 1.2.1 · foxlib-c 0.1.10
 
 Pre-pause cleanup, 2026-11-06: documentation brought level with the tree,
@@ -21,12 +35,23 @@ and tests for the flasher's real transport, before the remaining boards go
 on the bench and kitsune work pauses.
 
 - **Tests: the vendored esptool-js runs in CI** against a fake ESP32-C3 ROM
-  (`tests/unit/fake-rom-port.mjs`, `esptool-real.test.mjs`): sync, chip
-  identification, eFuse reads, baud change and port reopen; the reset
-  strategy per port kind (USB-JTAG vs classic DTR/RTS with its 100 ms
-  hold); the wrong-chip refusal and the not-in-download-mode failure
-  through the real detector. `flash()` takes a `port` for this. Erase and
-  write stay bench-only; `tests/README.md` says where the fake stops.
+  and stub (`tests/unit/fake-rom-port.mjs`, `esptool-real.test.mjs`): the
+  reset strategy per port kind (USB-JTAG vs classic DTR/RTS with its 100 ms
+  hold), sync, chip identification, eFuse reads, baud change and port
+  reopen; then the chip erase, the compressed write inflated into an
+  in-memory flash, and esptool-js's own MD5 check over it — a byte-exact
+  write passes, a corrupted one fails with the wrapper reporting
+  `flash_ok: no`; the write offset; `eraseAll: false`; the wrong-chip
+  refusal and the not-in-download-mode failure. `flash()` takes a `port`
+  for this. What stays bench-only is the physical side.
+- The page's typefaces are served from `css/fonts/` (woff2, OFL 1.1); no
+  third-party request. The deploy stamps `?v=<VERSION>` onto the asset
+  links (`tools/stamp_assets.py`), so a new version is a new URL to a
+  browser that cached the last one; bump `VERSION` on any user-visible
+  change (`docs/releasing.md`).
+- `tools/bench_queue.py`: the bench queue derived from the catalog and
+  `docs/hardware-log.md`; `--check` in CI fails when a stable target has no
+  row. Hardware descriptors may carry `log_names` for the match.
 - Tests: `npm run smoke` reports per section and names the section an
   exception happened in. CI's pty bench run covers all seven FM templates,
   not three.

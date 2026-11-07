@@ -37,11 +37,12 @@ so far; left), `player.c` and the FatFs/MSC path have no host test.
 a deliberate choice is still owed); (The fonts are served from `css/fonts/` and the deploy stamps `?v=` onto the
 asset links since 0.9.3 — both closed.)
 
-**Still open — tests**: the flasher's real transport. `flasher.test.mjs`
-and the smoke run against `demoEsptool()`; esptool-js itself is exercised
-only on the bench. A recorded-transcript test (the esptool-js log of a real
-flash, replayed) is the next step; see `tests/README.md` "What is not
-tested here".
+**Tests, closed in 0.9.3**: the flasher's real transport. The vendored
+esptool-js runs in CI against a fake ESP32-C3 ROM and stub
+(`tests/unit/fake-rom-port.mjs`, `esptool-real.test.mjs`): reset strategy
+per port kind, sync, identification, erase, compressed write and
+esptool-js's own MD5 check over what landed. `player.c` and the FatFs/MSC
+path remain the untested firmware paths.
 
 **No release tag exists yet.** `docs/releasing.md` describes the path; the
 first tag should be cut at this version, so that the hardware sessions that

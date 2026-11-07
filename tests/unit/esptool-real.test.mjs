@@ -3,10 +3,12 @@
 // one loads flasher/vendor/esptool-js/bundle.js, so a vendor bump that changes the API the wrapper relies on, or
 // the reset strategy it picks for a native-USB chip, fails here instead of on the bench.
 //
-// What it reaches: port open, the reset sequence, SYNC, GET_SECURITY_INFO, chip identification, eFuse reads (MAC,
-// revision, features), CHANGE_BAUD and the port reopen at the new rate. What it does not: the stub upload and the
-// erase/write themselves — the fake answers MEM_BEGIN with an error, so the wrapper's failure path is what is
-// asserted from there (facts gathered, nothing erased). Erase and write run only on a board (docs/hardware-log.md).
+// Two fakes. The ROM-only one reaches port open, the reset sequence, SYNC, GET_SECURITY_INFO, chip identification,
+// eFuse reads (MAC, revision, features), CHANGE_BAUD and the port reopen, then refuses the stub upload — so the
+// wrapper's failure path is asserted from there. The stub-mode one (`stub: true`) also plays the flasher stub:
+// erase, the compressed write (inflated into an in-memory flash) and SPI_FLASH_MD5 over it, so esptool-js's own
+// MD5 verification runs for real — a byte-exact write passes it and a corrupted one fails it. What stays
+// bench-only is the physical side: USB enumeration, the real reset timing, the chip's actual flash.
 // SPDX-License-Identifier: GPL-2.0-only
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -85,4 +87,53 @@ test('a board that never answers SYNC (not in download mode) surfaces as "Failed
   await assert.rejects(flasher.flash({ offset: 0, impl: lib, port, onLog: quiet, onPhase: quiet, onProgress: quiet }), /Failed to connect/);
   assert.ok(port.commands.filter(c => c.name === 'SYNC').length >= 5, 'it kept trying');
   assert.equal(port.closed, true, 'the wrapper disconnected the transport in finally');
+});
+
+test('a whole flash through the real esptool-js: erase, compressed write, its MD5 check against what landed in flash, reset', async () => {
+  const img = new Uint8Array(70000); for (let i = 0; i < img.length; i++) img[i] = (i * 7 + 3) & 0xff; img[0] = 0xe9;   // ESP image magic
+  flasher.setImage('adafruit-circuitpython-seeed_xiao_esp32c3-en_US-10.3.1.bin', img);
+  const port = new FakeRomPort({ chip: 'esp32c3', stub: true });
+  const phases = [], log = []; let progress = 0;
+  const facts = await flasher.flash({ offset: 0, expectChip: 'esp32c3', impl: lib, port, onPhase: p => phases.push(p), onLog: l => log.push(l), onProgress: f => { progress = f; } });
+  assert.equal(facts.erase_ok, 'yes'); assert.equal(facts.flash_ok, 'yes');
+  assert.equal(port.erased, true, 'the chip erase came first');
+  assert.deepEqual(port.lastWrite, { address: 0, length: img.length });
+  assert.equal(progress, 1);
+  // what landed in flash is the image (past the 16-byte header esptool-js may rewrite with flash mode/size)
+  const w = port.flashImage(0, img.length);
+  for (let i = 16; i < img.length; i++) if (w[i] !== img[i]) assert.fail(`flash differs from the image at byte ${i}`);
+  assert.ok(log.some(l => /Hash of data verified/.test(l)), 'esptool-js verified its MD5 against the flash: ' + log.filter(l => /Hash|MD5/.test(l)).join(' | '));
+  assert.ok(log.some(l => /Hard resetting/.test(l)));
+  assert.ok(phases.some(p => /erasing whole flash/.test(p)) && phases.some(p => /writing .*68 kB.*0x0/.test(p)) && phases.some(p => /resetting/.test(p)), phases.join(' | '));
+  const names = port.commands.map(c => c.name);
+  assert.ok(names.indexOf('ERASE_FLASH') < names.indexOf('FLASH_DEFL_BEGIN'), 'erase before write');
+  assert.ok(names.includes('SPI_FLASH_MD5'), 'the MD5 was asked of the flash');
+});
+
+test('a write that lands corrupted is caught by esptool-js\'s MD5 check; the wrapper reports flash_ok no', async () => {
+  const img = new Uint8Array(20000).fill(0x5a); img[0] = 0xe9;
+  flasher.setImage('x.bin', img);
+  const port = new FakeRomPort({ stub: true });
+  const set = port.flash.set.bind(port.flash);
+  port.flash.set = (a, o) => { const b = Uint8Array.from(a); b[100] ^= 0xff; set(b, o); };   // one bit wrong in flash
+  await assert.rejects(flasher.flash({ offset: 0, impl: lib, port, onLog: quiet, onPhase: quiet, onProgress: quiet }),
+    e => /MD5 of file does not match/.test(e.message) && e.facts.erase_ok === 'yes' && e.facts.flash_ok === 'no');
+});
+
+test('the write address follows the offset through the real stub protocol (a classic-ESP32 image at 0x1000)', async () => {
+  const img = new Uint8Array(8192).fill(1); img[0] = 0xe9;
+  flasher.setImage('x.bin', img);
+  const port = new FakeRomPort({ stub: true });
+  const facts = await flasher.flash({ offset: 0x1000, impl: lib, port, onLog: quiet, onPhase: quiet, onProgress: quiet });
+  assert.equal(facts.flash_ok, 'yes');
+  assert.deepEqual(port.lastWrite, { address: 0x1000, length: 8192 });
+  assert.equal(port.flashImage(0, 0x1000).every(b => b === 0xff), true, 'nothing below the offset was written');
+});
+
+test('eraseAll: false skips the chip erase on the real protocol', async () => {
+  flasher.setImage('x.bin', new Uint8Array(4096).fill(2));
+  const port = new FakeRomPort({ stub: true });
+  const facts = await flasher.flash({ offset: 0, eraseAll: false, impl: lib, port, onLog: quiet, onPhase: quiet, onProgress: quiet });
+  assert.equal(facts.erase_ok, 'skipped'); assert.equal(port.erased, false);
+  assert.ok(!port.commands.some(c => c.name === 'ERASE_FLASH'));
 });
