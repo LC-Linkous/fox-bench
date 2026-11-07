@@ -28,7 +28,7 @@ import * as tabBench from './ui/bench.js';
 import * as tabFleet from './ui/fleet.js';
 import * as tabAbout from './ui/about.js';
 
-const VERSION = '0.9.0';
+const VERSION = '0.9.2';
 /** Tab subtitles that read differently per device family (null = the page's original text). */
 const LEDES = { drive: {
   board: 'Which fox is on the bench, open its USB drive (or use the simulated one). The vendor firmware stays; the page writes its files.',
@@ -249,8 +249,18 @@ export const app = {
       this.changed('board'); await this._rereadIfSwitched(); return;
     }
     this.defaults = await loadDefaults(this.templateId, id);
-    this.cfg.board = id; if (this.defaults.pins) this.cfg.pins = structuredClone(this.defaults.pins);
-    if (this.board.module_fixed) { this.cfg.module = this.moduleId; this.cfg.radio = { ...this.cfg.radio, ...structuredClone(this.defaults.radio) }; }
+    if (this.family !== prevFamily && this.cfg.radio && this.defaults.radio) {
+      // another firmware family with the same template (PicoFox ↔ XIAO + SA868): the hardware sections belong to the
+      // new target — module, radio (a different driver family: si5351fm vs dmo), pins, battery, limits come from its
+      // defaults; what the operator wrote (plan, id, payload, schedule, fleet) carries and is re-validated below
+      const keep = Object.fromEntries(['plan', 'id', 'payload', 'schedule', 'fleet'].filter(k => k in prev).map(k => [k, structuredClone(prev[k])]));
+      this.cfg = { ...structuredClone(this.defaults), ...keep };
+      if (this.board.module_fixed) this.moduleId = this.board.module_fixed; else if (this.cfg.module && this.catalog.modules[this.cfg.module]) this.moduleId = this.cfg.module;
+      this.console.dim(`board ${this.board.name}: radio, module and pins reset to this board's defaults (${this.cfg.radio.family}); plan, ID, payload and schedule kept`);
+    } else {
+      this.cfg.board = id; if (this.defaults.pins) this.cfg.pins = structuredClone(this.defaults.pins);
+      if (this.board.module_fixed) { this.cfg.module = this.moduleId; this.cfg.radio = { ...this.cfg.radio, ...structuredClone(this.defaults.radio) }; }
+    }
     this._applyVariant();
     this.changed('board'); await this._rereadIfSwitched();
   },
@@ -460,7 +470,7 @@ export const app = {
     const raw = await d.readText('fox.json');
     if (raw) { this.onBoard.raw = raw; try { this.onBoard.cfg = JSON.parse(raw); } catch { this.console.err('fox.json on the board is not valid JSON'); } }
     if (this.onBoard.cfg) { this.console.dim(`fox.json read from board: template ${this.onBoard.cfg.template}, call "${this.onBoard.cfg.id?.callmessage}"`); }
-    else this.console.dim(this.onBoard.template ? `board runs ${this.onBoard.template} with no fox.json` : 'no fox firmware on the board');
+    else this.console.dim(this.onBoard.template === 'other' ? 'the board runs a code.py that is not a fox-bench template, and has no fox.json — Deploy replaces it' : this.onBoard.template ? `board runs ${this.onBoard.template} with no fox.json` : 'no fox firmware on the board');
   },
   /** Soft-reboot so code.py runs again; shows the banner. */
   async restartFox() {
