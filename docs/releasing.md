@@ -1,5 +1,14 @@
 # Releasing
 
+> **Cache.** GitHub Pages serves `css/*.css` and `js/main.js` with long
+> lifetimes under unchanging names; the deploy and release jobs run
+> `tools/stamp_assets.py` on the staged site so those links carry
+> `?v=<VERSION>` — a new version is a new URL to the browser, and the
+> ES-module imports behind `main.js` follow it. So **bump `VERSION` in
+> `js/main.js` on any change the user should get on next load**; a deploy
+> at an unchanged version can still be served next to a cached `main.js`
+> for a few minutes. The checkout's `index.html` keeps plain links.
+>
 > **Pinned tooling.** Three things are pinned on purpose and bumped by a
 > deliberate commit, never by drift: the Arm toolchain and Pico SDK (by hash
 > and commit, `ci.yml`), esptool-js (`flasher/vendor/esptool-js/VERSION`,

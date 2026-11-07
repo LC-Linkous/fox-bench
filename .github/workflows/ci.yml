@@ -71,6 +71,8 @@ jobs:
         run: python3 tools/check_docs.py
       - name: Every stable target has a hardware-log row; the bench queue prints for the run log
         run: python3 tools/bench_queue.py --check
+      - name: The asset stamper finds the links it will rewrite at deploy
+        run: mkdir -p /tmp/stamp && cp index.html /tmp/stamp/ && python3 tools/stamp_assets.py /tmp/stamp && python3 tools/stamp_assets.py --check /tmp/stamp
       - name: Workflow file parses strictly (duplicate keys), job graph; kitsune build tool self-test; manifest shape
         run: |
           pip install --quiet pyyaml
@@ -206,6 +208,7 @@ jobs:
           rm -rf _site/firmware/sim _site/firmware/foxlib-c/tests/build
           cp /tmp/uf2/foxbench-picofox.uf2 /tmp/uf2/foxbench-picofox.json _site/firmware/foxlib-c/picofox/
           if [ -d /tmp/kitsune-out ]; then mkdir -p _site/firmware/kitsune && cp /tmp/kitsune-out/* _site/firmware/kitsune/; fi
+          python3 tools/stamp_assets.py _site && python3 tools/stamp_assets.py --check _site   # ?v=<VERSION> on css/js links: a deploy is not served against a cached main.js
           touch _site/.nojekyll   # Jekyll would drop foxlib/__init__.py (leading underscore)
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
@@ -252,6 +255,7 @@ jobs:
           cp -r index.html css js flasher hardware boards modules songs bands.json firmware docs DESIGN.md CONFIG.md PROTOCOL.md LICENSES.md LICENSE CHANGELOG.md _site/
           rm -rf _site/firmware/sim _site/firmware/foxlib-c/tests/build
           cp /tmp/uf2/foxbench-picofox.uf2 /tmp/uf2/foxbench-picofox.json _site/firmware/foxlib-c/picofox/
+          python3 tools/stamp_assets.py _site && python3 tools/stamp_assets.py --check _site
           touch _site/.nojekyll
           fw=$(cat firmware/foxlib-c/VERSION)
           cp /tmp/uf2/foxbench-picofox.uf2 "out/foxbench-picofox-$fw.uf2"
