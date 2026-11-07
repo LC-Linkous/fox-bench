@@ -16,6 +16,10 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ### Page 0.9.4 · foxlib 1.2.1 · foxlib-c 0.1.10
 
+- Tests: Playwright 1.49.1 → 1.65.0 (Chrome for Testing 158), the
+  deliberate bump `docs/releasing.md` describes; no change to the smoke or
+  its fake serial port was needed. Node 20 stays (1.65 wants ≥ 20).
+
 - The page's typefaces are served from `css/fonts/` (woff2, OFL 1.1,
   112 kB); the page makes no third-party request and works on a laptop
   with no internet. `LICENSES.md` lists them.
