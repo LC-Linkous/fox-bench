@@ -823,7 +823,12 @@ try {
   check(fleetBefore.length > 0, `fleet log has rows to export (${fleetBefore.length})`);
   const csvText = await app(() => window.foxbench.fleetCsv());
   await page.setInputFiles('#fleet-csv-in', { name: 'flash_log.csv', mimeType: 'text/csv', buffer: Buffer.from(csvText) }); await settle(400);
-  check(new RegExp(`fleet CSV: 0 added, ${fleetBefore.length} already present, 0 rejected`).test(await text('#log')), 'importing my own export adds nothing: every row already present');
+  // rows the demo wrote with no uid (a simulated board before identification) cannot be told apart on import, so
+  // they are rejected by name rather than merged; everything with a uid is already present
+  const noUid = fleetBefore.filter(r => !r.uid).length, withUid = fleetBefore.length - noUid;
+  const importLine = (await text('#log')).split('\n').filter(l => /fleet CSV: /.test(l)).pop() || '';
+  check(new RegExp(`fleet CSV: 0 added, ${withUid} already present, ${noUid} rejected`).test(importLine), `importing my own export adds nothing: ${withUid} already present, ${noUid} uid-less row(s) rejected (${importLine.slice(0, 90)})`);
+  if (noUid) check(/no uid/.test(importLine), 'the uid-less rows are rejected for that stated reason');
   eq(await app(() => JSON.parse(localStorage.getItem('fox-bench.fleet') || '[]').length), fleetBefore.length, 'no duplicates');
   const extra = 'timestamp,uid,action,result,notes\n2026-11-07T09:00:00Z,feedbeef0001,flash,ok,"from the batch flasher, ""quoted"""\n,feedbeef0001,audit,ok,no timestamp\ntimestamp,uid,colour\n';
   await page.setInputFiles('#fleet-csv-in', { name: 'other.csv', mimeType: 'text/csv', buffer: Buffer.from(extra) }); await settle(400);

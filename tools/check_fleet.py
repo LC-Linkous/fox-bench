@@ -5,7 +5,7 @@ in a spreadsheet can be checked first.
     python3 tools/check_fleet.py flash_log.csv
 
 Exit 1 with line numbers on: an unknown column, a missing uid or timestamp column, a row with the wrong number
-of cells, a row with no timestamp, a timestamp that is not ISO 8601, a duplicate (uid, timestamp). A BOM, CRLF
+of cells, a row with no timestamp or no uid, a timestamp that is not ISO 8601, a duplicate (uid, timestamp). A BOM, CRLF
 line endings and a trailing blank line are fine (spreadsheets add all three).
 """
 import csv, io, re, sys
@@ -35,7 +35,8 @@ def check(text):
         r = dict(zip(header, cells))
         if not r.get("timestamp"): problems.append("line %d: no timestamp" % ln); continue
         if not ISO.match(r["timestamp"]): problems.append("line %d: timestamp %r is not ISO 8601 (YYYY-MM-DDTHH:MM:SS…) — a spreadsheet may have reformatted it" % (ln, r["timestamp"]))
-        k = (r.get("uid", ""), r["timestamp"])
+        if not r.get("uid"): problems.append("line %d: no uid (the page's import rejects it too)" % ln); continue
+        k = (r["uid"], r["timestamp"])
         if k in seen: problems.append("line %d: same uid and timestamp as line %d" % (ln, seen[k]))
         else: seen[k] = ln
     return problems

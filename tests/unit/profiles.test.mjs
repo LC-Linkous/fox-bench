@@ -107,3 +107,20 @@ test('importCsv merges by uid+timestamp: new rows added, the same event counted 
   const e = fleet.importCsv(edited);
   assert.equal(e.present, 1); assert.equal(fleet.all()[0].result, 'ok', 'never silently overwrites');
 });
+
+test('fleet CSV: a note that itself begins with an apostrophe and a formula character survives the round trip', () => {
+  fleet.clear();
+  fleet.append({ uid: 'a1', timestamp: '2026-11-07T00:00:00Z', notes: "'=not a formula, a quote", board: 'x' });
+  const { rows } = fromCsv(fleet.toCsv());
+  assert.equal(rows[0].notes, "'=not a formula, a quote");
+  // and the plain case still loses nothing
+  fleet.clear(); fleet.append({ uid: 'a2', timestamp: '2026-11-07T00:00:01Z', notes: '=SUM(1)', board: 'x' });
+  assert.equal(fromCsv(fleet.toCsv()).rows[0].notes, '=SUM(1)');
+});
+
+test('fleet import rejects a row with no uid instead of merging it with every other uid-less row', () => {
+  fleet.clear();
+  const r = fleet.importCsv('uid,timestamp,board\n,2026-11-07T00:00:00Z,x\n,2026-11-07T00:00:00Z,y\nz9,2026-11-07T00:00:00Z,x\n');
+  assert.equal(r.added, 1); assert.equal(r.rejected.length, 2);
+  assert.match(r.rejected[0].why, /no uid/);
+});

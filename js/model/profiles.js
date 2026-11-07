@@ -37,7 +37,9 @@ export const fleet = {
   toCsv() {
     // a cell beginning with = + - @ (or a tab/CR) is a formula to Excel/Sheets — banner text and notes reach this file —
     // so it is prefixed with an apostrophe unless it is a plain number
-    const esc = v => { let s = v == null ? '' : String(v); if (/^[=+\-@\t\r]/.test(s) && !/^-?\d+(\.\d+)?$/.test(s)) s = "'" + s; return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+    // A cell that already begins with an apostrophe-then-formula-character gets a second apostrophe, so the reader
+    // (which takes one off when a formula character follows) gives back exactly what was stored.
+    const esc = v => { let s = v == null ? '' : String(v); if (/^'[=+\-@\t\r]/.test(s)) s = "'" + s; else if (/^[=+\-@\t\r]/.test(s) && !/^-?\d+(\.\d+)?$/.test(s)) s = "'" + s; return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
     return [FLEET_FIELDS.join(','), ...this.all().map(r => FLEET_FIELDS.map(f => esc(r[f])).join(','))].join('\n') + '\n';
   },
   /** Merge rows from a CSV this page (or the batch flasher) wrote, or one edited in a spreadsheet, into the log.
@@ -51,6 +53,7 @@ export const fleet = {
     let added = 0, present = 0;
     for (const r of rows) {
       if (!r.timestamp) { rejected.push({ line: r._line, why: 'no timestamp' }); continue; }
+      if (!r.uid) { rejected.push({ line: r._line, why: 'no uid: a row needs uid and timestamp to be told from another' }); continue; }
       if (have.has(key(r))) { present++; continue; }
       const { _line, ...row } = r; all.push(row); have.add(key(r)); added++;
     }
@@ -87,7 +90,9 @@ export function fromCsv(text) {
   const unknown = header.filter(h => !FLEET_FIELDS.includes(h));
   if (unknown.length) throw new Error(`not a fleet CSV: unknown column(s) ${unknown.map(u => JSON.stringify(u)).join(', ')} (expected some of ${FLEET_FIELDS.join(', ')})`);
   if (!header.includes('uid') || !header.includes('timestamp')) throw new Error('not a fleet CSV: needs at least the uid and timestamp columns');
-  const unesc = s => (/^'[=+\-@\t\r]/.test(s) ? s.slice(1) : s);
+  // inverse of toCsv's esc: one apostrophe comes off when what follows is a formula character, or an apostrophe
+  // and then a formula character (a stored value that itself began with '= was written with two)
+  const unesc = s => (/^'(?:'?[=+\-@\t\r])/.test(s) ? s.slice(1) : s);
   const rows = [], rejected = [];
   for (const { line: ln, cells } of records) {
     if (cells.every(c => c === '')) continue;

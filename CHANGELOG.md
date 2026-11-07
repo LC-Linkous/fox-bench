@@ -14,6 +14,16 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.9.6 · foxlib 1.2.1 · foxlib-c 0.1.11
+
+- Fleet CSV: a cell that itself began with an apostrophe and a formula
+  character (`'=…`) lost the apostrophe on the round trip; the writer now
+  doubles it and the reader takes exactly one off. Import rejects a row
+  with no `uid` by line instead of merging it with every other uid-less
+  row at the same timestamp (`tools/check_fleet.py` agrees); `DESIGN.md`
+  says which rows those are and that they do not travel through a CSV.
+
+
 ### Page 0.9.5 · foxlib 1.2.1 · foxlib-c 0.1.11
 
 - **Fleet CSV comes back.** `fromCsv` parses what `toCsv` writes (and what

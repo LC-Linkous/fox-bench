@@ -194,7 +194,13 @@ by name. `fromCsv` undoes everything `toCsv` does (RFC 4180 quoting, the
 apostrophe in front of a cell a spreadsheet would evaluate) and tolerates
 what a spreadsheet adds (a BOM, CRLF, a trailing blank line, re-quoting of
 every cell). `tools/check_fleet.py` applies the same rules to a file from
-the terminal, so a hand-edited CSV can be checked before import.
+the terminal, so a hand-edited CSV can be checked before import. A row with no `uid` cannot be told from another uid-less row at the
+same instant, so import rejects it by line rather than guess. Such rows
+are real events — an `export-zip` (no board involved), a deploy to a UF2
+drive (a drive has no uid), a `flash` logged before the chip answered — and
+they stay in the browser that wrote them, but they do not travel through a
+CSV. If an exported log must be complete, the uid-less rows are the ones to
+copy by hand.
 
 ## 4. Descriptors
 
