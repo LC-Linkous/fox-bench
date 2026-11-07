@@ -1,0 +1,9 @@
+/* The page's two typefaces, served from here rather than fonts.googleapis.com, so the page works on a bench
+   laptop with no internet and loads nothing from a third party. Latin subsets only (112 kB for all five);
+   both SIL Open Font License 1.1 — LICENSE-*.txt beside the files. From the fontsource 5.3.0 packages.
+   font-display: swap keeps text visible on the system font until these arrive. */
+@font-face { font-family: 'Atkinson Hyperlegible'; font-style: normal; font-weight: 400; font-display: swap; src: url('fonts/atkinson-hyperlegible-latin-400-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Atkinson Hyperlegible'; font-style: italic; font-weight: 400; font-display: swap; src: url('fonts/atkinson-hyperlegible-latin-400-italic.woff2') format('woff2'); }
+@font-face { font-family: 'Atkinson Hyperlegible'; font-style: normal; font-weight: 700; font-display: swap; src: url('fonts/atkinson-hyperlegible-latin-700-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Spline Sans Mono'; font-style: normal; font-weight: 400; font-display: swap; src: url('fonts/spline-sans-mono-latin-400-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Spline Sans Mono'; font-style: normal; font-weight: 500; font-display: swap; src: url('fonts/spline-sans-mono-latin-500-normal.woff2') format('woff2'); }

@@ -33,12 +33,9 @@ length (bytes of UTF-8 in all three validators; schema parity corpus), P1
 a meter), F11 (I²C 1 MHz without readback: zero errors across every session
 so far; left), `player.c` and the FatFs/MSC path have no host test.
 
-**Still open — page**: Google Fonts loaded from fonts.googleapis.com (a
-privacy and offline question, not a bug; the page works without them);
-P8's licensing wording (`LICENSES.md` calls the flasher import aggregation —
-a deliberate choice is still owed); the mixed-version page for ≤10 min
-after a deploy (Pages caching; the asset links carry no version — see
-`docs/releasing.md`).
+**Still open — page**: P8's licensing wording (`LICENSES.md` calls the flasher import aggregation —
+a deliberate choice is still owed); (The fonts are served from `css/fonts/` and the deploy stamps `?v=` onto the
+asset links since 0.9.3 — both closed.)
 
 **Still open — tests**: the flasher's real transport. `flasher.test.mjs`
 and the smoke run against `demoEsptool()`; esptool-js itself is exercised
