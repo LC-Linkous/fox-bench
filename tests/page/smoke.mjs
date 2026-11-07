@@ -16,7 +16,9 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const SHOTS = process.env.SHOTS; if (SHOTS) mkdirSync(SHOTS, { recursive: true });
 const TABS = ['board', 'radio', 'behavior', 'plan', 'id', 'payload', 'schedule', 'deploy', 'bench', 'fleet', 'about'];
 
-let failures = 0;
+let failures = 0, sectionName = 'start', sectionStart = Date.now();
+const sections = [];   // {name, failures, ms} — the summary at the end says which areas broke, not just how many checks
+const section = name => { if (sectionName !== 'start') sections.push({ name: sectionName, failures: failures - (sections.reduce((a, s) => a + s.failures, 0)), ms: Date.now() - sectionStart }); sectionName = name; sectionStart = Date.now(); console.log(name); };
 const check = (cond, msg) => { if (cond) console.log('  ok   ' + msg); else { failures++; console.log('  FAIL ' + msg); } };
 const eq = (a, b, msg) => check(a === b, `${msg} (${JSON.stringify(a)})` + (a === b ? '' : ` expected ${JSON.stringify(b)}`));
 
@@ -76,19 +78,19 @@ try {
   await page.evaluate(() => localStorage.clear());
   await page.reload({ waitUntil: 'networkidle' }); await settle(300);
 
-  console.log('load');
+  section('load');
   check((await text('#ver')).startsWith('v'), 'version shown');
   eq(await text('#statusText'), 'Not connected', 'initial status');
   const templates = await app(() => window.foxbench.templatesFor('foxlib').map(t => t.id));
   check(templates.length >= 7, `catalog has ${templates.length} foxlib templates`);
   for (const t of TABS) await tab(t);                                    // every tab renders disconnected
 
-  console.log('demo connect');
+  section('demo connect');
   await page.click('#demoBtn'); await settle(800);
   check((await text('#statusText')) !== 'Not connected', 'status changed after demo connect');
   check(await app(() => window.foxbench.connected), 'app.connected');
 
-  console.log('validation');
+  section('validation');
   await tab('plan');
   await page.click('#tab-plan button.btn.small:has-text("433.900")'); await settle(150);
   let badges = await page.$$eval('#tab-plan .list .badge', els => els.map(e => e.textContent));
@@ -103,7 +105,7 @@ try {
   eq(await app(() => window.foxbench.cfg.id.callmessage), 'W1ABC FOX DE W1ABC', 'callsign stored without losing focus');
   check(await page.evaluate(() => document.activeElement && document.activeElement.type === 'text'), 'focus kept in the callsign input after re-render');
 
-  console.log('every template deploys on the demo board');
+  section('every template deploys on the demo board');
   for (const id of templates) {
     await tab('behavior');
     await page.selectOption('#tab-behavior select', id); await settle(300);
@@ -121,7 +123,7 @@ try {
   const rows = await app(() => JSON.parse(localStorage.getItem('fox-bench.fleet') || '[]').filter(r => r.action === 'deploy').length);
   eq(rows, templates.length, 'fleet log has one row per deploy');
 
-  console.log('network foxes (wifi-beacon / wifi-probe / ble-beacon) on the ESP32-C3 chip target: forms, deploy, bench on the demo');
+  section('network foxes (wifi-beacon / wifi-probe / ble-beacon) on the ESP32-C3 chip target: forms, deploy, bench on the demo');
   const fmTemplates = await app(() => window.foxbench.templatesFor('foxlib').map(t => t.id));
   check(fmTemplates.length === 7 && !fmTemplates.includes('wifi-beacon'), 'the XIAO C3 + SA868 combo offers the seven FM templates and no network one');
   await app(() => window.foxbench.setBoard('esp32c3')); await settle(400);     // the chip target (experimental: not in the picker yet, reachable by id)
@@ -183,7 +185,7 @@ try {
   eq(await app(() => window.foxbench.isNet), false, 'back to the combo and an FM template');
   check(await page.isVisible('.rail button[data-tab="plan"]'), 'Plan tab back');
 
-  console.log('bench');
+  section('bench');
   await tab('bench');
   await page.click('#tab-bench button:has-text("Read RSSI")'); await untilTextArgs('#tab-bench pre.out', /rssi\s+\d+/, 10000);
   check(/rssi\s+\d+/.test(await text('#tab-bench pre.out')), 'RSSI logged');
@@ -193,7 +195,7 @@ try {
   await page.click('#tab-radio button:has-text("Probe")'); await untilTextArgs('#tab-radio', /146\.5 MHz accepted/, 10000);
   check(/146\.5 MHz accepted/.test(await text('#tab-radio')), 'probe reports the VHF band');
 
-  console.log('flash CircuitPython (demo esptool)');
+  section('flash CircuitPython (demo esptool)');
   const lib = await app(async () => { try { const m = await import(new URL('flasher/vendor/esptool-js/bundle.js', location.href).href); return Object.keys(m).filter(k => /^(ESPLoader|Transport)$/.test(k)); } catch (e) { return 'ERR ' + e.message; } });
   check(Array.isArray(lib) && lib.length === 2, 'vendored esptool-js bundle is served and exports ESPLoader/Transport (' + JSON.stringify(lib) + ')');
   await tab('board');
@@ -217,7 +219,7 @@ try {
   check(flashRows.length === 2 && String(flashRows[1].board_number) === '1', 'batch row carries the board number');
   check(/flash/.test(await text('#tab-fleet table')), 'fleet table shows the flash rows');
 
-  console.log('payload: library, SSTV, spectrum');
+  section('payload: library, SSTV, spectrum');
   await tab('behavior'); await page.selectOption('#tab-behavior select', 'morse-songs'); await settle(300);
   await tab('payload');
   const before = await app(() => window.foxbench.cfg.payload.playlist.length);
@@ -236,7 +238,7 @@ try {
   await tab('schedule'); await page.selectOption('#tab-schedule select', 'resurrection'); await settle(300);
   check(await page.$('#tab-schedule canvas'), 'schedule timeline drawn');
 
-  console.log('out-of-band override');
+  section('out-of-band override');
   await tab('behavior'); await page.selectOption('#tab-behavior select', 'morse-songs'); await settle(300);
   await tab('plan');
   await page.click('#tab-plan button.btn.small:has-text("+ Add frequency")'); await settle(150);
@@ -254,7 +256,7 @@ try {
   check(/freq=146\.565,150/.test(await text('#tab-deploy')), 'board banner carries both frequencies');
   page.on('dialog', d => d.dismiss());
 
-  console.log('export deploy set');
+  section('export deploy set');
   await tab('deploy');
   page.removeAllListeners('dialog'); page.once('dialog', d => d.accept());
   const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 10000 }), page.click('#tab-deploy button:has-text("Export deploy set")')]);
@@ -279,7 +281,7 @@ try {
   await tab('behavior'); await page.selectOption('#tab-behavior select', 'morse-songs'); await settle(300); await tab('deploy');
   page.on('dialog', d => d.dismiss());
 
-  console.log('profiles');
+  section('profiles');
   await page.fill('#tab-deploy input[type=text]', 'smoke profile');
   await page.click('#tab-deploy button:has-text("Save profile")'); await settle(200);
   await tab('fleet');
@@ -297,7 +299,7 @@ try {
   check(/match/.test(await text('#tab-fleet')) && !/mismatch/.test(await text('#tab-fleet')), 'audit compares the board with the log, not with the unsaved form');
   await app(() => { window.foxbench.cfg.id.callmessage = 'W1ABC FOX DE W1ABC'; window.foxbench.changed('id'); }); await settle(200);
 
-  console.log('diagnostics');
+  section('diagnostics');
   const diag = await app(() => window.foxbench.diagnostics());
   check(diag.page.version && diag.catalog.foxlib && diag.cfg && diag.device?.kind === 'demo', 'diagnostics carries page, catalog, cfg, device');
   check(diag.lastDeploy && diag.lastDeploy.banner && diag.bench.length >= 2 && diag.console.length > 10, 'diagnostics carries last deploy, bench events, console');
@@ -306,7 +308,7 @@ try {
   const [dl3] = await Promise.all([page.waitForEvent('download', { timeout: 10000 }), page.click('#tab-board button:has-text("Download diagnostics")')]);
   check(/fox-bench-diagnostics-.*\.json/.test(dl3.suggestedFilename()), 'diagnostics downloads as JSON');
 
-  console.log('PicoFox (drive family)');
+  section('PicoFox (drive family)');
   // switching to another family while the C3 demo is connected disconnects it: that device speaks the REPL, and a
   // deploy for the PicoFox must never go out over it
   eq(await app(() => window.foxbench.connected), true, 'C3 demo still connected before the family switch');
@@ -359,7 +361,7 @@ try {
   check(row && row.result === 'written' && /dBm/.test(row.power), 'fleet row for the PicoFox deploy');
   await page.click('#demoBtn'); await settle(300);
 
-  console.log('PicoFox drive: switching targets keeps the drive');
+  section('PicoFox drive: switching targets keeps the drive');
   // A fake drive root (Windows names it "\\") holding the vendor firmware's files and an editor's .crswap leftover. Both PicoFox
   // targets read the same drive, so the dropdown switch must not disconnect it — only read it as the other firmware's files.
   await app(() => {
@@ -397,7 +399,7 @@ try {
   await app(() => window.foxbench.disconnect()); await settle(300);
   eq(await app(() => window.foxbench.connected), false, 'fake drive closed');
 
-  console.log('PicoFox with fox-bench firmware (foxlib-c family)');
+  section('PicoFox with fox-bench firmware (foxlib-c family)');
   await tab('board');
   await page.selectOption('#tab-board select', 'picofox-foxlibc'); await settle(400);
   eq(await app(() => window.foxbench.family), 'foxlib-c', 'family switches to foxlib-c');
@@ -485,7 +487,7 @@ try {
   check((await page.$$eval('#tab-behavior select option', els => els.length)) >= 7, 'template dropdown back to the foxlib set');
   await page.click('#demoBtn'); await settle(600);
 
-  console.log('kitsune (compiled family)');
+  section('kitsune (compiled family)');
   await tab('board');
   const optsDefault = await page.$$eval('#tab-board select option', els => els.map(e => e.value));
   check(!optsDefault.some(v => v.endsWith('-kitsune')) && optsDefault.includes('picofox-foxlibc') && optsDefault.includes('seeed_xiao_esp32c3'), 'experimental (kitsune) targets are hidden from the picker by default; the verified ones are listed');
@@ -552,7 +554,7 @@ try {
   eq(await app(() => window.foxbench.family), 'foxlib', 'back to the C3 after kitsune');
   check(await page.isVisible('.rail button[data-tab="payload"]'), 'Payload tab back');
 
-  console.log('catalog pack');
+  section('catalog pack');
   await page.goto(url + '?pack=/tests/fixtures/pack/'); await page.waitForFunction(() => window.foxbench?.catalog); await settle(400);
   const pk = await app(() => window.foxbench.catalog.packs);
   check(pk.length === 1 && pk[0].name === 'example-pack' && pk[0].counts.boards === 1 && !pk[0].error, 'the example pack loads: ' + JSON.stringify(pk));
@@ -566,7 +568,7 @@ try {
   await tab('board'); await page.selectOption('#tab-board select', 'seeed_xiao_esp32c3'); await settle(400);
   await page.click('#demoBtn'); await settle(600);
 
-  console.log('real transports over a fake Web Serial port (serial-link.js, connect/listen/follow/swap/drop, touch, UF2 copy)');
+  section('real transports over a fake Web Serial port (serial-link.js, connect/listen/follow/swap/drop, touch, UF2 copy)');
   await app(() => window.foxbench.disconnect()); await settle(200);
   await page.addScriptTag({ type: 'module', url: url + 'tests/page/fake-serial.mjs' }); await page.waitForFunction(() => !!window.__fakeSerial);
   // 1. Connect to a CircuitPython board over the REPL, deploy a template through it, then unplug it.
@@ -676,7 +678,7 @@ try {
   await tab('board'); await page.selectOption('#tab-board select', 'seeed_xiao_esp32c3'); await settle(400);
   await page.click('#demoBtn'); await settle(600);
 
-  console.log('hosted images: the CI-written fingerprint and kitsune manifest, served by the test server');
+  section('hosted images: the CI-written fingerprint and kitsune manifest, served by the test server');
   const { createHash } = await import('node:crypto');
   const sha = b => createHash('sha256').update(b).digest('hex');
   const hostedUf2 = mkUf2('FOXLIBC-VERSION:9.9.9'), kImage = Buffer.alloc(8192, 0xe9);
@@ -716,7 +718,7 @@ try {
   await app(() => { window.foxbenchFlash.simulate = false; window.foxbenchFlash.simulateChip = ''; });
   for (const k of [...overrides.keys()]) overrides.delete(k);
 
-  console.log('local artifact manifest; the bench\'s three kitsune targets (XIAO C5, S3-Nano, C6)');
+  section('local artifact manifest; the bench\'s three kitsune targets (XIAO C5, S3-Nano, C6)');
   await page.goto(url); await page.waitForFunction(() => window.foxbench?.catalog); await settle(400);   // no hosted manifest now
   await tab('board'); await page.selectOption('#tab-board select', 'seeed_xiao_esp32c5-kitsune'); await settle(300);
   await tab('behavior'); await page.selectOption('#tab-behavior select', 'wifi-ap'); await settle(300);
@@ -765,7 +767,7 @@ try {
   await tab('board'); await page.selectOption('#tab-board select', 'seeed_xiao_esp32c3'); await settle(400);
   await page.click('#demoBtn'); await settle(600);
 
-  console.log('two tabs; undo a banner-follow');
+  section('two tabs; undo a banner-follow');
   // a second tab saving its form makes this one stop overwriting the saved form until it is edited here
   const page2 = await page.context().newPage(); await page2.goto(url); await page2.waitForFunction(() => window.foxbench?.catalog); await page2.waitForTimeout(300);
   await page2.click('.rail button[data-tab="id"]'); await page2.fill('#tab-id input[type=text]', 'W9XYZ OTHER TAB'); await page2.waitForTimeout(300);
@@ -789,19 +791,23 @@ try {
   eq(await app(() => window.foxbench.cfg.id.callmessage), 'KY4ZR BACK', 'and the config');
   await page.click('#demoBtn'); await settle(600);   // the last section expects the demo to be connected
 
-  console.log('theme, disconnect');
+  section('theme, disconnect');
   await page.click('#themeBtn'); await settle(100);
   check(['light', 'dark'].includes(await page.getAttribute('html', 'data-theme')), 'theme toggles');
   await page.click('#demoBtn'); await settle(400);
   eq(await app(() => window.foxbench.connected), false, 'demo disconnects');
   for (const t of TABS) await tab(t);
 } catch (e) {
-  failures++; console.log('  FAIL exception: ' + (e.stack || e));
+  failures++; console.log(`  FAIL exception in section "${sectionName}": ` + (e.stack || e));
+  console.log(`  (the sections after "${sectionName}" did not run — fix this one first)`);
 } finally {
+  section('end');
   const real = [...new Set(errors)].filter(e => !/^error: Failed to load resource/.test(e))   // those are reported with their URL by the response/requestfailed listeners
     .filter(e => !/http 404 .*(foxbench-picofox\.json|firmware\/kitsune\/manifest\.json)$/.test(e));   // the build fingerprint and the kitsune manifest exist only on a deployed site (CI writes them); the page says so
   if (real.length) { failures += real.length; console.log('console errors:\n  ' + real.join('\n  ')); } else console.log('  ok   no console errors or warnings');
   await browser.close(); await close();
-  console.log(failures ? `\n${failures} failure(s)` : '\nall good');
+  const broken = sections.filter(s => s.failures);
+  if (broken.length) console.log('\nsections with failures: ' + broken.map(s => `${s.name} (${s.failures})`).join(' · '));
+  console.log(failures ? `\n${failures} failure(s) in ${sections.length} sections` : `\nall good (${sections.length} sections, ${(sections.reduce((a, s) => a + s.ms, 0) / 1000).toFixed(0)} s)`);
   process.exit(failures ? 1 : 0);
 }

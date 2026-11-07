@@ -54,17 +54,18 @@ export function chipId(name) {
 
 /**
  * Flash `image` onto the board on a port the user picks. Resolves with chip facts.
- *   opts: { offset, eraseAll, baud, expectChip, onLog(text), onProgress(fraction, phase), onPhase(text), impl }
+ *   opts: { offset, eraseAll, baud, expectChip, onLog(text), onProgress(fraction, phase), onPhase(text), impl, port }
  * `expectChip` (a descriptor id such as "esp32s3"): the detected chip must match it, checked before anything is
  * erased — with several ESP32 variants on the bench, the port picked may belong to another board.
- * `impl` replaces the esptool-js module (the demo passes a simulator).
+ * `impl` replaces the esptool-js module (the demo passes a simulator). `port` supplies a SerialPort instead of
+ * asking the browser for one (tests pass a fake ROM; the real esptool-js then runs against it).
  */
-export async function flash({ offset = 0, eraseAll = true, baud = 460800, expectChip = '', onLog = () => {}, onProgress = () => {}, onPhase = () => {}, impl = null } = {}) {
+export async function flash({ offset = 0, eraseAll = true, baud = 460800, expectChip = '', onLog = () => {}, onProgress = () => {}, onPhase = () => {}, impl = null, port = null } = {}) {
   if (!image.bytes) throw new Error('no CircuitPython image loaded');
   const lib = impl || await loadEsptool();
-  if (!impl && !('serial' in navigator)) throw new Error('Web Serial is not available in this browser (use Chrome or Edge on a laptop or desktop)');
-  onPhase('choose the board\'s port');
-  const port = impl ? null : await navigator.serial.requestPort();
+  if (!impl && !port && !('serial' in globalThis.navigator)) throw new Error('Web Serial is not available in this browser (use Chrome or Edge on a laptop or desktop)');
+  if (!port) onPhase('choose the board\'s port');
+  port = port || (impl ? null : await navigator.serial.requestPort());
   const transport = new lib.Transport(port, false);
   const terminal = { clean() {}, writeLine: t => onLog(t), write: t => onLog(t) };
   const loader = new lib.ESPLoader({ transport, baudrate: baud, romBaudrate: 115200, terminal });

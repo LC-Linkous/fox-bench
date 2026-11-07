@@ -2,6 +2,7 @@
   "id": "seeed_xiao_esp32c3",
   "name": "Seeed Studio XIAO ESP32-C3 + SA868",
   "hardware": "seeed_xiao_esp32c3",
+  "status": "stable",
   "family": "foxlib",
   "firmware": {
     "kind": "circuitpython+foxlib",

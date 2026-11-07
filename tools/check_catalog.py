@@ -146,7 +146,7 @@ for bid in board_ids:
     fam = t.get("family")
     if fam not in FAMILIES: bad(rel, f"unknown family {fam!r} (one of {FAMILIES})")
     if "kind" not in t.get("firmware", {}): bad(rel, "firmware.kind missing")
-    if t.get("status") not in (None, "planned", "experimental", "stable"): bad(rel, f"status {t.get('status')!r}")
+    if t.get("status") not in ("planned", "experimental", "stable"): bad(rel, f"status must be planned|experimental|stable (absent used to mean stable; say so), got {t.get('status')!r}")
     if fam == "foxlib":
         # a chip target ("esp32c5") covers several physical boards (variants); the network foxes run on it. A target
         # without variants is one board wired to a module: the FM foxes run on it, with every role named

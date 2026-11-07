@@ -8,7 +8,7 @@ the live site as it was.
 | What | Where | Run |
 |---|---|---|
 | Firmware behaviour (every template × scenario on mocked hardware), encoder parity Python↔JS | `firmware/sim/` | `python3 firmware/sim/run.py` |
-| REPL protocol and device layer against a fake CircuitPython board | `tests/unit/` | `cd tests && npm run unit` |
+| REPL protocol and device layer against a fake CircuitPython board; the vendored esptool-js against a fake ESP32-C3 ROM | `tests/unit/` | `cd tests && npm run unit` |
 | The page itself, every tab × every template on the demo board (the seven FM templates and the three network foxes: forms, deploy, net bench), in headless Chromium; the zips it exports are unpacked and booted in the firmware simulator (`run.py --deploy-set`) | `tests/page/` | `cd tests && npm run smoke` |
 
 Setup for the Node tests (once): `cd tests && npm ci && npx playwright
@@ -70,12 +70,33 @@ Options worth knowing: `running` (fox transmitting when the port opens),
 `ctrlCIgnores`, `ansi`, `noise`, `chunk`, `latency`, `dropPrompt`,
 `execDelay`, `bootLog`, `files`.
 
+## The fake ROM
+
+`tests/unit/fake-rom-port.mjs` is a Web Serial `SerialPort` whose far end is
+an ESP32-C3 ROM bootloader: SLIP framing, SYNC, GET_SECURITY_INFO (chip id
+5), the eFuse registers esptool-js reads for MAC, revision and features,
+CHANGE_BAUD and the port reopen that follows. `esptool-real.test.mjs` drives
+the **vendored esptool-js bundle itself** through `flasher.flash()` against
+it, so a vendor bump that changes the API the wrapper relies on, or the
+reset strategy it picks (USB-JTAG for a native-USB chip, DTR/RTS classic
+for a UART bridge — asserted by the signal sequence and the 100 ms EN hold),
+fails here instead of on the bench. The fake stops at chip identification:
+it refuses the stub upload, the erase and the write with a ROM error, and
+the test asserts the wrapper's failure path from there (facts gathered,
+nothing erased). Every other flasher test uses `demoEsptool()`.
+
+`npm run smoke` prints its sections as it goes and ends with the list of
+sections that had failures; an exception names the section it happened in
+and says the later ones did not run.
+
 ## What is not tested here
 
 Anything that needs a real board: USB enumeration, Web Serial permission,
-timing of the real CircuitPython VM, RF. `tools/hw_smoke.py` covers that
-from the bench, and `docs/first-hardware-session.md` is the manual
-checklist.
+timing of the real CircuitPython VM, RF, and — for flashing — everything
+after chip identification: the stub upload, erase, write and MD5 check run
+on a board only (`docs/hardware-log.md`, 2026-10-26). `tools/hw_smoke.py`
+covers the firmware side from the bench, and
+`docs/first-hardware-session.md` is the manual checklist.
 
 ## foxlib-c (the native firmware)
 
