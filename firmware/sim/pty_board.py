@@ -41,7 +41,7 @@ class Board:
 
     def boot_worker(self):
         self.kill_vm()
-        p = subprocess.run([sys.executable, WORKER, self.flash, "boot"], capture_output=True, timeout=120)
+        p = subprocess.run([sys.executable, "-B", WORKER, self.flash, "boot"], capture_output=True, timeout=120)   # -B: no __pycache__ in the fake flash (a real board has none, and hw_smoke's stale-file sweep would trip on it)
         return p.stdout, p.stderr
 
     def kill_vm(self):
@@ -55,7 +55,7 @@ class Board:
         import json
         if self.replay: return self.replay.exec(code)
         if not getattr(self, "vm", None):
-            self.vm = subprocess.Popen([sys.executable, WORKER, self.flash, "exec"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+            self.vm = subprocess.Popen([sys.executable, "-B", WORKER, self.flash, "exec"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
         self.vm.stdin.write(json.dumps({"code": code.decode()}) + "\n"); self.vm.stdin.flush()
         line = self.vm.stdout.readline()
         if not line:

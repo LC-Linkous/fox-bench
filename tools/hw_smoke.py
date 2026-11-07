@@ -16,6 +16,11 @@ a new CircuitPython build, or before changing foxlib, and diff the reports.
 What is on the board before (code.py, fox.json, defaults.json) is read
 first and put back at the end unless --no-restore. foxlib stays updated.
 
+--sniffer PORT is a second board running tools/sniffer/code.py. For
+wifi-probe (the one template a phone cannot verify) the script reads the
+sniffer while the fox runs and counts probe requests from the fox's MAC
+carrying its SSID; the template passes only if it saw at least one.
+
 --record FILE writes every REPL exchange of the run (each command and the
 board's reply, each soft reboot and its boot text, each listen window) to
 a JSON file. firmware/sim/pty_board.py --replay FILE then answers from it,
@@ -155,6 +160,41 @@ class Repl:
         return {l.split()[0]: int(l.split()[1]) for l in out.strip().splitlines() if l.strip()}
 
 
+class Sniffer:
+    """Reads tools/sniffer/code.py's line-JSON from a port and counts probe requests."""
+    def __init__(self, port):
+        self.s = serial.Serial(port, 115200, timeout=0.05)
+        self.buf = b""
+        self.hello = None
+        t0 = time.monotonic()
+        while time.monotonic() - t0 < 3 and not self.hello:
+            for o in self._lines():
+                if o.get("t") == "hello": self.hello = o
+        self.s.reset_input_buffer(); self.buf = b""
+
+    def _lines(self):
+        self.buf += self.s.read(4096)
+        while b"\n" in self.buf:
+            line, self.buf = self.buf.split(b"\n", 1)
+            try: yield json.loads(line.strip().decode(errors="replace"))
+            except ValueError: pass
+
+    def watch(self, seconds, mac, ssid):
+        """Listen for `seconds`; returns {"from_fox": n, "with_ssid": n, "others": n, "sample": [...]}"""
+        mac = mac.lower(); r = {"from_fox": 0, "with_ssid": 0, "others": 0, "sample": []}
+        t0 = time.monotonic()
+        while time.monotonic() - t0 < seconds:
+            for o in self._lines():
+                if o.get("t") != "probe": continue
+                if o.get("mac", "").lower() == mac:
+                    r["from_fox"] += 1
+                    if o.get("ssid") == ssid: r["with_ssid"] += 1
+                    if len(r["sample"]) < 3: r["sample"].append({k: o.get(k) for k in ("ssid", "rssi", "ch")})
+                else:
+                    r["others"] += 1
+        return r
+
+
 def _num(x):
     """A number as it goes into a command: 1.0 -> 1, 0.5 -> 0.5. Keeps a recorded command's text equal to a replayed one."""
     return str(int(x)) if float(x) == int(x) else repr(float(x))
@@ -190,6 +230,7 @@ def main():
     ap.add_argument("--yes-antenna", action="store_true", help="confirm an antenna or dummy load is connected")
     ap.add_argument("--no-restore", action="store_true", help="leave the last template on the board instead of restoring what was there")
     ap.add_argument("--report", help="JSON report path (default: hw_smoke-<uid>-<time>.json in the current directory)")
+    ap.add_argument("--sniffer", help="port of a second board running tools/sniffer/code.py; verifies wifi-probe by what went over the air")
     ap.add_argument("--record", help="write every REPL exchange of this run to FILE (JSON) for firmware/sim/pty_board.py --replay")
     ap.add_argument("-v", "--verbose", action="store_true")
     a = ap.parse_args()
@@ -201,6 +242,10 @@ def main():
     foxlib_version = open(os.path.join(ROOT, "firmware/foxlib/VERSION")).read().strip()
 
     recording = [] if a.record else None
+    sniffer = None
+    if a.sniffer:
+        sniffer = Sniffer(a.sniffer)
+        print("sniffer on %s: %s" % (a.sniffer, "hello %s" % sniffer.hello if sniffer.hello else "no hello line in 3 s (is tools/sniffer/code.py running?)"))
     r = Repl(pick_port(a.port), a.verbose, recording)
     print("interrupting whatever runs …")
     r.interrupt()
@@ -210,7 +255,7 @@ def main():
     if board_id != a.board:
         print("WARNING: board reports %s, deploying defaults for %s" % (board_id, a.board))
     report = {"generated": datetime.now().isoformat(timespec="seconds"), "board_id": board_id, "uid": uid, "circuitpython": cp_release, "cp_version": cp_version,
-              "foxlib": foxlib_version, "call": a.call, "freq": a.freq, "module": a.module, "templates": {}}
+              "foxlib": foxlib_version, "call": a.call, "freq": a.freq, "module": a.module, "sniffer": a.sniffer or "not used", "templates": {}}
 
     # what was there
     before = {p: r.read_file(p) for p in ("code.py", "fox.json", "defaults.json")}
@@ -270,10 +315,20 @@ def main():
             if not b:
                 res["ok"] = False; print("  no FOX banner within 20 s:\n" + "\n".join("    " + l for l in boot.strip().splitlines()[-8:])); continue
             print("  %s (%.1f s to banner)" % (b["_raw"], res["boot_s"]))
-            run = r.listen(a.observe)
+            if sniffer and manifest.get("contract") == "net" and (defaults.get("net") or {}).get("kind") == "wifi-probe":
+                # the probes carry the MAC and the SSID the banner names: count what went over the air while the fox runs
+                mac = b.get("mac", ""); ssid = a.call   # hw_smoke deploys with use_callsign_as_name, so the SSID the fox probes for is the callsign
+                seen = sniffer.watch(a.observe, mac, ssid)
+                run = r.listen(0.1)
+                res["sniffer"] = seen
+                print("  sniffer: %d probe(s) from %s, %d with SSID %r, %d from others%s" % (seen["from_fox"], mac, seen["with_ssid"], ssid, seen["others"], " · " + json.dumps(seen["sample"][0]) if seen["sample"] else ""))
+            else:
+                run = r.listen(a.observe)
             res["observed"] = run.strip()[-1500:]
             if run.strip(): print("  while running: " + " | ".join(run.strip().splitlines()[-3:])[:200])
             res["ok"] = b.get("cfg") == "ok" and b.get("radio") == "ok" and (b.get("id") == "set" or a.call.startswith("N0CALL"))
+            if res.get("sniffer") is not None and res["sniffer"]["with_ssid"] < 1:
+                res["ok"] = False; print("  no probe request from the fox with its SSID reached the sniffer in %.1f s — nothing went over the air, or the sniffer is on the wrong channels" % a.observe)
             if b.get("cfg") != "ok": print("  cfg=%s — the firmware disagreed with the defaults or fox.json" % b.get("cfg"))
             if b.get("radio") == "skipped": print("  radio=skipped — not attempted because the config was fatal; nothing was transmitted")
             elif b.get("radio") != "ok": print("  radio=%s — module not answering (wiring, PD pin, baud)" % b.get("radio"))

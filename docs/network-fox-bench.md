@@ -4,13 +4,16 @@ The tick-through list for the network-fox templates (`wifi-beacon`,
 `wifi-probe`, `ble-beacon`) on the bare boards. One pass per board; each
 ends with a row in `docs/hardware-log.md`. The receiver is a phone: its
 Wi-Fi list, a Wi-Fi analyser app that shows BSSID and channel, and a BLE
-scanner app (nRF Connect or similar). `wifi-probe` needs a sniffer and can
-wait.
+scanner app (nRF Connect or similar). `wifi-probe` is the one a phone
+cannot see: put `tools/sniffer/code.py` on a second XIAO C3 or C6 and
+pass its port as `--sniffer` — `hw_smoke.py` then counts the probe
+requests that actually went over the air (`tools/sniffer/README.md`).
 
 Before the first board: `python3 tools/hw_smoke.py --port <port> --board
 <chip> --call <callsign> --yes-antenna --templates wifi-beacon,ble-beacon`
-does steps 2, 8 and 9 below unattended and writes a report; the rest is
-the page and the phone.
+does steps 2, 8 and 9 below unattended and writes a report; add
+`wifi-probe` to the list and `--sniffer <port2>` with the sniffer board
+plugged in and step 10 is covered too. The rest is the page and the phone.
 
 ## The pass (every board)
 
@@ -51,8 +54,12 @@ when the chip has more than one; the LED pin is the descriptor's default.
    Connect shows the iBeacon frame (Apple 0x004C, UUID / major / minor) and
    the name in the scan response, coming and going on the duty cycle.
    Callsign as name, `tx_power_dbm` −12 vs 9 against the app's RSSI.
-10. **wifi-probe** (only with a sniffer): probe requests carrying the SSID
-    and `F2:B0:00:00:00:05`, every cycle; the board never joins anything.
+10. **wifi-probe** (with the sniffer board on a second port): `hw_smoke.py
+    --sniffer` reports `N probe(s) from F2:B0:00:00:00:05, N with SSID
+    <callsign>` during the observe window and fails the template at zero.
+    By hand: the sniffer's serial output is one JSON line per probe
+    request; watch for the fox's MAC with the callsign as SSID, every
+    cycle, on channels 1/6/11. The board never joins anything.
 11. **Hardware-log row**: date · board (variant) · firmware (foxlib 1.2.0,
     CircuitPython version, build id) · checked (which of 2–10) · how (phone
     apps) · result. A chip target goes `stable` once every one of its

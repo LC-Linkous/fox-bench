@@ -83,6 +83,8 @@ jobs:
           python3 tools/check_catalog.py --manifest tests/fixtures/kitsune/manifest.json
       - name: Simulator — every template, every scenario
         run: python3 firmware/sim/run.py
+      - name: Sniffer's 802.11 parser (tools/sniffer/code.py) against hand-built frames
+        run: python3 firmware/sim/test_sniffer_parse.py
       - name: Bench script against the simulated board on a pty (tools/hw_smoke.py end to end, all seven FM templates)
         run: |
           pip install --quiet pyserial
@@ -90,6 +92,16 @@ jobs:
           for i in $(seq 1 50); do [ -s /tmp/port ] && break; sleep 0.2; done; test -s /tmp/port
           python3 tools/hw_smoke.py --port "$(cat /tmp/port)" --call "W1ABC FOX DE W1ABC" --yes-antenna --observe 0.5 --templates morse-songs,morse-sstv,morse-qrss,freq-rotator,popcorn,resurrection,composite --report /tmp/hw_smoke.json
           python3 -c "import json; r=json.load(open('/tmp/hw_smoke.json')); assert all(t['ok'] and t['key']=='ok' for t in r['templates'].values()), r"
+      - name: wifi-probe verified over the air — hw_smoke.py --sniffer against a pty sniffer (and fails when the sniffer hears nothing)
+        run: |
+          python3 firmware/sim/pty_board.py --quiet > /tmp/port2 &
+          python3 firmware/sim/pty_sniffer.py --mac F2:B0:00:00:00:05 --ssid "W1ABC FOX DE W1ABC" > /tmp/sniff &
+          for i in $(seq 1 50); do [ -s /tmp/port2 ] && [ -s /tmp/sniff ] && break; sleep 0.2; done; test -s /tmp/port2 && test -s /tmp/sniff
+          python3 tools/hw_smoke.py --port "$(cat /tmp/port2)" --sniffer "$(cat /tmp/sniff)" --board esp32c3 --call "W1ABC FOX DE W1ABC" --yes-antenna --observe 3 --templates wifi-probe,wifi-beacon --report /tmp/sniff.json
+          python3 -c "import json; r=json.load(open('/tmp/sniff.json')); p=r['templates']['wifi-probe']; assert p['ok'] and p['sniffer']['with_ssid'] >= 1 and 'sniffer' not in r['templates']['wifi-beacon'], r"
+          pkill -f pty_sniffer.py; python3 firmware/sim/pty_sniffer.py --mac 11:22:33:44:55:66 > /tmp/sniff2 &
+          for i in $(seq 1 50); do [ -s /tmp/sniff2 ] && break; sleep 0.2; done
+          if python3 tools/hw_smoke.py --port "$(cat /tmp/port2)" --sniffer "$(cat /tmp/sniff2)" --board esp32c3 --call "W1ABC FOX DE W1ABC" --yes-antenna --observe 2 --templates wifi-probe --report /tmp/sniff2.json; then echo "a silent sniffer must fail wifi-probe"; exit 1; fi
       - name: Python / JS encoder parity
         run: |
           python3 firmware/sim/parity.py > /tmp/py.json

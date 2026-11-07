@@ -34,6 +34,14 @@ board.
   CI), so a new version is a new URL to a browser that cached the last one
   (audit: the mixed-version window). Bump `VERSION` on any user-visible
   change — `check_catalog --since` already insists (`docs/releasing.md`).
+- **A sniffer for the wifi-probe fox** (`tools/sniffer/code.py`, a second
+  XIAO C3/C6 in monitor mode printing every probe request as line-JSON)
+  and `hw_smoke.py --sniffer <port>`, which counts probe requests from the
+  fox's MAC carrying its SSID during the observe window and fails the
+  template at zero — the one network template a phone could not verify.
+  `firmware/sim/pty_sniffer.py` stands in for the board in CI, which runs
+  the positive and the silent-sniffer case; the 802.11 parser has its own
+  test (`firmware/sim/test_sniffer_parse.py`).
 - Tests: the real esptool-js through a whole flash — see 0.9.3's entry;
   the stub-mode fake, erase, compressed write and MD5 landed here.
 - Tests: `player.c` on the host (`firmware/foxlib-c/tests/player_test.py`,
