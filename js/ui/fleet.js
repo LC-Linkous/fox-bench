@@ -42,6 +42,16 @@ function render() {
   const save = () => app.saveProfile(nameIn.value);
   const fileIn = h('input', { type: 'file', accept: 'application/json', hidden: true });
   fileIn.addEventListener('change', async () => { try { const n = profiles.importJson(await fileIn.files[0].text()); app.console.dim(`imported ${n} profile(s)`); render(); } catch (e) { app.console.err('import failed: ' + e.message); } fileIn.value = ''; });
+  const csvIn = h('input', { type: 'file', accept: '.csv,text/csv', hidden: true, id: 'fleet-csv-in' });
+  csvIn.addEventListener('change', async () => {
+    try {
+      const r = fleet.importCsv(await csvIn.files[0].text());
+      const why = r.rejected.length ? ` (${r.rejected.slice(0, 3).map(x => `line ${x.line}: ${x.why}`).join('; ')}${r.rejected.length > 3 ? '; …' : ''})` : '';
+      app.console.line(`fleet CSV: ${r.added} added, ${r.present} already present, ${r.rejected.length} rejected${why}`, r.added ? 'dim' : undefined);
+      render();
+    } catch (e) { app.console.err('fleet CSV import failed: ' + e.message); }
+    csvIn.value = '';
+  });
   root.replaceChildren(
     h('div.cols', {},
       h('div.card', {}, h('h3', {}, 'Profiles ', badge(list.length + ' saved')),
@@ -58,5 +68,5 @@ function render() {
       h('p.hint', {}, 'Every deploy, flash, export and audit appends a row keyed on the chip UID, which survives reflashing. Same columns as the batch flasher\'s CSV so the two merge.'),
       log.length ? h('div.grid-wrap', {}, h('table.grid', {}, h('thead', {}, h('tr', {}, ['timestamp', '#', 'uid', 'action', 'template', 'profile', 'callsign', 'freq', 'power', 'chip_type', 'result', 'notes'].map(f => h('th', {}, f)))),
         h('tbody', {}, log.slice(-50).reverse().map(r => h('tr', {}, ['timestamp', 'board_number', 'uid', 'action', 'template', 'profile', 'callsign', 'freq', 'power', 'chip_type', 'result', 'notes'].map(f => h('td.mono', {}, f === 'timestamp' ? String(r[f]).slice(0, 19).replace('T', ' ') : f === 'uid' ? String(r[f] || '').slice(-8) : r[f] ?? ''))))))) : null,
-      h('div.tools', { style: 'margin-top:8px' }, h('button.btn.small', { disabled: !log.length, onclick: () => download('flash_log.csv', fleet.toCsv(), 'text/csv') }, 'Download CSV'), h('button.btn.small', { disabled: !log.length, onclick: () => { if (confirm('Clear the fleet log in this browser?')) { fleet.clear(); render(); } } }, 'Clear'), h('span.hint', {}, FLEET_FIELDS.length + ' columns in the CSV'))));
+      h('div.tools', { style: 'margin-top:8px' }, h('button.btn.small', { disabled: !log.length, onclick: () => download('flash_log.csv', fleet.toCsv(), 'text/csv') }, 'Download CSV'), h('button.btn.small', { title: 'Merge rows from a CSV this page or the batch flasher wrote; a row already here (same uid and timestamp) is left alone', onclick: () => csvIn.click() }, 'Import CSV'), csvIn, h('button.btn.small', { disabled: !log.length, onclick: () => { if (confirm('Clear the fleet log in this browser?')) { fleet.clear(); render(); } } }, 'Clear'), h('span.hint', {}, FLEET_FIELDS.length + ' columns in the CSV'))));
 }

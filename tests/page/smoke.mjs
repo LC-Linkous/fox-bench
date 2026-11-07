@@ -817,6 +817,22 @@ try {
   eq(await app(() => window.foxbench.cfg.id.callmessage), 'KY4ZR BACK', 'and the config');
   await page.click('#demoBtn'); await settle(600);   // the last section expects the demo to be connected
 
+  section('fleet CSV import: round trip, merge by uid+timestamp, rejects named');
+  await tab('fleet');
+  const fleetBefore = await app(() => JSON.parse(localStorage.getItem('fox-bench.fleet') || '[]'));
+  check(fleetBefore.length > 0, `fleet log has rows to export (${fleetBefore.length})`);
+  const csvText = await app(() => window.foxbench.fleetCsv());
+  await page.setInputFiles('#fleet-csv-in', { name: 'flash_log.csv', mimeType: 'text/csv', buffer: Buffer.from(csvText) }); await settle(400);
+  check(new RegExp(`fleet CSV: 0 added, ${fleetBefore.length} already present, 0 rejected`).test(await text('#log')), 'importing my own export adds nothing: every row already present');
+  eq(await app(() => JSON.parse(localStorage.getItem('fox-bench.fleet') || '[]').length), fleetBefore.length, 'no duplicates');
+  const extra = 'timestamp,uid,action,result,notes\n2026-11-07T09:00:00Z,feedbeef0001,flash,ok,"from the batch flasher, ""quoted"""\n,feedbeef0001,audit,ok,no timestamp\ntimestamp,uid,colour\n';
+  await page.setInputFiles('#fleet-csv-in', { name: 'other.csv', mimeType: 'text/csv', buffer: Buffer.from(extra) }); await settle(400);
+  check(/fleet CSV: 1 added, 0 already present, 2 rejected \(line 3: no timestamp; line 4: 3 cells, header has 5\)/.test(await text('#log')), 'a batch-flasher file merges; bad rows are named with their line');
+  eq(await app(() => JSON.parse(localStorage.getItem('fox-bench.fleet') || '[]').length), fleetBefore.length + 1, 'one row added');
+  check(/beef0001/.test(await text('#tab-fleet')), 'the imported row shows in the table (uid shown as its last 8)');
+  await page.setInputFiles('#fleet-csv-in', { name: 'bad.csv', mimeType: 'text/csv', buffer: Buffer.from('timestamp,uid,colour\n2026-11-07T09:00:00Z,x,red\n') }); await settle(300);
+  check(/fleet CSV import failed: not a fleet CSV: unknown column\(s\) "colour"/.test(await text('#log')), 'an unknown column is refused by name');
+
   section('theme, disconnect');
   await page.click('#themeBtn'); await settle(100);
   check(['light', 'dark'].includes(await page.getAttribute('html', 'data-theme')), 'theme toggles');

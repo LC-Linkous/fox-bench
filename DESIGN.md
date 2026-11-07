@@ -182,6 +182,20 @@ simulated esptool so the whole flow runs in the page tests. Boards with
 UF2 bootloaders get a different implementation later; the interface is
 the same.
 
+**The fleet log** (`profiles.js`) is one row per deploy, flash, export and
+audit, keyed on the chip `uid`, kept in this browser's storage and
+downloaded as a CSV with the same columns the batch flasher writes.
+**Import CSV** on the Fleet tab reads one back — this page's, the batch
+flasher's, or one edited in a spreadsheet — and merges it: a row is the
+same event as one already here when `uid` and `timestamp` both match, and
+those are counted, never overwritten; rows with the wrong shape are
+reported with their line number; a file with an unknown column is refused
+by name. `fromCsv` undoes everything `toCsv` does (RFC 4180 quoting, the
+apostrophe in front of a cell a spreadsheet would evaluate) and tolerates
+what a spreadsheet adds (a BOM, CRLF, a trailing blank line, re-quoting of
+every cell). `tools/check_fleet.py` applies the same rules to a file from
+the terminal, so a hand-edited CSV can be checked before import.
+
 ## 4. Descriptors
 
 Two layers describe what is on the bench. **`hardware/<id>.json`** is the

@@ -28,7 +28,7 @@ import * as tabBench from './ui/bench.js';
 import * as tabFleet from './ui/fleet.js';
 import * as tabAbout from './ui/about.js';
 
-const VERSION = '0.9.4';
+const VERSION = '0.9.5';
 /** Tab subtitles that read differently per device family (null = the page's original text). */
 const LEDES = { drive: {
   board: 'Which fox is on the bench, open its USB drive (or use the simulated one). The vendor firmware stays; the page writes its files.',
@@ -603,6 +603,7 @@ async function boot() {
 
   app.changed('boot');
   const savedTab = localStorage.getItem('fox-bench.tab'); showTab(savedTab && TABS[savedTab] ? savedTab : 'board');
+  app.fleetCsv = () => fleet.toCsv();   // the page smoke exports through this instead of a download
   window.foxbench = app;   // for the console-curious
   window.addEventListener('storage', e => {
     if (e.key !== 'fox-bench.working' || !e.newValue) return;

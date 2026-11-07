@@ -14,6 +14,23 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.9.5 · foxlib 1.2.1 · foxlib-c 0.1.11
+
+- **Fleet CSV comes back.** `fromCsv` parses what `toCsv` writes (and what
+  the batch flasher writes, and what a spreadsheet does to either: BOM,
+  CRLF, trailing blank line, every cell re-quoted) and takes off the
+  apostrophe the writer puts in front of `= + - @` cells. **Import CSV**
+  on the Fleet tab merges a file by `uid` + `timestamp`: new rows added,
+  the same event counted as present and never overwritten, rows of the
+  wrong shape reported with their line number, an unknown column refused
+  by name. `tools/check_fleet.py` checks a file with the same rules from
+  the terminal. Round trip, each rejection, and a spreadsheet-mangled
+  file are unit-tested; the smoke imports its own export and a
+  batch-flasher file.
+- Fixed: a fleet cell containing a bare carriage return was written
+  unquoted, which broke the row on read.
+
+
 ### Page 0.9.4 · foxlib 1.2.1 · foxlib-c 0.1.11
 
 **foxlib-c 0.1.11** — `player.c`'s mailbox carries the play request pointer
