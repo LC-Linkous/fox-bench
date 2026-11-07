@@ -68,8 +68,10 @@ after all three passed, carrying the UF2 that run built
 | `tools/sniffer/` | CircuitPython for a second board: prints every Wi-Fi probe request it hears as line-JSON, so `hw_smoke.py --sniffer` can verify the wifi-probe fox over the air |
 | `tools/replay_check.py` | replays a `hw_smoke.py --record` file into the pty board and checks it (`docs/bench-recordings.md`) |
 | `tools/bench_queue.py` | what the next bench sessions have to show, derived from the catalog and `docs/hardware-log.md`; `--check` runs in CI |
+| `tools/session_close.py` | after a `hw_smoke.py` run: the hardware-log row and the `boards_tested` additions, from the report (`docs/bench-runbook.md`) |
 | `flasher/` | CircuitPython flashing component (esptool-js bundled; Apache-2.0, licensed separately) |
 | `tools/batch_flash.py` | headless CircuitPython batch flasher, same CSV as the Fleet tab |
+| `docs/bench-runbook.md` | the queue as commands: what to run per session, what it should print, how to close the session |
 | `docs/first-hardware-session.md` | checklist for a new board, module or CircuitPython build |
 | `docs/network-fox-bench.md` | the bench list for the network foxes, per board |
 | `docs/picofox-notes.md` | what the PicoFox's vendor firmware reads and does; the basis of the drive family |
