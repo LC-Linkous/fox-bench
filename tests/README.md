@@ -70,6 +70,13 @@ Options worth knowing: `running` (fox transmitting when the port opens),
 `ctrlCIgnores`, `ansi`, `noise`, `chunk`, `latency`, `dropPrompt`,
 `execDelay`, `bootLog`, `files`.
 
+## Bench recordings
+
+`tests/fixtures/bench/*.json` are `tools/hw_smoke.py --record` files;
+`tools/replay_check.py` replays each through `firmware/sim/pty_board.py
+--replay` in CI and fails on a missed command, a failed template or a
+changed uid. `docs/bench-recordings.md` says how to make one on a board.
+
 ## The fake ROM
 
 `tests/unit/fake-rom-port.mjs` is a Web Serial `SerialPort` whose far end is

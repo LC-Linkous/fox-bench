@@ -10,6 +10,8 @@ Everything here is also what `tools/hw_smoke.py` does automatically for
 the templates; the manual steps are the ones that need eyes, ears or a
 receiver.
 
+> Add `--record <board>-<what>-<date>.json` to the `hw_smoke.py` line and commit the file under `tests/fixtures/bench/`: the session becomes a CI test (`docs/bench-recordings.md`).
+
 ## Before plugging in
 
 - [ ] Antenna or dummy load on the module's RF connector. The fox keys

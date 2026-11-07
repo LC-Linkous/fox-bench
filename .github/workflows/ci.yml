@@ -71,6 +71,8 @@ jobs:
         run: python3 tools/check_docs.py
       - name: Every stable target has a hardware-log row; the bench queue prints for the run log
         run: python3 tools/bench_queue.py --check
+      - name: Bench recordings replay clean (tools/hw_smoke.py against firmware/sim/pty_board.py --replay)
+        run: for f in tests/fixtures/bench/*.json; do python3 tools/replay_check.py "$f" || exit 1; done
       - name: The asset stamper finds the links it will rewrite at deploy
         run: mkdir -p /tmp/stamp && cp index.html /tmp/stamp/ && python3 tools/stamp_assets.py /tmp/stamp && python3 tools/stamp_assets.py --check /tmp/stamp
       - name: Workflow file parses strictly (duplicate keys), job graph; kitsune build tool self-test; manifest shape

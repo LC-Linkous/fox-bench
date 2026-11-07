@@ -1,0 +1,3038 @@
+{
+"format": "fox-bench-bench-recording/1",
+"generated": "2026-11-07T00:00:00",
+"board_id": "seeed_xiao_esp32c3",
+"uid": "85c818eae840",
+"circuitpython": "6.18.44-fc-v310",
+"foxlib": "1.2.1",
+"args": {
+"board": "seeed_xiao_esp32c3",
+"variant": null,
+"templates": "morse-songs,morse-sstv,morse-qrss,freq-rotator,popcorn,resurrection,composite",
+"call": "W1ABC FOX DE W1ABC",
+"freq": null,
+"module": null,
+"observe": "0.5",
+"key_seconds": "1",
+"yes_antenna": true,
+"no_restore": false,
+"verbose": false
+},
+"exchanges": [
+{
+"t": 0.167,
+"kind": "exec",
+"cmd": "import board, microcontroller, os, sys\nprint(board.board_id)\nprint(''.join('%02x' % b for b in microcontroller.cpu.uid))\nprint(os.uname().release)\nprint(os.uname().version)\n",
+"out": "seeed_xiao_esp32c3\n85c818eae840\n6.18.44-fc-v310\n#1 SMP @0\n",
+"err": ""
+},
+{
+"t": 0.234,
+"kind": "exec",
+"cmd": "try:\n f=open('code.py','rb')\nexcept OSError:\n print('__MISSING__')\nelse:\n while True:\n  b=f.read(512)\n  if not b: break\n  print(''.join('%02x'%c for c in b), end='')\n f.close()\n",
+"out": "__MISSING__\n",
+"err": ""
+},
+{
+"t": 0.301,
+"kind": "exec",
+"cmd": "try:\n f=open('fox.json','rb')\nexcept OSError:\n print('__MISSING__')\nelse:\n while True:\n  b=f.read(512)\n  if not b: break\n  print(''.join('%02x'%c for c in b), end='')\n f.close()\n",
+"out": "__MISSING__\n",
+"err": ""
+},
+{
+"t": 0.368,
+"kind": "exec",
+"cmd": "try:\n f=open('defaults.json','rb')\nexcept OSError:\n print('__MISSING__')\nelse:\n while True:\n  b=f.read(512)\n  if not b: break\n  print(''.join('%02x'%c for c in b), end='')\n f.close()\n",
+"out": "__MISSING__\n",
+"err": ""
+},
+{
+"t": 0.426,
+"kind": "exec",
+"cmd": "import os\ntry:\n os.mkdir('foxlib')\nexcept OSError:\n pass\n",
+"out": "",
+"err": ""
+},
+{
+"t": 0.485,
+"kind": "exec",
+"cmd": "f=open('foxlib/VERSION','wb')",
+"out": "",
+"err": ""
+},
+{
+"t": 0.543,
+"kind": "exec",
+"cmd": "f.write(b'1.2.1\\n')",
+"out": "",
+"err": ""
+},
+{
+"t": 0.602,
+"kind": "exec",
+"cmd": "f.close()",
+"out": "",
+"err": ""
+},
+{
+"t": 0.668,
+"kind": "exec",
+"cmd": "import os, binascii\nc=0\nf=open('foxlib/VERSION','rb')\nwhile True:\n b=f.read(512)\n if not b: break\n c=binascii.crc32(b,c)\nf.close()\nprint(os.stat('foxlib/VERSION')[6], c)\n",
+"out": "6 1315721634\n",
+"err": ""
+},
+{
+"t": 0.727,
+"kind": "exec",
+"cmd": "f=open('foxlib/__init__.py','wb')",
+"out": "",
+"err": ""
+},
+{
+"t": 0.81,
+"kind": "exec",
+"cmd": "f.write(b'# SPDX-License-Identifier: GPL-3.0-or-later\\n# foxlib -- shared firmware library for fox-bench transmitters.\\n#\\n#   import foxlib\\n#   fox = foxlib.Fox(\"fox.json\", defaults=\"defaults.json\", version=\"1.0.0\")\\n#   for tx in fox.cycles():\\n#       tx.morse(tx.id_message)\\n#       ...\\n#\\n# Fox loads and validates the config, brings up radio / tones / LED / battery /\\n# schedule, prints the boo')",
+"out": "",
+"err": ""
+},
+{
+"t": 0.893,
+"kind": "exec",
+"cmd": "f.write(b't banner, and hands cycles() to cycle.run().\\n# quiet=True (bench use from the REPL): no banner, nothing keyed.\\n\\nimport board\\nimport microcontroller\\nfrom . import cfg as _cfg, radio as _radio, tones, melody, sstv, battery, schedule, led, cycle\\n\\ntry:\\n    __version__ = open(__file__.rsplit(\"/\", 1)[0] + \"/VERSION\").read().strip()\\nexcept Exception:\\n    __version__ = \"0\"\\n\\n\\nclass Fox:\\n   ')",
+"out": "",
+"err": ""
+},
+{
+"t": 0.976,
+"kind": "exec",
+"cmd": "f.write(b' def __init__(self, path=\"fox.json\", defaults=\"defaults.json\", version=\"?\", quiet=False):\\n        self.quiet = quiet\\n        self.template_version = version\\n        self.board_id = getattr(board, \"board_id\", \"unknown\")\\n        self.uid = \"\".join(\"%02x\" % b for b in microcontroller.cpu.uid)\\n        self.cfg, self.report = _cfg.load(path, defaults, dir(board), self.board_id)\\n        ')",
+"out": "",
+"err": ""
+},
+{
+"t": 1.059,
+"kind": "exec",
+"cmd": "f.write(b'self.fatal = self.report.fatal\\n        self.radio = None\\n        self.player = None\\n        self.batt = None\\n        self.playlist = None\\n        self.images = None\\n        self.led = led.Status(None)\\n        if self.cfg is None:\\n            self.id_ok = False\\n            self.schedule = schedule.make({\"kind\": \"fixed\", \"delay_ms\": 30000})\\n            self._banner()\\n            retu')",
+"out": "",
+"err": ""
+},
+{
+"t": 1.143,
+"kind": "exec",
+"cmd": "f.write(b'rn\\n        c = self.cfg\\n        pins = {}\\n        for role, name in c[\"pins\"].items():\\n            pins[role] = getattr(board, name) if name else None\\n        # LED first so a fatal boot can still blink\\n        try:\\n            self.led = led.Status(pins.get(\"led\"))\\n        except Exception:\\n            self.led = led.Status(None)\\n        if not self.fatal:\\n            try:\\n       ')",
+"out": "",
+"err": ""
+},
+{
+"t": 1.226,
+"kind": "exec",
+"cmd": "f.write(b'         self.radio = _radio.make(pins, c[\"radio\"])\\n                self.player = tones.Player(pins[\"audio\"])\\n            except Exception as e:\\n                self.fatal = \"hardware(%s:%s)\" % (e.__class__.__name__, str(e).replace(\" \", \"_\")[:40])\\n        if not self.fatal:\\n            if self.radio.setup():\\n                if not self.radio.retune(c[\"plan\"][\"frequencies_mhz\"][0]):')",
+"out": "",
+"err": ""
+},
+{
+"t": 1.309,
+"kind": "exec",
+"cmd": "f.write(b'\\n                    pass        # status already says why\\n        if pins.get(\"batt_sense\") is not None:\\n            try:\\n                self.batt = battery.Monitor(pins[\"batt_sense\"], c[\"battery\"])\\n            except Exception:\\n                self.batt = None\\n        p = c[\"payload\"]\\n        if p[\"kind\"] == \"songs\":\\n            self.playlist = melody.Playlist(p[\"playlist\"], p[\"')",
+"out": "",
+"err": ""
+},
+{
+"t": 1.392,
+"kind": "exec",
+"cmd": "f.write(b'articulation\"])\\n        elif p[\"kind\"] == \"sstv\":\\n            self.images = sstv.Images(sstv.load_images(p[\"images_file\"]))\\n        self.schedule = schedule.make(c[\"schedule\"])\\n        self.id_ok = c[\"id\"][\"placeholder\"] not in c[\"id\"][\"callmessage\"]\\n        self._banner()\\n\\n    def deinit(self):\\n        \"\"\"Release every pin, the UART and the PWM. The bench builds a fresh Fox per ac')",
+"out": "",
+"err": ""
+},
+{
+"t": 1.475,
+"kind": "exec",
+"cmd": "f.write(b'tion in one REPL\\n        session; without this the second one fails with \\'<pin> in use\\' and boots with radio=None.\"\"\"\\n        for part in (self.radio, self.player, self.batt, self.led):\\n            if part is not None:\\n                try:\\n                    part.deinit()\\n                except Exception:\\n                    pass\\n        self.radio = self.player = self.batt = None')",
+"out": "",
+"err": ""
+},
+{
+"t": 1.558,
+"kind": "exec",
+"cmd": "f.write(b'\\n\\n    # ---- output\\n    def log(self, text):\\n        if not self.quiet:\\n            print(text)\\n\\n    def banner_line(self):\\n        c = self.cfg or {}\\n        freqs = \",\".join(\"%g\" % f for f in c.get(\"plan\", {}).get(\"frequencies_mhz\", [])) if c else \"none\"\\n        return \"FOX template=%s/%s foxlib=%s board=%s uid=%s cfg=%s radio=%s id=%s freq=%s\" % (\\n            c.get(\"template\", \"')",
+"out": "",
+"err": ""
+},
+{
+"t": 1.641,
+"kind": "exec",
+"cmd": "f.write(b'?\") if c else \"?\", self.template_version, __version__, self.board_id, self.uid,\\n            (\"fatal(%s)\" % self.fatal) if self.fatal else self.report.status(), (self.radio.status if self.radio else \"skipped\"), \"set\" if self.id_ok else \"unset\", freqs or \"none\")\\n\\n    def _banner(self):\\n        if self.quiet:\\n            return\\n        print(\"initializing system ... \")\\n        print(s')",
+"out": "",
+"err": ""
+},
+{
+"t": 1.725,
+"kind": "exec",
+"cmd": "f.write(b'elf.banner_line())\\n        for key, reason in self.report.items:\\n            print(\"  cfg: %s -> default (%s)\" % (key, reason))\\n        if self.fatal:\\n            print(\"** fatal: %s -- staying silent **\" % self.fatal)\\n        elif not self.id_ok:\\n            print(\"** callsign not set: %s **\" % (\"transmitting anyway (tx_without_callsign)\" if self.cfg[\"id\"][\"tx_without_callsign\"] e')",
+"out": "",
+"err": ""
+},
+{
+"t": 1.799,
+"kind": "exec",
+"cmd": "f.write(b'lse \"staying silent (id.tx_without_callsign=false)\"))\\n\\n    # ---- the loop\\n    def cycles(self):\\n        try:\\n            for tx in cycle.run(self):\\n                yield tx\\n        finally:\\n            if self.radio:\\n                self.radio.unkey()\\n            if self.player:\\n                self.player.pwm.duty_cycle = 0\\n')",
+"out": "",
+"err": ""
+},
+{
+"t": 1.858,
+"kind": "exec",
+"cmd": "f.close()",
+"out": "",
+"err": ""
+},
+{
+"t": 1.925,
+"kind": "exec",
+"cmd": "import os, binascii\nc=0\nf=open('foxlib/__init__.py','rb')\nwhile True:\n b=f.read(512)\n if not b: break\n c=binascii.crc32(b,c)\nf.close()\nprint(os.stat('foxlib/__init__.py')[6], c)\n",
+"out": "4936 41940372\n",
+"err": ""
+},
+{
+"t": 1.983,
+"kind": "exec",
+"cmd": "f=open('foxlib/battery.py','wb')",
+"out": "",
+"err": ""
+},
+{
+"t": 2.066,
+"kind": "exec",
+"cmd": "f.write(b'# SPDX-License-Identifier: GPL-3.0-or-later\\n# foxlib/battery.py -- battery voltage through a resistor divider on an ADC pin.\\n# The ESP32-C3 ADC full scale varies ~10 % chip to chip (calibration trim) and\\n# spikes during RF activity (averaged reads).\\n\\nimport analogio\\n\\n\\nclass Monitor:\\n    def __init__(self, pin, cfg):\\n        self._adc = analogio.AnalogIn(pin)\\n        self.samples = ')",
+"out": "",
+"err": ""
+},
+{
+"t": 2.149,
+"kind": "exec",
+"cmd": "f.write(b'cfg.get(\"samples\", 16)\\n        self.ratio = cfg.get(\"divider_ratio\", 2.0)\\n        self.cal = cfg.get(\"calibration\", 1.0)\\n\\n    def read(self):\\n        total = 0\\n        for _ in range(self.samples):\\n            total += self._adc.value\\n        mean = total / self.samples\\n        ref = getattr(self._adc, \"reference_voltage\", 3.3)\\n        return (mean / 65535) * ref * self.ratio * sel')",
+"out": "",
+"err": ""
+},
+{
+"t": 2.233,
+"kind": "exec",
+"cmd": "f.write(b'f.cal\\n\\n    def deinit(self):\\n        self._adc.deinit()\\n\\n\\ndef policy(volts, cfg, previous):\\n    \"\"\"\\'ok\\' | \\'low\\' | \\'critical\\', with hysteresis on the critical threshold.\"\"\"\\n    if volts is None:\\n        return \"ok\"\\n    if volts < cfg[\"critical_v\"]:\\n        return \"critical\"\\n    if previous == \"critical\" and volts < cfg[\"recovery_v\"]:\\n        return \"critical\"\\n    if volts < cfg[\"low')",
+"out": "",
+"err": ""
+},
+{
+"t": 2.308,
+"kind": "exec",
+"cmd": "f.write(b'_v\"]:\\n        return \"low\"\\n    return \"ok\"\\n\\n\\ndef telemetry(volts):\\n    \"\"\"3.72 -> \\'BAT 3V7\\' (Morse-friendly, no decimal point).\"\"\"\\n    whole = int(volts)\\n    tenth = int(round((volts - whole) * 10))\\n    if tenth == 10:\\n        whole += 1\\n        tenth = 0\\n    return \"BAT %dV%d\" % (whole, tenth)\\n')",
+"out": "",
+"err": ""
+},
+{
+"t": 2.366,
+"kind": "exec",
+"cmd": "f.close()",
+"out": "",
+"err": ""
+},
+{
+"t": 2.433,
+"kind": "exec",
+"cmd": "import os, binascii\nc=0\nf=open('foxlib/battery.py','rb')\nwhile True:\n b=f.read(512)\n if not b: break\n c=binascii.crc32(b,c)\nf.close()\nprint(os.stat('foxlib/battery.py')[6], c)\n",
+"out": "1448 1470345010\n",
+"err": ""
+},
+{
+"t": 2.492,
+"kind": "exec",
+"cmd": "f=open('foxlib/cfg.py','wb')",
+"out": "",
+"err": ""
+},
+{
+"t": 2.575,
+"kind": "exec",
+"cmd": "f.write(b'# SPDX-License-Identifier: GPL-3.0-or-later\\n# foxlib/cfg.py -- defaults.json -> fox.json override -> validation -> report.\\n# Independent implementation of CONFIG.md (the page has its own in js/model/schema.js).\\n# validate() is pure so the simulator and desktop tests can run it.\\n\\nimport json\\n\\nSCHEMA = 1\\n# A plain file name: letters, digits, . _ - (first character alphanumeric), 1-32')",
+"out": "",
+"err": ""
+},
+{
+"t": 2.658,
+"kind": "exec",
+"cmd": "f.write(b' characters. Written out rather than as a\\n# regex: CircuitPython\\'s `re` has no counted repetition ({m,n}), so the pattern silently never matched on the board and every\\n# images_file fell back to the default (seen on a XIAO ESP32-C3, foxlib 1.2.0).\\n_FNAME_CHARS = \"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-\"\\n\\n\\ndef _plain_file_name(s):\\n    return isinstance(s, s')",
+"out": "",
+"err": ""
+},
+{
+"t": 2.741,
+"kind": "exec",
+"cmd": "f.write(b'tr) and 1 <= len(s) <= 32 and s[0] not in \"._-\" and all(c in _FNAME_CHARS for c in s)\\n_RESERVED_FILES = {\"code.py\", \"boot.py\", \"fox.json\", \"defaults.json\", \"board.json\", \"settings.txt\", \"audio.wav\", \".callsign.wav\", \".settings_crc.bin\", \"readme.txt\"}\\nREQUIRED_PINS = (\"ptt\", \"pd\", \"hl\", \"uart_tx\", \"uart_rx\", \"audio\")\\nOPTIONAL_PINS = (\"led\", \"batt_sense\")\\nTOP_KEYS = (\"schema\", \"templ')",
+"out": "",
+"err": ""
+},
+{
+"t": 2.824,
+"kind": "exec",
+"cmd": "f.write(b'ate\", \"board\", \"module\", \"pins\", \"radio\", \"plan\", \"id\", \"payload\", \"schedule\", \"battery\", \"limits\", \"fleet\")\\n\\n\\ndef _copy(o):\\n    if isinstance(o, dict):\\n        return {k: _copy(v) for k, v in o.items()}\\n    if isinstance(o, list):\\n        return [_copy(v) for v in o]\\n    return o\\n\\n\\ndef _is_int(v):\\n    return isinstance(v, int) and not isinstance(v, bool)\\n\\n\\ndef _is_num(v):\\n    retu')",
+"out": "",
+"err": ""
+},
+{
+"t": 2.908,
+"kind": "exec",
+"cmd": "f.write(b'rn (isinstance(v, (int, float))) and not isinstance(v, bool)\\n\\n\\ndef _intify(v):\\n    \"\"\"JSON has one number type: a hand-edited \\'3.0\\' means 3. Floats with an integral value become ints, recursively.\"\"\"\\n    if isinstance(v, float) and v == int(v):\\n        return int(v)\\n    if isinstance(v, dict):\\n        return {k: _intify(x) for k, x in v.items()}\\n    if isinstance(v, list):\\n        ')",
+"out": "",
+"err": ""
+},
+{
+"t": 2.992,
+"kind": "exec",
+"cmd": "f.write(b'return [_intify(x) for x in v]\\n    return v\\n\\n\\nclass Report:\\n    def __init__(self):\\n        self.items = []       # (key, reason)\\n        self.fatal = None\\n        self.mode = \"ok\"      # ok | partial | default(<why>) | fatal\\n\\n    def bad(self, key, reason):\\n        self.items.append((key, reason))\\n\\n    def status(self):\\n        if self.fatal:\\n            return \"fatal(%s)\" % self.')",
+"out": "",
+"err": ""
+},
+{
+"t": 3.075,
+"kind": "exec",
+"cmd": "f.write(b'fatal\\n        if self.mode.startswith(\"default\"):\\n            return self.mode\\n        if self.items:\\n            return \"partial(%s)\" % \",\".join(k for k, _ in self.items)\\n        return \"ok\"\\n\\n\\ndef validate(user, defaults, board_names, board_id=None):\\n    \"\"\"Returns (cfg, report). board_names: names the board module exposes (dir(board)).\"\"\"\\n    cfg = _copy(defaults)\\n    rep = Repor')",
+"out": "",
+"err": ""
+},
+{
+"t": 3.158,
+"kind": "exec",
+"cmd": "f.write(b't()\\n    u = _intify(user) if isinstance(user, dict) else {}\\n    has = lambda name: isinstance(name, str) and name in board_names\\n\\n    # ---- gates: whole-file fallbacks\\n    if \"schema\" in u and u[\"schema\"] != SCHEMA:\\n        rep.mode = \"default(schema)\"\\n        return cfg, rep\\n    if \"template\" in u and u[\"template\"] != defaults.get(\"template\"):\\n        rep.mode = \"default(template')",
+"out": "",
+"err": ""
+},
+{
+"t": 3.241,
+"kind": "exec",
+"cmd": "f.write(b')\"\\n        return cfg, rep\\n    # fox.json names a target; the running board may report another CircuitPython board_id when a target runs a\\n    # sibling board\\'s build (the Waveshare S3-Nano runs as arduino_nano_esp32s3): the defaults.json written with it\\n    # names the same target, so a fox.json for that target is for this board\\n    if \"board\" in u and board_id and u[\"board\"] != b')",
+"out": "",
+"err": ""
+},
+{
+"t": 3.324,
+"kind": "exec",
+"cmd": "f.write(b'oard_id and u[\"board\"] != defaults.get(\"board\"):\\n        rep.mode = \"default(board)\"\\n        return cfg, rep\\n    if \"module\" in u:\\n        if isinstance(u[\"module\"], str):\\n            cfg[\"module\"] = u[\"module\"]\\n        else:\\n            rep.bad(\"module\", \"string\")\\n\\n    # ---- pins\\n    pins = u.get(\"pins\") if isinstance(u.get(\"pins\"), dict) else {}\\n    for role in REQUIRED_PINS + O')",
+"out": "",
+"err": ""
+},
+{
+"t": 3.407,
+"kind": "exec",
+"cmd": "f.write(b'PTIONAL_PINS:\\n        if role not in pins:\\n            continue\\n        v = pins[role]\\n        if v is None:\\n            if role in REQUIRED_PINS:\\n                rep.bad(\"pins.\" + role, \"required\")\\n            else:\\n                cfg[\"pins\"][role] = None\\n        elif has(v):\\n            cfg[\"pins\"][role] = v\\n        else:\\n            rep.bad(\"pins.\" + role, \"no such pin\")\\n    fo')",
+"out": "",
+"err": ""
+},
+{
+"t": 3.49,
+"kind": "exec",
+"cmd": "f.write(b'r k in pins:\\n        if k not in REQUIRED_PINS + OPTIONAL_PINS:\\n            rep.bad(\"pins.\" + k, \"unknown role\")\\n    seen = {}\\n    for role in REQUIRED_PINS + OPTIONAL_PINS:\\n        v = cfg[\"pins\"].get(role)\\n        if v is None:\\n            continue\\n        if v in seen:\\n            rep.bad(\"pins.\" + role, \"shares \" + v)\\n            d = defaults[\"pins\"].get(role)\\n            if d ')",
+"out": "",
+"err": ""
+},
+{
+"t": 3.573,
+"kind": "exec",
+"cmd": "f.write(b'== v or d is None:\\n                if role in REQUIRED_PINS:\\n                    rep.fatal = rep.fatal or \"pins.\" + role\\n                cfg[\"pins\"][role] = None\\n            else:\\n                cfg[\"pins\"][role] = d\\n        else:\\n            seen[v] = role\\n    for role in REQUIRED_PINS:\\n        if not has(cfg[\"pins\"].get(role)):\\n            rep.fatal = rep.fatal or \"pins.\" + role')",
+"out": "",
+"err": ""
+},
+{
+"t": 3.656,
+"kind": "exec",
+"cmd": "f.write(b'\\n\\n    # ---- radio\\n    r = u.get(\"radio\") if isinstance(u.get(\"radio\"), dict) else {}\\n    if \"family\" in r:\\n        if isinstance(r[\"family\"], str) and r[\"family\"]:\\n            cfg[\"radio\"][\"family\"] = r[\"family\"]\\n        else:\\n            rep.bad(\"radio.family\", \"string\")\\n    if \"ranges_mhz\" in r:\\n        rr = r[\"ranges_mhz\"]\\n        ok = isinstance(rr, list) and rr and all(isinst')",
+"out": "",
+"err": ""
+},
+{
+"t": 3.739,
+"kind": "exec",
+"cmd": "f.write(b'ance(x, list) and len(x) == 2 and _is_num(x[0]) and _is_num(x[1]) and x[0] < x[1] for x in rr)\\n        if ok:\\n            cfg[\"radio\"][\"ranges_mhz\"] = rr\\n        else:\\n            rep.bad(\"radio.ranges_mhz\", \"[[lo,hi],...]\")\\n    if \"bandwidth_khz\" in r:\\n        if _is_num(r[\"bandwidth_khz\"]) and 1 <= r[\"bandwidth_khz\"] <= 100:\\n            cfg[\"radio\"][\"bandwidth_khz\"] = r[\"bandwidt')",
+"out": "",
+"err": ""
+},
+{
+"t": 3.822,
+"kind": "exec",
+"cmd": "f.write(b'h_khz\"]\\n        else:\\n            rep.bad(\"radio.bandwidth_khz\", \"1-100\")\\n    if \"power_dbm\" in r:\\n        v = r[\"power_dbm\"]\\n        if v is None or (_is_num(v) and 0 <= v <= 40):\\n            cfg[\"radio\"][\"power_dbm\"] = v\\n        else:\\n            rep.bad(\"radio.power_dbm\", \"null or 0-40\")\\n    if \"squelch\" in r:\\n        if _is_int(r[\"squelch\"]) and 0 <= r[\"squelch\"] <= 8:\\n        ')",
+"out": "",
+"err": ""
+},
+{
+"t": 3.905,
+"kind": "exec",
+"cmd": "f.write(b'    cfg[\"radio\"][\"squelch\"] = r[\"squelch\"]\\n        else:\\n            rep.bad(\"radio.squelch\", \"0-8\")\\n    if \"volume\" in r:\\n        if _is_int(r[\"volume\"]) and 1 <= r[\"volume\"] <= 8:\\n            cfg[\"radio\"][\"volume\"] = r[\"volume\"]\\n        else:\\n            rep.bad(\"radio.volume\", \"1-8\")\\n    if \"high_power\" in r:\\n        if isinstance(r[\"high_power\"], bool):\\n            cfg[\"radio\"]')",
+"out": "",
+"err": ""
+},
+{
+"t": 3.988,
+"kind": "exec",
+"cmd": "f.write(b'[\"high_power\"] = r[\"high_power\"]\\n        else:\\n            rep.bad(\"radio.high_power\", \"bool\")\\n\\n    # ---- plan\\n    p = u.get(\"plan\") if isinstance(u.get(\"plan\"), dict) else {}\\n    if \"frequencies_mhz\" in p:\\n        fl = p[\"frequencies_mhz\"]\\n        if isinstance(fl, list) and fl and all(_is_num(f) for f in fl):\\n            cfg[\"plan\"][\"frequencies_mhz\"] = list(fl)\\n        else:\\n  ')",
+"out": "",
+"err": ""
+},
+{
+"t": 4.071,
+"kind": "exec",
+"cmd": "f.write(b'          rep.bad(\"plan.frequencies_mhz\", \"non-empty list\")\\n    if \"announce_qsy\" in p:\\n        if isinstance(p[\"announce_qsy\"], bool):\\n            cfg[\"plan\"][\"announce_qsy\"] = p[\"announce_qsy\"]\\n        else:\\n            rep.bad(\"plan.announce_qsy\", \"bool\")\\n    ranges = cfg[\"radio\"][\"ranges_mhz\"]\\n    in_mod = lambda f: any(lo <= f <= hi for lo, hi in ranges)\\n    kept = [f for f in')",
+"out": "",
+"err": ""
+},
+{
+"t": 4.154,
+"kind": "exec",
+"cmd": "f.write(b' cfg[\"plan\"][\"frequencies_mhz\"] if in_mod(f)]\\n    if len(kept) != len(cfg[\"plan\"][\"frequencies_mhz\"]):\\n        rep.bad(\"plan.frequencies_mhz\", \"out of module range\")\\n        cfg[\"plan\"][\"frequencies_mhz\"] = kept\\n    if not kept:\\n        rep.fatal = rep.fatal or \"plan\"\\n\\n    # ---- id\\n    d = u.get(\"id\") if isinstance(u.get(\"id\"), dict) else {}\\n    if \"callmessage\" in d:\\n        if i')",
+"out": "",
+"err": ""
+},
+{
+"t": 4.237,
+"kind": "exec",
+"cmd": "f.write(b'sinstance(d[\"callmessage\"], str) and 1 <= len(d[\"callmessage\"].encode(\"utf-8\")) <= 64:   # bytes, as the C firmware counts\\n            cfg[\"id\"][\"callmessage\"] = d[\"callmessage\"]\\n        else:\\n            rep.bad(\"id.callmessage\", \"1-64 chars\")\\n    if \"placeholder\" in d:\\n        if isinstance(d[\"placeholder\"], str) and d[\"placeholder\"]:\\n            cfg[\"id\"][\"placeholder\"] = d[\"pla')",
+"out": "",
+"err": ""
+},
+{
+"t": 4.32,
+"kind": "exec",
+"cmd": "f.write(b'ceholder\"]\\n        else:\\n            rep.bad(\"id.placeholder\", \"string\")\\n    if \"wpm\" in d:\\n        if _is_int(d[\"wpm\"]) and 5 <= d[\"wpm\"] <= 40:\\n            cfg[\"id\"][\"wpm\"] = d[\"wpm\"]\\n        else:\\n            rep.bad(\"id.wpm\", \"5-40\")\\n    if \"tone_hz\" in d:\\n        if _is_int(d[\"tone_hz\"]) and 300 <= d[\"tone_hz\"] <= 3000:\\n            cfg[\"id\"][\"tone_hz\"] = d[\"tone_hz\"]\\n        e')",
+"out": "",
+"err": ""
+},
+{
+"t": 4.403,
+"kind": "exec",
+"cmd": "f.write(b'lse:\\n            rep.bad(\"id.tone_hz\", \"300-3000\")\\n    if \"telemetry\" in d:\\n        if isinstance(d[\"telemetry\"], list) and all(t in (\"batt\", \"chg\") for t in d[\"telemetry\"]):\\n            cfg[\"id\"][\"telemetry\"] = list(d[\"telemetry\"])    # \"chg\" needs a charger sense; boards without one send nothing for it\\n        else:\\n            rep.bad(\"id.telemetry\", \"subset of [batt,chg]\")\\n    ')",
+"out": "",
+"err": ""
+},
+{
+"t": 4.486,
+"kind": "exec",
+"cmd": "f.write(b'if \"tx_without_callsign\" in d:\\n        if isinstance(d[\"tx_without_callsign\"], bool):\\n            cfg[\"id\"][\"tx_without_callsign\"] = d[\"tx_without_callsign\"]\\n        else:\\n            rep.bad(\"id.tx_without_callsign\", \"bool\")\\n\\n    # ---- payload\\n    pl = u.get(\"payload\")\\n    if isinstance(pl, dict):\\n        kind = pl.get(\"kind\")\\n        if kind not in (\"songs\", \"sstv\", \"none\"):\\n   ')",
+"out": "",
+"err": ""
+},
+{
+"t": 4.569,
+"kind": "exec",
+"cmd": "f.write(b'         rep.bad(\"payload.kind\", \"songs|sstv|none\")\\n        else:\\n            out = {\"kind\": kind}\\n            if kind == \"songs\":\\n                a = pl.get(\"articulation\", 0.875)\\n                if _is_num(a) and 0.5 <= a <= 1.0:\\n                    out[\"articulation\"] = a\\n                else:\\n                    rep.bad(\"payload.articulation\", \"0.5-1.0\")\\n                    out')",
+"out": "",
+"err": ""
+},
+{
+"t": 4.652,
+"kind": "exec",
+"cmd": "f.write(b'[\"articulation\"] = 0.875\\n                out[\"skip_on_low_battery\"] = pl.get(\"skip_on_low_battery\", True) is True\\n                songs = []\\n                for i, s in enumerate(pl.get(\"playlist\") or []):\\n                    ok = (isinstance(s, dict) and isinstance(s.get(\"name\"), str) and _is_int(s.get(\"tempo\")) and 40 <= s[\"tempo\"] <= 300\\n                          and isinstance(')",
+"out": "",
+"err": ""
+},
+{
+"t": 4.735,
+"kind": "exec",
+"cmd": "f.write(b's.get(\"notes\"), list) and s[\"notes\"]\\n                          and all(isinstance(n, list) and len(n) == 2 and _is_int(n[0]) and 0 <= n[0] <= 127 and _is_int(n[1]) and 1 <= n[1] <= 64 for n in s[\"notes\"]))\\n                    if ok:\\n                        songs.append(s)\\n                    else:\\n                        rep.bad(\"payload.playlist[%d]\" % i, \"bad song\")\\n             ')",
+"out": "",
+"err": ""
+},
+{
+"t": 4.819,
+"kind": "exec",
+"cmd": "f.write(b'   if not songs:\\n                    rep.bad(\"payload.playlist\", \"empty\")\\n                    songs = defaults[\"payload\"][\"playlist\"] if defaults[\"payload\"].get(\"kind\") == \"songs\" else []\\n                out[\"playlist\"] = songs\\n            elif kind == \"sstv\":\\n                out[\"mode\"] = \"robot36-gray\"\\n                if \"mode\" in pl and pl[\"mode\"] != \"robot36-gray\":\\n            ')",
+"out": "",
+"err": ""
+},
+{
+"t": 4.902,
+"kind": "exec",
+"cmd": "f.write(b'        rep.bad(\"payload.mode\", \"robot36-gray only\")\\n                imf = pl.get(\"images_file\", \"images.bin\")\\n                if _plain_file_name(imf) and imf.lower() not in _RESERVED_FILES:\\n                    out[\"images_file\"] = imf\\n                else:\\n                    rep.bad(\"payload.images_file\", \"a plain file name (letters, digits, . _ -), not code.py / fox.json / defa')",
+"out": "",
+"err": ""
+},
+{
+"t": 4.984,
+"kind": "exec",
+"cmd": "f.write(b'ults.json / boot.py / board.json\")\\n                    out[\"images_file\"] = \"images.bin\"\\n                out[\"skip_on_low_battery\"] = pl.get(\"skip_on_low_battery\", True) is True\\n            else:\\n                ds = pl.get(\"dit_s\")\\n                if ds is None:\\n                    out[\"dit_s\"] = None\\n                elif _is_num(ds) and 0.05 <= ds <= 30:\\n                    out[\"')",
+"out": "",
+"err": ""
+},
+{
+"t": 5.068,
+"kind": "exec",
+"cmd": "f.write(b'dit_s\"] = ds\\n                else:\\n                    rep.bad(\"payload.dit_s\", \"0.05-30\")\\n                    out[\"dit_s\"] = None\\n                m = pl.get(\"message\")\\n                out[\"message\"] = m if (m is None or isinstance(m, str)) else None\\n                if not (m is None or isinstance(m, str)):\\n                    rep.bad(\"payload.message\", \"string or null\")\\n          ')",
+"out": "",
+"err": ""
+},
+{
+"t": 5.151,
+"kind": "exec",
+"cmd": "f.write(b'  cfg[\"payload\"] = out\\n    elif pl is not None:\\n        rep.bad(\"payload\", \"object\")\\n\\n    # ---- schedule\\n    s = u.get(\"schedule\")\\n    if isinstance(s, dict):\\n        def ms(k, default, lo=0, hi=86400000):\\n            if k not in s:\\n                return default\\n            v = s[k]\\n            if _is_int(v) and lo <= v <= hi:\\n                return v\\n            rep.bad(\"schedul')",
+"out": "",
+"err": ""
+},
+{
+"t": 5.235,
+"kind": "exec",
+"cmd": "f.write(b'e.\" + k, \"int ms\")\\n            return default\\n        def seed():\\n            v = s.get(\"seed\")\\n            if _is_int(v) and 0 <= v < (1 << 31):\\n                return v\\n            rep.bad(\"schedule.seed\", \"int\")\\n            return 1\\n        kind = s.get(\"kind\")\\n        if kind == \"fixed\":\\n            cfg[\"schedule\"] = {\"kind\": \"fixed\", \"delay_ms\": ms(\"delay_ms\", 30000)}\\n        ')",
+"out": "",
+"err": ""
+},
+{
+"t": 5.318,
+"kind": "exec",
+"cmd": "f.write(b'elif kind == \"popcorn\":\\n            sd = seed()\\n            cl = s.get(\"cluster\")\\n            if not (_is_int(cl) and 1 <= cl <= 50):\\n                rep.bad(\"schedule.cluster\", \"1-50\")\\n                cl = 2\\n            out = {\"kind\": \"popcorn\", \"seed\": sd, \"cluster\": cl, \"cluster_gap_ms\": ms(\"cluster_gap_ms\", 8000),\\n                   \"dark_min_ms\": ms(\"dark_min_ms\", 10000), \"dar')",
+"out": "",
+"err": ""
+},
+{
+"t": 5.402,
+"kind": "exec",
+"cmd": "f.write(b'k_max_ms\": ms(\"dark_max_ms\", 300000)}\\n            if out[\"dark_min_ms\"] > out[\"dark_max_ms\"]:\\n                rep.bad(\"schedule.dark_min_ms\", \"min>max\")\\n                out[\"dark_min_ms\"] = out[\"dark_max_ms\"]\\n            cfg[\"schedule\"] = out\\n        elif kind == \"resurrection\":\\n            sd = seed()\\n            ie = s.get(\"id_every\")\\n            if not (_is_int(ie) and 1 <= ie <')",
+"out": "",
+"err": ""
+},
+{
+"t": 5.485,
+"kind": "exec",
+"cmd": "f.write(b'= 100):\\n                rep.bad(\"schedule.id_every\", \"1-100\")\\n                ie = 3\\n            out = {\"kind\": \"resurrection\", \"seed\": sd, \"delay_ms\": ms(\"delay_ms\", 30000),\\n                   \"alive_min_ms\": ms(\"alive_min_ms\", 1800000), \"alive_max_ms\": ms(\"alive_max_ms\", 3600000),\\n                   \"dead_ms\": ms(\"dead_ms\", 3600000), \"dit_min_ms\": ms(\"dit_min_ms\", 180000), \"dit_m')",
+"out": "",
+"err": ""
+},
+{
+"t": 5.568,
+"kind": "exec",
+"cmd": "f.write(b'ax_ms\": ms(\"dit_max_ms\", 300000),\\n                   \"id_every\": ie, \"dead_song\": s.get(\"dead_song\") is True}\\n            for a, b in ((\"alive_min_ms\", \"alive_max_ms\"), (\"dit_min_ms\", \"dit_max_ms\")):\\n                if out[a] > out[b]:\\n                    rep.bad(\"schedule.\" + a, \"min>max\")\\n                    out[a] = out[b]\\n            cfg[\"schedule\"] = out\\n        else:\\n        ')",
+"out": "",
+"err": ""
+},
+{
+"t": 5.651,
+"kind": "exec",
+"cmd": "f.write(b'    rep.bad(\"schedule.kind\", \"fixed|popcorn|resurrection\")\\n    elif s is not None:\\n        rep.bad(\"schedule\", \"object\")\\n\\n    # ---- battery\\n    b = u.get(\"battery\") if isinstance(u.get(\"battery\"), dict) else {}\\n    for k, lo, hi in ((\"divider_ratio\", 1, 10), (\"calibration\", 0.5, 2), (\"low_v\", 2.5, 4.5), (\"critical_v\", 2.5, 4.5), (\"recovery_v\", 2.5, 4.5)):\\n        if k in b:\\n      ')",
+"out": "",
+"err": ""
+},
+{
+"t": 5.736,
+"kind": "exec",
+"cmd": "f.write(b'      if _is_num(b[k]) and lo <= b[k] <= hi:\\n                cfg[\"battery\"][k] = b[k]\\n            else:\\n                rep.bad(\"battery.\" + k, \"%s-%s\" % (lo, hi))\\n    if \"samples\" in b:\\n        if _is_int(b[\"samples\"]) and 1 <= b[\"samples\"] <= 64:\\n            cfg[\"battery\"][\"samples\"] = b[\"samples\"]\\n        else:\\n            rep.bad(\"battery.samples\", \"1-64\")\\n    bb = cfg[\"battery')",
+"out": "",
+"err": ""
+},
+{
+"t": 5.819,
+"kind": "exec",
+"cmd": "f.write(b'\"]\\n    if not (bb[\"critical_v\"] < bb[\"recovery_v\"] <= bb[\"low_v\"]):\\n        rep.bad(\"battery\", \"critical<recovery<=low\")\\n        for k in (\"low_v\", \"critical_v\", \"recovery_v\"):\\n            bb[k] = defaults[\"battery\"][k]\\n\\n    # ---- limits\\n    l = u.get(\"limits\") if isinstance(u.get(\"limits\"), dict) else {}\\n    if \"max_keydown_s\" in l:\\n        v = l[\"max_keydown_s\"]\\n        if v is ')",
+"out": "",
+"err": ""
+},
+{
+"t": 5.902,
+"kind": "exec",
+"cmd": "f.write(b'None or (_is_num(v) and 1 <= v <= 7200):\\n            cfg[\"limits\"][\"max_keydown_s\"] = v\\n        else:\\n            rep.bad(\"limits.max_keydown_s\", \"null or 1-7200\")\\n\\n    # ---- fleet (opaque), unknown keys\\n    if isinstance(u.get(\"fleet\"), dict):\\n        fl = dict(cfg.get(\"fleet\") or {})\\n        fl.update(_copy(u[\"fleet\"]))\\n        cfg[\"fleet\"] = fl\\n    for k in u:\\n        if k not ')",
+"out": "",
+"err": ""
+},
+{
+"t": 5.985,
+"kind": "exec",
+"cmd": "f.write(b'in TOP_KEYS:\\n            rep.bad(k, \"unknown key\")\\n    if rep.items and rep.mode == \"ok\":\\n        rep.mode = \"partial\"\\n    return cfg, rep\\n\\n\\ndef load(path, defaults_path, board_names, board_id=None):\\n    \"\"\"Returns (cfg, report). defaults_path missing -> (None, report with fatal).\"\"\"\\n    rep = Report()\\n    try:\\n        with open(defaults_path) as f:\\n            defaults = json.load')",
+"out": "",
+"err": ""
+},
+{
+"t": 6.068,
+"kind": "exec",
+"cmd": "f.write(b'(f)\\n    except Exception:\\n        rep.fatal = \"defaults\"\\n        return None, rep\\n    try:\\n        with open(path) as f:\\n            raw = f.read()\\n    except OSError:\\n        rep.mode = \"default(missing)\"\\n        return _copy(defaults), rep\\n    try:\\n        user = json.loads(raw)\\n    except Exception:\\n        rep.mode = \"default(parse)\"\\n        return _copy(defaults), rep\\n    retu')",
+"out": "",
+"err": ""
+},
+{
+"t": 6.127,
+"kind": "exec",
+"cmd": "f.write(b'rn validate(user, defaults, board_names, board_id)\\n')",
+"out": "",
+"err": ""
+},
+{
+"t": 6.186,
+"kind": "exec",
+"cmd": "f.close()",
+"out": "",
+"err": ""
+},
+{
+"t": 6.252,
+"kind": "exec",
+"cmd": "import os, binascii\nc=0\nf=open('foxlib/cfg.py','rb')\nwhile True:\n b=f.read(512)\n if not b: break\n c=binascii.crc32(b,c)\nf.close()\nprint(os.stat('foxlib/cfg.py')[6], c)\n",
+"out": "16563 1549278278\n",
+"err": ""
+},
+{
+"t": 6.311,
+"kind": "exec",
+"cmd": "f=open('foxlib/cycle.py','wb')",
+"out": "",
+"err": ""
+},
+{
+"t": 6.394,
+"kind": "exec",
+"cmd": "f.write(b\"# SPDX-License-Identifier: GPL-3.0-or-later\\n# foxlib/cycle.py -- the per-cycle prologue every fox repeats, written once.\\n#\\n# run(fox) is a generator. Each iteration:\\n#   1. unconfigured (fatal config, or callsign unset without tx_without_callsign)\\n#      -> hold with LED 'unconfigured', never key, loop again\\n#   2. read battery -> policy; 'critical' -> hold 60 s with LED 'critical'\")",
+"out": "",
+"err": ""
+},
+{
+"t": 6.477,
+"kind": "exec",
+"cmd": "f.write(b', loop again\\n#   3. schedule.phase(): resurrection dead wakes (dit / periodic ID) are handled\\n#      here; the template never sees them\\n#   4. LED pattern, assemble id_message (+ telemetry)\\n#   5. key PTT, 750 ms, yield Tx to the template body; PTT released in finally\\n#      even if the body raises or the REPL interrupts\\n#   6. rotating plan: QSY announcement before unkey, retune a')",
+"out": "",
+"err": ""
+},
+{
+"t": 6.56,
+"kind": "exec",
+"cmd": "f.write(b'fter\\n#   7. sleep schedule.wait_ms()\\n\\nimport time\\nfrom . import morse, battery\\n\\nGAP_MS = 750\\n\\n\\ndef _now_ms():\\n    return time.monotonic() * 1000\\n\\n\\nclass Tx:\\n    \"\"\"What a template body gets. morse()/play() go through the one transmitter\\n    with the keydown budget from limits.max_keydown_s.\"\"\"\\n\\n    def __init__(self, fox, cycle, volts, state, id_message):\\n        self.fox = fox\\n   ')",
+"out": "",
+"err": ""
+},
+{
+"t": 6.643,
+"kind": "exec",
+"cmd": "f.write(b'     self.cycle = cycle\\n        self.volts = volts\\n        self.state = state\\n        self.low_battery = state == \"low\"\\n        self.id_message = id_message\\n        self.cut = False\\n        self._segments = 0\\n\\n    @property\\n    def remaining_ms(self):\\n        lim = self.fox.cfg[\"limits\"].get(\"max_keydown_s\")\\n        if lim is None:\\n            return None\\n        return max(0, lim ')",
+"out": "",
+"err": ""
+},
+{
+"t": 6.727,
+"kind": "exec",
+"cmd": "f.write(b'* 1000 - self.fox.radio.keyed_ms())\\n\\n    def gap(self, ms=GAP_MS):\\n        self.fox.player.play(((0, ms),))\\n\\n    def play(self, events):\\n        \"\"\"Play an event stream; a 750 ms gap is inserted between segments.\"\"\"\\n        if self.cut:\\n            return False\\n        if self._segments:\\n            self.gap()\\n        self._segments += 1\\n        rem = self.remaining_ms\\n        if r')",
+"out": "",
+"err": ""
+},
+{
+"t": 6.81,
+"kind": "exec",
+"cmd": "f.write(b'em is not None and rem <= 0:\\n            self.cut = True\\n            return False\\n        ok = self.fox.player.play(events, max_ms=rem)\\n        if not ok:\\n            self.cut = True\\n        return ok\\n\\n    def morse(self, text, dit_s=None, wpm=None, tone_hz=None):\\n        c = self.fox.cfg[\"id\"]\\n        self.fox.log(\"morse: \" + text)\\n        return self.play(morse.events(text, wpm=w')",
+"out": "",
+"err": ""
+},
+{
+"t": 6.893,
+"kind": "exec",
+"cmd": "f.write(b'pm or c[\"wpm\"], tone_hz=tone_hz or c[\"tone_hz\"], dit_ms=dit_s * 1000 if dit_s else None))\\n\\n\\ndef run(fox):\\n    cfg = fox.cfg\\n    state = \"ok\"\\n    cycle = 0\\n    freq_index = 0\\n    while True:\\n        # 1. configured?\\n        if fox.fatal or not (fox.id_ok or cfg[\"id\"][\"tx_without_callsign\"]):\\n            fox.log(\"unconfigured (%s): silent\" % (fox.fatal or \"callsign unset\"))\\n         ')",
+"out": "",
+"err": ""
+},
+{
+"t": 6.976,
+"kind": "exec",
+"cmd": "f.write(b'   fox.led.hold(20000, \"unconfigured\")\\n            continue\\n        # 2. battery\\n        volts = None\\n        if fox.batt:\\n            try:\\n                volts = fox.batt.read()\\n            except Exception:\\n                volts = None\\n        state = battery.policy(volts, cfg[\"battery\"], state)\\n        if state == \"critical\":\\n            fox.log(\"CRITICAL BATTERY %.2f V: transm')",
+"out": "",
+"err": ""
+},
+{
+"t": 7.059,
+"kind": "exec",
+"cmd": "f.write(b'issions paused\" % volts)\\n            fox.led.hold(60000, \"critical\")\\n            continue\\n        id_message = cfg[\"id\"][\"callmessage\"]\\n        if volts is not None and \"batt\" in cfg[\"id\"][\"telemetry\"]:\\n            id_message += \" \" + battery.telemetry(volts)\\n        now = _now_ms()\\n        # 3. dead-phase wakes\\n        if fox.schedule.phase(now) == \"dead\":\\n            kind = fox.s')",
+"out": "",
+"err": ""
+},
+{
+"t": 7.142,
+"kind": "exec",
+"cmd": "f.write(b'chedule.dead_wake()\\n            tx = Tx(fox, cycle, volts, state, id_message)\\n            fox.radio.key()\\n            try:\\n                tx.gap(250)\\n                if kind == \"id\":\\n                    tx.morse(id_message)\\n                    if cfg[\"schedule\"].get(\"dead_song\") and not tx.low_battery and fox.playlist:\\n                        tx.play(fox.playlist.next_events())\\n  ')",
+"out": "",
+"err": ""
+},
+{
+"t": 7.226,
+"kind": "exec",
+"cmd": "f.write(b'              else:\\n                    tx.morse(\"e\")              # a single dit at the ID\\'s WPM and tone\\n            finally:\\n                fox.radio.unkey()\\n            fox.log(\"dead-phase wake: %s\" % kind)\\n            fox.led.hold(fox.schedule.wait_ms(_now_ms()))\\n            continue\\n        # 4. alive\\n        fox.led.show(\"low\" if state == \"low\" else \"alive\")\\n        if volt')",
+"out": "",
+"err": ""
+},
+{
+"t": 7.309,
+"kind": "exec",
+"cmd": "f.write(b's is not None:\\n            fox.log(\"cycle %d: battery %.2f V (%s)\" % (cycle, volts, state))\\n        tx = Tx(fox, cycle, volts, state, id_message)\\n        freqs = cfg[\"plan\"][\"frequencies_mhz\"]\\n        rotating = len(freqs) > 1\\n        next_index = (freq_index + 1) % len(freqs) if rotating else freq_index\\n        # 5. keyed section\\n        fox.radio.key()\\n        try:\\n            tx')",
+"out": "",
+"err": ""
+},
+{
+"t": 7.392,
+"kind": "exec",
+"cmd": "f.write(b'.gap()\\n            yield tx\\n            if rotating and cfg[\"plan\"][\"announce_qsy\"] and not tx.cut:\\n                tx.morse(\"QSY %.3f\" % freqs[next_index])\\n        finally:\\n            fox.radio.unkey()\\n        # 6. retune\\n        if rotating:\\n            freq_index = next_index\\n            if not fox.radio.retune(freqs[freq_index]):\\n                fox.log(\"retune to %.4f failed:')",
+"out": "",
+"err": ""
+},
+{
+"t": 7.467,
+"kind": "exec",
+"cmd": "f.write(b' %s\" % (freqs[freq_index], fox.radio.status))\\n        if tx.cut:\\n            fox.log(\"keydown limit reached; transmission cut\")\\n            fox.led.show(\"keydown-limit\")\\n        cycle += 1\\n        # 7. wait\\n        fox.led.hold(fox.schedule.wait_ms(_now_ms()))\\n')",
+"out": "",
+"err": ""
+},
+{
+"t": 7.525,
+"kind": "exec",
+"cmd": "f.close()",
+"out": "",
+"err": ""
+},
+{
+"t": 7.592,
+"kind": "exec",
+"cmd": "import os, binascii\nc=0\nf=open('foxlib/cycle.py','rb')\nwhile True:\n b=f.read(512)\n if not b: break\n c=binascii.crc32(b,c)\nf.close()\nprint(os.stat('foxlib/cycle.py')[6], c)\n",
+"out": "5253 2629034237\n",
+"err": ""
+},
+{
+"t": 7.651,
+"kind": "exec",
+"cmd": "f=open('foxlib/led.py','wb')",
+"out": "",
+"err": ""
+},
+{
+"t": 7.734,
+"kind": "exec",
+"cmd": "f.write(b'# SPDX-License-Identifier: GPL-3.0-or-later\\n# foxlib/led.py -- the status-LED vocabulary, one place so every template blinks the same.\\n#   alive          1 short blink per cycle\\n#   low            3 quick blinks per cycle\\n#   critical       slow continuous blink while locked out\\n#   unconfigured   double blink every 2 s (callsign unset or fatal config: silent on RF)\\n#   keydown-lim')",
+"out": "",
+"err": ""
+},
+{
+"t": 7.817,
+"kind": "exec",
+"cmd": "f.write(b'it  one long blink when a transmission was cut by limits\\n\\nimport time\\nimport digitalio\\n\\nPATTERNS = {\\n    \"alive\": [(80, 140)],\\n    \"low\": [(80, 140), (80, 140), (80, 140)],\\n    \"critical\": [(500, 500)],\\n    \"unconfigured\": [(80, 120), (80, 1720)],\\n    \"keydown-limit\": [(600, 200)],\\n    \"tx\": [(900, 100)],              # network fox: radio up (mostly on)\\n    \"fatal\": [(100, 100), (1')",
+"out": "",
+"err": ""
+},
+{
+"t": 7.9,
+"kind": "exec",
+"cmd": "f.write(b'00, 1700)],\\n}\\n\\n\\nclass Status:\\n    def __init__(self, pin):\\n        self.pin = None\\n        if pin is not None:\\n            self.pin = digitalio.DigitalInOut(pin)\\n            self.pin.direction = digitalio.Direction.OUTPUT\\n            self.pin.value = False\\n\\n    def deinit(self):\\n        if self.pin:\\n            try:\\n                self.pin.value = False\\n                self.pin.de')",
+"out": "",
+"err": ""
+},
+{
+"t": 7.983,
+"kind": "exec",
+"cmd": "f.write(b'init()\\n            except Exception:\\n                pass\\n            self.pin = None\\n\\n    def _set(self, on):\\n        if self.pin:\\n            self.pin.value = on\\n\\n    def show(self, pattern):\\n        for on_ms, off_ms in PATTERNS.get(pattern, PATTERNS[\"alive\"]):\\n            self._set(True)\\n            time.sleep(on_ms / 1000)\\n            self._set(False)\\n            time.sleep(of')",
+"out": "",
+"err": ""
+},
+{
+"t": 8.066,
+"kind": "exec",
+"cmd": "f.write(b'f_ms / 1000)\\n\\n    def hold(self, ms, pattern=None):\\n        \"\"\"sleep ms; if pattern is given, loop it the whole time.\"\"\"\\n        if not pattern or not self.pin:\\n            time.sleep(ms / 1000)\\n            return\\n        end = time.monotonic() + ms / 1000\\n        while time.monotonic() < end:\\n            for on_ms, off_ms in PATTERNS[pattern]:\\n                self._set(True)\\n     ')",
+"out": "",
+"err": ""
+},
+{
+"t": 8.133,
+"kind": "exec",
+"cmd": "f.write(b'           time.sleep(on_ms / 1000)\\n                self._set(False)\\n                time.sleep(off_ms / 1000)\\n                if time.monotonic() >= end:\\n                    break\\n        self._set(False)\\n')",
+"out": "",
+"err": ""
+},
+{
+"t": 8.191,
+"kind": "exec",
+"cmd": "f.close()",
+"out": "",
+"err": ""
+},
+{
+"t": 8.258,
+"kind": "exec",
+"cmd": "import os, binascii\nc=0\nf=open('foxlib/led.py','rb')\nwhile True:\n b=f.read(512)\n if not b: break\n c=binascii.crc32(b,c)\nf.close()\nprint(os.stat('foxlib/led.py')[6], c)\n",
+"out": "2126 4060336902\n",
+"err": ""
+},
+{
+"t": 8.317,
+"kind": "exec",
+"cmd": "f=open('foxlib/melody.py','wb')",
+"out": "",
+"err": ""
+},
+{
+"t": 8.4,
+"kind": "exec",
+"cmd": "f.write(b'# SPDX-License-Identifier: GPL-3.0-or-later\\n# foxlib/melody.py -- songs -> events. No hardware imports. Twin of js/audio/melody.js.\\n# song = {\"name\": str, \"tempo\": quarter notes/min, \"notes\": [[midi, dur32], ...]}\\n# midi 0 is a rest; dur32 is in 32nds of a whole note. Each note sounds for\\n# `articulation` of its slot, then rests for the remainder.\\n\\n\\ndef midi_hz(note):\\n    return 44')",
+"out": "",
+"err": ""
+},
+{
+"t": 8.483,
+"kind": "exec",
+"cmd": "f.write(b'0.0 * (2 ** ((note - 69) / 12.0))\\n\\n\\ndef events(song, articulation=0.875):\\n    ms_per_32 = 7500.0 / song[\"tempo\"]\\n    for pair in song[\"notes\"]:\\n        note, d = pair[0], pair[1]\\n        slot = d * ms_per_32\\n        if note == 0:\\n            yield (0, slot)\\n        else:\\n            on = slot * articulation\\n            yield (midi_hz(note), on)\\n            if slot - on > 0.01:\\n    ')",
+"out": "",
+"err": ""
+},
+{
+"t": 8.567,
+"kind": "exec",
+"cmd": "f.write(b'            yield (0, slot - on)\\n\\n\\ndef duration_ms(song, articulation=0.875):\\n    t = 0\\n    for _, ms in events(song, articulation):\\n        t += ms\\n    return t\\n\\n\\nclass Playlist:\\n    \"\"\"Rotates through songs, one per call to next_events().\"\"\"\\n\\n    def __init__(self, songs, articulation=0.875):\\n        self.songs = songs\\n        self.articulation = articulation\\n        self.index =')",
+"out": "",
+"err": ""
+},
+{
+"t": 8.641,
+"kind": "exec",
+"cmd": "f.write(b' 0\\n\\n    def __len__(self):\\n        return len(self.songs)\\n\\n    def current(self):\\n        return self.songs[self.index] if self.songs else None\\n\\n    def next_events(self):\\n        song = self.songs[self.index]\\n        self.index = (self.index + 1) % len(self.songs)\\n        return events(song, self.articulation)\\n')",
+"out": "",
+"err": ""
+},
+{
+"t": 8.7,
+"kind": "exec",
+"cmd": "f.close()",
+"out": "",
+"err": ""
+},
+{
+"t": 8.767,
+"kind": "exec",
+"cmd": "import os, binascii\nc=0\nf=open('foxlib/melody.py','rb')\nwhile True:\n b=f.read(512)\n if not b: break\n c=binascii.crc32(b,c)\nf.close()\nprint(os.stat('foxlib/melody.py')[6], c)\n",
+"out": "1465 222321148\n",
+"err": ""
+},
+{
+"t": 8.826,
+"kind": "exec",
+"cmd": "f=open('foxlib/morse.py','wb')",
+"out": "",
+"err": ""
+},
+{
+"t": 8.909,
+"kind": "exec",
+"cmd": "f.write(b'# SPDX-License-Identifier: GPL-3.0-or-later\\n# foxlib/morse.py -- Morse table, encoder, text -> events. No hardware imports.\\n# Twin of js/audio/morse.js; CI checks the two produce identical streams.\\n\\nTABLE = {\\n    \"a\": \".-\", \"b\": \"-...\", \"c\": \"-.-.\", \"d\": \"-..\", \"e\": \".\", \"f\": \"..-.\",\\n    \"g\": \"--.\", \"h\": \"....\", \"i\": \"..\", \"j\": \".---\", \"k\": \"-.-\", \"l\": \".-..\",\\n    \"m\": \"--\", \"n\": \"')",
+"out": "",
+"err": ""
+},
+{
+"t": 8.992,
+"kind": "exec",
+"cmd": "f.write(b'-.\", \"o\": \"---\", \"p\": \".--.\", \"q\": \"--.-\", \"r\": \".-.\",\\n    \"s\": \"...\", \"t\": \"-\", \"u\": \"..-\", \"v\": \"...-\", \"w\": \".--\", \"x\": \"-..-\",\\n    \"y\": \"-.--\", \"z\": \"--..\",\\n    \"0\": \"-----\", \"1\": \".----\", \"2\": \"..---\", \"3\": \"...--\", \"4\": \"....-\",\\n    \"5\": \".....\", \"6\": \"-....\", \"7\": \"--...\", \"8\": \"---..\", \"9\": \"----.\",\\n    \".\": \".-.-.-\", \",\": \"--..--\", \"?\": \"..--..\", \"/\": \"-..-.\", \"=\": \"-...-\"')",
+"out": "",
+"err": ""
+},
+{
+"t": 9.075,
+"kind": "exec",
+"cmd": "f.write(b',\\n    \"+\": \".-.-.\", \"-\": \"-....-\", \"@\": \".--.-.\",\\n}\\n\\n\\ndef encode(text):\\n    \"\"\"\\'hi u\\' -> [[\\'....\\', \\'..\\'], [\\'..-\\']]; characters not in TABLE are skipped.\"\"\"\\n    words = []\\n    for word in text.lower().split(\" \"):\\n        chars = [TABLE[c] for c in word if c in TABLE]\\n        if chars:\\n            words.append(chars)\\n    return words\\n\\n\\ndef events(text, wpm=12, tone_hz=800, dit_ms=Non')",
+"out": "",
+"err": ""
+},
+{
+"t": 9.158,
+"kind": "exec",
+"cmd": "f.write(b'e):\\n    \"\"\"PARIS timing. Yields (hz, ms); hz 0 is silence.\\n    dit = 1200/wpm ms; dah 3; intra-character 1; inter-character 3; word 7.\\n    dit_ms overrides the element length directly (QRSS).\"\"\"\\n    unit = dit_ms if dit_ms else 1200.0 / wpm\\n    words = encode(text)\\n    nw = len(words)\\n    for wi in range(nw):\\n        word = words[wi]\\n        if wi > 0:\\n            yield (0, unit * ')",
+"out": "",
+"err": ""
+},
+{
+"t": 9.241,
+"kind": "exec",
+"cmd": "f.write(b'7)              # word gap (no gap is sent after a word\\'s last character)\\n        nc = len(word)\\n        for ci in range(nc):\\n            ch = word[ci]\\n            nm = len(ch)\\n            for mi in range(nm):\\n                yield (tone_hz, unit if ch[mi] == \".\" else unit * 3)\\n                if mi < nm - 1:\\n                    yield (0, unit)\\n            if ci < nc - 1:\\n         ')",
+"out": "",
+"err": ""
+},
+{
+"t": 9.308,
+"kind": "exec",
+"cmd": "f.write(b'       yield (0, unit * 3)\\n        if wi == nw - 1:\\n            yield (0, unit * 3)\\n\\n\\ndef duration_ms(text, **kw):\\n    t = 0\\n    for _, ms in events(text, **kw):\\n        t += ms\\n    return t\\n')",
+"out": "",
+"err": ""
+},
+{
+"t": 9.366,
+"kind": "exec",
+"cmd": "f.close()",
+"out": "",
+"err": ""
+},
+{
+"t": 9.433,
+"kind": "exec",
+"cmd": "import os, binascii\nc=0\nf=open('foxlib/morse.py','rb')\nwhile True:\n b=f.read(512)\n if not b: break\n c=binascii.crc32(b,c)\nf.close()\nprint(os.stat('foxlib/morse.py')[6], c)\n",
+"out": "2111 1977195892\n",
+"err": ""
+},
+{
+"t": 9.492,
+"kind": "exec",
+"cmd": "f=open('foxlib/netcfg.py','wb')",
+"out": "",
+"err": ""
+},
+{
+"t": 9.575,
+"kind": "exec",
+"cmd": "f.write(b\"# SPDX-License-Identifier: GPL-3.0-or-later\\n# foxlib/netcfg.py -- the configuration contract for network foxes (wifi-beacon, wifi-probe, ble-beacon): the SoC's\\n# own radio, no pins, no audio. Same shape of result as cfg.validate(): (cfg, Report) with the same status words, so\\n# the banner, the page and the parity tests treat both contracts alike. The JS twin is js/model/netschema.j\")",
+"out": "",
+"err": ""
+},
+{
+"t": 9.658,
+"kind": "exec",
+"cmd": "f.write(b's.\\n#\\n#   { \"schema\": 1, \"template\": \"wifi-beacon\", \"board\": \"<chip target>\", \"variant\": \"<board>\",\\n#     \"pins\": { \"led\": \"LED\" | null, \"batt_sense\": null },        the board variant\\'s pins (names in dir(board))\\n#     \"net\": { \"kind\": \"wifi-ap\", \"ssid\": \"...\", \"psk\": \"...\", \"mac\": \"F2:..\", \"channel\": 1, \"hidden\": false,\\n#              \"tx_power_dbm\": 17, \"max_clients\": 1 }         ')",
+"out": "",
+"err": ""
+},
+{
+"t": 9.741,
+"kind": "exec",
+"cmd": "f.write(b'              (wifi-ap)\\n#     \"net\": { \"kind\": \"wifi-probe\", \"ssid\": \"...\", \"mac\": \"F2:..\", \"tx_power_dbm\": 17 }   (wifi-probe)\\n#     \"net\": { \"kind\": \"ble\", \"name\": \"...\", \"uuid\": \"...\", \"major\": 1, \"minor\": 1, \"signal_power_dbm\": -59,\\n#              \"adv_min\": 100, \"adv_max\": 100, \"tx_power_dbm\": 0, \"mac\": \"F2:..\" }            (ble-beacon)\\n#     \"id\": { \"callmessage\": \"N0CALL DEC')",
+"out": "",
+"err": ""
+},
+{
+"t": 9.824,
+"kind": "exec",
+"cmd": "f.write(b'OY\", \"use_callsign_as_name\": false },\\n#     \"schedule\": { \"kind\": \"duty\", \"wake_s\": 15, \"sleep_s\": 5, \"sleep\": \"off\" | \"deep\" },\\n#     \"led\": { \"enabled\": true }, \"fleet\": { ... } }\\nimport json\\nfrom .cfg import Report, _copy, _is_int, _is_num, _intify, SCHEMA\\n\\nWIFI24_CHANNELS = tuple(range(1, 14))\\nWIFI5_CHANNELS = (36, 40, 44, 48, 149, 153, 157, 161, 165)\\nWIFI_POWER_DBM = (2, 5, 7,')",
+"out": "",
+"err": ""
+},
+{
+"t": 9.907,
+"kind": "exec",
+"cmd": "f.write(b' 8.5, 11, 13, 15, 17, 18.5, 19, 19.5)\\nBLE_POWER_DBM = (-12, -9, -6, -3, 0, 3, 6, 9)\\nMAX_NAME = 32         # Wi-Fi SSID and BLE name: 32 bytes\\nMAX_PSK = 63\\nPLACEHOLDER = \"N0CALL\"\\nNET_PINS = (\"led\", \"batt_sense\")      # optional, both: a network fox has no module to wire\\n\\n\\ndef parse_mac(s, n=6):\\n    \"\"\"\\'F2:AB:..\\' -> list of ints, or None. First byte must be unicast (bit 0 clear).\"\"\"\\n')",
+"out": "",
+"err": ""
+},
+{
+"t": 9.99,
+"kind": "exec",
+"cmd": "f.write(b'    if not isinstance(s, str):\\n        return None\\n    parts = s.replace(\"-\", \":\").split(\":\")\\n    if len(parts) != n:\\n        return None\\n    try:\\n        out = [int(p, 16) for p in parts]\\n    except ValueError:\\n        return None\\n    if any(b < 0 or b > 255 for b in out) or out[0] & 1:\\n        return None\\n    return out\\n\\n\\ndef _blen(s):\\n    return len(s.encode(\"utf-8\"))\\n\\n\\ndef vali')",
+"out": "",
+"err": ""
+},
+{
+"t": 10.073,
+"kind": "exec",
+"cmd": "f.write(b'date(user, defaults, board_id=None, radios=None, board_names=None):\\n    \"\"\"Returns (cfg, report). radios: what the hardware has (\"wifi24\", \"wifi5\", \"ble\", ...) or None = don\\'t check.\\n    board_names: names the board module exposes (dir(board)) for the pins section, or None = don\\'t check names.\"\"\"\\n    cfg = _copy(defaults)\\n    rep = Report()\\n    u = _intify(user) if isinstance(user,')",
+"out": "",
+"err": ""
+},
+{
+"t": 10.157,
+"kind": "exec",
+"cmd": "f.write(b' dict) else {}\\n    if \"schema\" in u and u[\"schema\"] != SCHEMA:\\n        rep.mode = \"default(schema)\"\\n        return cfg, rep\\n    if \"template\" in u and u[\"template\"] != defaults.get(\"template\"):\\n        rep.mode = \"default(template)\"\\n        return cfg, rep\\n    # fox.json names a target; the running board may report another CircuitPython board_id when a target runs a\\n    # sibling b')",
+"out": "",
+"err": ""
+},
+{
+"t": 10.24,
+"kind": "exec",
+"cmd": "f.write(b'oard\\'s build (the Waveshare S3-Nano runs as arduino_nano_esp32s3): the defaults.json written with it\\n    # names the same target, so a fox.json for that target is for this board\\n    if \"board\" in u and board_id and u[\"board\"] != board_id and u[\"board\"] != defaults.get(\"board\"):\\n        rep.mode = \"default(board)\"\\n        return cfg, rep\\n\\n    # ---- variant (which physical board of ')",
+"out": "",
+"err": ""
+},
+{
+"t": 10.323,
+"kind": "exec",
+"cmd": "f.write(b'this chip; recorded, shown in the fleet log) and its pins\\n    if \"variant\" in u:\\n        if isinstance(u[\"variant\"], str) and 1 <= len(u[\"variant\"]) <= 40:\\n            cfg[\"variant\"] = u[\"variant\"]\\n        else:\\n            rep.bad(\"variant\", \"string\")\\n    pins = u.get(\"pins\") if isinstance(u.get(\"pins\"), dict) else {}\\n    for role in NET_PINS:\\n        if role not in pins:\\n        ')",
+"out": "",
+"err": ""
+},
+{
+"t": 10.406,
+"kind": "exec",
+"cmd": "f.write(b'    continue\\n        v = pins[role]\\n        if v is None or (isinstance(v, str) and (board_names is None or v in board_names)):\\n            cfg.setdefault(\"pins\", {})[role] = v\\n        else:\\n            rep.bad(\"pins.\" + role, \"no pin %s on this board\" % v if isinstance(v, str) else \"name or null\")\\n    for k in pins:\\n        if k not in NET_PINS:\\n            rep.bad(\"pins.\" + k, \"u')",
+"out": "",
+"err": ""
+},
+{
+"t": 10.489,
+"kind": "exec",
+"cmd": "f.write(b'nknown role\")\\n\\n    # ---- net\\n    n = u.get(\"net\") if isinstance(u.get(\"net\"), dict) else {}\\n    kind = cfg[\"net\"][\"kind\"]\\n    if \"kind\" in n and n[\"kind\"] != kind:\\n        rep.bad(\"net.kind\", \"fixed by the template\")\\n    if kind in (\"wifi-ap\", \"wifi-probe\"):\\n        if \"ssid\" in n:\\n            if isinstance(n[\"ssid\"], str) and 1 <= _blen(n[\"ssid\"]) <= MAX_NAME:\\n                cfg')",
+"out": "",
+"err": ""
+},
+{
+"t": 10.572,
+"kind": "exec",
+"cmd": "f.write(b'[\"net\"][\"ssid\"] = n[\"ssid\"]\\n            else:\\n                rep.bad(\"net.ssid\", \"1-32 bytes\")\\n        if \"tx_power_dbm\" in n:\\n            if _is_num(n[\"tx_power_dbm\"]) and n[\"tx_power_dbm\"] in WIFI_POWER_DBM:\\n                cfg[\"net\"][\"tx_power_dbm\"] = n[\"tx_power_dbm\"]\\n            else:\\n                rep.bad(\"net.tx_power_dbm\", \"one of the Wi-Fi power steps\")\\n    if kind == \"')",
+"out": "",
+"err": ""
+},
+{
+"t": 10.655,
+"kind": "exec",
+"cmd": "f.write(b'wifi-ap\":\\n        if \"psk\" in n:\\n            if isinstance(n[\"psk\"], str) and (n[\"psk\"] == \"\" or 8 <= _blen(n[\"psk\"]) <= MAX_PSK):\\n                cfg[\"net\"][\"psk\"] = n[\"psk\"]\\n            else:\\n                rep.bad(\"net.psk\", \"empty (open) or 8-63 bytes\")\\n        if \"channel\" in n:\\n            band5 = radios is not None and \"wifi5\" in radios\\n            if _is_int(n[\"channel\"]) ')",
+"out": "",
+"err": ""
+},
+{
+"t": 10.738,
+"kind": "exec",
+"cmd": "f.write(b'and (n[\"channel\"] in WIFI24_CHANNELS or (band5 and n[\"channel\"] in WIFI5_CHANNELS)):\\n                cfg[\"net\"][\"channel\"] = n[\"channel\"]\\n            else:\\n                rep.bad(\"net.channel\", \"1-13\" + (\" or a 5 GHz channel\" if band5 else \"\"))\\n        if \"hidden\" in n:\\n            if isinstance(n[\"hidden\"], bool):\\n                cfg[\"net\"][\"hidden\"] = n[\"hidden\"]\\n            els')",
+"out": "",
+"err": ""
+},
+{
+"t": 10.821,
+"kind": "exec",
+"cmd": "f.write(b'e:\\n                rep.bad(\"net.hidden\", \"bool\")\\n        if \"max_clients\" in n:\\n            if _is_int(n[\"max_clients\"]) and 1 <= n[\"max_clients\"] <= 8:\\n                cfg[\"net\"][\"max_clients\"] = n[\"max_clients\"]\\n            else:\\n                rep.bad(\"net.max_clients\", \"1-8\")\\n    if kind == \"ble\":\\n        if \"name\" in n:\\n            if isinstance(n[\"name\"], str) and 1 <= _blen')",
+"out": "",
+"err": ""
+},
+{
+"t": 10.904,
+"kind": "exec",
+"cmd": "f.write(b'(n[\"name\"]) <= MAX_NAME:\\n                cfg[\"net\"][\"name\"] = n[\"name\"]\\n            else:\\n                rep.bad(\"net.name\", \"1-32 bytes\")\\n        if \"uuid\" in n:\\n            s = n[\"uuid\"] if isinstance(n[\"uuid\"], str) else \"\"\\n            h = s.replace(\"-\", \"\")\\n            if len(h) == 32 and all(c in \"0123456789abcdefABCDEF\" for c in h) and [len(p) for p in s.split(\"-\")] == [8, 4')",
+"out": "",
+"err": ""
+},
+{
+"t": 10.987,
+"kind": "exec",
+"cmd": "f.write(b', 4, 4, 12]:\\n                cfg[\"net\"][\"uuid\"] = s.upper()\\n            else:\\n                rep.bad(\"net.uuid\", \"8-4-4-4-12 hex\")\\n        for k in (\"major\", \"minor\"):\\n            if k in n:\\n                if _is_int(n[k]) and 0 <= n[k] <= 65535:\\n                    cfg[\"net\"][k] = n[k]\\n                else:\\n                    rep.bad(\"net.\" + k, \"0-65535\")\\n        if \"signal_po')",
+"out": "",
+"err": ""
+},
+{
+"t": 11.07,
+"kind": "exec",
+"cmd": "f.write(b'wer_dbm\" in n:\\n            if _is_int(n[\"signal_power_dbm\"]) and -128 <= n[\"signal_power_dbm\"] <= 0:\\n                cfg[\"net\"][\"signal_power_dbm\"] = n[\"signal_power_dbm\"]\\n            else:\\n                rep.bad(\"net.signal_power_dbm\", \"-128-0\")\\n        for k in (\"adv_min\", \"adv_max\"):\\n            if k in n:\\n                if _is_int(n[k]) and 20 <= n[k] <= 10240:\\n              ')",
+"out": "",
+"err": ""
+},
+{
+"t": 11.153,
+"kind": "exec",
+"cmd": "f.write(b'      cfg[\"net\"][k] = n[k]\\n                else:\\n                    rep.bad(\"net.\" + k, \"20-10240 ms\")\\n        if cfg[\"net\"][\"adv_min\"] > cfg[\"net\"][\"adv_max\"]:\\n            rep.bad(\"net.adv_min\", \"<= adv_max\")\\n            cfg[\"net\"][\"adv_min\"] = cfg[\"net\"][\"adv_max\"]\\n        if \"tx_power_dbm\" in n:\\n            if _is_int(n[\"tx_power_dbm\"]) and n[\"tx_power_dbm\"] in BLE_POWER_DBM:\\n ')",
+"out": "",
+"err": ""
+},
+{
+"t": 11.236,
+"kind": "exec",
+"cmd": "f.write(b'               cfg[\"net\"][\"tx_power_dbm\"] = n[\"tx_power_dbm\"]\\n            else:\\n                rep.bad(\"net.tx_power_dbm\", \"one of the BLE power steps\")\\n    if \"mac\" in n:\\n        if parse_mac(n[\"mac\"]) is not None:\\n            cfg[\"net\"][\"mac\"] = n[\"mac\"].upper().replace(\"-\", \":\")\\n        else:\\n            rep.bad(\"net.mac\", \"6 hex bytes, unicast\")\\n    for k in n:\\n        if k no')",
+"out": "",
+"err": ""
+},
+{
+"t": 11.32,
+"kind": "exec",
+"cmd": "f.write(b't in cfg[\"net\"]:\\n            rep.bad(\"net.\" + k, \"unknown\")\\n\\n    # ---- id\\n    i = u.get(\"id\") if isinstance(u.get(\"id\"), dict) else {}\\n    if \"callmessage\" in i:\\n        if isinstance(i[\"callmessage\"], str) and 1 <= _blen(i[\"callmessage\"]) <= 64:\\n            cfg[\"id\"][\"callmessage\"] = i[\"callmessage\"]\\n        else:\\n            rep.bad(\"id.callmessage\", \"1-64 chars\")\\n    if \"use_ca')",
+"out": "",
+"err": ""
+},
+{
+"t": 11.403,
+"kind": "exec",
+"cmd": "f.write(b'llsign_as_name\" in i:\\n        if isinstance(i[\"use_callsign_as_name\"], bool):\\n            cfg[\"id\"][\"use_callsign_as_name\"] = i[\"use_callsign_as_name\"]\\n        else:\\n            rep.bad(\"id.use_callsign_as_name\", \"bool\")\\n    if cfg[\"id\"][\"use_callsign_as_name\"] and _blen(cfg[\"id\"][\"callmessage\"]) > MAX_NAME:\\n        rep.bad(\"id.callmessage\", \"over 32 bytes for a network name\")\\n    ')",
+"out": "",
+"err": ""
+},
+{
+"t": 11.486,
+"kind": "exec",
+"cmd": "f.write(b'    cfg[\"id\"][\"use_callsign_as_name\"] = False\\n\\n    # ---- schedule\\n    s = u.get(\"schedule\") if isinstance(u.get(\"schedule\"), dict) else {}\\n    if \"kind\" in s and s[\"kind\"] != \"duty\":\\n        rep.bad(\"schedule.kind\", \"duty\")\\n    for k, lo, hi in ((\"wake_s\", 1, 3600), (\"sleep_s\", 0, 86400)):\\n        if k in s:\\n            if _is_int(s[k]) and lo <= s[k] <= hi:\\n                cfg[\"s')",
+"out": "",
+"err": ""
+},
+{
+"t": 11.569,
+"kind": "exec",
+"cmd": "f.write(b'chedule\"][k] = s[k]\\n            else:\\n                rep.bad(\"schedule.\" + k, \"%d-%d\" % (lo, hi))\\n    if \"sleep\" in s:\\n        if s[\"sleep\"] in (\"off\", \"deep\"):\\n            cfg[\"schedule\"][\"sleep\"] = s[\"sleep\"]\\n        else:\\n            rep.bad(\"schedule.sleep\", \"off|deep\")\\n\\n    # ---- led, fleet\\n    l = u.get(\"led\") if isinstance(u.get(\"led\"), dict) else {}\\n    if \"enabled\" in l:')",
+"out": "",
+"err": ""
+},
+{
+"t": 11.652,
+"kind": "exec",
+"cmd": "f.write(b'\\n        if isinstance(l[\"enabled\"], bool):\\n            cfg[\"led\"][\"enabled\"] = l[\"enabled\"]\\n        else:\\n            rep.bad(\"led.enabled\", \"bool\")\\n    if isinstance(u.get(\"fleet\"), dict):\\n        for k, v in u[\"fleet\"].items():\\n            if k in cfg[\"fleet\"] and (v is None or isinstance(v, (str, int))):\\n                cfg[\"fleet\"][k] = v\\n    if rep.items and rep.mode == \"ok\":')",
+"out": "",
+"err": ""
+},
+{
+"t": 11.735,
+"kind": "exec",
+"cmd": "f.write(b'\\n        rep.mode = \"partial\"\\n    return cfg, rep\\n\\n\\ndef id_ok(cfg):\\n    return PLACEHOLDER not in cfg[\"id\"][\"callmessage\"]\\n\\n\\ndef display_name(cfg):\\n    \"\"\"The SSID / BLE name on the air: the callsign when asked for, else the net section\\'s.\"\"\"\\n    if cfg[\"id\"][\"use_callsign_as_name\"]:\\n        return cfg[\"id\"][\"callmessage\"][:MAX_NAME]\\n    return cfg[\"net\"].get(\"ssid\") or cfg[\"net\"].')",
+"out": "",
+"err": ""
+},
+{
+"t": 11.818,
+"kind": "exec",
+"cmd": "f.write(b'get(\"name\") or \"\"\\n\\n\\ndef load(path, defaults_path, board_id=None, radios=None, board_names=None):\\n    rep = Report()\\n    try:\\n        with open(defaults_path) as f:\\n            defaults = json.load(f)\\n    except Exception:\\n        rep.fatal = \"defaults\"\\n        return None, rep\\n    try:\\n        with open(path) as f:\\n            raw = f.read()\\n    except OSError:\\n        rep.mode = \"')",
+"out": "",
+"err": ""
+},
+{
+"t": 11.893,
+"kind": "exec",
+"cmd": "f.write(b'default(missing)\"\\n        return _copy(defaults), rep\\n    try:\\n        user = json.loads(raw)\\n    except ValueError:\\n        rep.mode = \"default(parse)\"\\n        return _copy(defaults), rep\\n    return validate(user, defaults, board_id, radios, board_names)\\n')",
+"out": "",
+"err": ""
+},
+{
+"t": 11.952,
+"kind": "exec",
+"cmd": "f.close()",
+"out": "",
+"err": ""
+},
+{
+"t": 12.019,
+"kind": "exec",
+"cmd": "import os, binascii\nc=0\nf=open('foxlib/netcfg.py','rb')\nwhile True:\n b=f.read(512)\n if not b: break\n c=binascii.crc32(b,c)\nf.close()\nprint(os.stat('foxlib/netcfg.py')[6], c)\n",
+"out": "11008 1502192548\n",
+"err": ""
+},
+{
+"t": 12.077,
+"kind": "exec",
+"cmd": "f=open('foxlib/netfox.py','wb')",
+"out": "",
+"err": ""
+},
+{
+"t": 12.161,
+"kind": "exec",
+"cmd": "f.write(b'# SPDX-License-Identifier: GPL-3.0-or-later\\n# foxlib/netfox.py -- the runner for network foxes: the SoC\\'s own radio on a duty cycle.\\n#\\n#   from foxlib.netfox import NetFox\\n#   fox = NetFox(\"fox.json\", defaults=\"defaults.json\", version=\"1.0.0\")\\n#   for tx in fox.cycles():\\n#       tx.beacon()          # radio up for schedule.wake_s, then down for schedule.sleep_s (or deep sleep)\\n#\\n# ')",
+"out": "",
+"err": ""
+},
+{
+"t": 12.244,
+"kind": "exec",
+"cmd": "f.write(b'Same banner shape as Fox (the page\\'s Listen only parses it the same way), same log style, same bench entry points\\n# (key_for, rssi) so the Bench tab works unchanged. quiet=True for bench use from the REPL: no banner, nothing on air.\\nimport time\\nimport board\\nimport microcontroller\\nfrom . import netcfg, netradio, led\\n\\ntry:\\n    __version__ = open(__file__.rsplit(\"/\", 1)[0] + \"/VERSION')",
+"out": "",
+"err": ""
+},
+{
+"t": 12.328,
+"kind": "exec",
+"cmd": "f.write(b'\").read().strip()\\nexcept Exception:\\n    __version__ = \"0\"\\n\\n\\nclass Tx:\\n    \"\"\"What a template body gets per cycle.\"\"\"\\n\\n    def __init__(self, fox, cycle):\\n        self.fox = fox\\n        self.cycle = cycle\\n        self.name = fox.name\\n\\n    def beacon(self, seconds=None):\\n        \"\"\"Radio up for the wake time (or `seconds`), then down.\"\"\"\\n        s = seconds if seconds is not None els')",
+"out": "",
+"err": ""
+},
+{
+"t": 12.411,
+"kind": "exec",
+"cmd": "f.write(b'e self.fox.cfg[\"schedule\"][\"wake_s\"]\\n        self.fox.radio.up()\\n        self.fox.log(\"%s up: %s (%s) for %d s\" % (self.fox.radio.kind, self.name, self.fox.radio.mac(), s))\\n        self.fox.led.hold(s * 1000, \"tx\" if self.fox.cfg[\"led\"][\"enabled\"] else None)\\n        self.fox.radio.down()\\n        self.fox.log(\"%s down\" % self.fox.radio.kind)\\n\\n\\nclass NetFox:\\n    def __init__(self, pa')",
+"out": "",
+"err": ""
+},
+{
+"t": 12.494,
+"kind": "exec",
+"cmd": "f.write(b'th=\"fox.json\", defaults=\"defaults.json\", version=\"?\", quiet=False):\\n        self.quiet = quiet\\n        self.template_version = version\\n        self.board_id = getattr(board, \"board_id\", \"unknown\")\\n        self.uid = \"\".join(\"%02x\" % b for b in microcontroller.cpu.uid)\\n        self.radios = self._radios()\\n        self.cfg, self.report = netcfg.load(path, defaults, self.board_id, sel')",
+"out": "",
+"err": ""
+},
+{
+"t": 12.577,
+"kind": "exec",
+"cmd": "f.write(b'f.radios, dir(board))\\n        self.fatal = self.report.fatal\\n        self.radio = None\\n        self.led = led.Status(None)\\n        self.name = \"\"\\n        self.woke_from_sleep = self._woke()\\n        if self.cfg is None:\\n            self.id_ok = False\\n            self._banner()\\n            return\\n        c = self.cfg\\n        try:\\n            name = (c.get(\"pins\") or {}).get(\"led\")   ')",
+"out": "",
+"err": ""
+},
+{
+"t": 12.66,
+"kind": "exec",
+"cmd": "f.write(b'              # the variant\\'s LED pin; null = no LED on this board\\n            pin = getattr(board, name, None) if isinstance(name, str) else None\\n            self.led = led.Status(pin if (c[\"led\"][\"enabled\"] and pin is not None) else None)\\n        except Exception:\\n            self.led = led.Status(None)\\n        self.id_ok = netcfg.id_ok(c)\\n        self.name = netcfg.display_name(')",
+"out": "",
+"err": ""
+},
+{
+"t": 12.743,
+"kind": "exec",
+"cmd": "f.write(b'c)\\n        if not self.fatal:\\n            try:\\n                self.radio = netradio.make(c[\"net\"], self.name)\\n                self.radio.setup()\\n            except Exception as e:\\n                self.fatal = \"hardware(%s:%s)\" % (e.__class__.__name__, str(e).replace(\" \", \"_\")[:40])\\n        self._banner()\\n\\n    @staticmethod\\n    def _radios():\\n        \"\"\"What this chip has, by what ')",
+"out": "",
+"err": ""
+},
+{
+"t": 12.826,
+"kind": "exec",
+"cmd": "f.write(b'imports: the validator uses it for channel/band checks.\"\"\"\\n        out = []\\n        try:\\n            import wifi  # noqa: F401\\n            out.append(\"wifi24\")\\n        except ImportError:\\n            pass\\n        try:\\n            import _bleio  # noqa: F401\\n            out.append(\"ble\")\\n        except ImportError:\\n            pass\\n        return out\\n\\n    @staticmethod\\n    def _woke')",
+"out": "",
+"err": ""
+},
+{
+"t": 12.909,
+"kind": "exec",
+"cmd": "f.write(b'():\\n        try:\\n            import alarm\\n            return alarm.wake_alarm is not None\\n        except Exception:\\n            return False\\n\\n    def deinit(self):\\n        for part in (self.radio, self.led):\\n            if part is not None:\\n                try:\\n                    part.deinit()\\n                except Exception:\\n                    pass\\n        self.radio = None\\n\\n  ')",
+"out": "",
+"err": ""
+},
+{
+"t": 12.992,
+"kind": "exec",
+"cmd": "f.write(b'  # ---- output\\n    def log(self, text):\\n        if not self.quiet:\\n            print(text)\\n\\n    def banner_line(self):\\n        c = self.cfg or {}\\n        net = c.get(\"net\", {}) if c else {}\\n        return \"FOX template=%s/%s foxlib=%s board=%s uid=%s cfg=%s radio=%s id=%s freq=none net=%s name=%s mac=%s\" % (\\n            c.get(\"template\", \"?\") if c else \"?\", self.template_version, ')",
+"out": "",
+"err": ""
+},
+{
+"t": 13.075,
+"kind": "exec",
+"cmd": "f.write(b'__version__, self.board_id, self.uid,\\n            (\"fatal(%s)\" % self.fatal) if self.fatal else self.report.status(), (self.radio.status if self.radio else \"skipped\"),\\n            \"set\" if self.id_ok else \"unset\", net.get(\"kind\", \"?\"), _quote(self.name), net.get(\"mac\", \"?\"))\\n\\n    def _banner(self):\\n        if self.quiet:\\n            return\\n        print(\"initializing system ... \")\\n')",
+"out": "",
+"err": ""
+},
+{
+"t": 13.159,
+"kind": "exec",
+"cmd": "f.write(b'        print(self.banner_line())\\n        for key, reason in self.report.items:\\n            print(\"  cfg: %s -> default (%s)\" % (key, reason))\\n        if self.fatal:\\n            print(\"** fatal: %s -- staying silent **\" % self.fatal)\\n        elif self.radio and self.radio.status.startswith(\"ok(hidden\"):\\n            print(\"  note: this firmware cannot hide the SSID; it is broadcast\"')",
+"out": "",
+"err": ""
+},
+{
+"t": 13.242,
+"kind": "exec",
+"cmd": "f.write(b')\\n        if self.woke_from_sleep:\\n            print(\"woke from deep sleep\")\\n\\n    # ---- the loop\\n    def cycles(self):\\n        \"\"\"One Tx per wake. Between wakes: sleep_s with the radio off (schedule.sleep = off), or deep sleep (= deep),\\n        from which the board reboots into this loop again -- the cycle count then restarts at 0, as kitsune\\'s does.\"\"\"\\n        c = self.cfg\\n      ')",
+"out": "",
+"err": ""
+},
+{
+"t": 13.325,
+"kind": "exec",
+"cmd": "f.write(b'  if self.fatal or not self.radio or not self.radio.status.startswith(\"ok\"):\\n            self.log(\"unconfigured (%s): silent\" % (self.fatal or (self.radio.status if self.radio else \"no radio\")))\\n            while True:\\n                self.led.hold(20000, \"fatal\")\\n            return\\n        n = 0\\n        try:\\n            while True:\\n                self.log(\"cycle %d\" % n)\\n        ')",
+"out": "",
+"err": ""
+},
+{
+"t": 13.408,
+"kind": "exec",
+"cmd": "f.write(b'        yield Tx(self, n)\\n                n += 1\\n                sleep_s = c[\"schedule\"][\"sleep_s\"]\\n                if sleep_s <= 0:\\n                    continue\\n                if c[\"schedule\"][\"sleep\"] == \"deep\":\\n                    self.log(\"deep sleep %d s\" % sleep_s)\\n                    self._deep_sleep(sleep_s)\\n                    # a real board never gets here; the simulator')",
+"out": "",
+"err": ""
+},
+{
+"t": 13.491,
+"kind": "exec",
+"cmd": "f.write(b' does\\n                    n = 0\\n                else:\\n                    self.log(\"sleep %d s\" % sleep_s)\\n                    self.led.hold(sleep_s * 1000, None)\\n        finally:\\n            if self.radio:\\n                self.radio.down()\\n\\n    def _deep_sleep(self, seconds):\\n        import alarm\\n        self.deinit()\\n        a = alarm.time.TimeAlarm(monotonic_time=time.monotonic(')",
+"out": "",
+"err": ""
+},
+{
+"t": 13.574,
+"kind": "exec",
+"cmd": "f.write(b') + seconds)\\n        alarm.exit_and_deep_sleep_until_alarms(a)\\n\\n    # ---- bench (the page\\'s Bench tab: the same names Fox has)\\n    def key_for(self, seconds):\\n        \"\"\"Radio up for `seconds`: the net fox\\'s key test.\"\"\"\\n        if not self.radio or not self.radio.status.startswith(\"ok\"):\\n            return \"err: radio %s\" % (self.radio.status if self.radio else \"none\")\\n        se')",
+"out": "",
+"err": ""
+},
+{
+"t": 13.658,
+"kind": "exec",
+"cmd": "f.write(b'lf.radio.up()\\n        time.sleep(seconds)\\n        self.radio.down()\\n        return \"ok %s %s for %.1f s\" % (self.radio.kind, self.name, seconds)\\n\\n    def rssi(self):\\n        \"\"\"Not a receiver\\'s RSSI: the strongest neighbours this radio can see, as a sanity check that it is alive.\"\"\"\\n        if not self.radio:\\n            return \"err: no radio\"\\n        return \" | \".join(\"%d %s\" % (x')",
+"out": "",
+"err": ""
+},
+{
+"t": 13.724,
+"kind": "exec",
+"cmd": "f.write(b'[0], x[1]) for x in self.radio.scan()) or \"nothing heard\"\\n\\n\\ndef _quote(s):\\n    return \\'\"\\' + s.replace(\\'\"\\', \"\\'\") + \\'\"\\' if \" \" in s or not s else s\\n')",
+"out": "",
+"err": ""
+},
+{
+"t": 13.783,
+"kind": "exec",
+"cmd": "f.close()",
+"out": "",
+"err": ""
+},
+{
+"t": 13.849,
+"kind": "exec",
+"cmd": "import os, binascii\nc=0\nf=open('foxlib/netfox.py','rb')\nwhile True:\n b=f.read(512)\n if not b: break\n c=binascii.crc32(b,c)\nf.close()\nprint(os.stat('foxlib/netfox.py')[6], c)\n",
+"out": "7442 2592986052\n",
+"err": ""
+},
+{
+"t": 13.908,
+"kind": "exec",
+"cmd": "f=open('foxlib/netradio.py','wb')",
+"out": "",
+"err": ""
+},
+{
+"t": 13.991,
+"kind": "exec",
+"cmd": "f.write(b'# SPDX-License-Identifier: GPL-3.0-or-later\\n# foxlib/netradio.py -- the SoC\\'s own radios as fox \"transmitters\": a Wi-Fi access point, a Wi-Fi station that probes\\n# for a network, a BLE iBeacon advertiser. Selected by net.kind. Each has up() / down() / status / scan(), and that is\\n# all the runner and the bench need. CircuitPython\\'s wifi and _bleio modules; the simulator mocks both.')",
+"out": "",
+"err": ""
+},
+{
+"t": 14.074,
+"kind": "exec",
+"cmd": "f.write(b'\\n#\\n# What the firmware cannot do, said in status rather than silently ignored: a hidden SSID (CircuitPython\\'s start_ap\\n# has no hidden flag -> status \"ok(hidden_unsupported)\"), a BLE radio on a board without one (\"noble\").\\nimport time\\n\\n\\ndef _mac_bytes(s):\\n    return bytes(int(p, 16) for p in s.split(\":\"))\\n\\n\\nclass Base:\\n    kind = \"base\"\\n\\n    def __init__(self, cfg, name):\\n        s')",
+"out": "",
+"err": ""
+},
+{
+"t": 14.157,
+"kind": "exec",
+"cmd": "f.write(b'elf.cfg = cfg          # the net section\\n        self.name = name        # SSID / BLE name on the air (callsign or the configured one)\\n        self.status = \"skipped\"\\n        self.up_count = 0\\n        self.is_up = False\\n\\n    def setup(self):\\n        return True\\n\\n    def up(self):\\n        self.up_count += 1\\n        self.is_up = True\\n\\n    def down(self):\\n        self.is_up = False\\n\\n ')",
+"out": "",
+"err": ""
+},
+{
+"t": 14.24,
+"kind": "exec",
+"cmd": "f.write(b'   def scan(self):\\n        return []\\n\\n    def deinit(self):\\n        if self.is_up:\\n            self.down()\\n\\n\\nclass WifiAp(Base):\\n    kind = \"wifi-ap\"\\n\\n    def setup(self):\\n        try:\\n            import wifi\\n        except ImportError:\\n            self.status = \"nowifi\"\\n            return False\\n        self.wifi = wifi\\n        try:\\n            wifi.radio.enabled = True\\n           ')",
+"out": "",
+"err": ""
+},
+{
+"t": 14.323,
+"kind": "exec",
+"cmd": "f.write(b' if self.cfg.get(\"mac\"):\\n                wifi.radio.mac_address_ap = _mac_bytes(self.cfg[\"mac\"])\\n            try:\\n                wifi.radio.tx_power = float(self.cfg[\"tx_power_dbm\"])\\n            except Exception:\\n                pass\\n            self.status = \"ok(hidden_unsupported)\" if self.cfg.get(\"hidden\") else \"ok\"\\n            return True\\n        except Exception as e:\\n       ')",
+"out": "",
+"err": ""
+},
+{
+"t": 14.407,
+"kind": "exec",
+"cmd": "f.write(b'     self.status = \"wifi(%s)\" % e.__class__.__name__\\n            return False\\n\\n    def up(self):\\n        Base.up(self)\\n        c = self.cfg\\n        kw = {\"channel\": c[\"channel\"], \"max_connections\": c[\"max_clients\"]}\\n        if c[\"psk\"]:\\n            self.wifi.radio.start_ap(self.name, c[\"psk\"], **kw)\\n        else:\\n            self.wifi.radio.start_ap(self.name, \"\", authmode=[self.wi')",
+"out": "",
+"err": ""
+},
+{
+"t": 14.489,
+"kind": "exec",
+"cmd": "f.write(b'fi.AuthMode.OPEN], **kw)\\n\\n    def down(self):\\n        if not self.is_up:\\n            return\\n        Base.down(self)\\n        try:\\n            self.wifi.radio.stop_ap()\\n        except Exception:\\n            pass\\n\\n    def scan(self):\\n        \"\"\"Nearby networks, strongest first: the bench\\'s \\'rssi\\' for a Wi-Fi fox.\"\"\"\\n        out = []\\n        try:\\n            for n in self.wifi.radio.st')",
+"out": "",
+"err": ""
+},
+{
+"t": 14.572,
+"kind": "exec",
+"cmd": "f.write(b'art_scanning_networks():\\n                out.append((n.rssi, n.ssid, n.channel))\\n            self.wifi.radio.stop_scanning_networks()\\n        except Exception:\\n            pass\\n        out.sort(reverse=True)\\n        return out[:8]\\n\\n    def mac(self):\\n        try:\\n            return \":\".join(\"%02X\" % b for b in self.wifi.radio.mac_address_ap)\\n        except Exception:\\n            re')",
+"out": "",
+"err": ""
+},
+{
+"t": 14.655,
+"kind": "exec",
+"cmd": "f.write(b'turn \"?\"\\n\\n\\nclass WifiProbe(Base):\\n    \"\"\"A station that keeps trying to join the configured SSID: probe requests carry the SSID and the spoofed MAC,\\n    which is what a hunter\\'s sniffer sees. It never connects to anything real (the PSK is nonsense on purpose).\"\"\"\\n    kind = \"wifi-probe\"\\n\\n    def setup(self):\\n        try:\\n            import wifi\\n        except ImportError:\\n         ')",
+"out": "",
+"err": ""
+},
+{
+"t": 14.739,
+"kind": "exec",
+"cmd": "f.write(b'   self.status = \"nowifi\"\\n            return False\\n        self.wifi = wifi\\n        try:\\n            wifi.radio.enabled = True\\n            if self.cfg.get(\"mac\"):\\n                wifi.radio.mac_address = _mac_bytes(self.cfg[\"mac\"])\\n            try:\\n                wifi.radio.tx_power = float(self.cfg[\"tx_power_dbm\"])\\n            except Exception:\\n                pass\\n            se')",
+"out": "",
+"err": ""
+},
+{
+"t": 14.822,
+"kind": "exec",
+"cmd": "f.write(b'lf.status = \"ok\"\\n            return True\\n        except Exception as e:\\n            self.status = \"wifi(%s)\" % e.__class__.__name__\\n            return False\\n\\n    def up(self):\\n        Base.up(self)\\n        try:\\n            self.wifi.radio.connect(self.name, \"fox-bench-probe-no-such-network\", timeout=2)\\n        except Exception:\\n            pass        # ConnectionError is the expec')",
+"out": "",
+"err": ""
+},
+{
+"t": 14.905,
+"kind": "exec",
+"cmd": "f.write(b'ted outcome; the probes went out\\n\\n    def down(self):\\n        if not self.is_up:\\n            return\\n        Base.down(self)\\n        try:\\n            self.wifi.radio.stop_station()\\n        except Exception:\\n            pass\\n\\n    def scan(self):\\n        return WifiAp.scan(self)\\n\\n    def mac(self):\\n        try:\\n            return \":\".join(\"%02X\" % b for b in self.wifi.radio.mac_addres')",
+"out": "",
+"err": ""
+},
+{
+"t": 14.988,
+"kind": "exec",
+"cmd": "f.write(b's)\\n        except Exception:\\n            return \"?\"\\n\\n\\nclass BleBeacon(Base):\\n    \"\"\"iBeacon: a manufacturer-data advertisement (Apple 0x004C, type 0x02, length 0x15, UUID, major, minor, power).\"\"\"\\n    kind = \"ble\"\\n\\n    def setup(self):\\n        try:\\n            import _bleio\\n        except ImportError:\\n            self.status = \"noble\"\\n            return False\\n        self._bleio = ')",
+"out": "",
+"err": ""
+},
+{
+"t": 15.071,
+"kind": "exec",
+"cmd": "f.write(b'_bleio\\n        try:\\n            self.adapter = _bleio.adapter\\n            self.adapter.enabled = True\\n            if self.cfg.get(\"mac\"):\\n                try:\\n                    self.adapter.address = _bleio.Address(_mac_bytes(self.cfg[\"mac\"]), _bleio.Address.RANDOM_STATIC)\\n                except Exception:\\n                    pass        # not every port lets the address be set; ')",
+"out": "",
+"err": ""
+},
+{
+"t": 15.154,
+"kind": "exec",
+"cmd": "f.write(b'the beacon still works\\n            try:\\n                self.adapter.name = self.name\\n            except Exception:\\n                pass\\n            self.status = \"ok\"\\n            return True\\n        except Exception as e:\\n            self.status = \"ble(%s)\" % e.__class__.__name__\\n            return False\\n\\n    def frame(self):\\n        c = self.cfg\\n        uuid = bytes.fromhex(c[\"uu')",
+"out": "",
+"err": ""
+},
+{
+"t": 15.237,
+"kind": "exec",
+"cmd": "f.write(b'id\"].replace(\"-\", \"\"))\\n        body = bytes([0x4C, 0x00, 0x02, 0x15]) + uuid + c[\"major\"].to_bytes(2, \"big\") + c[\"minor\"].to_bytes(2, \"big\") + bytes([c[\"signal_power_dbm\"] & 0xFF])\\n        return bytes([len(body) + 1, 0xFF]) + body          # one AD structure: length, type 0xFF (manufacturer data), payload\\n\\n    def up(self):\\n        Base.up(self)\\n        c = self.cfg\\n        name =')",
+"out": "",
+"err": ""
+},
+{
+"t": 15.32,
+"kind": "exec",
+"cmd": "f.write(b' self.name.encode(\"utf-8\")[:29]\\n        scan_resp = bytes([len(name) + 1, 0x09]) + name       # complete local name in the scan response\\n        try:\\n            self.adapter.start_advertising(self.frame(), scan_response=scan_resp, connectable=False,\\n                                           interval=c[\"adv_min\"] / 1000.0, tx_power=c[\"tx_power_dbm\"])\\n        except TypeError:\\n    ')",
+"out": "",
+"err": ""
+},
+{
+"t": 15.403,
+"kind": "exec",
+"cmd": "f.write(b'        self.adapter.start_advertising(self.frame(), scan_response=scan_resp, connectable=False, interval=c[\"adv_min\"] / 1000.0)\\n\\n    def down(self):\\n        if not self.is_up:\\n            return\\n        Base.down(self)\\n        try:\\n            self.adapter.stop_advertising()\\n        except Exception:\\n            pass\\n\\n    def scan(self):\\n        out = []\\n        try:\\n            f')",
+"out": "",
+"err": ""
+},
+{
+"t": 15.486,
+"kind": "exec",
+"cmd": "f.write(b'or e in self.adapter.start_scan(timeout=2, minimum_rssi=-100):\\n                out.append((e.rssi, str(e.address), e.complete_name or \"\"))\\n            self.adapter.stop_scan()\\n        except Exception:\\n            pass\\n        out.sort(reverse=True)\\n        return out[:8]\\n\\n    def mac(self):\\n        try:\\n            return str(self.adapter.address).split(\" \")[0].upper()\\n        exc')",
+"out": "",
+"err": ""
+},
+{
+"t": 15.561,
+"kind": "exec",
+"cmd": "f.write(b'ept Exception:\\n            return \"?\"\\n\\n\\nDRIVERS = {WifiAp.kind: WifiAp, WifiProbe.kind: WifiProbe, BleBeacon.kind: BleBeacon}\\n\\n\\ndef make(net_cfg, name):\\n    cls = DRIVERS.get(net_cfg.get(\"kind\"))\\n    if cls is None:\\n        raise ValueError(\"net.kind %r has no driver\" % net_cfg.get(\"kind\"))\\n    return cls(net_cfg, name)\\n')",
+"out": "",
+"err": ""
+},
+{
+"t": 15.62,
+"kind": "exec",
+"cmd": "f.close()",
+"out": "",
+"err": ""
+},
+{
+"t": 15.687,
+"kind": "exec",
+"cmd": "import os, binascii\nc=0\nf=open('foxlib/netradio.py','rb')\nwhile True:\n b=f.read(512)\n if not b: break\n c=binascii.crc32(b,c)\nf.close()\nprint(os.stat('foxlib/netradio.py')[6], c)\n",
+"out": "7618 2444047314\n",
+"err": ""
+},
+{
+"t": 15.745,
+"kind": "exec",
+"cmd": "f=open('foxlib/radio.py','wb')",
+"out": "",
+"err": ""
+},
+{
+"t": 15.828,
+"kind": "exec",
+"cmd": "f.write(b'# SPDX-License-Identifier: GPL-3.0-or-later\\n# foxlib/radio.py -- radio module drivers, selected by fox.json radio.family.\\n#\\n# Nothing here changes the module\\'s own firmware. A driver owns the control\\n# pins (PTT, PD, HL) and the UART dialect. Families:\\n#   dmo   NiceRF \"DMO\" AT dialect: SA818, SA818S, SA868, SA868S, DRA818.\\n#         Two power levels (HL pin) and two channel widths')",
+"out": "",
+"err": ""
+},
+{
+"t": 15.911,
+"kind": "exec",
+"cmd": "f.write(b' (12.5 / 25 kHz);\\n#         bandwidth_khz is mapped to the nearest, power_dbm is informational.\\n#         AT+DMOCONNECT / AT+DMOSETGROUP / AT+DMOSETVOLUME / RSSI? / AT+VERSION\\n# Add a family: subclass Base, implement _setup/_retune/_rssi, register in DRIVERS.\\n\\nimport time\\nimport busio\\nimport digitalio\\n\\n\\ndef _out(pin, value):\\n    d = digitalio.DigitalInOut(pin)\\n    d.direction = dig')",
+"out": "",
+"err": ""
+},
+{
+"t": 15.994,
+"kind": "exec",
+"cmd": "f.write(b'italio.Direction.OUTPUT\\n    d.value = value\\n    return d\\n\\n\\nclass Base:\\n    family = \"base\"\\n\\n    def __init__(self, pins, cfg):\\n        self.cfg = cfg\\n        self.status = \"noreply\"\\n        self.freq_mhz = None\\n        self.keyed = False\\n        self.keyed_since = None\\n        self.ptt = _out(pins[\"ptt\"], True)        # True = receive\\n        self.pd = _out(pins[\"pd\"], True)       ')",
+"out": "",
+"err": ""
+},
+{
+"t": 16.078,
+"kind": "exec",
+"cmd": "f.write(b'   # True = awake\\n        self.hl = _out(pins[\"hl\"], bool(cfg.get(\"high_power\", False)))\\n        self.uart = busio.UART(pins[\"uart_tx\"], pins[\"uart_rx\"], baudrate=cfg.get(\"baud\", 9600), timeout=0.5)\\n        time.sleep(0.6)                           # module boot\\n\\n    # ---- keying. ALWAYS release in a finally; cycle.py relies on it.\\n    def key(self):\\n        self.ptt.value = False')",
+"out": "",
+"err": ""
+},
+{
+"t": 16.161,
+"kind": "exec",
+"cmd": "f.write(b'\\n        self.keyed = True\\n        self.keyed_since = time.monotonic()\\n\\n    def unkey(self):\\n        self.ptt.value = True\\n        self.keyed = False\\n\\n    def deinit(self):\\n        \"\"\"Release pins and UART so another Fox can be built in the same VM (bench actions).\"\"\"\\n        try:\\n            self.unkey()\\n        except Exception:\\n            pass\\n        for d in (self.ptt, self.p')",
+"out": "",
+"err": ""
+},
+{
+"t": 16.244,
+"kind": "exec",
+"cmd": "f.write(b'd, self.hl, self.uart):\\n            try:\\n                d.deinit()\\n            except Exception:\\n                pass\\n\\n    def keyed_ms(self):\\n        return 0 if not self.keyed else (time.monotonic() - self.keyed_since) * 1000\\n\\n    def key_for(self, seconds):\\n        \"\"\"bench: key unmodulated for N seconds, then release\"\"\"\\n        self.key()\\n        try:\\n            time.sleep(se')",
+"out": "",
+"err": ""
+},
+{
+"t": 16.327,
+"kind": "exec",
+"cmd": "f.write(b'conds)\\n        finally:\\n            self.unkey()\\n        return \"ok\"\\n\\n    # ---- to implement per family\\n    def setup(self):\\n        return False\\n\\n    def retune(self, mhz):\\n        return False\\n\\n    def rssi(self):\\n        return None\\n\\n    def probe(self, freqs=(146.5, 433.5)):\\n        \"\"\"which test frequencies does the fitted module accept? receive-only, nothing transmitted\"\"\"\\n ')",
+"out": "",
+"err": ""
+},
+{
+"t": 16.41,
+"kind": "exec",
+"cmd": "f.write(b'       out = {}\\n        for f in freqs:\\n            out[str(f)] = bool(self.retune(f))\\n        if self.freq_mhz:\\n            self.retune(self.freq_mhz)\\n        return out\\n\\n\\nclass Dmo(Base):\\n    family = \"dmo\"\\n\\n    def _cmd(self, text, wait=0.15, retries=2):\\n        \"\"\"send one AT line, return the reply text (may be \\'\\')\"\"\"\\n        for _ in range(retries + 1):\\n            self.uart.r')",
+"out": "",
+"err": ""
+},
+{
+"t": 16.494,
+"kind": "exec",
+"cmd": "f.write(b'eset_input_buffer() if hasattr(self.uart, \"reset_input_buffer\") else None\\n            self.uart.write((text + \"\\\\r\\\\n\").encode())\\n            time.sleep(wait)\\n            raw = self.uart.read(64)\\n            if raw:\\n                try:\\n                    return raw.decode().strip()\\n                except Exception:\\n                    return repr(raw)\\n        return \"\"\\n\\n    def set')",
+"out": "",
+"err": ""
+},
+{
+"t": 16.577,
+"kind": "exec",
+"cmd": "f.write(b'up(self):\\n        r = self._cmd(\"AT+DMOCONNECT\", wait=0.5)\\n        if \"+DMOCONNECT:0\" not in r:\\n            self.status = \"noreply\" if not r else \"err(%s)\" % r.replace(\" \", \"\")\\n            return False\\n        c = self.cfg\\n        self._cmd(\"AT+DMOSETVOLUME=%d\" % max(1, min(8, int(c.get(\"volume\", 5)))))\\n        self.status = \"ok\"\\n        return True\\n\\n    def retune(self, mhz):\\n    ')",
+"out": "",
+"err": ""
+},
+{
+"t": 16.66,
+"kind": "exec",
+"cmd": "f.write(b'    c = self.cfg\\n        bw = 0 if float(c.get(\"bandwidth_khz\", 25)) <= 18.75 else 1      # nearest of 12.5 / 25 kHz\\n        r = self._cmd(\"AT+DMOSETGROUP=%d,%.4f,%.4f,0000,%d,0000\" % (bw, mhz, mhz, int(c.get(\"squelch\", 3))))\\n        ok = \"+DMOSETGROUP:0\" in r\\n        if ok:\\n            self.freq_mhz = mhz\\n            if self.status != \"ok\":\\n                self.status = \"ok\"\\n     ')",
+"out": "",
+"err": ""
+},
+{
+"t": 16.744,
+"kind": "exec",
+"cmd": "f.write(b'   elif r:\\n            self.status = \"err(DMOSETGROUP:1)\" if \":1\" in r else \"err(%s)\" % r.replace(\" \", \"\")\\n        else:\\n            self.status = \"noreply\"\\n        return ok\\n\\n    def rssi(self):\\n        r = self._cmd(\"RSSI?\")\\n        if \"RSSI=\" in r:\\n            try:\\n                return int(r.split(\"RSSI=\")[1].strip().split()[0])\\n            except Exception:\\n                re')",
+"out": "",
+"err": ""
+},
+{
+"t": 16.819,
+"kind": "exec",
+"cmd": "f.write(b'turn None\\n        return None\\n\\n    def version(self):\\n        return self._cmd(\"AT+VERSION\")\\n\\n\\nDRIVERS = {\"dmo\": Dmo}\\n\\n\\ndef make(pins, cfg):\\n    cls = DRIVERS.get(cfg.get(\"family\"))\\n    if cls is None:\\n        raise ValueError(\"radio.family %r has no driver\" % cfg.get(\"family\"))\\n    return cls(pins, cfg)\\n')",
+"out": "",
+"err": ""
+},
+{
+"t": 16.878,
+"kind": "exec",
+"cmd": "f.close()",
+"out": "",
+"err": ""
+},
+{
+"t": 16.945,
+"kind": "exec",
+"cmd": "import os, binascii\nc=0\nf=open('foxlib/radio.py','rb')\nwhile True:\n b=f.read(512)\n if not b: break\n c=binascii.crc32(b,c)\nf.close()\nprint(os.stat('foxlib/radio.py')[6], c)\n",
+"out": "4914 518714915\n",
+"err": ""
+},
+{
+"t": 17.004,
+"kind": "exec",
+"cmd": "f=open('foxlib/schedule.py','wb')",
+"out": "",
+"err": ""
+},
+{
+"t": 17.088,
+"kind": "exec",
+"cmd": "f.write(b'# SPDX-License-Identifier: GPL-3.0-or-later\\n# foxlib/schedule.py -- deterministic scheduling. No hardware imports.\\n# glibc-constant LCG with an integer seed so CircuitPython, desktop Python and\\n# js/audio/schedule.js produce identical sequences: organisers can reconstruct\\n# every transmission time from the seed.\\n\\n_A, _C, _M = 1103515245, 12345, 1 << 31\\n\\n\\ndef rand_next(state):\\n    s')",
+"out": "",
+"err": ""
+},
+{
+"t": 17.171,
+"kind": "exec",
+"cmd": "f.write(b'tate = (_A * state + _C) % _M\\n    return state / _M, state\\n\\n\\ndef rand_int(state, lo, hi):\\n    v, state = rand_next(state)\\n    return lo + int(v * (hi - lo + 1)), state\\n\\n\\nclass Fixed:\\n    kind = \"fixed\"\\n\\n    def __init__(self, cfg):\\n        self.delay_ms = cfg[\"delay_ms\"]\\n\\n    def phase(self, now_ms):\\n        return \"alive\"\\n\\n    def wait_ms(self, now_ms):\\n        return self.delay_m')",
+"out": "",
+"err": ""
+},
+{
+"t": 17.254,
+"kind": "exec",
+"cmd": "f.write(b's\\n\\n\\nclass Popcorn:\\n    kind = \"popcorn\"\\n\\n    def __init__(self, cfg):\\n        self.cfg = cfg\\n        self.state = cfg[\"seed\"]\\n        self.in_cluster = 0\\n\\n    def phase(self, now_ms):\\n        return \"alive\"\\n\\n    def wait_ms(self, now_ms):\\n        self.in_cluster += 1\\n        if self.in_cluster >= self.cfg[\"cluster\"]:\\n            self.in_cluster = 0\\n            d, self.state = rand_')",
+"out": "",
+"err": ""
+},
+{
+"t": 17.337,
+"kind": "exec",
+"cmd": "f.write(b'int(self.state, self.cfg[\"dark_min_ms\"], self.cfg[\"dark_max_ms\"])\\n            return d\\n        return self.cfg[\"cluster_gap_ms\"]\\n\\n\\nclass Resurrection:\\n    \"\"\"alive for a seeded draw; dead (single dits, full ID every Nth wake) for dead_ms; repeat.\"\"\"\\n    kind = \"resurrection\"\\n\\n    def __init__(self, cfg):\\n        self.cfg = cfg\\n        self.state = cfg[\"seed\"]\\n        self.dead = Fa')",
+"out": "",
+"err": ""
+},
+{
+"t": 17.42,
+"kind": "exec",
+"cmd": "f.write(b'lse\\n        self.wakes = 0\\n        self.until = None          # end of the current phase, ms; set on first phase() call\\n\\n    def _draw(self, lo, hi):\\n        v, self.state = rand_int(self.state, lo, hi)\\n        return v\\n\\n    def phase(self, now_ms):\\n        c = self.cfg\\n        if self.until is None:\\n            self.until = now_ms + self._draw(c[\"alive_min_ms\"], c[\"alive_max_ms\"])')",
+"out": "",
+"err": ""
+},
+{
+"t": 17.503,
+"kind": "exec",
+"cmd": "f.write(b'\\n        if now_ms >= self.until:\\n            if self.dead:\\n                self.dead = False\\n                self.until = now_ms + self._draw(c[\"alive_min_ms\"], c[\"alive_max_ms\"])\\n            else:\\n                self.dead = True\\n                self.wakes = 0\\n                self.until = now_ms + c[\"dead_ms\"]\\n        return \"dead\" if self.dead else \"alive\"\\n\\n    def dead_wake(sel')",
+"out": "",
+"err": ""
+},
+{
+"t": 17.586,
+"kind": "exec",
+"cmd": "f.write(b'f):\\n        \"\"\"called once per dead-phase wake: returns \\'id\\' or \\'dit\\'\"\"\"\\n        self.wakes += 1\\n        return \"id\" if self.wakes % self.cfg[\"id_every\"] == 0 else \"dit\"\\n\\n    def wait_ms(self, now_ms):\\n        c = self.cfg\\n        if self.dead:\\n            return self._draw(c[\"dit_min_ms\"], c[\"dit_max_ms\"])\\n        return c[\"delay_ms\"]\\n\\n\\ndef make(cfg):\\n    kind = cfg.get(\"kind\")\\n  ')",
+"out": "",
+"err": ""
+},
+{
+"t": 17.653,
+"kind": "exec",
+"cmd": "f.write(b'  if kind == \"popcorn\":\\n        return Popcorn(cfg)\\n    if kind == \"resurrection\":\\n        return Resurrection(cfg)\\n    return Fixed(cfg if \"delay_ms\" in cfg else {\"delay_ms\": 30000})\\n')",
+"out": "",
+"err": ""
+},
+{
+"t": 17.712,
+"kind": "exec",
+"cmd": "f.close()",
+"out": "",
+"err": ""
+},
+{
+"t": 17.778,
+"kind": "exec",
+"cmd": "import os, binascii\nc=0\nf=open('foxlib/schedule.py','rb')\nwhile True:\n b=f.read(512)\n if not b: break\n c=binascii.crc32(b,c)\nf.close()\nprint(os.stat('foxlib/schedule.py')[6], c)\n",
+"out": "2872 2190298885\n",
+"err": ""
+},
+{
+"t": 17.837,
+"kind": "exec",
+"cmd": "f=open('foxlib/sstv.py','wb')",
+"out": "",
+"err": ""
+},
+{
+"t": 17.92,
+"kind": "exec",
+"cmd": "f.write(b'# SPDX-License-Identifier: GPL-3.0-or-later\\n# foxlib/sstv.py -- Robot 36 (grayscale) SSTV as an event stream; images.bin reader.\\n# No hardware imports. Twin of js/audio/sstv.js.\\n#\\n# Robot 36 is a colour mode nearly every decoder supports; the image is sent\\n# as luminance with both chroma scans held at 1900 Hz, which decodes as\\n# grayscale. 40 px per 88 ms line = 2.2 ms per pixel, w')",
+"out": "",
+"err": ""
+},
+{
+"t": 18.003,
+"kind": "exec",
+"cmd": "f.write(b'ithin CircuitPython\\'s\\n# timing. ~37 s per image regardless of content.\\n\\nMODE = {\"name\": \"Robot 36 (grayscale)\", \"vis\": 8, \"lines\": 240,\\n        \"sync_ms\": 9.0, \"sync_porch_ms\": 3.0, \"y_ms\": 88.0,\\n        \"sep_ms\": 4.5, \"porch_ms\": 1.5, \"chroma_ms\": 44.0}\\nPIXELS_PER_LINE = 40\\nF_SYNC, F_BLACK, F_WHITE, F_LEADER, F_BIT0, F_BIT1 = 1200, 1500, 2300, 1900, 1300, 1100\\n\\n\\ndef pixel_hz(v):\\n ')",
+"out": "",
+"err": ""
+},
+{
+"t": 18.086,
+"kind": "exec",
+"cmd": "f.write(b'   return F_BLACK + (F_WHITE - F_BLACK) * v / 255\\n\\n\\ndef vis_events(vis=None):\\n    if vis is None:\\n        vis = MODE[\"vis\"]\\n    yield (F_LEADER, 300.0)\\n    yield (F_SYNC, 10.0)\\n    yield (F_LEADER, 300.0)\\n    yield (F_SYNC, 30.0)\\n    ones = 0\\n    for bit in range(7):\\n        if (vis >> bit) & 1:\\n            ones += 1\\n            yield (F_BIT1, 30.0)\\n        else:\\n            yield ')",
+"out": "",
+"err": ""
+},
+{
+"t": 18.169,
+"kind": "exec",
+"cmd": "f.write(b'(F_BIT0, 30.0)\\n    yield ((F_BIT1 if ones % 2 else F_BIT0), 30.0)\\n    yield (F_SYNC, 30.0)\\n\\n\\ndef line_events(row, line_no):\\n    yield (F_SYNC, MODE[\"sync_ms\"])\\n    yield (1500, MODE[\"sync_porch_ms\"])\\n    px = MODE[\"y_ms\"] / len(row)\\n    v, run = row[0], 1\\n    for i in range(1, len(row)):\\n        if row[i] == v:\\n            run += 1\\n        else:\\n            yield (pixel_hz(v), px *')",
+"out": "",
+"err": ""
+},
+{
+"t": 18.252,
+"kind": "exec",
+"cmd": "f.write(b' run)\\n            v, run = row[i], 1\\n    yield (pixel_hz(v), px * run)\\n    yield ((1500 if line_no % 2 == 0 else 2300), MODE[\"sep_ms\"])\\n    yield (F_LEADER, MODE[\"porch_ms\"])\\n    yield (F_LEADER, MODE[\"chroma_ms\"])\\n\\n\\ndef events(image):\\n    \"\"\"image = {\"name\", \"width\", \"height\", \"pixels\": bytes}; pads with black / crops to 240 lines.\"\"\"\\n    w, h, px = image[\"width\"], image[\"height\"]')",
+"out": "",
+"err": ""
+},
+{
+"t": 18.336,
+"kind": "exec",
+"cmd": "f.write(b', image[\"pixels\"]\\n    for e in vis_events():\\n        yield e\\n    black = bytes(w)\\n    for line in range(MODE[\"lines\"]):\\n        row = px[line * w:(line + 1) * w] if line < h else black\\n        for e in line_events(row, line):\\n            yield e\\n\\n\\nLINE_MS = MODE[\"sync_ms\"] + MODE[\"sync_porch_ms\"] + MODE[\"y_ms\"] + MODE[\"sep_ms\"] + MODE[\"porch_ms\"] + MODE[\"chroma_ms\"]\\nHEADER_MS = 300')",
+"out": "",
+"err": ""
+},
+{
+"t": 18.419,
+"kind": "exec",
+"cmd": "f.write(b' + 10 + 300 + 30 + 7 * 30 + 30 + 30\\n\\n\\ndef duration_ms():\\n    return HEADER_MS + MODE[\"lines\"] * LINE_MS\\n\\n\\ndef test_card(w=PIXELS_PER_LINE, h=240):\\n    px = bytearray(w * h)\\n    band = h // 3\\n    for y in range(h):\\n        for x in range(w):\\n            if y < band:\\n                v = 255 * x // (w - 1)\\n            elif y < 2 * band:\\n                v = 255 if ((x // 4 + y // 4) % ')",
+"out": "",
+"err": ""
+},
+{
+"t": 18.502,
+"kind": "exec",
+"cmd": "f.write(b'2) else 0\\n            else:\\n                yy = y - 2 * band\\n                span = h - 2 * band\\n                d1 = abs(x * span - yy * w)\\n                d2 = abs(x * span - (span - yy) * w)\\n                v = 255 if min(d1, d2) < 2 * span else 0\\n            px[y * w + x] = v\\n    return {\"name\": \"test_card\", \"width\": w, \"height\": h, \"pixels\": bytes(px)}\\n\\n\\ndef load_images(path=')",
+"out": "",
+"err": ""
+},
+{
+"t": 18.585,
+"kind": "exec",
+"cmd": "f.write(b'\"images.bin\"):\\n    \"\"\"u8 count; per image u8 w, u8 h, u8 name_len, name, w*h bytes. Falls back to the test card.\"\"\"\\n    try:\\n        with open(path, \"rb\") as f:\\n            data = f.read()\\n    except OSError:\\n        return [test_card()]\\n    out = []\\n    try:\\n        o = 0\\n        count = data[o]\\n        o += 1\\n        for _ in range(count):\\n            w, h, nl = data[o], data[o +')",
+"out": "",
+"err": ""
+},
+{
+"t": 18.668,
+"kind": "exec",
+"cmd": "f.write(b' 1], data[o + 2]\\n            o += 3\\n            name = data[o:o + nl].decode()\\n            o += nl\\n            out.append({\"name\": name, \"width\": w, \"height\": h, \"pixels\": data[o:o + w * h]})\\n            o += w * h\\n    except Exception:\\n        pass\\n    return out or [test_card()]\\n\\n\\nclass Images:\\n    def __init__(self, images):\\n        self.images = images\\n        self.index = 0\\n\\n ')",
+"out": "",
+"err": ""
+},
+{
+"t": 18.735,
+"kind": "exec",
+"cmd": "f.write(b'   def __len__(self):\\n        return len(self.images)\\n\\n    def next_events(self):\\n        im = self.images[self.index]\\n        self.index = (self.index + 1) % len(self.images)\\n        return events(im)\\n')",
+"out": "",
+"err": ""
+},
+{
+"t": 18.793,
+"kind": "exec",
+"cmd": "f.close()",
+"out": "",
+"err": ""
+},
+{
+"t": 18.86,
+"kind": "exec",
+"cmd": "import os, binascii\nc=0\nf=open('foxlib/sstv.py','rb')\nwhile True:\n b=f.read(512)\n if not b: break\n c=binascii.crc32(b,c)\nf.close()\nprint(os.stat('foxlib/sstv.py')[6], c)\n",
+"out": "4042 3583044681\n",
+"err": ""
+},
+{
+"t": 18.918,
+"kind": "exec",
+"cmd": "f=open('foxlib/tones.py','wb')",
+"out": "",
+"err": ""
+},
+{
+"t": 19.001,
+"kind": "exec",
+"cmd": "f.write(b'# SPDX-License-Identifier: GPL-3.0-or-later\\n# foxlib/tones.py -- the one transmitter. Everything on the air is an event\\n# stream of (frequency_hz, duration_ms); 0 Hz is silence.\\n#\\n# One PWMOut on the audio pin, kept alive with variable_frequency; rests set\\n# duty to 0 instead of deinit/reinit (no clicks, no per-event setup cost --\\n# SSTV pixels are 2.2 ms). Events are scheduled on ')",
+"out": "",
+"err": ""
+},
+{
+"t": 19.084,
+"kind": "exec",
+"cmd": "f.write(b'absolute deadlines from\\n# time.monotonic_ns so loop overhead cannot accumulate into slant or tempo drift.\\n\\nimport time\\nimport pwmio\\n\\nDUTY_ON = 32768\\n\\n\\nclass Player:\\n    def __init__(self, audio_pin):\\n        self.pwm = pwmio.PWMOut(audio_pin, frequency=800, duty_cycle=0, variable_frequency=True)\\n\\n    def play(self, events, max_ms=None, on_tick=None):\\n        \"\"\"Play events. Returns')",
+"out": "",
+"err": ""
+},
+{
+"t": 19.168,
+"kind": "exec",
+"cmd": "f.write(b' True if completed, False if cut by max_ms.\"\"\"\\n        start = time.monotonic_ns()\\n        deadline = start\\n        budget = None if max_ms is None else start + int(max_ms * 1e6)\\n        pwm = self.pwm\\n        try:\\n            for hz, ms in events:\\n                if hz > 0:\\n                    f = int(hz)\\n                    if f < 1:\\n                        f = 1\\n                ')",
+"out": "",
+"err": ""
+},
+{
+"t": 19.251,
+"kind": "exec",
+"cmd": "f.write(b'    if pwm.frequency != f:\\n                        pwm.frequency = f\\n                    pwm.duty_cycle = DUTY_ON\\n                else:\\n                    pwm.duty_cycle = 0\\n                deadline += int(ms * 1e6)\\n                if budget is not None and deadline > budget:\\n                    self._wait_until(budget)\\n                    return False\\n                self._wait_u')",
+"out": "",
+"err": ""
+},
+{
+"t": 19.334,
+"kind": "exec",
+"cmd": "f.write(b'ntil(deadline)\\n        finally:\\n            pwm.duty_cycle = 0\\n        return True\\n\\n    @staticmethod\\n    def _wait_until(t_ns):\\n        remaining = t_ns - time.monotonic_ns()\\n        if remaining > 2000000:\\n            time.sleep((remaining - 1000000) / 1e9)\\n        while time.monotonic_ns() < t_ns:\\n            pass\\n\\n    def deinit(self):\\n        self.pwm.deinit()\\n')",
+"out": "",
+"err": ""
+},
+{
+"t": 19.393,
+"kind": "exec",
+"cmd": "f.close()",
+"out": "",
+"err": ""
+},
+{
+"t": 19.459,
+"kind": "exec",
+"cmd": "import os, binascii\nc=0\nf=open('foxlib/tones.py','rb')\nwhile True:\n b=f.read(512)\n if not b: break\n c=binascii.crc32(b,c)\nf.close()\nprint(os.stat('foxlib/tones.py')[6], c)\n",
+"out": "1904 4198463930\n",
+"err": ""
+},
+{
+"t": 19.527,
+"kind": "exec",
+"cmd": "import os\nfor n in os.listdir('foxlib'):\n try:\n  s=os.stat('foxlib/'+n); print(n, s[6], 'd' if s[0] & 0x4000 else 'f')\n except Exception:\n  print(n, -1, '?')\n",
+"out": "cycle.py 5253 f\nradio.py 4914 f\nbattery.py 1448 f\n__init__.py 4936 f\nnetcfg.py 11008 f\nschedule.py 2872 f\nnetfox.py 7442 f\nmorse.py 2111 f\nnetradio.py 7618 f\nsstv.py 4042 f\nled.py 2126 f\ncfg.py 16563 f\ntones.py 1904 f\nVERSION 6 f\nmelody.py 1465 f\n",
+"err": ""
+},
+{
+"t": 24.716,
+"kind": "exec",
+"cmd": "f=open('code.py','wb')",
+"out": "",
+"err": ""
+},
+{
+"t": 24.799,
+"kind": "exec",
+"cmd": "f.write(b\"# SPDX-License-Identifier: GPL-3.0-or-later\\n# fox-bench template: morse-songs -- Morse ID, then one song per cycle.\\n#\\n# Behaviour only; everything shared lives in foxlib. Configuration is\\n# fox.json merged over defaults.json (the template's known-good config\\n# for this board, copied alongside at deploy time). See CONFIG.md.\\n#\\n# Lineage: the transmit sequence of this runner descends\")",
+"out": "",
+"err": ""
+},
+{
+"t": 24.882,
+"kind": "exec",
+"cmd": "f.write(b' from earlier\\n# GPL-3.0 fox firmware (rot13labs fox via the 2024 CircuitPython port,\\n# building on YAFB by KN4CK). Distributed under GPL-3.0-or-later,\\n# WITHOUT ANY WARRANTY; see firmware/LICENSE.\\n\\nimport foxlib\\n\\nfox = foxlib.Fox(\"fox.json\", defaults=\"defaults.json\", version=\"1.1.0\")\\nfor tx in fox.cycles():\\n    tx.morse(tx.id_message)\\n    if not (tx.low_battery and fox.cfg[\"payload')",
+"out": "",
+"err": ""
+},
+{
+"t": 24.941,
+"kind": "exec",
+"cmd": "f.write(b'\"][\"skip_on_low_battery\"]):\\n        tx.play(fox.playlist.next_events())\\n')",
+"out": "",
+"err": ""
+},
+{
+"t": 24.999,
+"kind": "exec",
+"cmd": "f.close()",
+"out": "",
+"err": ""
+},
+{
+"t": 25.066,
+"kind": "exec",
+"cmd": "import os, binascii\nc=0\nf=open('code.py','rb')\nwhile True:\n b=f.read(512)\n if not b: break\n c=binascii.crc32(b,c)\nf.close()\nprint(os.stat('code.py')[6], c)\n",
+"out": "840 2074312930\n",
+"err": ""
+},
+{
+"t": 25.124,
+"kind": "exec",
+"cmd": "f=open('defaults.json','wb')",
+"out": "",
+"err": ""
+},
+{
+"t": 25.208,
+"kind": "exec",
+"cmd": "f.write(b'{\"schema\": 1, \"template\": \"morse-songs\", \"board\": \"seeed_xiao_esp32c3\", \"module\": \"sa868_vhf\", \"pins\": {\"ptt\": \"D3\", \"pd\": \"D4\", \"hl\": \"D5\", \"uart_tx\": \"D6\", \"uart_rx\": \"D7\", \"audio\": \"D1\", \"led\": \"D10\", \"batt_sense\": null}, \"radio\": {\"family\": \"dmo\", \"ranges_mhz\": [[134.0, 174.0]], \"bandwidth_khz\": 25.0, \"squelch\": 3, \"volume\": 5, \"high_power\": false, \"power_dbm\": null}, \"plan\": {')",
+"out": "",
+"err": ""
+},
+{
+"t": 25.291,
+"kind": "exec",
+"cmd": "f.write(b'\"frequencies_mhz\": [146.565], \"announce_qsy\": false}, \"id\": {\"callmessage\": \"N0CALL DECOY DECOY N0CALL\", \"placeholder\": \"N0CALL\", \"wpm\": 12, \"tone_hz\": 800, \"telemetry\": [\"batt\"], \"tx_without_callsign\": false}, \"payload\": {\"kind\": \"songs\", \"articulation\": 0.875, \"skip_on_low_battery\": true, \"playlist\": [{\"name\": \"Auld Lang Syne\", \"tempo\": 90, \"notes\": [[55, 8], [60, 12], [60, 4], [')",
+"out": "",
+"err": ""
+},
+{
+"t": 25.374,
+"kind": "exec",
+"cmd": "f.write(b'60, 8], [64, 8], [62, 12], [60, 4], [62, 8], [64, 4], [62, 4], [60, 12], [60, 4], [64, 8], [67, 8], [69, 16], [0, 8], [69, 8], [67, 12], [64, 4], [64, 8], [60, 8], [62, 12], [60, 4], [62, 8], [64, 4], [62, 4], [60, 12], [57, 4], [57, 8], [55, 8], [60, 16]]}]}, \"schedule\": {\"kind\": \"fixed\", \"delay_ms\": 30000}, \"battery\": {\"divider_ratio\": 2.0, \"calibration\": 1.0, \"samples\": 16, \"low')",
+"out": "",
+"err": ""
+},
+{
+"t": 25.441,
+"kind": "exec",
+"cmd": "f.write(b'_v\": 3.5, \"critical_v\": 3.3, \"recovery_v\": 3.4}, \"limits\": {\"max_keydown_s\": null}, \"fleet\": {\"profile\": \"\", \"number\": null, \"event\": \"\", \"notes\": \"\"}}')",
+"out": "",
+"err": ""
+},
+{
+"t": 25.5,
+"kind": "exec",
+"cmd": "f.close()",
+"out": "",
+"err": ""
+},
+{
+"t": 25.566,
+"kind": "exec",
+"cmd": "import os, binascii\nc=0\nf=open('defaults.json','rb')\nwhile True:\n b=f.read(512)\n if not b: break\n c=binascii.crc32(b,c)\nf.close()\nprint(os.stat('defaults.json')[6], c)\n",
+"out": "1303 1442286658\n",
+"err": ""
+},
+{
+"t": 25.625,
+"kind": "exec",
+"cmd": "f=open('fox.json','wb')",
+"out": "",
+"err": ""
+},
+{
+"t": 25.708,
+"kind": "exec",
+"cmd": "f.write(b'{\\n \"schema\": 1,\\n \"template\": \"morse-songs\",\\n \"board\": \"seeed_xiao_esp32c3\",\\n \"module\": \"sa868_vhf\",\\n \"pins\": {\\n  \"ptt\": \"D3\",\\n  \"pd\": \"D4\",\\n  \"hl\": \"D5\",\\n  \"uart_tx\": \"D6\",\\n  \"uart_rx\": \"D7\",\\n  \"audio\": \"D1\",\\n  \"led\": \"D10\",\\n  \"batt_sense\": null\\n },\\n \"radio\": {\\n  \"family\": \"dmo\",\\n  \"ranges_mhz\": [\\n   [\\n    134.0,\\n    174.0\\n   ]\\n  ],\\n  \"bandwidth_khz\": 25.0,\\n  \"squelch\": 3,\\n  \"volum')",
+"out": "",
+"err": ""
+},
+{
+"t": 25.791,
+"kind": "exec",
+"cmd": "f.write(b'e\": 5,\\n  \"high_power\": false,\\n  \"power_dbm\": null\\n },\\n \"plan\": {\\n  \"frequencies_mhz\": [\\n   146.565\\n  ],\\n  \"announce_qsy\": false\\n },\\n \"id\": {\\n  \"callmessage\": \"W1ABC FOX DE W1ABC\",\\n  \"placeholder\": \"N0CALL\",\\n  \"wpm\": 12,\\n  \"tone_hz\": 800,\\n  \"telemetry\": [\\n   \"batt\"\\n  ],\\n  \"tx_without_callsign\": false\\n },\\n \"payload\": {\\n  \"kind\": \"songs\",\\n  \"articulation\": 0.875,\\n  \"skip_on_low_batter')",
+"out": "",
+"err": ""
+},
+{
+"t": 25.874,
+"kind": "exec",
+"cmd": "f.write(b'y\": true,\\n  \"playlist\": [\\n   {\\n    \"name\": \"Auld Lang Syne\",\\n    \"tempo\": 90,\\n    \"notes\": [\\n     [\\n      55,\\n      8\\n     ],\\n     [\\n      60,\\n      12\\n     ],\\n     [\\n      60,\\n      4\\n     ],\\n     [\\n      60,\\n      8\\n     ],\\n     [\\n      64,\\n      8\\n     ],\\n     [\\n      62,\\n      12\\n     ],\\n     [\\n      60,\\n      4\\n     ],\\n     [\\n      62,\\n      8\\n     ],\\n     [\\n      64,\\n      4\\n')",
+"out": "",
+"err": ""
+},
+{
+"t": 25.957,
+"kind": "exec",
+"cmd": "f.write(b'     ],\\n     [\\n      62,\\n      4\\n     ],\\n     [\\n      60,\\n      12\\n     ],\\n     [\\n      60,\\n      4\\n     ],\\n     [\\n      64,\\n      8\\n     ],\\n     [\\n      67,\\n      8\\n     ],\\n     [\\n      69,\\n      16\\n     ],\\n     [\\n      0,\\n      8\\n     ],\\n     [\\n      69,\\n      8\\n     ],\\n     [\\n      67,\\n      12\\n     ],\\n     [\\n      64,\\n      4\\n     ],\\n     [\\n      64,\\n      8\\n     ],\\n     [\\n    ')",
+"out": "",
+"err": ""
+},
+{
+"t": 26.04,
+"kind": "exec",
+"cmd": "f.write(b'  60,\\n      8\\n     ],\\n     [\\n      62,\\n      12\\n     ],\\n     [\\n      60,\\n      4\\n     ],\\n     [\\n      62,\\n      8\\n     ],\\n     [\\n      64,\\n      4\\n     ],\\n     [\\n      62,\\n      4\\n     ],\\n     [\\n      60,\\n      12\\n     ],\\n     [\\n      57,\\n      4\\n     ],\\n     [\\n      57,\\n      8\\n     ],\\n     [\\n      55,\\n      8\\n     ],\\n     [\\n      60,\\n      16\\n     ]\\n    ]\\n   }\\n  ]\\n },\\n \"schedule\"')",
+"out": "",
+"err": ""
+},
+{
+"t": 26.115,
+"kind": "exec",
+"cmd": "f.write(b': {\\n  \"kind\": \"fixed\",\\n  \"delay_ms\": 30000\\n },\\n \"battery\": {\\n  \"divider_ratio\": 2.0,\\n  \"calibration\": 1.0,\\n  \"samples\": 16,\\n  \"low_v\": 3.5,\\n  \"critical_v\": 3.3,\\n  \"recovery_v\": 3.4\\n },\\n \"limits\": {\\n  \"max_keydown_s\": null\\n },\\n \"fleet\": {\\n  \"profile\": \"\",\\n  \"number\": null,\\n  \"event\": \"\",\\n  \"notes\": \"hw_smoke\"\\n }\\n}')",
+"out": "",
+"err": ""
+},
+{
+"t": 26.174,
+"kind": "exec",
+"cmd": "f.close()",
+"out": "",
+"err": ""
+},
+{
+"t": 26.241,
+"kind": "exec",
+"cmd": "import os, binascii\nc=0\nf=open('fox.json','rb')\nwhile True:\n b=f.read(512)\n if not b: break\n c=binascii.crc32(b,c)\nf.close()\nprint(os.stat('fox.json')[6], c)\n",
+"out": "2234 2248506018\n",
+"err": ""
+},
+{
+"t": 26.742,
+"kind": "reboot",
+"out": "\nsoft reboot\n\nAuto-reload is on. Simply save files over USB to run them or enter REPL to disable.\ncode.py output:\ninitializing system ... \nFOX template=morse-songs/1.1.0 foxlib=1.2.1 board=seeed_xiao_esp32c3 uid=1011121314151617 cfg=ok radio=ok id=set freq=146.565\nmorse: W1ABC FOX DE W1ABC\n"
+},
+{
+"t": 27.244,
+"kind": "listen",
+"seconds": 0.5,
+"out": ""
+},
+{
+"t": 27.404,
+"kind": "exec",
+"cmd": "import gc, time\ngc.collect()\na=gc.mem_free()\nt=time.monotonic()\nimport foxlib\nprint(a, gc.mem_free(), time.monotonic()-t)\n",
+"out": "120000 120000 0.001519676000043546\n",
+"err": ""
+},
+{
+"t": 27.479,
+"kind": "exec",
+"cmd": "import foxlib, gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfox = foxlib.Fox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(gc.mem_free())\nprint(fox.radio.probe((146.5, 433.5)))\nprint(fox.radio.rssi())\nprint(fox.batt.read() if fox.batt else None)\n",
+"out": "120000\n{'146.5': True, '433.5': False}\n72\nNone\n",
+"err": ""
+},
+{
+"t": 27.546,
+"kind": "exec",
+"cmd": "import foxlib, gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfox = foxlib.Fox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(fox.radio.key_for(1))\n",
+"out": "ok\n",
+"err": ""
+},
+{
+"t": 32.729,
+"kind": "exec",
+"cmd": "f=open('code.py','wb')",
+"out": "",
+"err": ""
+},
+{
+"t": 32.812,
+"kind": "exec",
+"cmd": "f.write(b'# SPDX-License-Identifier: GPL-3.0-or-later\\n# fox-bench template: morse-sstv -- Morse ID + SSTV image.\\n# Behaviour only; everything shared lives in foxlib. Configuration is\\n# fox.json merged over defaults.json (see CONFIG.md). Lineage: the\\n# transmit sequence descends from earlier GPL-3.0 fox firmware.\\n# Distributed under GPL-3.0-or-later, WITHOUT ANY WARRANTY.\\n\\nimport foxlib\\n\\nfox ')",
+"out": "",
+"err": ""
+},
+{
+"t": 32.879,
+"kind": "exec",
+"cmd": "f.write(b'= foxlib.Fox(\"fox.json\", defaults=\"defaults.json\", version=\"1.1.0\")\\nfor tx in fox.cycles():\\n    tx.morse(tx.id_message)\\n    if not (tx.low_battery and fox.cfg[\"payload\"][\"skip_on_low_battery\"]):\\n        tx.play(fox.images.next_events())\\n')",
+"out": "",
+"err": ""
+},
+{
+"t": 32.937,
+"kind": "exec",
+"cmd": "f.close()",
+"out": "",
+"err": ""
+},
+{
+"t": 33.004,
+"kind": "exec",
+"cmd": "import os, binascii\nc=0\nf=open('code.py','rb')\nwhile True:\n b=f.read(512)\n if not b: break\n c=binascii.crc32(b,c)\nf.close()\nprint(os.stat('code.py')[6], c)\n",
+"out": "621 1565942478\n",
+"err": ""
+},
+{
+"t": 33.062,
+"kind": "exec",
+"cmd": "f=open('defaults.json','wb')",
+"out": "",
+"err": ""
+},
+{
+"t": 33.146,
+"kind": "exec",
+"cmd": "f.write(b'{\"schema\": 1, \"template\": \"morse-sstv\", \"board\": \"seeed_xiao_esp32c3\", \"module\": \"sa868_vhf\", \"pins\": {\"ptt\": \"D3\", \"pd\": \"D4\", \"hl\": \"D5\", \"uart_tx\": \"D6\", \"uart_rx\": \"D7\", \"audio\": \"D1\", \"led\": \"D10\", \"batt_sense\": null}, \"radio\": {\"family\": \"dmo\", \"ranges_mhz\": [[134.0, 174.0]], \"bandwidth_khz\": 25.0, \"squelch\": 3, \"volume\": 5, \"high_power\": false, \"power_dbm\": null}, \"plan\": {\"')",
+"out": "",
+"err": ""
+},
+{
+"t": 33.229,
+"kind": "exec",
+"cmd": "f.write(b'frequencies_mhz\": [146.565], \"announce_qsy\": false}, \"id\": {\"callmessage\": \"N0CALL DECOY DECOY N0CALL\", \"placeholder\": \"N0CALL\", \"wpm\": 12, \"tone_hz\": 800, \"telemetry\": [\"batt\"], \"tx_without_callsign\": false}, \"payload\": {\"kind\": \"sstv\", \"mode\": \"robot36-gray\", \"images_file\": \"images.bin\", \"skip_on_low_battery\": true}, \"schedule\": {\"kind\": \"fixed\", \"delay_ms\": 30000}, \"battery\": {\"')",
+"out": "",
+"err": ""
+},
+{
+"t": 33.296,
+"kind": "exec",
+"cmd": "f.write(b'divider_ratio\": 2.0, \"calibration\": 1.0, \"samples\": 16, \"low_v\": 3.5, \"critical_v\": 3.3, \"recovery_v\": 3.4}, \"limits\": {\"max_keydown_s\": null}, \"fleet\": {\"profile\": \"\", \"number\": null, \"event\": \"\", \"notes\": \"\"}}')",
+"out": "",
+"err": ""
+},
+{
+"t": 33.354,
+"kind": "exec",
+"cmd": "f.close()",
+"out": "",
+"err": ""
+},
+{
+"t": 33.421,
+"kind": "exec",
+"cmd": "import os, binascii\nc=0\nf=open('defaults.json','rb')\nwhile True:\n b=f.read(512)\n if not b: break\n c=binascii.crc32(b,c)\nf.close()\nprint(os.stat('defaults.json')[6], c)\n",
+"out": "979 438176375\n",
+"err": ""
+},
+{
+"t": 33.48,
+"kind": "exec",
+"cmd": "f=open('fox.json','wb')",
+"out": "",
+"err": ""
+},
+{
+"t": 33.563,
+"kind": "exec",
+"cmd": "f.write(b'{\\n \"schema\": 1,\\n \"template\": \"morse-sstv\",\\n \"board\": \"seeed_xiao_esp32c3\",\\n \"module\": \"sa868_vhf\",\\n \"pins\": {\\n  \"ptt\": \"D3\",\\n  \"pd\": \"D4\",\\n  \"hl\": \"D5\",\\n  \"uart_tx\": \"D6\",\\n  \"uart_rx\": \"D7\",\\n  \"audio\": \"D1\",\\n  \"led\": \"D10\",\\n  \"batt_sense\": null\\n },\\n \"radio\": {\\n  \"family\": \"dmo\",\\n  \"ranges_mhz\": [\\n   [\\n    134.0,\\n    174.0\\n   ]\\n  ],\\n  \"bandwidth_khz\": 25.0,\\n  \"squelch\": 3,\\n  \"volume')",
+"out": "",
+"err": ""
+},
+{
+"t": 33.646,
+"kind": "exec",
+"cmd": "f.write(b'\": 5,\\n  \"high_power\": false,\\n  \"power_dbm\": null\\n },\\n \"plan\": {\\n  \"frequencies_mhz\": [\\n   146.565\\n  ],\\n  \"announce_qsy\": false\\n },\\n \"id\": {\\n  \"callmessage\": \"W1ABC FOX DE W1ABC\",\\n  \"placeholder\": \"N0CALL\",\\n  \"wpm\": 12,\\n  \"tone_hz\": 800,\\n  \"telemetry\": [\\n   \"batt\"\\n  ],\\n  \"tx_without_callsign\": false\\n },\\n \"payload\": {\\n  \"kind\": \"sstv\",\\n  \"mode\": \"robot36-gray\",\\n  \"images_file\": \"imag')",
+"out": "",
+"err": ""
+},
+{
+"t": 33.729,
+"kind": "exec",
+"cmd": "f.write(b'es.bin\",\\n  \"skip_on_low_battery\": true\\n },\\n \"schedule\": {\\n  \"kind\": \"fixed\",\\n  \"delay_ms\": 30000\\n },\\n \"battery\": {\\n  \"divider_ratio\": 2.0,\\n  \"calibration\": 1.0,\\n  \"samples\": 16,\\n  \"low_v\": 3.5,\\n  \"critical_v\": 3.3,\\n  \"recovery_v\": 3.4\\n },\\n \"limits\": {\\n  \"max_keydown_s\": null\\n },\\n \"fleet\": {\\n  \"profile\": \"\",\\n  \"number\": null,\\n  \"event\": \"\",\\n  \"notes\": \"hw_smoke\"\\n }\\n}')",
+"out": "",
+"err": ""
+},
+{
+"t": 33.788,
+"kind": "exec",
+"cmd": "f.close()",
+"out": "",
+"err": ""
+},
+{
+"t": 33.857,
+"kind": "exec",
+"cmd": "import os, binascii\nc=0\nf=open('fox.json','rb')\nwhile True:\n b=f.read(512)\n if not b: break\n c=binascii.crc32(b,c)\nf.close()\nprint(os.stat('fox.json')[6], c)\n",
+"out": "1136 2292939419\n",
+"err": ""
+},
+{
+"t": 33.916,
+"kind": "exec",
+"cmd": "f=open('images.bin','wb')",
+"out": "",
+"err": ""
+},
+{
+"t": 33.975,
+"kind": "exec",
+"cmd": "f.close()",
+"out": "",
+"err": ""
+},
+{
+"t": 34.041,
+"kind": "exec",
+"cmd": "import os, binascii\nc=0\nf=open('images.bin','rb')\nwhile True:\n b=f.read(512)\n if not b: break\n c=binascii.crc32(b,c)\nf.close()\nprint(os.stat('images.bin')[6], c)\n",
+"out": "0 0\n",
+"err": ""
+},
+{
+"t": 34.493,
+"kind": "reboot",
+"out": "\nsoft reboot\n\nAuto-reload is on. Simply save files over USB to run them or enter REPL to disable.\ncode.py output:\ninitializing system ... \nFOX template=morse-sstv/1.1.0 foxlib=1.2.1 board=seeed_xiao_esp32c3 uid=1011121314151617 cfg=ok radio=ok id=set freq=146.565\nmorse: W1ABC FOX DE W1ABC\n"
+},
+{
+"t": 34.995,
+"kind": "listen",
+"seconds": 0.5,
+"out": ""
+},
+{
+"t": 35.155,
+"kind": "exec",
+"cmd": "import gc, time\ngc.collect()\na=gc.mem_free()\nt=time.monotonic()\nimport foxlib\nprint(a, gc.mem_free(), time.monotonic()-t)\n",
+"out": "120000 120000 0.0013208299999405426\n",
+"err": ""
+},
+{
+"t": 35.23,
+"kind": "exec",
+"cmd": "import foxlib, gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfox = foxlib.Fox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(gc.mem_free())\nprint(fox.radio.probe((146.5, 433.5)))\nprint(fox.radio.rssi())\nprint(fox.batt.read() if fox.batt else None)\n",
+"out": "120000\n{'146.5': True, '433.5': False}\n72\nNone\n",
+"err": ""
+},
+{
+"t": 35.296,
+"kind": "exec",
+"cmd": "import foxlib, gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfox = foxlib.Fox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(fox.radio.key_for(1))\n",
+"out": "ok\n",
+"err": ""
+},
+{
+"t": 40.48,
+"kind": "exec",
+"cmd": "f=open('code.py','wb')",
+"out": "",
+"err": ""
+},
+{
+"t": 40.564,
+"kind": "exec",
+"cmd": "f.write(b'# SPDX-License-Identifier: GPL-3.0-or-later\\n# fox-bench template: morse-qrss -- QRSS (slow Morse for waterfall copy).\\n# Behaviour only; everything shared lives in foxlib. Configuration is\\n# fox.json merged over defaults.json (see CONFIG.md). Lineage: the\\n# transmit sequence descends from earlier GPL-3.0 fox firmware.\\n# Distributed under GPL-3.0-or-later, WITHOUT ANY WARRANTY.\\n\\nimpo')",
+"out": "",
+"err": ""
+},
+{
+"t": 40.63,
+"kind": "exec",
+"cmd": "f.write(b'rt foxlib\\n\\nfox = foxlib.Fox(\"fox.json\", defaults=\"defaults.json\", version=\"1.1.0\")\\np = fox.cfg[\"payload\"]\\nfor tx in fox.cycles():\\n    tx.morse(p[\"message\"] or tx.id_message, dit_s=p[\"dit_s\"])\\n')",
+"out": "",
+"err": ""
+},
+{
+"t": 40.689,
+"kind": "exec",
+"cmd": "f.close()",
+"out": "",
+"err": ""
+},
+{
+"t": 40.756,
+"kind": "exec",
+"cmd": "import os, binascii\nc=0\nf=open('code.py','rb')\nwhile True:\n b=f.read(512)\n if not b: break\n c=binascii.crc32(b,c)\nf.close()\nprint(os.stat('code.py')[6], c)\n",
+"out": "576 3518778150\n",
+"err": ""
+},
+{
+"t": 40.814,
+"kind": "exec",
+"cmd": "f=open('defaults.json','wb')",
+"out": "",
+"err": ""
+},
+{
+"t": 40.897,
+"kind": "exec",
+"cmd": "f.write(b'{\"schema\": 1, \"template\": \"morse-qrss\", \"board\": \"seeed_xiao_esp32c3\", \"module\": \"sa868_vhf\", \"pins\": {\"ptt\": \"D3\", \"pd\": \"D4\", \"hl\": \"D5\", \"uart_tx\": \"D6\", \"uart_rx\": \"D7\", \"audio\": \"D1\", \"led\": \"D10\", \"batt_sense\": null}, \"radio\": {\"family\": \"dmo\", \"ranges_mhz\": [[134.0, 174.0]], \"bandwidth_khz\": 25.0, \"squelch\": 3, \"volume\": 5, \"high_power\": false, \"power_dbm\": null}, \"plan\": {\"')",
+"out": "",
+"err": ""
+},
+{
+"t": 40.98,
+"kind": "exec",
+"cmd": "f.write(b'frequencies_mhz\": [146.565], \"announce_qsy\": false}, \"id\": {\"callmessage\": \"N0CALL DECOY DECOY N0CALL\", \"placeholder\": \"N0CALL\", \"wpm\": 12, \"tone_hz\": 800, \"telemetry\": [\"batt\"], \"tx_without_callsign\": false}, \"payload\": {\"kind\": \"none\", \"dit_s\": 3.0, \"message\": null}, \"schedule\": {\"kind\": \"fixed\", \"delay_ms\": 30000}, \"battery\": {\"divider_ratio\": 2.0, \"calibration\": 1.0, \"samples\":')",
+"out": "",
+"err": ""
+},
+{
+"t": 41.047,
+"kind": "exec",
+"cmd": "f.write(b' 16, \"low_v\": 3.5, \"critical_v\": 3.3, \"recovery_v\": 3.4}, \"limits\": {\"max_keydown_s\": null}, \"fleet\": {\"profile\": \"\", \"number\": null, \"event\": \"\", \"notes\": \"\"}}')",
+"out": "",
+"err": ""
+},
+{
+"t": 41.106,
+"kind": "exec",
+"cmd": "f.close()",
+"out": "",
+"err": ""
+},
+{
+"t": 41.172,
+"kind": "exec",
+"cmd": "import os, binascii\nc=0\nf=open('defaults.json','rb')\nwhile True:\n b=f.read(512)\n if not b: break\n c=binascii.crc32(b,c)\nf.close()\nprint(os.stat('defaults.json')[6], c)\n",
+"out": "928 1458106632\n",
+"err": ""
+},
+{
+"t": 41.231,
+"kind": "exec",
+"cmd": "f=open('fox.json','wb')",
+"out": "",
+"err": ""
+},
+{
+"t": 41.314,
+"kind": "exec",
+"cmd": "f.write(b'{\\n \"schema\": 1,\\n \"template\": \"morse-qrss\",\\n \"board\": \"seeed_xiao_esp32c3\",\\n \"module\": \"sa868_vhf\",\\n \"pins\": {\\n  \"ptt\": \"D3\",\\n  \"pd\": \"D4\",\\n  \"hl\": \"D5\",\\n  \"uart_tx\": \"D6\",\\n  \"uart_rx\": \"D7\",\\n  \"audio\": \"D1\",\\n  \"led\": \"D10\",\\n  \"batt_sense\": null\\n },\\n \"radio\": {\\n  \"family\": \"dmo\",\\n  \"ranges_mhz\": [\\n   [\\n    134.0,\\n    174.0\\n   ]\\n  ],\\n  \"bandwidth_khz\": 25.0,\\n  \"squelch\": 3,\\n  \"volume')",
+"out": "",
+"err": ""
+},
+{
+"t": 41.397,
+"kind": "exec",
+"cmd": "f.write(b'\": 5,\\n  \"high_power\": false,\\n  \"power_dbm\": null\\n },\\n \"plan\": {\\n  \"frequencies_mhz\": [\\n   146.565\\n  ],\\n  \"announce_qsy\": false\\n },\\n \"id\": {\\n  \"callmessage\": \"W1ABC FOX DE W1ABC\",\\n  \"placeholder\": \"N0CALL\",\\n  \"wpm\": 12,\\n  \"tone_hz\": 800,\\n  \"telemetry\": [\\n   \"batt\"\\n  ],\\n  \"tx_without_callsign\": false\\n },\\n \"payload\": {\\n  \"kind\": \"none\",\\n  \"dit_s\": 3.0,\\n  \"message\": null\\n },\\n \"schedule')",
+"out": "",
+"err": ""
+},
+{
+"t": 41.472,
+"kind": "exec",
+"cmd": "f.write(b'\": {\\n  \"kind\": \"fixed\",\\n  \"delay_ms\": 30000\\n },\\n \"battery\": {\\n  \"divider_ratio\": 2.0,\\n  \"calibration\": 1.0,\\n  \"samples\": 16,\\n  \"low_v\": 3.5,\\n  \"critical_v\": 3.3,\\n  \"recovery_v\": 3.4\\n },\\n \"limits\": {\\n  \"max_keydown_s\": null\\n },\\n \"fleet\": {\\n  \"profile\": \"\",\\n  \"number\": null,\\n  \"event\": \"\",\\n  \"notes\": \"hw_smoke\"\\n }\\n}')",
+"out": "",
+"err": ""
+},
+{
+"t": 41.531,
+"kind": "exec",
+"cmd": "f.close()",
+"out": "",
+"err": ""
+},
+{
+"t": 41.597,
+"kind": "exec",
+"cmd": "import os, binascii\nc=0\nf=open('fox.json','rb')\nwhile True:\n b=f.read(512)\n if not b: break\n c=binascii.crc32(b,c)\nf.close()\nprint(os.stat('fox.json')[6], c)\n",
+"out": "1083 1966816159\n",
+"err": ""
+},
+{
+"t": 42.048,
+"kind": "reboot",
+"out": "\nsoft reboot\n\nAuto-reload is on. Simply save files over USB to run them or enter REPL to disable.\ncode.py output:\ninitializing system ... \nFOX template=morse-qrss/1.1.0 foxlib=1.2.1 board=seeed_xiao_esp32c3 uid=1011121314151617 cfg=ok radio=ok id=set freq=146.565\nmorse: W1ABC FOX DE W1ABC\n"
+},
+{
+"t": 42.551,
+"kind": "listen",
+"seconds": 0.5,
+"out": ""
+},
+{
+"t": 42.71,
+"kind": "exec",
+"cmd": "import gc, time\ngc.collect()\na=gc.mem_free()\nt=time.monotonic()\nimport foxlib\nprint(a, gc.mem_free(), time.monotonic()-t)\n",
+"out": "120000 120000 0.001454942000009396\n",
+"err": ""
+},
+{
+"t": 42.785,
+"kind": "exec",
+"cmd": "import foxlib, gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfox = foxlib.Fox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(gc.mem_free())\nprint(fox.radio.probe((146.5, 433.5)))\nprint(fox.radio.rssi())\nprint(fox.batt.read() if fox.batt else None)\n",
+"out": "120000\n{'146.5': True, '433.5': False}\n72\nNone\n",
+"err": ""
+},
+{
+"t": 42.852,
+"kind": "exec",
+"cmd": "import foxlib, gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfox = foxlib.Fox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(fox.radio.key_for(1))\n",
+"out": "ok\n",
+"err": ""
+},
+{
+"t": 48.036,
+"kind": "exec",
+"cmd": "f=open('code.py','wb')",
+"out": "",
+"err": ""
+},
+{
+"t": 48.119,
+"kind": "exec",
+"cmd": "f.write(b'# SPDX-License-Identifier: GPL-3.0-or-later\\n# fox-bench template: freq-rotator -- Frequency rotator.\\n# Behaviour only; everything shared lives in foxlib. Configuration is\\n# fox.json merged over defaults.json (see CONFIG.md). Lineage: the\\n# transmit sequence descends from earlier GPL-3.0 fox firmware.\\n# Distributed under GPL-3.0-or-later, WITHOUT ANY WARRANTY.\\n\\nimport foxlib\\n\\nfox = ')",
+"out": "",
+"err": ""
+},
+{
+"t": 48.194,
+"kind": "exec",
+"cmd": "f.write(b'foxlib.Fox(\"fox.json\", defaults=\"defaults.json\", version=\"1.1.0\")\\nfor tx in fox.cycles():          # retune + QSY handled by foxlib.cycle after the body\\n    tx.morse(tx.id_message)\\n    if not (tx.low_battery and fox.cfg[\"payload\"][\"skip_on_low_battery\"]):\\n        tx.play(fox.playlist.next_events())\\n')",
+"out": "",
+"err": ""
+},
+{
+"t": 48.252,
+"kind": "exec",
+"cmd": "f.close()",
+"out": "",
+"err": ""
+},
+{
+"t": 48.319,
+"kind": "exec",
+"cmd": "import os, binascii\nc=0\nf=open('code.py','rb')\nwhile True:\n b=f.read(512)\n if not b: break\n c=binascii.crc32(b,c)\nf.close()\nprint(os.stat('code.py')[6], c)\n",
+"out": "684 3088213976\n",
+"err": ""
+},
+{
+"t": 48.377,
+"kind": "exec",
+"cmd": "f=open('defaults.json','wb')",
+"out": "",
+"err": ""
+},
+{
+"t": 48.46,
+"kind": "exec",
+"cmd": "f.write(b'{\"schema\": 1, \"template\": \"freq-rotator\", \"board\": \"seeed_xiao_esp32c3\", \"module\": \"sa868_vhf\", \"pins\": {\"ptt\": \"D3\", \"pd\": \"D4\", \"hl\": \"D5\", \"uart_tx\": \"D6\", \"uart_rx\": \"D7\", \"audio\": \"D1\", \"led\": \"D10\", \"batt_sense\": null}, \"radio\": {\"family\": \"dmo\", \"ranges_mhz\": [[134.0, 174.0]], \"bandwidth_khz\": 25.0, \"squelch\": 3, \"volume\": 5, \"high_power\": false, \"power_dbm\": null}, \"plan\": ')",
+"out": "",
+"err": ""
+},
+{
+"t": 48.544,
+"kind": "exec",
+"cmd": "f.write(b'{\"frequencies_mhz\": [146.565, 147.42, 147.445], \"announce_qsy\": true}, \"id\": {\"callmessage\": \"N0CALL DECOY DECOY N0CALL\", \"placeholder\": \"N0CALL\", \"wpm\": 12, \"tone_hz\": 800, \"telemetry\": [\"batt\"], \"tx_without_callsign\": false}, \"payload\": {\"kind\": \"songs\", \"articulation\": 0.875, \"skip_on_low_battery\": true, \"playlist\": [{\"name\": \"Auld Lang Syne\", \"tempo\": 90, \"notes\": [[55, 8], [60')",
+"out": "",
+"err": ""
+},
+{
+"t": 48.627,
+"kind": "exec",
+"cmd": "f.write(b', 12], [60, 4], [60, 8], [64, 8], [62, 12], [60, 4], [62, 8], [64, 4], [62, 4], [60, 12], [60, 4], [64, 8], [67, 8], [69, 16], [0, 8], [69, 8], [67, 12], [64, 4], [64, 8], [60, 8], [62, 12], [60, 4], [62, 8], [64, 4], [62, 4], [60, 12], [57, 4], [57, 8], [55, 8], [60, 16]]}]}, \"schedule\": {\"kind\": \"fixed\", \"delay_ms\": 30000}, \"battery\": {\"divider_ratio\": 2.0, \"calibration\": 1.0, \"s')",
+"out": "",
+"err": ""
+},
+{
+"t": 48.694,
+"kind": "exec",
+"cmd": "f.write(b'amples\": 16, \"low_v\": 3.5, \"critical_v\": 3.3, \"recovery_v\": 3.4}, \"limits\": {\"max_keydown_s\": null}, \"fleet\": {\"profile\": \"\", \"number\": null, \"event\": \"\", \"notes\": \"\"}}')",
+"out": "",
+"err": ""
+},
+{
+"t": 48.753,
+"kind": "exec",
+"cmd": "f.close()",
+"out": "",
+"err": ""
+},
+{
+"t": 48.819,
+"kind": "exec",
+"cmd": "import os, binascii\nc=0\nf=open('defaults.json','rb')\nwhile True:\n b=f.read(512)\n if not b: break\n c=binascii.crc32(b,c)\nf.close()\nprint(os.stat('defaults.json')[6], c)\n",
+"out": "1320 2993627632\n",
+"err": ""
+},
+{
+"t": 48.878,
+"kind": "exec",
+"cmd": "f=open('fox.json','wb')",
+"out": "",
+"err": ""
+},
+{
+"t": 48.961,
+"kind": "exec",
+"cmd": "f.write(b'{\\n \"schema\": 1,\\n \"template\": \"freq-rotator\",\\n \"board\": \"seeed_xiao_esp32c3\",\\n \"module\": \"sa868_vhf\",\\n \"pins\": {\\n  \"ptt\": \"D3\",\\n  \"pd\": \"D4\",\\n  \"hl\": \"D5\",\\n  \"uart_tx\": \"D6\",\\n  \"uart_rx\": \"D7\",\\n  \"audio\": \"D1\",\\n  \"led\": \"D10\",\\n  \"batt_sense\": null\\n },\\n \"radio\": {\\n  \"family\": \"dmo\",\\n  \"ranges_mhz\": [\\n   [\\n    134.0,\\n    174.0\\n   ]\\n  ],\\n  \"bandwidth_khz\": 25.0,\\n  \"squelch\": 3,\\n  \"volu')",
+"out": "",
+"err": ""
+},
+{
+"t": 49.044,
+"kind": "exec",
+"cmd": "f.write(b'me\": 5,\\n  \"high_power\": false,\\n  \"power_dbm\": null\\n },\\n \"plan\": {\\n  \"frequencies_mhz\": [\\n   146.565,\\n   147.42,\\n   147.445\\n  ],\\n  \"announce_qsy\": true\\n },\\n \"id\": {\\n  \"callmessage\": \"W1ABC FOX DE W1ABC\",\\n  \"placeholder\": \"N0CALL\",\\n  \"wpm\": 12,\\n  \"tone_hz\": 800,\\n  \"telemetry\": [\\n   \"batt\"\\n  ],\\n  \"tx_without_callsign\": false\\n },\\n \"payload\": {\\n  \"kind\": \"songs\",\\n  \"articulation\": 0.875')",
+"out": "",
+"err": ""
+},
+{
+"t": 49.127,
+"kind": "exec",
+"cmd": "f.write(b',\\n  \"skip_on_low_battery\": true,\\n  \"playlist\": [\\n   {\\n    \"name\": \"Auld Lang Syne\",\\n    \"tempo\": 90,\\n    \"notes\": [\\n     [\\n      55,\\n      8\\n     ],\\n     [\\n      60,\\n      12\\n     ],\\n     [\\n      60,\\n      4\\n     ],\\n     [\\n      60,\\n      8\\n     ],\\n     [\\n      64,\\n      8\\n     ],\\n     [\\n      62,\\n      12\\n     ],\\n     [\\n      60,\\n      4\\n     ],\\n     [\\n      62,\\n      8\\n     ],\\n  ')",
+"out": "",
+"err": ""
+},
+{
+"t": 49.21,
+"kind": "exec",
+"cmd": "f.write(b'   [\\n      64,\\n      4\\n     ],\\n     [\\n      62,\\n      4\\n     ],\\n     [\\n      60,\\n      12\\n     ],\\n     [\\n      60,\\n      4\\n     ],\\n     [\\n      64,\\n      8\\n     ],\\n     [\\n      67,\\n      8\\n     ],\\n     [\\n      69,\\n      16\\n     ],\\n     [\\n      0,\\n      8\\n     ],\\n     [\\n      69,\\n      8\\n     ],\\n     [\\n      67,\\n      12\\n     ],\\n     [\\n      64,\\n      4\\n     ],\\n     [\\n      64,\\n    ')",
+"out": "",
+"err": ""
+},
+{
+"t": 49.293,
+"kind": "exec",
+"cmd": "f.write(b'  8\\n     ],\\n     [\\n      60,\\n      8\\n     ],\\n     [\\n      62,\\n      12\\n     ],\\n     [\\n      60,\\n      4\\n     ],\\n     [\\n      62,\\n      8\\n     ],\\n     [\\n      64,\\n      4\\n     ],\\n     [\\n      62,\\n      4\\n     ],\\n     [\\n      60,\\n      12\\n     ],\\n     [\\n      57,\\n      4\\n     ],\\n     [\\n      57,\\n      8\\n     ],\\n     [\\n      55,\\n      8\\n     ],\\n     [\\n      60,\\n      16\\n     ]\\n    ]\\n ')",
+"out": "",
+"err": ""
+},
+{
+"t": 49.368,
+"kind": "exec",
+"cmd": "f.write(b'  }\\n  ]\\n },\\n \"schedule\": {\\n  \"kind\": \"fixed\",\\n  \"delay_ms\": 30000\\n },\\n \"battery\": {\\n  \"divider_ratio\": 2.0,\\n  \"calibration\": 1.0,\\n  \"samples\": 16,\\n  \"low_v\": 3.5,\\n  \"critical_v\": 3.3,\\n  \"recovery_v\": 3.4\\n },\\n \"limits\": {\\n  \"max_keydown_s\": null\\n },\\n \"fleet\": {\\n  \"profile\": \"\",\\n  \"number\": null,\\n  \"event\": \"\",\\n  \"notes\": \"hw_smoke\"\\n }\\n}')",
+"out": "",
+"err": ""
+},
+{
+"t": 49.426,
+"kind": "exec",
+"cmd": "f.close()",
+"out": "",
+"err": ""
+},
+{
+"t": 49.493,
+"kind": "exec",
+"cmd": "import os, binascii\nc=0\nf=open('fox.json','rb')\nwhile True:\n b=f.read(512)\n if not b: break\n c=binascii.crc32(b,c)\nf.close()\nprint(os.stat('fox.json')[6], c)\n",
+"out": "2257 3839669090\n",
+"err": ""
+},
+{
+"t": 49.944,
+"kind": "reboot",
+"out": "\nsoft reboot\n\nAuto-reload is on. Simply save files over USB to run them or enter REPL to disable.\ncode.py output:\ninitializing system ... \nFOX template=freq-rotator/1.1.0 foxlib=1.2.1 board=seeed_xiao_esp32c3 uid=1011121314151617 cfg=ok radio=ok id=set freq=146.565,147.42,147.445\nmorse: W1ABC FOX DE W1ABC\n"
+},
+{
+"t": 50.447,
+"kind": "listen",
+"seconds": 0.5,
+"out": ""
+},
+{
+"t": 50.606,
+"kind": "exec",
+"cmd": "import gc, time\ngc.collect()\na=gc.mem_free()\nt=time.monotonic()\nimport foxlib\nprint(a, gc.mem_free(), time.monotonic()-t)\n",
+"out": "120000 120000 0.0015699870000389637\n",
+"err": ""
+},
+{
+"t": 50.681,
+"kind": "exec",
+"cmd": "import foxlib, gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfox = foxlib.Fox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(gc.mem_free())\nprint(fox.radio.probe((146.5, 433.5)))\nprint(fox.radio.rssi())\nprint(fox.batt.read() if fox.batt else None)\n",
+"out": "120000\n{'146.5': True, '433.5': False}\n72\nNone\n",
+"err": ""
+},
+{
+"t": 50.748,
+"kind": "exec",
+"cmd": "import foxlib, gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfox = foxlib.Fox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(fox.radio.key_for(1))\n",
+"out": "ok\n",
+"err": ""
+},
+{
+"t": 55.93,
+"kind": "exec",
+"cmd": "f=open('code.py','wb')",
+"out": "",
+"err": ""
+},
+{
+"t": 56.013,
+"kind": "exec",
+"cmd": "f.write(b'# SPDX-License-Identifier: GPL-3.0-or-later\\n# fox-bench template: popcorn -- Popcorn (seeded clusters).\\n# Behaviour only; everything shared lives in foxlib. Configuration is\\n# fox.json merged over defaults.json (see CONFIG.md). Lineage: the\\n# transmit sequence descends from earlier GPL-3.0 fox firmware.\\n# Distributed under GPL-3.0-or-later, WITHOUT ANY WARRANTY.\\n\\nimport foxlib\\n\\nfox')",
+"out": "",
+"err": ""
+},
+{
+"t": 56.088,
+"kind": "exec",
+"cmd": "f.write(b' = foxlib.Fox(\"fox.json\", defaults=\"defaults.json\", version=\"1.1.0\")\\nfor tx in fox.cycles():          # popcorn timing lives in foxlib.schedule\\n    tx.morse(tx.id_message)\\n    if not (tx.low_battery and fox.cfg[\"payload\"][\"skip_on_low_battery\"]):\\n        tx.play(fox.playlist.next_events())\\n')",
+"out": "",
+"err": ""
+},
+{
+"t": 56.147,
+"kind": "exec",
+"cmd": "f.close()",
+"out": "",
+"err": ""
+},
+{
+"t": 56.213,
+"kind": "exec",
+"cmd": "import os, binascii\nc=0\nf=open('code.py','rb')\nwhile True:\n b=f.read(512)\n if not b: break\n c=binascii.crc32(b,c)\nf.close()\nprint(os.stat('code.py')[6], c)\n",
+"out": "675 2324891976\n",
+"err": ""
+},
+{
+"t": 56.272,
+"kind": "exec",
+"cmd": "f=open('defaults.json','wb')",
+"out": "",
+"err": ""
+},
+{
+"t": 56.355,
+"kind": "exec",
+"cmd": "f.write(b'{\"schema\": 1, \"template\": \"popcorn\", \"board\": \"seeed_xiao_esp32c3\", \"module\": \"sa868_vhf\", \"pins\": {\"ptt\": \"D3\", \"pd\": \"D4\", \"hl\": \"D5\", \"uart_tx\": \"D6\", \"uart_rx\": \"D7\", \"audio\": \"D1\", \"led\": \"D10\", \"batt_sense\": null}, \"radio\": {\"family\": \"dmo\", \"ranges_mhz\": [[134.0, 174.0]], \"bandwidth_khz\": 25.0, \"squelch\": 3, \"volume\": 5, \"high_power\": false, \"power_dbm\": null}, \"plan\": {\"fre')",
+"out": "",
+"err": ""
+},
+{
+"t": 56.439,
+"kind": "exec",
+"cmd": "f.write(b'quencies_mhz\": [146.565], \"announce_qsy\": false}, \"id\": {\"callmessage\": \"N0CALL DECOY DECOY N0CALL\", \"placeholder\": \"N0CALL\", \"wpm\": 12, \"tone_hz\": 800, \"telemetry\": [\"batt\"], \"tx_without_callsign\": false}, \"payload\": {\"kind\": \"songs\", \"articulation\": 0.875, \"skip_on_low_battery\": true, \"playlist\": [{\"name\": \"Auld Lang Syne\", \"tempo\": 90, \"notes\": [[55, 8], [60, 12], [60, 4], [60, ')",
+"out": "",
+"err": ""
+},
+{
+"t": 56.522,
+"kind": "exec",
+"cmd": "f.write(b'8], [64, 8], [62, 12], [60, 4], [62, 8], [64, 4], [62, 4], [60, 12], [60, 4], [64, 8], [67, 8], [69, 16], [0, 8], [69, 8], [67, 12], [64, 4], [64, 8], [60, 8], [62, 12], [60, 4], [62, 8], [64, 4], [62, 4], [60, 12], [57, 4], [57, 8], [55, 8], [60, 16]]}]}, \"schedule\": {\"kind\": \"popcorn\", \"seed\": 18, \"cluster\": 2, \"cluster_gap_ms\": 8000, \"dark_min_ms\": 10000, \"dark_max_ms\": 300000},')",
+"out": "",
+"err": ""
+},
+{
+"t": 56.588,
+"kind": "exec",
+"cmd": "f.write(b' \"battery\": {\"divider_ratio\": 2.0, \"calibration\": 1.0, \"samples\": 16, \"low_v\": 3.5, \"critical_v\": 3.3, \"recovery_v\": 3.4}, \"limits\": {\"max_keydown_s\": null}, \"fleet\": {\"profile\": \"\", \"number\": null, \"event\": \"\", \"notes\": \"\"}}')",
+"out": "",
+"err": ""
+},
+{
+"t": 56.647,
+"kind": "exec",
+"cmd": "f.close()",
+"out": "",
+"err": ""
+},
+{
+"t": 56.714,
+"kind": "exec",
+"cmd": "import os, binascii\nc=0\nf=open('defaults.json','rb')\nwhile True:\n b=f.read(512)\n if not b: break\n c=binascii.crc32(b,c)\nf.close()\nprint(os.stat('defaults.json')[6], c)\n",
+"out": "1377 2977786402\n",
+"err": ""
+},
+{
+"t": 56.772,
+"kind": "exec",
+"cmd": "f=open('fox.json','wb')",
+"out": "",
+"err": ""
+},
+{
+"t": 56.856,
+"kind": "exec",
+"cmd": "f.write(b'{\\n \"schema\": 1,\\n \"template\": \"popcorn\",\\n \"board\": \"seeed_xiao_esp32c3\",\\n \"module\": \"sa868_vhf\",\\n \"pins\": {\\n  \"ptt\": \"D3\",\\n  \"pd\": \"D4\",\\n  \"hl\": \"D5\",\\n  \"uart_tx\": \"D6\",\\n  \"uart_rx\": \"D7\",\\n  \"audio\": \"D1\",\\n  \"led\": \"D10\",\\n  \"batt_sense\": null\\n },\\n \"radio\": {\\n  \"family\": \"dmo\",\\n  \"ranges_mhz\": [\\n   [\\n    134.0,\\n    174.0\\n   ]\\n  ],\\n  \"bandwidth_khz\": 25.0,\\n  \"squelch\": 3,\\n  \"volume\": ')",
+"out": "",
+"err": ""
+},
+{
+"t": 56.939,
+"kind": "exec",
+"cmd": "f.write(b'5,\\n  \"high_power\": false,\\n  \"power_dbm\": null\\n },\\n \"plan\": {\\n  \"frequencies_mhz\": [\\n   146.565\\n  ],\\n  \"announce_qsy\": false\\n },\\n \"id\": {\\n  \"callmessage\": \"W1ABC FOX DE W1ABC\",\\n  \"placeholder\": \"N0CALL\",\\n  \"wpm\": 12,\\n  \"tone_hz\": 800,\\n  \"telemetry\": [\\n   \"batt\"\\n  ],\\n  \"tx_without_callsign\": false\\n },\\n \"payload\": {\\n  \"kind\": \"songs\",\\n  \"articulation\": 0.875,\\n  \"skip_on_low_battery\": ')",
+"out": "",
+"err": ""
+},
+{
+"t": 57.022,
+"kind": "exec",
+"cmd": "f.write(b'true,\\n  \"playlist\": [\\n   {\\n    \"name\": \"Auld Lang Syne\",\\n    \"tempo\": 90,\\n    \"notes\": [\\n     [\\n      55,\\n      8\\n     ],\\n     [\\n      60,\\n      12\\n     ],\\n     [\\n      60,\\n      4\\n     ],\\n     [\\n      60,\\n      8\\n     ],\\n     [\\n      64,\\n      8\\n     ],\\n     [\\n      62,\\n      12\\n     ],\\n     [\\n      60,\\n      4\\n     ],\\n     [\\n      62,\\n      8\\n     ],\\n     [\\n      64,\\n      4\\n    ')",
+"out": "",
+"err": ""
+},
+{
+"t": 57.105,
+"kind": "exec",
+"cmd": "f.write(b' ],\\n     [\\n      62,\\n      4\\n     ],\\n     [\\n      60,\\n      12\\n     ],\\n     [\\n      60,\\n      4\\n     ],\\n     [\\n      64,\\n      8\\n     ],\\n     [\\n      67,\\n      8\\n     ],\\n     [\\n      69,\\n      16\\n     ],\\n     [\\n      0,\\n      8\\n     ],\\n     [\\n      69,\\n      8\\n     ],\\n     [\\n      67,\\n      12\\n     ],\\n     [\\n      64,\\n      4\\n     ],\\n     [\\n      64,\\n      8\\n     ],\\n     [\\n      60')",
+"out": "",
+"err": ""
+},
+{
+"t": 57.188,
+"kind": "exec",
+"cmd": "f.write(b',\\n      8\\n     ],\\n     [\\n      62,\\n      12\\n     ],\\n     [\\n      60,\\n      4\\n     ],\\n     [\\n      62,\\n      8\\n     ],\\n     [\\n      64,\\n      4\\n     ],\\n     [\\n      62,\\n      4\\n     ],\\n     [\\n      60,\\n      12\\n     ],\\n     [\\n      57,\\n      4\\n     ],\\n     [\\n      57,\\n      8\\n     ],\\n     [\\n      55,\\n      8\\n     ],\\n     [\\n      60,\\n      16\\n     ]\\n    ]\\n   }\\n  ]\\n },\\n \"schedule\": {\\n')",
+"out": "",
+"err": ""
+},
+{
+"t": 57.271,
+"kind": "exec",
+"cmd": "f.write(b'  \"kind\": \"popcorn\",\\n  \"seed\": 18,\\n  \"cluster\": 2,\\n  \"cluster_gap_ms\": 8000,\\n  \"dark_min_ms\": 10000,\\n  \"dark_max_ms\": 300000\\n },\\n \"battery\": {\\n  \"divider_ratio\": 2.0,\\n  \"calibration\": 1.0,\\n  \"samples\": 16,\\n  \"low_v\": 3.5,\\n  \"critical_v\": 3.3,\\n  \"recovery_v\": 3.4\\n },\\n \"limits\": {\\n  \"max_keydown_s\": null\\n },\\n \"fleet\": {\\n  \"profile\": \"\",\\n  \"number\": null,\\n  \"event\": \"\",\\n  \"notes\": \"hw')",
+"out": "",
+"err": ""
+},
+{
+"t": 57.329,
+"kind": "exec",
+"cmd": "f.write(b'_smoke\"\\n }\\n}')",
+"out": "",
+"err": ""
+},
+{
+"t": 57.387,
+"kind": "exec",
+"cmd": "f.close()",
+"out": "",
+"err": ""
+},
+{
+"t": 57.454,
+"kind": "exec",
+"cmd": "import os, binascii\nc=0\nf=open('fox.json','rb')\nwhile True:\n b=f.read(512)\n if not b: break\n c=binascii.crc32(b,c)\nf.close()\nprint(os.stat('fox.json')[6], c)\n",
+"out": "2316 2198573649\n",
+"err": ""
+},
+{
+"t": 57.905,
+"kind": "reboot",
+"out": "\nsoft reboot\n\nAuto-reload is on. Simply save files over USB to run them or enter REPL to disable.\ncode.py output:\ninitializing system ... \nFOX template=popcorn/1.1.0 foxlib=1.2.1 board=seeed_xiao_esp32c3 uid=1011121314151617 cfg=ok radio=ok id=set freq=146.565\nmorse: W1ABC FOX DE W1ABC\n"
+},
+{
+"t": 58.408,
+"kind": "listen",
+"seconds": 0.5,
+"out": ""
+},
+{
+"t": 58.567,
+"kind": "exec",
+"cmd": "import gc, time\ngc.collect()\na=gc.mem_free()\nt=time.monotonic()\nimport foxlib\nprint(a, gc.mem_free(), time.monotonic()-t)\n",
+"out": "120000 120000 0.0015876259999458853\n",
+"err": ""
+},
+{
+"t": 58.642,
+"kind": "exec",
+"cmd": "import foxlib, gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfox = foxlib.Fox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(gc.mem_free())\nprint(fox.radio.probe((146.5, 433.5)))\nprint(fox.radio.rssi())\nprint(fox.batt.read() if fox.batt else None)\n",
+"out": "120000\n{'146.5': True, '433.5': False}\n72\nNone\n",
+"err": ""
+},
+{
+"t": 58.709,
+"kind": "exec",
+"cmd": "import foxlib, gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfox = foxlib.Fox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(fox.radio.key_for(1))\n",
+"out": "ok\n",
+"err": ""
+},
+{
+"t": 63.892,
+"kind": "exec",
+"cmd": "f=open('code.py','wb')",
+"out": "",
+"err": ""
+},
+{
+"t": 63.976,
+"kind": "exec",
+"cmd": "f.write(b'# SPDX-License-Identifier: GPL-3.0-or-later\\n# fox-bench template: resurrection -- Resurrection (plays dead).\\n# Behaviour only; everything shared lives in foxlib. Configuration is\\n# fox.json merged over defaults.json (see CONFIG.md). Lineage: the\\n# transmit sequence descends from earlier GPL-3.0 fox firmware.\\n# Distributed under GPL-3.0-or-later, WITHOUT ANY WARRANTY.\\n\\nimport foxlib')",
+"out": "",
+"err": ""
+},
+{
+"t": 64.05,
+"kind": "exec",
+"cmd": "f.write(b'\\n\\nfox = foxlib.Fox(\"fox.json\", defaults=\"defaults.json\", version=\"1.1.0\")\\nfor tx in fox.cycles():          # dead-phase wakes never reach this body\\n    tx.morse(tx.id_message)\\n    if not (tx.low_battery and fox.cfg[\"payload\"][\"skip_on_low_battery\"]):\\n        tx.play(fox.playlist.next_events())\\n')",
+"out": "",
+"err": ""
+},
+{
+"t": 64.109,
+"kind": "exec",
+"cmd": "f.close()",
+"out": "",
+"err": ""
+},
+{
+"t": 64.175,
+"kind": "exec",
+"cmd": "import os, binascii\nc=0\nf=open('code.py','rb')\nwhile True:\n b=f.read(512)\n if not b: break\n c=binascii.crc32(b,c)\nf.close()\nprint(os.stat('code.py')[6], c)\n",
+"out": "679 3727909382\n",
+"err": ""
+},
+{
+"t": 64.234,
+"kind": "exec",
+"cmd": "f=open('defaults.json','wb')",
+"out": "",
+"err": ""
+},
+{
+"t": 64.317,
+"kind": "exec",
+"cmd": "f.write(b'{\"schema\": 1, \"template\": \"resurrection\", \"board\": \"seeed_xiao_esp32c3\", \"module\": \"sa868_vhf\", \"pins\": {\"ptt\": \"D3\", \"pd\": \"D4\", \"hl\": \"D5\", \"uart_tx\": \"D6\", \"uart_rx\": \"D7\", \"audio\": \"D1\", \"led\": \"D10\", \"batt_sense\": null}, \"radio\": {\"family\": \"dmo\", \"ranges_mhz\": [[134.0, 174.0]], \"bandwidth_khz\": 25.0, \"squelch\": 3, \"volume\": 5, \"high_power\": false, \"power_dbm\": null}, \"plan\": ')",
+"out": "",
+"err": ""
+},
+{
+"t": 64.4,
+"kind": "exec",
+"cmd": "f.write(b'{\"frequencies_mhz\": [146.565], \"announce_qsy\": false}, \"id\": {\"callmessage\": \"N0CALL DECOY DECOY N0CALL\", \"placeholder\": \"N0CALL\", \"wpm\": 12, \"tone_hz\": 800, \"telemetry\": [\"batt\"], \"tx_without_callsign\": false}, \"payload\": {\"kind\": \"songs\", \"articulation\": 0.875, \"skip_on_low_battery\": true, \"playlist\": [{\"name\": \"Auld Lang Syne\", \"tempo\": 90, \"notes\": [[55, 8], [60, 12], [60, 4], ')",
+"out": "",
+"err": ""
+},
+{
+"t": 64.484,
+"kind": "exec",
+"cmd": "f.write(b'[60, 8], [64, 8], [62, 12], [60, 4], [62, 8], [64, 4], [62, 4], [60, 12], [60, 4], [64, 8], [67, 8], [69, 16], [0, 8], [69, 8], [67, 12], [64, 4], [64, 8], [60, 8], [62, 12], [60, 4], [62, 8], [64, 4], [62, 4], [60, 12], [57, 4], [57, 8], [55, 8], [60, 16]]}]}, \"schedule\": {\"kind\": \"resurrection\", \"seed\": 1, \"delay_ms\": 30000, \"alive_min_ms\": 1800000, \"alive_max_ms\": 3600000, \"dead')",
+"out": "",
+"err": ""
+},
+{
+"t": 64.558,
+"kind": "exec",
+"cmd": "f.write(b'_ms\": 3600000, \"dit_min_ms\": 180000, \"dit_max_ms\": 300000, \"id_every\": 3, \"dead_song\": false}, \"battery\": {\"divider_ratio\": 2.0, \"calibration\": 1.0, \"samples\": 16, \"low_v\": 3.5, \"critical_v\": 3.3, \"recovery_v\": 3.4}, \"limits\": {\"max_keydown_s\": null}, \"fleet\": {\"profile\": \"\", \"number\": null, \"event\": \"\", \"notes\": \"\"}}')",
+"out": "",
+"err": ""
+},
+{
+"t": 64.617,
+"kind": "exec",
+"cmd": "f.close()",
+"out": "",
+"err": ""
+},
+{
+"t": 64.684,
+"kind": "exec",
+"cmd": "import os, binascii\nc=0\nf=open('defaults.json','rb')\nwhile True:\n b=f.read(512)\n if not b: break\n c=binascii.crc32(b,c)\nf.close()\nprint(os.stat('defaults.json')[6], c)\n",
+"out": "1471 2696223030\n",
+"err": ""
+},
+{
+"t": 64.742,
+"kind": "exec",
+"cmd": "f=open('fox.json','wb')",
+"out": "",
+"err": ""
+},
+{
+"t": 64.826,
+"kind": "exec",
+"cmd": "f.write(b'{\\n \"schema\": 1,\\n \"template\": \"resurrection\",\\n \"board\": \"seeed_xiao_esp32c3\",\\n \"module\": \"sa868_vhf\",\\n \"pins\": {\\n  \"ptt\": \"D3\",\\n  \"pd\": \"D4\",\\n  \"hl\": \"D5\",\\n  \"uart_tx\": \"D6\",\\n  \"uart_rx\": \"D7\",\\n  \"audio\": \"D1\",\\n  \"led\": \"D10\",\\n  \"batt_sense\": null\\n },\\n \"radio\": {\\n  \"family\": \"dmo\",\\n  \"ranges_mhz\": [\\n   [\\n    134.0,\\n    174.0\\n   ]\\n  ],\\n  \"bandwidth_khz\": 25.0,\\n  \"squelch\": 3,\\n  \"volu')",
+"out": "",
+"err": ""
+},
+{
+"t": 64.909,
+"kind": "exec",
+"cmd": "f.write(b'me\": 5,\\n  \"high_power\": false,\\n  \"power_dbm\": null\\n },\\n \"plan\": {\\n  \"frequencies_mhz\": [\\n   146.565\\n  ],\\n  \"announce_qsy\": false\\n },\\n \"id\": {\\n  \"callmessage\": \"W1ABC FOX DE W1ABC\",\\n  \"placeholder\": \"N0CALL\",\\n  \"wpm\": 12,\\n  \"tone_hz\": 800,\\n  \"telemetry\": [\\n   \"batt\"\\n  ],\\n  \"tx_without_callsign\": false\\n },\\n \"payload\": {\\n  \"kind\": \"songs\",\\n  \"articulation\": 0.875,\\n  \"skip_on_low_batte')",
+"out": "",
+"err": ""
+},
+{
+"t": 64.992,
+"kind": "exec",
+"cmd": "f.write(b'ry\": true,\\n  \"playlist\": [\\n   {\\n    \"name\": \"Auld Lang Syne\",\\n    \"tempo\": 90,\\n    \"notes\": [\\n     [\\n      55,\\n      8\\n     ],\\n     [\\n      60,\\n      12\\n     ],\\n     [\\n      60,\\n      4\\n     ],\\n     [\\n      60,\\n      8\\n     ],\\n     [\\n      64,\\n      8\\n     ],\\n     [\\n      62,\\n      12\\n     ],\\n     [\\n      60,\\n      4\\n     ],\\n     [\\n      62,\\n      8\\n     ],\\n     [\\n      64,\\n      4')",
+"out": "",
+"err": ""
+},
+{
+"t": 65.075,
+"kind": "exec",
+"cmd": "f.write(b'\\n     ],\\n     [\\n      62,\\n      4\\n     ],\\n     [\\n      60,\\n      12\\n     ],\\n     [\\n      60,\\n      4\\n     ],\\n     [\\n      64,\\n      8\\n     ],\\n     [\\n      67,\\n      8\\n     ],\\n     [\\n      69,\\n      16\\n     ],\\n     [\\n      0,\\n      8\\n     ],\\n     [\\n      69,\\n      8\\n     ],\\n     [\\n      67,\\n      12\\n     ],\\n     [\\n      64,\\n      4\\n     ],\\n     [\\n      64,\\n      8\\n     ],\\n     [\\n   ')",
+"out": "",
+"err": ""
+},
+{
+"t": 65.158,
+"kind": "exec",
+"cmd": "f.write(b'   60,\\n      8\\n     ],\\n     [\\n      62,\\n      12\\n     ],\\n     [\\n      60,\\n      4\\n     ],\\n     [\\n      62,\\n      8\\n     ],\\n     [\\n      64,\\n      4\\n     ],\\n     [\\n      62,\\n      4\\n     ],\\n     [\\n      60,\\n      12\\n     ],\\n     [\\n      57,\\n      4\\n     ],\\n     [\\n      57,\\n      8\\n     ],\\n     [\\n      55,\\n      8\\n     ],\\n     [\\n      60,\\n      16\\n     ]\\n    ]\\n   }\\n  ]\\n },\\n \"schedule')",
+"out": "",
+"err": ""
+},
+{
+"t": 65.241,
+"kind": "exec",
+"cmd": "f.write(b'\": {\\n  \"kind\": \"resurrection\",\\n  \"seed\": 1,\\n  \"delay_ms\": 30000,\\n  \"alive_min_ms\": 1800000,\\n  \"alive_max_ms\": 3600000,\\n  \"dead_ms\": 3600000,\\n  \"dit_min_ms\": 180000,\\n  \"dit_max_ms\": 300000,\\n  \"id_every\": 3,\\n  \"dead_song\": false\\n },\\n \"battery\": {\\n  \"divider_ratio\": 2.0,\\n  \"calibration\": 1.0,\\n  \"samples\": 16,\\n  \"low_v\": 3.5,\\n  \"critical_v\": 3.3,\\n  \"recovery_v\": 3.4\\n },\\n \"limits\": {\\n  ')",
+"out": "",
+"err": ""
+},
+{
+"t": 65.308,
+"kind": "exec",
+"cmd": "f.write(b'\"max_keydown_s\": null\\n },\\n \"fleet\": {\\n  \"profile\": \"\",\\n  \"number\": null,\\n  \"event\": \"\",\\n  \"notes\": \"hw_smoke\"\\n }\\n}')",
+"out": "",
+"err": ""
+},
+{
+"t": 65.366,
+"kind": "exec",
+"cmd": "f.close()",
+"out": "",
+"err": ""
+},
+{
+"t": 65.433,
+"kind": "exec",
+"cmd": "import os, binascii\nc=0\nf=open('fox.json','rb')\nwhile True:\n b=f.read(512)\n if not b: break\n c=binascii.crc32(b,c)\nf.close()\nprint(os.stat('fox.json')[6], c)\n",
+"out": "2418 804850171\n",
+"err": ""
+},
+{
+"t": 65.884,
+"kind": "reboot",
+"out": "\nsoft reboot\n\nAuto-reload is on. Simply save files over USB to run them or enter REPL to disable.\ncode.py output:\ninitializing system ... \nFOX template=resurrection/1.1.0 foxlib=1.2.1 board=seeed_xiao_esp32c3 uid=1011121314151617 cfg=ok radio=ok id=set freq=146.565\nmorse: W1ABC FOX DE W1ABC\n"
+},
+{
+"t": 66.387,
+"kind": "listen",
+"seconds": 0.5,
+"out": ""
+},
+{
+"t": 66.546,
+"kind": "exec",
+"cmd": "import gc, time\ngc.collect()\na=gc.mem_free()\nt=time.monotonic()\nimport foxlib\nprint(a, gc.mem_free(), time.monotonic()-t)\n",
+"out": "120000 120000 0.0015826100000140286\n",
+"err": ""
+},
+{
+"t": 66.621,
+"kind": "exec",
+"cmd": "import foxlib, gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfox = foxlib.Fox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(gc.mem_free())\nprint(fox.radio.probe((146.5, 433.5)))\nprint(fox.radio.rssi())\nprint(fox.batt.read() if fox.batt else None)\n",
+"out": "120000\n{'146.5': True, '433.5': False}\n72\nNone\n",
+"err": ""
+},
+{
+"t": 66.688,
+"kind": "exec",
+"cmd": "import foxlib, gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfox = foxlib.Fox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(fox.radio.key_for(1))\n",
+"out": "ok\n",
+"err": ""
+},
+{
+"t": 71.871,
+"kind": "exec",
+"cmd": "f=open('code.py','wb')",
+"out": "",
+"err": ""
+},
+{
+"t": 71.954,
+"kind": "exec",
+"cmd": "f.write(b'# SPDX-License-Identifier: GPL-3.0-or-later\\n# fox-bench template: composite -- EXPERIMENTAL.\\n# Payload, schedule and frequency plan all come from fox.json; foxlib\\n# already implements each axis, so this runner only dispatches on\\n# payload.kind. Schedule and plan are handled entirely inside\\n# fox.cycles(). Distributed under GPL-3.0-or-later, WITHOUT ANY WARRANTY.\\n\\nimport foxlib\\n\\nfox')",
+"out": "",
+"err": ""
+},
+{
+"t": 72.037,
+"kind": "exec",
+"cmd": "f.write(b' = foxlib.Fox(\"fox.json\", defaults=\"defaults.json\", version=\"0.2.0\")\\np = fox.cfg[\"payload\"]\\n\\nfor tx in fox.cycles():\\n    if p[\"kind\"] == \"none\":\\n        tx.morse(p[\"message\"] or tx.id_message, dit_s=p[\"dit_s\"])\\n        continue\\n    tx.morse(tx.id_message)\\n    if tx.low_battery and p[\"skip_on_low_battery\"]:\\n        continue\\n    if p[\"kind\"] == \"songs\":\\n        tx.play(fox.playlist.n')",
+"out": "",
+"err": ""
+},
+{
+"t": 72.095,
+"kind": "exec",
+"cmd": "f.write(b'ext_events())\\n    elif p[\"kind\"] == \"sstv\":\\n        tx.play(fox.images.next_events())\\n')",
+"out": "",
+"err": ""
+},
+{
+"t": 72.154,
+"kind": "exec",
+"cmd": "f.close()",
+"out": "",
+"err": ""
+},
+{
+"t": 72.221,
+"kind": "exec",
+"cmd": "import os, binascii\nc=0\nf=open('code.py','rb')\nwhile True:\n b=f.read(512)\n if not b: break\n c=binascii.crc32(b,c)\nf.close()\nprint(os.stat('code.py')[6], c)\n",
+"out": "854 1108676430\n",
+"err": ""
+},
+{
+"t": 72.279,
+"kind": "exec",
+"cmd": "f=open('defaults.json','wb')",
+"out": "",
+"err": ""
+},
+{
+"t": 72.362,
+"kind": "exec",
+"cmd": "f.write(b'{\"schema\": 1, \"template\": \"composite\", \"board\": \"seeed_xiao_esp32c3\", \"module\": \"sa868_vhf\", \"pins\": {\"ptt\": \"D3\", \"pd\": \"D4\", \"hl\": \"D5\", \"uart_tx\": \"D6\", \"uart_rx\": \"D7\", \"audio\": \"D1\", \"led\": \"D10\", \"batt_sense\": null}, \"radio\": {\"family\": \"dmo\", \"ranges_mhz\": [[134.0, 174.0]], \"bandwidth_khz\": 25.0, \"squelch\": 3, \"volume\": 5, \"high_power\": false, \"power_dbm\": null}, \"plan\": {\"f')",
+"out": "",
+"err": ""
+},
+{
+"t": 72.446,
+"kind": "exec",
+"cmd": "f.write(b'requencies_mhz\": [146.565], \"announce_qsy\": false}, \"id\": {\"callmessage\": \"N0CALL DECOY DECOY N0CALL\", \"placeholder\": \"N0CALL\", \"wpm\": 12, \"tone_hz\": 800, \"telemetry\": [\"batt\"], \"tx_without_callsign\": false}, \"payload\": {\"kind\": \"songs\", \"articulation\": 0.875, \"skip_on_low_battery\": true, \"playlist\": [{\"name\": \"Auld Lang Syne\", \"tempo\": 90, \"notes\": [[55, 8], [60, 12], [60, 4], [60')",
+"out": "",
+"err": ""
+},
+{
+"t": 72.529,
+"kind": "exec",
+"cmd": "f.write(b', 8], [64, 8], [62, 12], [60, 4], [62, 8], [64, 4], [62, 4], [60, 12], [60, 4], [64, 8], [67, 8], [69, 16], [0, 8], [69, 8], [67, 12], [64, 4], [64, 8], [60, 8], [62, 12], [60, 4], [62, 8], [64, 4], [62, 4], [60, 12], [57, 4], [57, 8], [55, 8], [60, 16]]}]}, \"schedule\": {\"kind\": \"fixed\", \"delay_ms\": 30000}, \"battery\": {\"divider_ratio\": 2.0, \"calibration\": 1.0, \"samples\": 16, \"low_v')",
+"out": "",
+"err": ""
+},
+{
+"t": 72.598,
+"kind": "exec",
+"cmd": "f.write(b'\": 3.5, \"critical_v\": 3.3, \"recovery_v\": 3.4}, \"limits\": {\"max_keydown_s\": null}, \"fleet\": {\"profile\": \"\", \"number\": null, \"event\": \"\", \"notes\": \"\"}}')",
+"out": "",
+"err": ""
+},
+{
+"t": 72.656,
+"kind": "exec",
+"cmd": "f.close()",
+"out": "",
+"err": ""
+},
+{
+"t": 72.723,
+"kind": "exec",
+"cmd": "import os, binascii\nc=0\nf=open('defaults.json','rb')\nwhile True:\n b=f.read(512)\n if not b: break\n c=binascii.crc32(b,c)\nf.close()\nprint(os.stat('defaults.json')[6], c)\n",
+"out": "1301 63055503\n",
+"err": ""
+},
+{
+"t": 72.781,
+"kind": "exec",
+"cmd": "f=open('fox.json','wb')",
+"out": "",
+"err": ""
+},
+{
+"t": 72.864,
+"kind": "exec",
+"cmd": "f.write(b'{\\n \"schema\": 1,\\n \"template\": \"composite\",\\n \"board\": \"seeed_xiao_esp32c3\",\\n \"module\": \"sa868_vhf\",\\n \"pins\": {\\n  \"ptt\": \"D3\",\\n  \"pd\": \"D4\",\\n  \"hl\": \"D5\",\\n  \"uart_tx\": \"D6\",\\n  \"uart_rx\": \"D7\",\\n  \"audio\": \"D1\",\\n  \"led\": \"D10\",\\n  \"batt_sense\": null\\n },\\n \"radio\": {\\n  \"family\": \"dmo\",\\n  \"ranges_mhz\": [\\n   [\\n    134.0,\\n    174.0\\n   ]\\n  ],\\n  \"bandwidth_khz\": 25.0,\\n  \"squelch\": 3,\\n  \"volume\"')",
+"out": "",
+"err": ""
+},
+{
+"t": 72.947,
+"kind": "exec",
+"cmd": "f.write(b': 5,\\n  \"high_power\": false,\\n  \"power_dbm\": null\\n },\\n \"plan\": {\\n  \"frequencies_mhz\": [\\n   146.565\\n  ],\\n  \"announce_qsy\": false\\n },\\n \"id\": {\\n  \"callmessage\": \"W1ABC FOX DE W1ABC\",\\n  \"placeholder\": \"N0CALL\",\\n  \"wpm\": 12,\\n  \"tone_hz\": 800,\\n  \"telemetry\": [\\n   \"batt\"\\n  ],\\n  \"tx_without_callsign\": false\\n },\\n \"payload\": {\\n  \"kind\": \"songs\",\\n  \"articulation\": 0.875,\\n  \"skip_on_low_battery\"')",
+"out": "",
+"err": ""
+},
+{
+"t": 73.031,
+"kind": "exec",
+"cmd": "f.write(b': true,\\n  \"playlist\": [\\n   {\\n    \"name\": \"Auld Lang Syne\",\\n    \"tempo\": 90,\\n    \"notes\": [\\n     [\\n      55,\\n      8\\n     ],\\n     [\\n      60,\\n      12\\n     ],\\n     [\\n      60,\\n      4\\n     ],\\n     [\\n      60,\\n      8\\n     ],\\n     [\\n      64,\\n      8\\n     ],\\n     [\\n      62,\\n      12\\n     ],\\n     [\\n      60,\\n      4\\n     ],\\n     [\\n      62,\\n      8\\n     ],\\n     [\\n      64,\\n      4\\n  ')",
+"out": "",
+"err": ""
+},
+{
+"t": 73.114,
+"kind": "exec",
+"cmd": "f.write(b'   ],\\n     [\\n      62,\\n      4\\n     ],\\n     [\\n      60,\\n      12\\n     ],\\n     [\\n      60,\\n      4\\n     ],\\n     [\\n      64,\\n      8\\n     ],\\n     [\\n      67,\\n      8\\n     ],\\n     [\\n      69,\\n      16\\n     ],\\n     [\\n      0,\\n      8\\n     ],\\n     [\\n      69,\\n      8\\n     ],\\n     [\\n      67,\\n      12\\n     ],\\n     [\\n      64,\\n      4\\n     ],\\n     [\\n      64,\\n      8\\n     ],\\n     [\\n      ')",
+"out": "",
+"err": ""
+},
+{
+"t": 73.198,
+"kind": "exec",
+"cmd": "f.write(b'60,\\n      8\\n     ],\\n     [\\n      62,\\n      12\\n     ],\\n     [\\n      60,\\n      4\\n     ],\\n     [\\n      62,\\n      8\\n     ],\\n     [\\n      64,\\n      4\\n     ],\\n     [\\n      62,\\n      4\\n     ],\\n     [\\n      60,\\n      12\\n     ],\\n     [\\n      57,\\n      4\\n     ],\\n     [\\n      57,\\n      8\\n     ],\\n     [\\n      55,\\n      8\\n     ],\\n     [\\n      60,\\n      16\\n     ]\\n    ]\\n   }\\n  ]\\n },\\n \"schedule\": ')",
+"out": "",
+"err": ""
+},
+{
+"t": 73.272,
+"kind": "exec",
+"cmd": "f.write(b'{\\n  \"kind\": \"fixed\",\\n  \"delay_ms\": 30000\\n },\\n \"battery\": {\\n  \"divider_ratio\": 2.0,\\n  \"calibration\": 1.0,\\n  \"samples\": 16,\\n  \"low_v\": 3.5,\\n  \"critical_v\": 3.3,\\n  \"recovery_v\": 3.4\\n },\\n \"limits\": {\\n  \"max_keydown_s\": null\\n },\\n \"fleet\": {\\n  \"profile\": \"\",\\n  \"number\": null,\\n  \"event\": \"\",\\n  \"notes\": \"hw_smoke\"\\n }\\n}')",
+"out": "",
+"err": ""
+},
+{
+"t": 73.331,
+"kind": "exec",
+"cmd": "f.close()",
+"out": "",
+"err": ""
+},
+{
+"t": 73.398,
+"kind": "exec",
+"cmd": "import os, binascii\nc=0\nf=open('fox.json','rb')\nwhile True:\n b=f.read(512)\n if not b: break\n c=binascii.crc32(b,c)\nf.close()\nprint(os.stat('fox.json')[6], c)\n",
+"out": "2232 1067029183\n",
+"err": ""
+},
+{
+"t": 73.899,
+"kind": "reboot",
+"out": "\nsoft reboot\n\nAuto-reload is on. Simply save files over USB to run them or enter REPL to disable.\ncode.py output:\ninitializing system ... \nFOX template=composite/0.2.0 foxlib=1.2.1 board=seeed_xiao_esp32c3 uid=1011121314151617 cfg=ok radio=ok id=set freq=146.565\nmorse: W1ABC FOX DE W1ABC\n"
+},
+{
+"t": 74.401,
+"kind": "listen",
+"seconds": 0.5,
+"out": ""
+},
+{
+"t": 74.561,
+"kind": "exec",
+"cmd": "import gc, time\ngc.collect()\na=gc.mem_free()\nt=time.monotonic()\nimport foxlib\nprint(a, gc.mem_free(), time.monotonic()-t)\n",
+"out": "120000 120000 0.0012974609999218956\n",
+"err": ""
+},
+{
+"t": 74.636,
+"kind": "exec",
+"cmd": "import foxlib, gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfox = foxlib.Fox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(gc.mem_free())\nprint(fox.radio.probe((146.5, 433.5)))\nprint(fox.radio.rssi())\nprint(fox.batt.read() if fox.batt else None)\n",
+"out": "120000\n{'146.5': True, '433.5': False}\n72\nNone\n",
+"err": ""
+},
+{
+"t": 74.703,
+"kind": "exec",
+"cmd": "import foxlib, gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfox = foxlib.Fox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(fox.radio.key_for(1))\n",
+"out": "ok\n",
+"err": ""
+},
+{
+"t": 79.886,
+"kind": "exec",
+"cmd": "import os\ntry:\n os.remove('code.py')\nexcept OSError:\n pass\n",
+"out": "",
+"err": ""
+},
+{
+"t": 79.944,
+"kind": "exec",
+"cmd": "import os\ntry:\n os.remove('fox.json')\nexcept OSError:\n pass\n",
+"out": "",
+"err": ""
+},
+{
+"t": 80.002,
+"kind": "exec",
+"cmd": "import os\ntry:\n os.remove('defaults.json')\nexcept OSError:\n pass\n",
+"out": "",
+"err": ""
+},
+{
+"t": 80.104,
+"kind": "reboot",
+"out": "\nsoft reboot\n\nAuto-reload is on. Simply save files over USB to run them or enter REPL to disable.\ncode.py output:\nFileNotFoundError: [Errno 2] No such file or directory: '/tmp/pty-flash-v9lelq9o/defaults.json'\n\nCode done running.\n\nPress any key to enter the REPL. Use CTRL-D to reload.\n"
+}
+]
+}

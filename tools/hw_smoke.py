@@ -16,6 +16,12 @@ a new CircuitPython build, or before changing foxlib, and diff the reports.
 What is on the board before (code.py, fox.json, defaults.json) is read
 first and put back at the end unless --no-restore. foxlib stays updated.
 
+--record FILE writes every REPL exchange of the run (each command and the
+board's reply, each soft reboot and its boot text, each listen window) to
+a JSON file. firmware/sim/pty_board.py --replay FILE then answers from it,
+so the same run can be repeated in CI without the board: a bench finding
+becomes a regression test. See docs/bench-recordings.md.
+
 It transmits (briefly) unless --key-seconds 0, and every template keys
 the module within seconds of its reboot: connect an antenna or a dummy
 load, and pass --yes-antenna to say you did.
@@ -36,11 +42,17 @@ ANSI = re.compile(rb"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b\[[0-9;?]*[ -/]*[@-~]
 
 # ---------------------------------------------------------------- raw REPL (mirrors js/device/repl-link.js, PROTOCOL.md)
 class Repl:
-    def __init__(self, port, verbose=False):
+    def __init__(self, port, verbose=False, record=None):
         self.s = serial.Serial(port, 115200, timeout=0.05)
         self.verbose = verbose
         self.in_raw = False
         self.buf = b""
+        self.record = record   # list the exchanges are appended to, or None
+        self.t0 = time.monotonic()
+
+    def _rec(self, kind, **kw):
+        if self.record is not None:
+            self.record.append({"t": round(time.monotonic() - self.t0, 3), "kind": kind, **kw})
 
     def _read_until(self, marker, timeout):
         """Returns the bytes before `marker`; what follows stays in self.buf for the next call."""
@@ -94,6 +106,7 @@ class Repl:
         try: self._read_until(b">", 2)
         except TimeoutError: pass
         out, err = out.decode(errors="replace"), err.decode(errors="replace")
+        self._rec("exec", cmd=code, out=out.replace("\r\n", "\n"), err=err.replace("\r\n", "\n"))   # bare newlines in the file; the replayer puts \r\n back
         if self.verbose: print("    >", code.splitlines()[0][:70], "->", (out.strip() or err.strip())[:70])
         if err and not soft: raise RuntimeError(err.strip().splitlines()[-1] if err.strip() else err)
         return out
@@ -106,13 +119,17 @@ class Repl:
             if re.search(until, buf, re.M):
                 time.sleep(0.3); buf += self.s.read(4096); break
             if re.search(rb"Traceback|Error:", buf) and re.search(rb"Press any key|Code done running", buf): break
-        return ANSI.sub(b"", buf).replace(b"\r", b"").decode(errors="replace")
+        text = ANSI.sub(b"", buf).replace(b"\r", b"").decode(errors="replace")
+        self._rec("reboot", out=text)
+        return text
 
     def listen(self, seconds):
         buf = self.buf; self.buf = b""; t0 = time.monotonic()
         while time.monotonic() - t0 < seconds:
             buf += self.s.read(1024)
-        return ANSI.sub(b"", buf).replace(b"\r", b"").decode(errors="replace")
+        text = ANSI.sub(b"", buf).replace(b"\r", b"").decode(errors="replace")
+        self._rec("listen", seconds=seconds, out=text)
+        return text
 
     # ---- files
     def read_file(self, path):
@@ -136,6 +153,11 @@ class Repl:
     def listdir(self, path=""):
         out = self.exec("import os\nfor n in os.listdir(%r):\n try:\n  s=os.stat(%r+n); print(n, s[6], 'd' if s[0] & 0x4000 else 'f')\n except Exception:\n  print(n, -1, '?')\n" % (path or "/", path + "/" if path else ""))
         return {l.split()[0]: int(l.split()[1]) for l in out.strip().splitlines() if l.strip()}
+
+
+def _num(x):
+    """A number as it goes into a command: 1.0 -> 1, 0.5 -> 0.5. Keeps a recorded command's text equal to a replayed one."""
+    return str(int(x)) if float(x) == int(x) else repr(float(x))
 
 
 def parse_banner(text):
@@ -168,6 +190,7 @@ def main():
     ap.add_argument("--yes-antenna", action="store_true", help="confirm an antenna or dummy load is connected")
     ap.add_argument("--no-restore", action="store_true", help="leave the last template on the board instead of restoring what was there")
     ap.add_argument("--report", help="JSON report path (default: hw_smoke-<uid>-<time>.json in the current directory)")
+    ap.add_argument("--record", help="write every REPL exchange of this run to FILE (JSON) for firmware/sim/pty_board.py --replay")
     ap.add_argument("-v", "--verbose", action="store_true")
     a = ap.parse_args()
     if not a.yes_antenna:
@@ -177,7 +200,8 @@ def main():
     templates = idx["templates"] if a.templates == "all" else a.templates.split(",")
     foxlib_version = open(os.path.join(ROOT, "firmware/foxlib/VERSION")).read().strip()
 
-    r = Repl(pick_port(a.port), a.verbose)
+    recording = [] if a.record else None
+    r = Repl(pick_port(a.port), a.verbose, recording)
     print("interrupting whatever runs …")
     r.interrupt()
     ident = r.exec("import board, microcontroller, os, sys\nprint(board.board_id)\nprint(''.join('%02x' % b for b in microcontroller.cpu.uid))\nprint(os.uname().release)\nprint(os.uname().version)\n").strip().splitlines()
@@ -264,7 +288,7 @@ def main():
                 res["mem_free_with_fox"], res["probe"], res["rssi"], res["batt_v"] = int(out[0]), out[1], out[2], None
                 print("  import %.1fs · free %d → %d → %d B · radio %s · scan %s · mac %s" % (res["import_s"], res["mem_free_before"], res["mem_free_after_import"], res["mem_free_with_fox"], out[1], out[2][:120], out[3]))
                 if a.key_seconds > 0:
-                    res["key"] = r.exec(pre + "print(fox.key_for(%s))\n" % a.key_seconds, timeout=60 + a.key_seconds).strip()
+                    res["key"] = r.exec(pre + "print(fox.key_for(%s))\n" % _num(a.key_seconds), timeout=60 + a.key_seconds).strip()
                     print("  radio up %ss: %s" % (a.key_seconds, res["key"]))
             else:
                 pre = "import foxlib, gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfox = foxlib.Fox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\n"
@@ -272,7 +296,7 @@ def main():
                 res["mem_free_with_fox"], res["probe"], res["rssi"], res["batt_v"] = int(out[0]), out[1], out[2], out[3]
                 print("  import %.1fs · free %d → %d → %d B · probe %s · rssi %s · batt %s" % (res["import_s"], res["mem_free_before"], res["mem_free_after_import"], res["mem_free_with_fox"], out[1], out[2], out[3]))
                 if a.key_seconds > 0 and "keytest" in manifest.get("capabilities", []):
-                    res["key"] = r.exec(pre + "print(fox.radio.key_for(%s))\n" % a.key_seconds, timeout=60 + a.key_seconds).strip()
+                    res["key"] = r.exec(pre + "print(fox.radio.key_for(%s))\n" % _num(a.key_seconds), timeout=60 + a.key_seconds).strip()
                     print("  key test %ss: %s" % (a.key_seconds, res["key"]))
         except Exception as e:
             res["ok"] = False; res["error"] = str(e); print("  ERROR:", e)
@@ -292,6 +316,12 @@ def main():
 
     path = a.report or "hw_smoke-%s-%s.json" % (uid[-6:], datetime.now().strftime("%Y%m%d-%H%M%S"))
     json.dump(report, open(path, "w"), indent=1)
+    if a.record:
+        rec = {"format": "fox-bench-bench-recording/1", "generated": report["generated"], "board_id": board_id, "uid": uid,
+               "circuitpython": cp_release, "foxlib": foxlib_version, "args": {k: (_num(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else v) for k, v in vars(a).items() if k not in ("port", "record", "report")},
+               "exchanges": recording}
+        json.dump(rec, open(a.record, "w"), indent=0)
+        print("recorded %d exchanges to %s" % (len(recording), a.record))
     print("\n%-14s %-5s %6s %7s %8s %6s %-8s" % ("template", "ok", "boot s", "import", "free B", "rssi", "key"))
     for tid, res in report["templates"].items():
         print("%-14s %-5s %6s %7s %8s %6s %-8s" % (tid, "skip" if res.get("ok") is None else "ok" if res.get("ok") else "FAIL", res.get("boot_s", ""), res.get("import_s", ""), res.get("mem_free_with_fox", ""), str(res.get("rssi", ""))[:6], res.get("key", res.get("error", "")[:30] if not res.get("ok") else "")))
