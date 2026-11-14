@@ -14,14 +14,14 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
-### Page 0.11.1 · foxlib 1.4.0 · foxlib-c 0.1.11
+### Page 0.11.1 · foxlib 1.4.1 · foxlib-c 0.1.11
 
 - Bench finding 2026-11-14: a network fox with the `N0CALL` placeholder
   was blocked at deploy even with "use the callsign as the name" unticked.
   A Part 15 device need not identify, so the placeholder is now a warning
   (no operator in the fleet record) and blocks only when it would be the
   name on the air; the banner's `id=` gains `none` for that case
-  (`set` / `none` / `unset`). ID-tab wording to match.
+  (`set` / `none` / `unset`); foxlib 1.4.1. ID-tab wording to match.
 - CI (`ci.yml`, maintained by hand): the bench-replay step installs
   `pyserial` itself (it ran before the step that did), and the sim job
   runs `firmware/sim/test_netpayload.py`.
