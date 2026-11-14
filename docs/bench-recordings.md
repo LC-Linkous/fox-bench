@@ -55,6 +55,12 @@ the page and the live pty board covers for the script.
 |---|---|
 | `tests/fixtures/bench/pty-c3-all-fm.json` | all seven FM templates against the pty board itself (so CI has one from day one; a real-board recording should replace it after the first session) |
 
+A run made with `--sniffer` records the fox's exchanges only; replaying it
+needs the sniffer side too — start `firmware/sim/pty_sniffer.py --mac … --ssid …`
+on a second pty and pass it as `--sniffer`, the way `ci.yml`'s sniffer step
+does. `replay_check.py` does not do this yet; a `--sniffer` recording is a
+manual replay.
+
 Name real-board recordings `<board>-<what>-<date>.json`, e.g.
 `seeed_xiao_esp32c3-all-fm-2026-11-12.json`, and say in
 `docs/hardware-log.md` which recording a row produced.

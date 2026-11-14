@@ -1,8 +1,9 @@
 # fox.json — configuration contract
 
 `fox.json` lives at the board root. The page writes it in full; the
-firmware (`foxlib/cfg.py`) merges it over the template's
-`defaults/<board_id>.json`, validates every field, and reports the result
+firmware (`foxlib/cfg.py`) merges it over the template's defaults file
+(`defaults/<target id>.json` in the repo, written to the board as
+`defaults.json`), validates every field, and reports the result
 in the boot banner. Both sides validate against this document.
 
 Rules that apply everywhere:
@@ -303,7 +304,7 @@ on hardware that lists it (`hardware/<id>.json` `radios`).
 
 ## The `net` contract (network foxes on CircuitPython)
 
-The `wifi-beacon`, `wifi-probe` and `ble-beacon` templates use the SoC's
+The `wifi-beacon`, `wifi-probe`, `ble-beacon` and `puzzle-beacon` templates use the SoC's
 own radio as the transmitter — no module, no `module`/`radio`/`plan`/
 `payload`/`battery`/`limits` sections, and a two-role `pins` section (LED,
 battery sense) instead of the module wiring. They run on **chip targets**
@@ -356,8 +357,8 @@ the fox runs without it`. The page says the same on each card.
 | section | keys | phase |
 |---|---|---|
 | `payload` | `enabled`; `kind` static \| rotate \| morse-name; `names` (≤ 16 × 1–32 B); `morse_of` (≤ 16); `code.major` / `.minor` 0–65535; `eddystone.url` (http(s), ≤ 64) / `.tlm` bool; `split.wifi` (≤ 32 B) / `.ble` (≤ 29 B); `interleave_ms` 100–10000 | **built, foxlib 1.4.0** |
-| `checkpoint` | `enabled`; `portal.{enabled, title ≤ 40 B, body ≤ 512 B plain text, code ≤ 16, ask_callsign, captive_dns, log}`; `ble.{enabled, service_uuid, code ≤ 16}` | D |
-| `sense` | `enabled`; `slot_ms` 200–5000; `tags.{enabled, match 1–16 B, log, rssi_min −100–0}`; `relay.{enabled, wait_for ≤ 32 B, then up \| down \| rotate}`; `probes.{enabled, channel 1–13, window_s 1–10}` | E |
+| `checkpoint` | `enabled`; `portal.{enabled, title ≤ 40 B, body ≤ 512 B plain text, code ≤ 16, ask_callsign, captive_dns, log}`; `ble.{enabled, service_uuid, code ≤ 16}` | D — accepted, not built |
+| `sense` | `enabled`; `slot_ms` 200–5000; `tags.{enabled, match 1–16 B, log, rssi_min −100–0}`; `relay.{enabled, wait_for ≤ 32 B, then up \| down \| rotate}`; `probes.{enabled, channel 1–13, window_s 1–10}` | E — accepted, not built |
 | `stealth` | `enabled`; `rotate_mac` false \| per-cycle \| per-boot; `rotate_name` bool; `duty_jitter_s` 0–300; `start.after_s` 0–86400 / `start.at` `YYYY-MM-DDTHH:MM:SS[zone]`; `decoys` (≤ 4 × 1–32 B); `ble_only` bool | **built, foxlib 1.5.0** |
 
 **`payload` (built):** `rotate` makes `names[cycle % n]` the SSID / BLE name

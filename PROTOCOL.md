@@ -62,8 +62,27 @@ print(os.uname().release)
 
 CircuitPython starts a fresh VM for the REPL, so `code.py`'s objects are
 gone. Bench actions build a new `foxlib.Fox('fox.json', defaults='defaults.json', quiet=True)`
-and call `fox.radio.probe(...)`, `fox.radio.key(n)`, `fox.radio.rssi()`,
+and call `fox.radio.probe(...)`, `fox.radio.key_for(n)`, `fox.radio.rssi()`,
 `fox.batt.read()`. `quiet=True` suppresses the banner and never keys PTT.
+For a network fox (`net` contract) the object is
+`NetFox('fox.json', defaults='defaults.json', quiet=True)` from
+`foxlib.netfox`, and the actions are `fox.key_for(n)` (radio up for n s)
+and `fox.rssi()` (what the radio can hear).
+
+## Board clock (before a deploy)
+
+With *Set the board clock* ticked on the Deploy tab the page sends, after
+the interrupt and before any file:
+
+```
+import rtc, time
+rtc.RTC().datetime = time.struct_time((Y, M, D, h, m, s, 0, 0, -1))
+```
+
+The fox reads it back as `clock=` in its banner. Listen only keeps the
+granted `SerialPort` when the port drops and reopens the same device when
+it is enumerated again (`navigator.serial.getPorts()` and the `connect`
+event); nothing is sent on the reopened port — it is read-only.
 
 ## Boot banner
 

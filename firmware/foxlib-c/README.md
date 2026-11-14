@@ -186,7 +186,7 @@ a swap keeps the files. Board tab, firmware card, either direction:
    `Get pfoxr3v1.uf2`, which comes from the vendor's GitHub into the browser);
 2. **Reboot into bootloader** (the 1200-baud touch on the serial port; both
    firmwares answer it — BOOTSEL is inside the case);
-3. **Copy to RPI-RP2**. The page verifies the bootloader drive disappears.
+3. **2. Copy** (the card's button). The page verifies the bootloader drive disappears.
 
 The loaded image belongs to the target it was loaded for; switching targets
 forgets it. The drive keeps the name it was formatted with (`PicoFox` on a

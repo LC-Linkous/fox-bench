@@ -8,9 +8,9 @@ Phase 1 (§4) are in; nothing has been flashed on a kitsune board from the
 page yet. Hardware on fox-bench's bench: a XIAO ESP32C5 (a board kitsune
 builds for), a Waveshare ESP32-S3-Nano (stands in for the Arduino Nano
 ESP32) and a XIAO ESP32C6 (not a kitsune board; fox-bench carries an env for
-it) — targets `*-kitsune` for all three, behind "Show experimental targets".
-(A FireBeetle 2 ESP32-C5 stood in for the XIAO C5 until 2026-10-24.)
-The first images come from the `kitsune` CI job on the `kitsune` branch as
+it) — targets `*-kitsune` for all three (seven in the catalog, behind "Show
+experimental targets"). (A FireBeetle 2 ESP32-C5 stood in for the XIAO C5
+until 2026-10-24.) The first images come from the `kitsune` CI job on `main` as
 a **run artifact** (`KITSUNE_BUILD`), built with fox-bench's bench
 conference (§10) — nothing hosted (`KITSUNE_HOST` stays unset, §7). Phase 2
 waits on §8.
@@ -34,9 +34,9 @@ boards, one project per challenge kind, built for several boards each:
 |---|---|---|---|
 | WiFi AP (2.4 GHz; 5 GHz on the C5) | Wi-Fi | Atom-lite, AtomS3-lite, StampS3, Nano ESP32, XIAO ESP32C5 | SSID, BSSID (spoofed MAC), channel |
 | WiFi client | Wi-Fi | same | a station probing/associating with a given MAC |
-| BLE iBeacon | BLE | all but the C5 | UUID / major / minor / device name / MAC |
+| BLE iBeacon | BLE | all but the C5 (kitsune's README; the `seeed_xiao_esp32c5-kitsune` target still carries `ble-ibeacon` defaults because the lint wants one per target, but lists no iBeacon env — the page offers a template with nothing to flash; to resolve on the catalog side) | UUID / major / minor / device name / MAC |
 | BT Classic discoverable | BR/EDR | Atom-lite only (original ESP32; pinned to core 2.x) | device name, MAC |
-| Zigbee coordinator | 802.15.4 | XIAO ESP32C5 only | PAN, EUI-64, channel |
+| Zigbee coordinator | 802.15.4 | XIAO ESP32C5 (kitsune); the fox-bench C6 env too | PAN, EUI-64, channel |
 | "FM fox" | FM broadcast | a store-bought transmitter (not firmware) | a carrier — only a stub so the paperwork generator covers it |
 
 Everything that makes one fox different from another is a **compile-time
@@ -107,7 +107,7 @@ planned` until Phase 1 can flash it — the lint already enforces that.
 `wifi-ap`, `wifi-client`, `ble-ibeacon`, `bt-classic`, `zigbee-coordinator`.
 `template.json` gains `radios: ["wifi24"]` etc. so the page offers a template
 only on hardware that has the radio (BT Classic → Atom-lite only, Zigbee →
-C5 only), the same way `families` filters today.
+the C5 and the C6), the same way `families` filters today.
 
 **Config sections** (CONFIG.md additions; validated in `schema.js` and, in
 Phase 2, in the firmware):
@@ -385,10 +385,10 @@ board `DATA_PIN` is passed in and the digital-LED path is used — no colours
 on a plain LED. The right fix is an entry in their `rfhsledmacros.h`, which
 is the kind of PR their README invites; until then the C6's LED is cosmetic.
 
-Branch convention: `main` carries what the hardware log vouches for and is
-what Pages deploys; kitsune work goes on the `kitsune` branch (tests run,
-no deploy) and merges to `main` when a board has been on the bench. On the
-branch, `KITSUNE_BUILD=true` and `KITSUNE_COMMIT=<sha>` (repository
-variables) make the job build; the images are in the run's `kitsune-images`
-artifact, loaded on the Board tab with "Load merged .bin…". `KITSUNE_HOST`
-stays unset.
+Branch convention: one branch, `main`; a target's `status` (experimental,
+behind the checkbox) is the gate between work in progress and what the
+hardware log vouches for. `KITSUNE_BUILD=true` and `KITSUNE_COMMIT=<sha>`
+(repository variables) make the job build; the images are in the run's
+`kitsune-images` artifact, unzipped and opened on the Board tab with
+"Open artifact folder…" ("Load merged .bin…" is for one local build).
+`KITSUNE_HOST` stays unset.

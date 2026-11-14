@@ -20,8 +20,9 @@ point, a Wi-Fi probing station or a BLE iBeacon on a duty cycle, with the
 callsign or a configured name as the SSID / device name and a chosen MAC —
 on bare boards with no radio module, listed by chip (ESP32-C3, -C6, -C5,
 -S3, nRF52840: the XIAO C3 / C6 / C5 / S3, the Waveshare ESP32-S3-Nano,
-the FireBeetle 2 ESP32-C5, the Arduino Nano 33 BLE); these three templates
-and the five chip targets are **experimental** until a hardware-log row
+the FireBeetle 2 ESP32-C5, the Arduino Nano 33 BLE); these four templates
+(three beacons and the `puzzle-beacon` contest beacon) and the five chip
+targets are **experimental** until a hardware-log row
 says a phone has found them. The
 AI6YM PicoFox is supported two ways: with its **vendor firmware** (the page
 writes its settings, renders its audio and Morse-ID files, and draws the
@@ -30,10 +31,11 @@ with **fox-bench's own firmware** (`firmware/foxlib-c/`, GPL-3.0-or-later:
 `fox.json`, every template the CircuitPython foxes have including SSTV, FM
 at 8 kHz with pre-emphasis, banner and bench buttons over its serial
 console; flashed from the Board tab as a UF2 and swapped with the vendor's from
-the same card — on the air on a rev 3 board since October 2026). The fourth
+the same card — on the air on a rev 3 board since October 2026, with Morse +
+songs and Morse + SSTV verified there and the rest run in the host tests). The fourth
 family, **compiled**, is for the RF Hackers Sanctuary's
 [kitsune](https://github.com/rfhs/kitsune) foxes — Wi-Fi AP and client, BLE
-iBeacon, Bluetooth Classic and Zigbee on five ESP32-family boards — whose
+iBeacon, Bluetooth Classic and Zigbee on kitsune's five boards (seven targets here: two stand-ins fox-bench carries envs for) — whose
 configuration is compiled in: the page prepares and checks it with the
 same forms, exports the conference header their build reads, and can flash
 a kitsune image after checking the port's chip (one built with PlatformIO,
@@ -71,6 +73,8 @@ after all three passed, carrying the UF2 that run built
 | `tools/session_close.py` | after a `hw_smoke.py` run: the hardware-log row and the `boards_tested` additions, from the report (`docs/bench-runbook.md`) |
 | `flasher/` | CircuitPython flashing component (esptool-js bundled; Apache-2.0, licensed separately) |
 | `tools/batch_flash.py` | headless CircuitPython batch flasher, same CSV as the Fleet tab |
+| `tools/check_fleet.py` | checks a fleet CSV with the same rules as the Fleet tab's import |
+| `tools/check_catalog.py`, `tools/check_docs.py`, `tools/check_ci.py` | the lints CI runs: descriptors and version bumps, paths named in the docs, the workflow file |
 | `docs/bench-runbook.md` | the queue as commands: what to run per session, what it should print, how to close the session |
 | `docs/first-hardware-session.md` | checklist for a new board, module or CircuitPython build |
 | `docs/network-fox-bench.md` | the bench list for the network foxes, per board |

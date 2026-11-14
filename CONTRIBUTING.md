@@ -28,7 +28,9 @@ From the repository root (details and prerequisites in `tests/README.md`):
 ```
 python3 tools/check_catalog.py --since origin/main && python3 tools/check_docs.py
 python3 tools/check_ci.py && python3 tools/build_kitsune.py --selftest
-python3 firmware/sim/run.py
+python3 tools/bench_queue.py --check && python3 tools/check_catalog.py --manifest tests/fixtures/kitsune/manifest.json
+python3 firmware/sim/run.py && python3 firmware/sim/test_sniffer_parse.py && python3 firmware/sim/test_netpayload.py
+for f in tests/fixtures/bench/*.json; do python3 tools/replay_check.py "$f" || exit 1; done
 make -C firmware/foxlib-c/tests check
 cd tests && npm run unit && npm run smoke
 ```
@@ -45,8 +47,9 @@ it:
 | you changed | bump |
 |---|---|
 | anything the browser loads — `js/`, `css/`, `index.html`, `flasher/`, `hardware/`, `boards/` | `const VERSION` in `js/main.js` |
-| `firmware/foxlib/` or a template's `code.py` | `firmware/foxlib/VERSION` (and the template's `version`) |
-| `firmware/foxlib-c/core` or `picofox` | `firmware/foxlib-c/VERSION` |
+| `firmware/foxlib/` | `firmware/foxlib/VERSION` |
+| a template's `code.py` or `defaults/` | that template's `version` in its `template.json` |
+| `firmware/foxlib-c/core` or `picofox`, or `firmware/templates/morse-songs/defaults/picofox-foxlibc.json` (compiled into the UF2) | `firmware/foxlib-c/VERSION` |
 | only docs, tests or tools | nothing |
 
 Add a line under `## Unreleased` in `CHANGELOG.md` for anything a user of

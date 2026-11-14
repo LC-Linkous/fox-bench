@@ -110,7 +110,7 @@ bands.json                            amateur allocations by region
 firmware/
   LICENSE                             GPL-3.0-or-later (see §9)
   index.json                          foxlib file list, template list
-  foxlib/                             shared CircuitPython firmware library: fox.py (FM, SA868), netfox.py + netradio.py + netcfg.py
+  foxlib/                             shared CircuitPython firmware library: __init__.py (Fox: FM, SA868), netfox.py + netradio.py + netcfg.py
                                       (network foxes: the SoC's Wi-Fi / BLE on a duty cycle)
   templates/<id>/
     code.py                           the behaviour file (CircuitPython)
@@ -120,6 +120,7 @@ firmware/
                                       pty board, Python↔JS parity (encoders, validator corpus)
   foxlib-c/                           the C firmware (§10): core/ portable, picofox/ Pico SDK app,
                                       tests/ host build + parity + runner, VERSION
+  kitsune/                            bench/ generated conference headers, extra/ fox-bench's extra PlatformIO envs
 tools/
   check_catalog.py                    lint for every descriptor, defaults file, index and version bump
   check_docs.py                       every file path named in the *.md files exists
@@ -129,9 +130,18 @@ tools/
   release_notes.py                    the release body from CHANGELOG.md
   atten_sweep.py                      the PicoFox attenuator measured: codes × timed carrier × your meter reading → CSV, dB per code
   batch_flash.py                      headless batch flasher (same CSV as the Fleet tab)
-  hw_smoke.py                         bench script against a real (or pty-simulated) board
+  hw_smoke.py                         bench script against a real (or pty-simulated) board; --record writes a replay fixture
+  replay_check.py                     replays a recording through the pty board and hw_smoke.py (CI)
+  bench_queue.py                      the bench order derived from the catalog; --check: every stable claim has a log row
+  session_close.py                    turns a hw_smoke report into hardware-log rows and status proposals
+  check_fleet.py                      checks a fleet CSV with the page's import rules
+  stamp_assets.py                     cache-busting of the page's asset links at deploy
+  kitsune_bench_conf.mjs              generates fox-bench's bench conference headers for the kitsune build
+  sniffer/                            CircuitPython for a second board: a probe-request sniffer (wifi.Monitor)
 tests/                                unit (node:test) and page smoke (Playwright), see tests/README.md
-docs/                                 first-hardware-session, hardware-log, adding-a-target, network-fox-bench, network-fox-payloads-plan, picofox hardware/notes, releasing, project audit, kitsune plan
+docs/                                 first-hardware-session, bench-runbook, bench-recordings, hardware-log, adding-a-target,
+                                      network-fox-bench, network-fox-payloads-plan, picofox hardware/notes, releasing,
+                                      project audit, kitsune plan / bench / C6 proposal
 CONFIG.md                             fox.json schema — the contract
 PROTOCOL.md                           REPL exchange byte by byte; the foxlib-c console
 LICENSES.md                           which licence covers what
@@ -179,8 +189,8 @@ revision, features, crystal, MAC, flash size) into the fleet log. On
 ESP32 the MAC is also `microcontroller.cpu.uid`, so flash rows and deploy
 rows for one board share the `uid` key. "Try without hardware" swaps in a
 simulated esptool so the whole flow runs in the page tests. Boards with
-UF2 bootloaders get a different implementation later; the interface is
-the same.
+UF2 bootloaders (the PicoFox) take the UF2 copy on the same card instead;
+the nRF52840 is flashed outside the page (`bossac`).
 
 **The fleet log** (`profiles.js`) is one row per deploy, flash, export and
 audit, keyed on the chip `uid`, kept in this browser's storage and
@@ -321,7 +331,7 @@ of their code and differ along three independent axes:
 
 | Axis | Values | fox.json section |
 |---|---|---|
-| payload — what follows the ID | `songs` · `sstv` · `none` (QRSS is Morse at a different speed) · reserved: `wifi-beacon` | `payload` |
+| payload — what follows the ID | `songs` · `sstv` · `none` (QRSS is Morse at a different speed) | `payload` |
 | schedule — when the next cycle starts | `fixed` · `popcorn` · `resurrection` | `schedule` |
 | plan — where | one frequency · rotating list, with or without a `QSY` announcement | `plan` |
 
@@ -338,11 +348,13 @@ line with `freq=none` and `net=/name=/mac=` appended, same deploy path
 (`foxlib/`, `code.py`, `defaults.json`, `fox.json` over the REPL), same
 bench entry points (`key_for`, `rssi`), same simulator (`wifi`, `_bleio`
 and `alarm` are mocked; deep sleep reboots the script). The page hides the
-Plan and Payload tabs and switches the Radio, ID and Schedule tabs to the
-forms in `js/ui/net.js`. A template is offered on a target when its
-hardware lists the `radios` it names (and, for the FM templates, the pin
-roles it requires), so a Nano 33 BLE sees `ble-beacon` only, and a XIAO
-ESP32-C3 sees all ten. Why not the compiled family's kitsune firmware for
+Plan tab, switches the Radio, ID and Schedule tabs to the forms in
+`js/ui/net.js`, and gives the Payload tab the four contest-feature cards.
+The two contracts never mix on one target: a chip target (a bare board)
+offers the `net` templates its radios allow, a board + module target the
+FM ones — so the `nrf52840` target sees `ble-beacon` and `puzzle-beacon`,
+the `esp32c3` chip target the four network templates, and the XIAO ESP32-C3
++ SA868 combo the seven FM templates. Why not the compiled family's kitsune firmware for
 this: these foxes are configured per deploy, from the page, with no
 toolchain — the same process as the FM foxes — and nothing of kitsune's is
 built or hosted. They mimic a ham fox hunt (`id.use_callsign_as_name`) or a
@@ -415,10 +427,16 @@ Templates in v1:
             "optional": ["led", "batt_sense"] },
   "payloads": [ { "file": "images.bin", "kind": "sstv-images" } ],
   "capabilities": ["keytest", "rssi", "batt"],
+  "needs": [],                       // what an organiser must provide (BLE tags, a sign); shown on Behavior + Deploy; no template uses it yet
   "typical_keydown_s": 40,
   "boards_tested": ["seeed_xiao_esp32c3"]
 }
 ```
+
+A network-fox template adds `"contract": "net"` (its document is the `net`
+contract, not the FM one) and `"radios": ["wifi24"]` / `["ble"]` (offered
+only where the hardware lists them); `families` is `["foxlib"]`. The lint
+checks all three, and `needs` (a list of short strings).
 
 `sections` drives the form: the page shows only the sections a template
 reads. `capabilities` gates the bench tabs. `payloads` lists files
@@ -436,7 +454,7 @@ than half-written.
 `fox.json` is specified in `CONFIG.md`. Summary of the rules:
 
 - Written in full by the page: a fox's file tells you everything about it.
-- Merged over the template's `defaults/<board_id>.json` by `foxlib/cfg.py`.
+- Merged over the template's defaults (`defaults/<target id>.json` in the repo, `defaults.json` on the board) by `foxlib/cfg.py`.
   Field-level validation; failures fall back to the default and are
   named in the boot banner.
 - `schema` integer for migrations. `fleet` block is bookkeeping the
@@ -463,13 +481,13 @@ FOX template=composite/0.3.0 … cfg=partial(radio.freq_mhz,pins.ptt) radio=err(
 
 | Tab | Purpose |
 |---|---|
-| **Board** | Which fox is on the bench (board picker grouped by family — this choice drives every other tab), Connect / Listen only / Open drive, what is on the board before anything is changed (`board.board_id`, `foxlib/VERSION`, `fox.json`; or the drive's files), **Flash CircuitPython** for a bare ESP32 (UF2 restore for drive boards), diagnostics. |
-| **Radio & pins** | Module dropdown and **Probe** (retunes in receive at 146.5 and 433.5 and reports which the module accepted — nothing is transmitted). Region. Power high/low with measured dBm. Bandwidth, squelch, volume. The role → pin wiring table with the board's defaults. Drive family: zone, revision, attenuation, deviations; nothing to wire. |
+| **Board** | Which fox is on the bench (board picker in four groups by what the fox is — board + module, drive-configured, bare CircuitPython board by chip, compiled-in — this choice drives every other tab), Connect / Listen only / Open drive, what is on the board before anything is changed (`board.board_id`, `foxlib/VERSION`, `fox.json`; or the drive's files), **Flash CircuitPython** for a bare ESP32 (UF2 restore for drive boards; with a serial session open the button reads **Disconnect and flash** and closes it first), diagnostics. Listen only survives the port dropping (deep sleep, bootsel, a power cycle): the page keeps the granted port, waits up to 10 minutes for the same device, and listens again — the top button reads **Stop waiting** meanwhile. |
+| **Radio & pins** | For a bare board (chip target): the network section's form (SSID / PSK / channel / power / MAC, or the BLE fields) and the wiring card — a **Board** dropdown when the chip has more than one variant, the two pins a network fox uses, the CircuitPython build the variant runs. For a board + module: module dropdown and **Probe** (retunes in receive at 146.5 and 433.5 and reports which the module accepted — nothing is transmitted). Region. Power high/low with measured dBm. Bandwidth, squelch, volume. The role → pin wiring table with the board's defaults. Drive family: zone, revision, attenuation, deviations; nothing to wire. |
 | **Behavior** | The firmware template, from the set the selected board can run: description, status, what it reads. Decides which payloads and schedules the next tabs offer. |
 | **Plan** | Frequencies: one, or a rotating list with the `QSY` option. Each entry validated against module ∩ band. |
-| **Payload** | Depends on template. Songs: built-ins, RTTTL paste, note editor, playlist order. SSTV: drop a PNG or type a card → 40×240 grayscale → decoded preview on canvas. QRSS: dit length, waterfall preview. **Preview** plays the full transmission (ID then payload) through Web Audio from the same event stream the fox will use. |
+| **Payload** | For a network fox: the four contest-feature cards (what the fox says / serves / listens for / how hard it is to find; `docs/network-fox-payloads-plan.md`), each written into fox.json only while on. For an FM template it depends on the template. Songs: built-ins, RTTTL paste, note editor, playlist order. SSTV: drop a PNG or type a card → 40×240 grayscale → decoded preview on canvas. QRSS: dit length, waterfall preview. **Preview** plays the full transmission (ID then payload) through Web Audio from the same event stream the fox will use. |
 | **Schedule** | Fixed / popcorn / resurrection parameters. **Timeline**: the LCG run from the seed, drawn across the day, so an organizer sees every cluster and phase change in advance. |
-| **Deploy** | Diff between board and form; airtime per transmission vs `limits`; "antenna or dummy load attached?" gate; writes `fox.json`, payloads, and any out-of-date firmware files (size + CRC32 verified); reboots; parses the banner; pass/fail. Export the same set as a zip. |
+| **Deploy** | Diff between board and form; for a network fox **Set the board clock** (this browser's time, or one fixed time for a whole fleet — remembered in the browser) and the template's **needs** line when it has one; airtime per transmission vs `limits`; "antenna or dummy load attached?" gate; writes `fox.json`, payloads, and any out-of-date firmware files (size + CRC32 verified); reboots; parses the banner; pass/fail. Export the same set as a zip. |
 | **Bench** | Capability-gated: **Key test** (key for N seconds, confirm `radio=ok`), **RSSI** (module receiver on the fox frequency), **Battery** (live voltage when `batt_sense` is set). Every action is appended to a timestamped event log that any external test procedure can line up against. |
 | **Fleet** | Profiles (save/load/export a config set) and the fleet log: board UID, MAC, chip info, which profile went on when. Batch flashing: plug → click → erase → flash CircuitPython → log → next, same CSV columns as `tools/batch_flash.py`. (The single-board **Flash CircuitPython** card, with the image source and options, is on the Board tab next to the bootloader instructions.) |
 | **Console** | Raw exchange, history, log download. |
@@ -549,7 +567,7 @@ bench. A *device family* is the unit that varies:
 
 | | foxlib | drive | foxlib-c | compiled |
 |---|---|---|---|---|
-| example | XIAO ESP32-C3 + SA868; the chip targets ESP32-C3 / -C6 / -C5 / -S3 / nRF52840 (XIAO C3, C6, C5, S3; Waveshare S3-Nano; FireBeetle 2 C5; Nano 33 BLE) with no module as **network foxes** (`net` contract) | AI6YM PicoFox with its vendor firmware | AI6YM PicoFox with fox-bench firmware | RFHS kitsune foxes on M5Stack Atom / S3 boards, Nano ESP32, XIAO ESP32C5 |
+| example | XIAO ESP32-C3 + SA868; the chip targets ESP32-C3 / -C6 / -C5 / -S3 / nRF52840 (XIAO C3, C6, C5, S3; Waveshare S3-Nano; FireBeetle 2 C5; Nano 33 BLE) with no module as **network foxes** (`net` contract) | AI6YM PicoFox with its vendor firmware | AI6YM PicoFox with fox-bench firmware | RFHS kitsune foxes on M5Stack Atom / S3 boards, Nano ESP32, XIAO ESP32C5 (and, as stand-ins fox-bench carries envs for, the Waveshare ESP32-S3-Nano and XIAO ESP32C6) |
 | firmware | ours (CircuitPython + foxlib), deployed by the page | the vendor's, left alone (CC BY-NC-SA; not in this repo) | ours (C, Pico SDK, `firmware/foxlib-c/`), flashed as a UF2 from the Board tab | theirs (PlatformIO/Arduino, `github.com/rfhs/kitsune`; not in this repo), configuration compiled in from a conference header |
 | transport | `repl-device.js` (raw REPL) | `drive-device.js` (File System Access API on the USB drive) | `drive-device.js` for the files; the serial console for banner, log and bench | none yet: the page exports the header block; Listen only reads their boot lines (`docs/kitsune-integration-plan.md` for the next stages) |
 | config contract | `CONFIG.md` → `fox.json` | the vendor's files, modelled in `js/model/vendor/<id>.js` | `CONFIG.md` → `fox.json`, no `pins`, `si5351fm` radio keys | `CONFIG.md` "compiled family": `challenge`, `wifi`/`ble`/`bt`/`zigbee`, `schedule.duty` |
@@ -572,7 +590,7 @@ lints one; `tests/fixtures/pack/` is the example.
 the `families` they apply to, and the page shows only those — and, for
 the compiled family, the `radios` they need, matched against the
 hardware's `radios` list, so Bluetooth Classic is offered on the
-original-ESP32 Atom only and Zigbee on the C5 only. One piece of
+original-ESP32 Atom only and Zigbee on the C5 and C6. One piece of
 hardware can be several targets — the PicoFox is `picofox-vendor` (drive)
 and `picofox-foxlibc` (foxlib-c) — and the user switches between them by
 flashing. The working config keeps the `fox.json` shape for both families
@@ -607,7 +625,6 @@ the banner names and puts the matching device on the open port
 
 - `drive-device.js` for foxlib boards that mount `CIRCUITPY` (ESP32-S2/S3, SAMD): the transport exists (§10); wiring it to the foxlib deploy does not.
 - UF2 flashing of CircuitPython itself (the UF2 copy exists for vendor firmware).
-- `wifi-beacon` payload (ESP32 Wi-Fi SSID as the fox, 2.4 GHz, no SA868).
 - Other radio module families (`modules/` descriptor + `foxlib` driver).
 - Correlating the bench event log with external instruments; the log
   format is stable for that purpose, nothing else is assumed.

@@ -9,7 +9,7 @@ ES module; nothing in here depends on anything outside this directory.
 
 | | |
 |---|---|
-| `flasher.js` | the API: `setImage()`, `flash()`, `parseBinName()`, `demoEsptool()` |
+| `flasher.js` | the API: `setImage()`, `flash()`, `parseBinName()`, `chipId()`, `loadEsptool()`, `demoEsptool()` |
 | `md5.js` | MD5 for esptool-js's image verification |
 | `vendor/esptool-js/` | the upstream bundle, unmodified, with its licence and version |
 
@@ -20,15 +20,22 @@ import * as flasher from './flasher/flasher.js';
 flasher.setImage(fileName, uint8array);              // the image to write
 const facts = await flasher.flash({
   offset: 0x0, eraseAll: true, baud: 460800,
+  expectChip: '',            // e.g. 'esp32c5': refuse to write when the chip reports another family (the compiled family's safety check)
+  port: null, impl: null,    // an already granted SerialPort instead of the chooser; a stand-in esptool (demoEsptool())
   onPhase: text => {}, onProgress: fraction => {}, onLog: line => {},
 });
 // facts: { chip, revision, features, crystal, mac, flash_size, erase_ok, flash_ok, seconds }
 ```
 
-`flash()` asks the browser for a port (`navigator.serial.requestPort()`),
-connects with esptool-js, runs the stub, optionally erases the whole
-flash, writes the image at `offset` with MD5 verification, hard-resets,
-and closes the port. Errors carry the facts gathered so far in `e.facts`.
+`flash()` asks the browser for a port (`navigator.serial.requestPort()`,
+unless `port` is given), connects with esptool-js, runs the stub, checks
+the detected chip against `expectChip` when set (`chipId()` maps the
+reported name to a family: `esp32`, `esp32c3`, …), optionally erases the
+whole flash, writes the image at `offset` with MD5 verification,
+hard-resets, and closes the port. Errors carry the facts gathered so far
+in `e.facts`. `loadEsptool()` loads the vendored bundle and falls back to
+the pinned jsDelivr copy only if the local one fails; `esptoolSource` says
+which loaded.
 `demoEsptool()` returns a simulated esptool with the same surface so the
 flow can run without hardware.
 

@@ -31,6 +31,8 @@ each time.
 | 2026-10-23 | AI6YM PicoFox rev 3 | foxlib-c 0.1.10, site build `c1cfb49b…` (commit 4db74b3), page 0.7.10 | flashed from the site via the touch over 0.1.9; `board.json` c-0.1.10; deploy while running (reload ~1 s); bench `id`/`tone 800 2`/`key 3` with `CHG` telemetry on the charger; **F15**: `atten 40` mid-cycle → `ok`, cycle restarted, `status attenuation=40`, back to 0 the same way (0.1.9 printed `ok` and dropped the value); power cycle → `reset=power_on`, `i2c_errors=0`, `i2c_write_us=104`; unknown command → `err: unknown command … (help)`. The callsign gate on bench actions (F15) was not reached from the page — the page refuses to deploy a placeholder callsign — and is host-tested. F13 (49.7-day wrap) and F14 (Si5351 absent at boot) are host-tested only | handheld; console; drive | ok → PicoFox signed off on 0.1.10; no further firmware work planned except F10 (attenuator, needs a meter) |
 | 2026-10-25 | Seeed XIAO ESP32-C3 + SA868 | foxlib 1.2.0, page 0.9.0 (deploy after a PicoFox fox-bench-firmware session on the same page) | morse-sstv deploy over the REPL onto a board running an older fox `code.py`: foxlib 1.2.0 written, banner read back | console | **two findings** → page 0.9.1 / foxlib 1.2.1: the form carried the PicoFox's `radio.family si5351fm` and the fox booted `fatal(hardware)` (page now resets the hardware sections across families and blocks a mismatched radio.family); `payload.images_file -> default` on every boot because the firmware's file-name regex used `{0,31}`, which CircuitPython's `re` lacks. Not yet re-run with the fixes |
 | 2026-10-26 | Seeed XIAO ESP32-C3 (×2) | CircuitPython 10.3.1 flashed from the page (esptool-js, 460800 baud, erase + write, md5 verified, 25 s) | two boards in a row from the Board tab | esptool log | first board ok. **Finding** → page 0.9.2: with the page still connected to a board, the Flash button sat disabled with its reason in a tooltip only; it now reads "Disconnect and flash" and does both |
+| 2026-11-14 | Seeed XIAO ESP32-C3 (bare, `esp32c3` chip target) | foxlib 1.4.0, page 0.11.0 | wifi-beacon deploy with the `N0CALL` placeholder and the callsign not the name on the air | page | **Finding** → page 0.11.1 / foxlib 1.4.1: the deploy was blocked as for an FM fox; a Part 15 device need not identify, so the placeholder now warns and blocks only as the name on the air (banner `id=none`). No status change |
+| 2026-10-22 (recorded late) | Seeed XIAO ESP32C6, XIAO ESP32C5 | ROM boot lines | serial over native USB after a reset (`ESP-ROM:esp32c5-eco2-…`, the C6's hello) | Listen only | both enumerate and print; no firmware of ours on them yet (CHANGELOG 0.7.13). No status change |
 
 ## Not yet verified on hardware
 
@@ -43,8 +45,8 @@ each time.
   seen to fire; watchdog timeout path (a hang has not been provoked).
 - Templates on the PicoFox other than morse-songs and morse-sstv: the
   firmware runs them in the host simulation, not yet on air.
-- The network foxes (`wifi-beacon`, `wifi-probe`, `ble-beacon`, foxlib
-  1.2.0) on every chip target: run only in the simulator (`firmware/sim/`,
+- The network foxes (`wifi-beacon`, `wifi-probe`, `ble-beacon`,
+  `puzzle-beacon`; foxlib 1.5.0) on every chip target: run only in the simulator (`firmware/sim/`,
   mocked `wifi`/`_bleio`/`alarm`) and on the page's demo board. The bench
   list per board is `docs/network-fox-bench.md`. Boards on the bench and the
   CircuitPython build each runs (checked against circuitpython.org

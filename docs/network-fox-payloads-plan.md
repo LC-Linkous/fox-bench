@@ -132,7 +132,7 @@ stealth:
 
 ```
 checkpoint:
-  portal:  { "enabled": true, "title": "Fox 3", "body_md": "…", "code": "4471",
+  portal:  { "enabled": true, "title": "Fox 3", "body": "…", "code": "4471",
              "ask_callsign": true, "captive_dns": true, "log": true }
   ble:     { "enabled": true, "service_uuid": "…", "code": "4471" }
 ```
@@ -196,7 +196,7 @@ sense:
 
 - `docs/network-fox-bench.md` gains a section per feature; hardware-log
   rows per board per feature; the templates' `boards_tested`.
-- `tools/hw_smoke.py`: `--payload`, `--checkpoint` flags that exercise the
+- `tools/hw_smoke.py` (not yet built): `--payload`, `--checkpoint` flags that exercise the
   portal with a Python client over the fox's AP (the laptop joins the AP),
   and the find log read-back.
 - **foxdash bridge (optional)**: the portal/BLE code becomes a rolling
@@ -220,26 +220,30 @@ B before C before D before E: each reuses the previous phase's plumbing
 (B's frame builder → D's BLE service; C's RTC → E's timestamps). One patch
 per phase, page minor version per phase (0.10 → 0.14), foxlib 1.3 → 1.7.
 
-## Decisions needed before Phase A
+## Decisions (2026-11-14)
 
-1. **Hunter tag** (Phase E): a cheap BLE tag per team with a name set to
-   `HUNT-<team>`, or the hunters' phones running an advertiser app
-   (Android: nRF Connect can advertise a custom name; iOS cannot set the
-   name freely). My recommendation: tags per team, handed out at
-   registration — deterministic and OS-independent.
-2. **Portal content**: plain text + the code, or the Markdown subset?
-   Plain text is fifty lines less firmware and enough for "you found fox
-   3, your code is 4471, next clue: …". Recommend plain text first.
-3. **Vendoring `adafruit_httpserver`** (MIT) into `firmware/foxlib/vendor/`
-   vs writing a 120-line HTTP responder of our own. The library is ~60 KB
-   of Python on a C3 — real RAM. Recommend our own minimal responder (GET
-   one page, POST one form), no dependency.
-4. **Clock for `start.at`**: set the board RTC from the browser at deploy
-   (simple, drifts minutes per day, fine for a one-day hunt) — yes/no.
-5. **Find log hand-off**: CSV read back by the page into the fleet log,
-   nothing networked — yes/no. (The rolling-code bridge is the networked
-   alternative, Phase F, optional.)
-6. **Template packaging**: the two new templates (`checkpoint`,
-   `puzzle-beacon`) plus sections on the existing three — or sections only
-   and no new templates. Recommend the two templates: they are what a
-   contest organiser picks from the dropdown.
+1. **Hunter tag** (Phase E): a cheap **BLE tag per team**, name `HUNT-<team>`,
+   handed out at registration. The firmware ships in every build; the
+   template says what must be provided — `template.json` gets a `needs`
+   list, shown under the description on the Behavior tab, above the Deploy
+   button, and again on the Sense card when `tags` is on. Nothing about
+   phone apps anywhere.
+2. **Portal content**: plain text + the code first (`portal.body`, ≤ 512
+   bytes); Markdown later if wanted.
+3. **No vendored HTTP library**: our own minimal responder (GET one page,
+   POST one form, the captive DNS answer) — smaller on the C3, no
+   dependency.
+4. **Clock**: a "Set the board clock" checkbox on the Deploy tab with two
+   sources, *browser time now* or *a fixed time* (date-time field),
+   remembered in the browser so a whole fleet can be given one identical
+   time (built in phase A). `stealth.start.at` with the clock not set is a
+   blocking error.
+5. **Find log hand-off**: `finds.csv` on every fox, one format across all
+   templates (`fox_uid, template, cycle, ms_since_boot, callsign,
+   client_mac`); *Collect finds* on any fox merges into the one fleet log,
+   so a mixed fleet reads as one list. `near.csv` (Phase E) uses the same
+   columns plus `kind`.
+6. **Templates**: two new ones, `checkpoint` and `puzzle-beacon`
+   (`puzzle-beacon` shipped in phase B), in the Behavior tab's dropdown
+   next to the three beacons on the chip targets (nowhere else); optgroups
+   if the list grows past five.

@@ -94,7 +94,7 @@ cycle below 100 %, the **power steps** through three levels. Both are
 firmware behaviour, not settings. Silence inside `audio.wav` is an
 unmodulated carrier, still on the air; only the duty-cycle gap is
 actually off. The unit as received: 28.8 s default audio + 9.9 s ID
-(`K0HRV/LOCK` keyed as `K0HRVLOCK`, 70 % level), 100 % duty.
+(a 9-character callsign with a `/` suffix, keyed without the slash, 70 % level), 100 % duty.
 
 The firmware's ID generator: dit = 1.2/WPM s, inter-character gap =
 3 × 1.2/Farnsworth s, no extra word gap, 1/3-dit raised-cosine-ish ramps,

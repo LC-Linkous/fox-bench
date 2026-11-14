@@ -7,8 +7,9 @@ what the images are (kitsune's code, fox-bench's bench configuration).
 
 ## Before the bench
 
-1. On the `kitsune` branch, the repository variables `KITSUNE_BUILD=true`
-   and `KITSUNE_COMMIT=<sha>` are set and the `kitsune` CI job is green.
+1. On `main` (there is no kitsune branch; the experimental status flag is
+   the gate), the repository variables `KITSUNE_BUILD=true` and
+   `KITSUNE_COMMIT=<sha>` are set and the `kitsune` CI job is green.
    Download the run's **kitsune-images** artifact and unzip it: a folder
    with `manifest.json` and one merged `.bin` per environment.
 2. Board tab → tick **Show experimental targets**.

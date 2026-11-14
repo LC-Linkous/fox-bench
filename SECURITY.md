@@ -4,9 +4,12 @@ fox-bench is a static page: no server, no accounts, no telemetry. It talks
 to a board on your bench through the browser's Web Serial and File System
 Access APIs, after you pick the port or drive in a browser prompt, and it
 keeps profiles and the fleet log in your browser's local storage. Nothing
-leaves your machine except fetches of the page's own files and, when you
-ask for the vendor PicoFox firmware, one fetch from the vendor's GitHub at a
-pinned commit, checked against a sha256 in the catalog.
+leaves your machine except fetches of the page's own files; when you ask
+for the vendor PicoFox firmware, one fetch from the vendor's GitHub at a
+pinned commit, checked against a sha256 in the catalog; and, only if the
+site's own copy of the esptool-js flasher library fails to load, one fetch
+of that library (pinned version) from jsDelivr — the console says which
+copy it is using.
 
 What could go wrong, and what the page does about it:
 

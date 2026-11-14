@@ -14,6 +14,39 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Docs audit (2026-11-14) — no version change
+
+An independent read of every document against the code; 39 findings,
+all addressed. The hard constraints held (no `dc34fox` anywhere; kitsune
+by its repository only; nothing of theirs hosted; no vendor PicoFox files
+in the tree). Fixed: `docs/bench-runbook.md` pinned to 0.9.6 / foxlib
+1.2.1 (now current, and `puzzle-beacon` in the network run); PROTOCOL.md
+named `fox.radio.key()` (it is `key_for()`) and said nothing about the
+NetFox bench calls, the board-clock write or the Listen-only port grant;
+DESIGN.md said a chip target sees "all ten" templates and the Nano 33
+`ble-beacon` only (the two contracts never mix; the counts are 7 / 4 / 2),
+that Plan *and* Payload are hidden for a network fox (Payload holds the
+four cards), that the picker is grouped by family, "Zigbee on the C5
+only" (the C6 too), a `fox.py` that does not exist, a reserved
+`wifi-beacon` payload, and "UF2 boards later"; the §2 layout, §5
+`template.json` (`contract`, `radios`, `needs`) and §7 tabs now cover
+variants, the wiring card, the contest cards, the deploy clock,
+Disconnect-and-flash and the Listen-only reconnect. SECURITY.md names the
+esptool-js jsDelivr fallback. CONTRIBUTING's bump table and pre-push list
+match the lint and CI. "Three network foxes" is four in six places; the
+kitsune docs no longer describe a `kitsune` branch and name the right
+Board-tab button; the plan's decisions section is restored (the pushed
+copy had the pre-decision text), `portal.body` not `body_md`, hw_smoke
+flags marked not built; the 2026-10 audit no longer says no tag exists;
+flasher/README documents `expectChip` / `port` / `impl` / `chipId()`;
+bench-recordings says how a `--sniffer` run replays; CONFIG's table marks
+checkpoint/sense "accepted, not built"; hardware-log rows for 11-14 and
+the C5/C6 serial check; a third party's callsign removed from
+picofox-notes; the stale, untagged `firmware/foxlib-c/picofox/
+foxbench-picofox.uf2` untracked (CI builds the real one). Open on the
+catalog side: `seeed_xiao_esp32c5-kitsune` carries `ble-ibeacon` defaults
+but no iBeacon env (noted in the kitsune plan).
+
 ### Page 0.12.0 · foxlib 1.5.0 · foxlib-c 0.1.11
 
 **Contest features, phase C — how hard the fox is to find** (`stealth`
@@ -72,8 +105,8 @@ built). foxlib 1.4.0 `netpayload.py`:
   `nameForCycle` / `morseName` in `netschema.js` mirror the firmware.
 - Simulator: frame swaps recorded as `adv_swap` (not an unkey), 11
   payload scenarios incl. frame-byte goldens, `test_netpayload.py`
-  (Eddystone encoding, TLM, Morse names — add it to CI's sim job next to
-  `test_sniffer_parse.py`); parity corpus +2 (146).
+  (Eddystone encoding, TLM, Morse names; CI's sim job runs it since 0.11.1);
+  parity corpus +2 (146).
 - `docs/network-fox-bench.md` steps 12–14; CONFIG.md payload paragraph.
 
 ### Page 0.10.0 · foxlib 1.3.0 · foxlib-c 0.1.11

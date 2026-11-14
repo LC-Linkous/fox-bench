@@ -1,7 +1,7 @@
 # Network foxes on the bench — first sessions per board
 
 The tick-through list for the network-fox templates (`wifi-beacon`,
-`wifi-probe`, `ble-beacon`) on the bare boards. One pass per board; each
+`wifi-probe`, `ble-beacon`, `puzzle-beacon`) on the bare boards. One pass per board; each
 ends with a row in `docs/hardware-log.md`. The receiver is a phone: its
 Wi-Fi list, a Wi-Fi analyser app that shows BSSID and channel, and a BLE
 scanner app (nRF Connect or similar). `wifi-probe` is the one a phone
@@ -60,7 +60,7 @@ when the chip has more than one; the LED pin is the descriptor's default.
     By hand: the sniffer's serial output is one JSON line per probe
     request; watch for the fox's MAC with the callsign as SSID, every
     cycle, on channels 1/6/11. The board never joins anything.
-11. **Hardware-log row**: date · board (variant) · firmware (foxlib 1.2.0,
+11. **Hardware-log row**: date · board (variant) · firmware (foxlib version,
     CircuitPython version, build id) · checked (which of 2–10) · how (phone
     apps) · result. A chip target goes `stable` once every one of its
     variants has a clean row for 2–9 (the C5 needs both boards; the S3 both
@@ -124,7 +124,7 @@ when the chip has more than one; the LED pin is the descriptor's default.
   ESP32 build. `board.LED` is the descriptor's guess (the Nano's GPIO48
   builtin); the RGB trio is `LED_RED/GREEN/BLUE` — switch the LED pin on the
   wiring card to one of those if `LED` is not in `dir(board)`.
-- **Nano 33 BLE Rev2** (`nrf52840`): `ble-beacon` only. CircuitPython goes
+- **Nano 33 BLE Rev2** (`nrf52840`): `ble-beacon` and `puzzle-beacon` only. CircuitPython goes
   on with `bossac` (double-tap reset → the Arduino bootloader; the
   circuitpython.org page has the command); the page then deploys over the
   REPL as for any board. Reports `arduino_nano_33_ble_rev2`.

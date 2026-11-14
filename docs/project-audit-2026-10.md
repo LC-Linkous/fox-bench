@@ -55,9 +55,9 @@ clocks a 9th rising edge when it hands SCL back to I²C idle after the LE
 pulse — after the latch, so harmless, noted for F10. The FatFs/MSC path
 remains the untested firmware path.
 
-**No release tag exists yet.** `docs/releasing.md` describes the path; the
-first tag should be cut at this version, so that the hardware sessions that
-follow have a known page and firmware to report against.
+**Release tags exist** (`v0.6.2`, `v0.7.10` at the time of the 11-06 status;
+`docs/releasing.md` describes the path). Each hardware session should
+report against a tagged page and firmware, not a build.
 
 ## Status at page 0.7.9 / foxlib-c 0.1.9 (2026-10-22)
 
@@ -96,8 +96,9 @@ exercised by a test: `serial-link.js`, Connect/Listen/banner-follow, the
 `flasher/flasher.js` as a runtime ES module; `LICENSES.md` calls it
 aggregation — a deliberate decision is still owed: relicense the page
 GPL-3.0-or-later, or write down why aggregation), `esptool-js` provenance,
-`tools/hw_smoke.py --record`, CONTRIBUTING / SECURITY, the mixed-version
-page for ≤10 min after a deploy, a fuzzer on `json.c`.
+`tools/hw_smoke.py --record` (since built: `docs/bench-recordings.md`),
+CONTRIBUTING / SECURITY (since written), the mixed-version page for ≤10 min
+after a deploy, a fuzzer on `json.c`.
 
 Severity: **critical** = can harm a user, a board or the air without warning;
 **high** = a real failure on a realistic path; **medium** = fails under
