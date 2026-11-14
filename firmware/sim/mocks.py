@@ -260,10 +260,23 @@ def install(scenario):
         class _Net:
             def __init__(self, ssid, rssi, ch): self.ssid, self.rssi, self.channel = ssid, rssi, ch
         class _Radio:
-            enabled = False; mac_address_ap = bytes(6); mac_address = bytes(6); tx_power = 8.5
+            _enabled = False; mac_address_ap = bytes(6); mac_address = bytes(6); tx_power = 8.5; _pending_stop = None
+            @property
+            def enabled(self): return self._enabled
+            @enabled.setter
+            def enabled(self, v):
+                if self._enabled and not v: net_event("wifi_disabled")
+                self._enabled = v
+            # stop_ap + start_ap with no virtual time between is an SSID swap (the stealth decoys), not an unkey
+            def _flush(self):
+                if self._pending_stop is not None:
+                    self._pending_stop = None; net_event("ap_down")
             def start_ap(self, ssid, password="", *, channel=1, max_connections=4, authmode=None):
-                net_event("ap_up", "%s ch=%d mac=%s psk=%s" % (ssid, channel, ":".join("%02X" % b for b in self.mac_address_ap), "open" if not password else "yes"))
-            def stop_ap(self): net_event("ap_down")
+                detail = "%s ch=%d mac=%s psk=%s" % (ssid, channel, ":".join("%02X" % b for b in self.mac_address_ap), "open" if not password else "yes")
+                if self._pending_stop is not None and self._pending_stop == now_ms():
+                    self._pending_stop = None; net_event("ap_swap", detail); return
+                self._flush(); net_event("ap_up", detail)
+            def stop_ap(self): self._flush(); self._pending_stop = now_ms()
             def connect(self, ssid, password="", *, timeout=None):
                 net_event("probe", "%s mac=%s" % (ssid, ":".join("%02X" % b for b in self.mac_address)))
                 sleep(min(timeout or 2, 2)); net_event("probe_done")
@@ -273,6 +286,7 @@ def install(scenario):
                 for n in (("Neighbour", -55, 6), ("AnotherAP", -70, 11)): yield _Net(*n)
             def stop_scanning_networks(self): pass
         wifi.radio = _Radio(); wifi.AuthMode = types.SimpleNamespace(OPEN=0, WPA2=1)
+        pre_sleep.append(wifi.radio._flush)
         sys.modules["wifi"] = wifi
     else:
         sys.modules.pop("wifi", None)
@@ -309,7 +323,9 @@ def install(scenario):
     class TimeAlarm:
         def __init__(self, *, monotonic_time): self.when = monotonic_time
     alarm.time = types.SimpleNamespace(TimeAlarm=TimeAlarm); alarm.wake_alarm = None
+    alarm.sleep_memory = bytearray(16)      # survives the simulated deep sleep (the module is kept across the re-exec), not a new scenario
     def deep_sleep(*alarms):
+        for f in pre_sleep: f()                 # a pending radio stop is a real stop once the board sleeps
         when = max(a.when for a in alarms)
         net_event("deep_sleep", "%.0f s" % (when - clock.ns / 1e9))
         clock.advance(max(0.0, when - clock.ns / 1e9) * 1e9)
@@ -343,4 +359,5 @@ def install(scenario):
         sys.modules[name] = mod
     rec.stop_after_unkeys = scenario.get("stop_after_unkeys")
     rec.clock = clock
+    rec.flush = lambda: [f() for f in pre_sleep]      # the runner calls it when the script ends: pending stops become stops
     return rec

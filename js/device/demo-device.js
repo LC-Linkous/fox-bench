@@ -70,11 +70,19 @@ export class DemoDevice extends Device {
       const clock = t ? `${t[0]}-${String(t[1]).padStart(2, '0')}-${String(t[2]).padStart(2, '0')}T${String(t[3]).padStart(2, '0')}:${String(t[4]).padStart(2, '0')}:${String(t[5]).padStart(2, '0')}` : 'unset';
       lines.push(`FOX template=${template}/${this._tmplVersion()} foxlib=${fl} board=${this.cpBoardId()} uid=${this.uid} cfg=${cfgStatus} radio=${radio} id=${idState(cfg)} freq=none net=${cfg.net.kind} name="${name}" mac=${cfg.net.mac}${feats.length ? ' features=' + feats.join(',') : ''} clock=${clock}`);
       if (radio.startsWith('ok(hidden')) lines.push('  note: this firmware cannot hide the SSID; it is broadcast');
-      const built = ['payload'];                       // what this foxlib runs (firmware/index.json features)
+      const built = ['payload', 'stealth'];            // what this foxlib runs (firmware/index.json features)
       for (const f of feats) if (!built.includes(f)) lines.push(`  note: ${f} is accepted but not in foxlib ${fl} yet; the fox runs without it`);
       const name0 = nameForCycle(cfg, 0, MORSE);
       if (feats.includes('payload') && name0 !== name) lines.push(`payload: name this cycle "${name0}"`);
       if (feats.includes('payload') && cfg.net.kind === 'ble') { const n = 1 + (cfg.payload.eddystone?.url ? 1 : 0) + (cfg.payload.eddystone?.tlm ? 1 : 0); if (n > 1) lines.push(`payload: ${n} BLE frames, every ${cfg.payload.interleave_ms} ms`); }
+      if (feats.includes('stealth')) {
+        const st = cfg.stealth;
+        if (st.ble_only) lines.push('stealth: BLE only; Wi-Fi radio off');
+        if (st.start?.after_s > 0) lines.push(`stealth: silent for ${st.start.after_s} s`, 'stealth: starting');
+        if (st.start?.at) lines.push(t ? `stealth: silent until ${st.start.at} (clock ${clock})` : `stealth: start.at ${st.start.at} but the board clock is unset; starting now`, 'stealth: starting');
+        if (st.rotate_mac) lines.push(`stealth: mac this cycle ${['F2', ...Array.from({ length: 5 }, (_, i) => ((0x3A + i * 17) & 0xFF).toString(16).toUpperCase().padStart(2, '0'))].join(':')}`);
+        if (st.duty_jitter_s) lines.push(`stealth: this cycle wake ${cfg.schedule.wake_s + 1} s, sleep ${Math.max(0, cfg.schedule.sleep_s - 1)} s`);
+      }
       lines.push('cycle 0', `${cfg.net.kind} up: ${feats.includes('payload') ? nameForCycle(cfg, 0, MORSE) : name} (${cfg.net.mac}) for ${cfg.schedule.wake_s} s`);
       this.lastCfg = cfg; this.lastRadio = radio;
       return lines.join('\n');

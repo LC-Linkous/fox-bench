@@ -17,6 +17,7 @@ PATTERNS = {
     "keydown-limit": [(600, 200)],
     "tx": [(900, 100)],              # network fox: radio up (mostly on)
     "fatal": [(100, 100), (100, 1700)],
+    "armed": [(60, 2940)],           # network fox waiting for its start time: a short blink every 3 s
 }
 
 

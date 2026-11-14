@@ -358,7 +358,7 @@ the fox runs without it`. The page says the same on each card.
 | `payload` | `enabled`; `kind` static \| rotate \| morse-name; `names` (≤ 16 × 1–32 B); `morse_of` (≤ 16); `code.major` / `.minor` 0–65535; `eddystone.url` (http(s), ≤ 64) / `.tlm` bool; `split.wifi` (≤ 32 B) / `.ble` (≤ 29 B); `interleave_ms` 100–10000 | **built, foxlib 1.4.0** |
 | `checkpoint` | `enabled`; `portal.{enabled, title ≤ 40 B, body ≤ 512 B plain text, code ≤ 16, ask_callsign, captive_dns, log}`; `ble.{enabled, service_uuid, code ≤ 16}` | D |
 | `sense` | `enabled`; `slot_ms` 200–5000; `tags.{enabled, match 1–16 B, log, rssi_min −100–0}`; `relay.{enabled, wait_for ≤ 32 B, then up \| down \| rotate}`; `probes.{enabled, channel 1–13, window_s 1–10}` | E |
-| `stealth` | `enabled`; `rotate_mac` false \| per-cycle \| per-boot; `rotate_name` bool; `duty_jitter_s` 0–300; `start.after_s` 0–86400 / `start.at` `YYYY-MM-DDTHH:MM:SS[zone]`; `decoys` (≤ 4 × 1–32 B); `ble_only` bool | C |
+| `stealth` | `enabled`; `rotate_mac` false \| per-cycle \| per-boot; `rotate_name` bool; `duty_jitter_s` 0–300; `start.after_s` 0–86400 / `start.at` `YYYY-MM-DDTHH:MM:SS[zone]`; `decoys` (≤ 4 × 1–32 B); `ble_only` bool | **built, foxlib 1.5.0** |
 
 **`payload` (built):** `rotate` makes `names[cycle % n]` the SSID / BLE name
 of each cycle (the fox logs `payload: name this cycle …`); `morse-name`
@@ -375,6 +375,22 @@ the other half as its name (Wi-Fi template → a BLE advertiser; BLE
 template → an open AP), on boards with both radios; the simulator and a
 scanner app both see the two halves. The `puzzle-beacon` template ships
 with the section on.
+
+**`stealth` (built):** `rotate_mac` gives the radio a new locally
+administered address every cycle (`per-cycle`, logged as `stealth: mac this
+cycle …`) or once per power-up (`per-boot`); `rotate_name` draws the
+cycle's name at random from the payload list instead of in turn;
+`duty_jitter_s` moves each wake and sleep by up to ±N s (logged per
+cycle); `start.after_s` keeps the fox silent for N s after power-on and
+`start.at` until a wall-clock time read against the board clock (the zone
+in the string is ignored — the clock's zone is the page's; with the clock
+unset the fox logs it and starts at once; across deep sleep the fox
+remembers it has started via `alarm.sleep_memory`); while waiting the LED
+gives a short blink every 3 s. `decoys` makes a Wi-Fi access point walk
+through its name and the decoy SSIDs, 3 s each, so a phone's list shows
+several. `ble_only` turns the Wi-Fi radio off at boot and drops a split
+clue's Wi-Fi half. Random choices are seeded from the chip id and the
+cycle, so a fleet does not move in lockstep.
 
 Cross-section rules the validator applies: `payload.kind: rotate` with no
 names falls back to `static`; `checkpoint.portal` and `sense.probes`/`relay`

@@ -14,6 +14,30 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.12.0 · foxlib 1.5.0 · foxlib-c 0.1.11
+
+**Contest features, phase C — how hard the fox is to find** (`stealth`
+section, built). foxlib 1.5.0 `netstealth.py`:
+
+- **MAC rotation**: a new locally administered address every cycle or once
+  per boot (Wi-Fi AP, probe and BLE), logged per cycle.
+- **Names at random** from the payload list; **timing jitter** of up to
+  ±N s on each wake and sleep (the runner takes per-cycle overrides).
+- **Silent start**: N s after power-on, or until a wall-clock time read
+  against the board clock set at deploy (unset clock → logged, starts at
+  once); a short LED blink every 3 s while waiting; the started state
+  survives deep sleep (`alarm.sleep_memory`).
+- **Decoys**: the access point walks through its name and up to four
+  decoy SSIDs, 3 s each. **BLE only**: Wi-Fi off at boot, a split clue's
+  Wi-Fi half dropped.
+- Simulator: `ap_swap` / `wifi_disabled` / `alarm.sleep_memory` in the
+  mocks, pending radio stops flushed at deep sleep and at the end of a
+  run, new expectation kinds (`net_distinct_min/max`, `net_only_names`,
+  `keyed_lengths_vary`, `first_key_after/before_ms`, `prints_count_max`,
+  `net_events_max`, `net_contains_event`, `net_not_contains`); 11 stealth
+  scenarios. The demo board prints the stealth lines.
+- `docs/network-fox-bench.md` steps 15–19; CONFIG.md stealth paragraph.
+
 ### Page 0.11.1 · foxlib 1.4.1 · foxlib-c 0.1.11
 
 - Bench finding 2026-11-14: a network fox with the `N0CALL` placeholder

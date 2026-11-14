@@ -84,6 +84,25 @@ when the chip has more than one; the LED pin is the descriptor's default.
     console for `payload: second radio failed` — the first sign of a RAM
     or driver limit on that chip.
 
+## Stealth (phase C, foxlib 1.5.0)
+
+15. **MAC per cycle** (wifi-beacon, Payload tab → *How hard it is to find* →
+    MAC address: new one each cycle): the analyser's BSSID changes every
+    cycle; the console lists each. *Per boot*: one new address, constant
+    until the next power-up. Note which the fleet log should carry.
+16. **Silent start**: `after_s` 60 → nothing on the air for a minute, the
+    LED blinking once every 3 s, then `stealth: starting`. Then `at` five
+    minutes ahead with the Deploy tab's clock ticked → same, against the
+    wall clock. With deep sleep on, the fox must not wait again after each
+    wake (`already started before this deep sleep` in the boot log).
+17. **Decoys**: two decoy names → the phone's list shows the fox's name and
+    both decoys taking turns, 3 s each (the list may lag: an analyser's
+    time graph is clearer).
+18. **Jitter** ±8 s on 20/10 → the up/down times on the analyser vary
+    cycle to cycle; the console prints each cycle's timing.
+19. **BLE only** (ble-beacon on a Wi-Fi + BLE chip): nothing in the Wi-Fi
+    list, the beacon as before; `stealth: BLE only; Wi-Fi radio off`.
+
 ## Per-board notes
 
 - **XIAO ESP32C3** (`esp32c3`): the firmware path is the proven one (same

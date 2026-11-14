@@ -187,7 +187,7 @@ try {
   await page.locator('#tab-payload .card', { hasText: 'What the fox says' }).locator('textarea').first().fill('ONE\nTWO'); await page.locator('#tab-payload .card', { hasText: 'What the fox says' }).locator('textarea').first().dispatchEvent('change'); await settle(300);
   check(await app(() => !window.foxbench.report.some(r => r.key.startsWith('payload')) && window.foxbench.cfg.payload.names.length === 2), 'two names: clean');
   check(/On the air: cycles 0, 1, 2 → "ONE", "TWO", "ONE"/.test(await text('#tab-payload')), 'the card previews the names per cycle');
-  check(!/arrives in phase B/.test(await text('#tab-payload')) && /arrives in phase C/.test(await text('#tab-payload')), 'payload is built (no phase note); stealth still says phase C');
+  check(!/arrives in phase B/.test(await text('#tab-payload')) && !/arrives in phase C/.test(await text('#tab-payload')) && /arrives in phase D/.test(await text('#tab-payload')), 'payload and stealth are built (no phase note); checkpoint still says phase D');
   await (await enableOf('What the fox serves')).check(); await settle(300);
   await page.locator('#tab-payload .card', { hasText: 'What the fox serves' }).locator('label.check input').nth(1).check(); await settle(300);   // the portal
   check(await app(() => window.foxbench.cfg.checkpoint?.portal?.enabled === true), 'portal switched on');
@@ -213,8 +213,14 @@ try {
   const nb = await app(() => window.foxbench.lastBanner || null);
   check(nb && nb.net === 'wifi-ap' && nb.name === 'W1ABC FOX DE W1ABC' && /^F2:/.test(nb.mac) && nb.radio === 'ok', 'the demo boots the network fox: banner net=wifi-ap, name is the callsign, mac set: ' + JSON.stringify(nb));
   eq(nb?.features, 'payload,checkpoint,stealth', 'banner names the enabled sections');
+  // stealth on the demo: a per-cycle MAC shows in the console
+  await tab('payload'); await page.locator('#tab-payload .card', { hasText: 'How hard it is to find' }).locator('select').first().selectOption('per-cycle'); await settle(200);
+  eq(await app(() => window.foxbench.cfg.stealth.rotate_mac), 'per-cycle', 'rotate_mac set from the card');
+  await tab('deploy'); await page.check('#tab-deploy .gate input'); await app(() => { window.foxbench.lastDeploy = null; }); await page.click('#tab-deploy button.btn.primary'); await until(() => !!window.foxbench.lastDeploy, 'redeploy with stealth', 20000); await settle(300);
+  check(/stealth: mac this cycle F2:/.test(await text('#log')), 'the demo fox announces a per-cycle MAC');
   eq(nb?.clock, '2026-08-08T08:30:00', 'banner shows the clock the page set (fixed time)');
-  check(/board clock set to 2026-08-08 08:30:00 \(fixed time\)/.test(await text('#log')) && /note: stealth is accepted but not in foxlib/.test(await text('#log')) && !/note: payload is accepted/.test(await text('#log')), 'console: clock set line and the not-built note for stealth, none for payload');
+  check(/board clock set to 2026-08-08 08:30:00 \(fixed time\)/.test(await text('#log')) && /note: checkpoint is accepted but not in foxlib/.test(await text('#log')) && !/note: payload is accepted/.test(await text('#log')) && !/note: stealth is accepted/.test(await text('#log')), 'console: clock set line and the not-built note for checkpoint, none for payload or stealth');
+  check(/stealth: silent until 2026-08-08T09:00:00-04:00 \(clock 2026-08-08T08:30:00\)/.test(await text('#log')), 'the demo fox says it waits for the start time against the clock it was given');
   check(/payload: name this cycle "ONE"/.test(await text('#log')) && /wifi-ap up: ONE/.test(await text('#log')), 'the demo fox announces the first rotated name');
   const fjson = await app(() => JSON.parse(window.foxbench.lastDeploy?.files?.['fox.json'] || window.foxbench.onBoard.raw));
   check(fjson.payload?.kind === 'rotate' && fjson.checkpoint?.portal?.enabled === true && fjson.stealth?.start?.at === '2026-08-08T09:00:00-04:00' && !('sense' in fjson), 'fox.json carries the three sections that are on, not the fourth');

@@ -157,6 +157,7 @@ def run_one(template, scen, verbose=False):
 def check(template, scen, rec, err):
     exp = scen.get("expect", {})
     fails = []
+    if hasattr(rec, "flush"): rec.flush()
     for needle in exp.get("prints_not_contain", []):
         if any(needle in p for p in rec.prints): fails.append("prints contain %r" % needle)
     if "led_edges_min" in exp and len(rec.led) < exp["led_edges_min"]: fails.append("led edges %d < %d" % (len(rec.led), exp["led_edges_min"]))
@@ -216,6 +217,38 @@ def check(template, scen, rec, err):
     for want in exp.get("net_contains", []):       # a recorded radio event's detail, e.g. "FOXBENCH WiFi Beacon ch=1 mac=F2:B0:00:00:00:01"
         if not any(want in detail for _, _, detail in getattr(rec, "net", [])):
             fails.append("no net event containing %r (events: %s)" % (want, [e for _, e, _ in getattr(rec, "net", [])][:8]))
+    net = getattr(rec, "net", [])
+    for want in exp.get("net_not_contains", []):
+        if any(want in detail for _, _, detail in net): fails.append("a net event contains %r" % want)
+    for want in exp.get("net_contains_event", []):      # an event name (wifi_disabled, ap_swap ...)
+        if not any(e == want for _, e, _ in net): fails.append("no %r event" % want)
+    for ev, n in exp.get("net_events_max", {}).items():
+        got = sum(1 for _, e, _ in net if e == ev)
+        if got > n: fails.append("%d %r event(s), want <= %d" % (got, ev, n))
+    for ev, spec in list(exp.get("net_distinct_min", {}).items()) + list(exp.get("net_distinct_max", {}).items()):
+        # distinct values of a field ("mac=" -> the token after it; "" -> the whole detail up to " ch=") across events of one kind
+        vals = set()
+        for _, e, detail in net:
+            if e != ev: continue
+            if spec["field"]:
+                i = detail.find(spec["field"]); vals.add(detail[i + len(spec["field"]):].split(" ")[0] if i >= 0 else "?")
+            else:
+                vals.add(detail.split(" ch=")[0])
+        if ev in exp.get("net_distinct_min", {}) and spec is exp["net_distinct_min"][ev] and len(vals) < spec["n"]: fails.append("%d distinct %r %s, want >= %d: %s" % (len(vals), ev, spec["field"] or "names", spec["n"], sorted(vals)))
+        if ev in exp.get("net_distinct_max", {}) and spec is exp["net_distinct_max"][ev] and len(vals) > spec["n"]: fails.append("%d distinct %r %s, want <= %d: %s" % (len(vals), ev, spec["field"] or "names", spec["n"], sorted(vals)))
+    if "net_only_names" in exp:
+        names = {detail.split(" ch=")[0] for _, e, detail in net if e == "ap_up"}
+        bad = names - set(exp["net_only_names"])
+        if bad: fails.append("names on the air outside the list: %s" % sorted(bad))
+    keyed_iv = list(rec.keyed_intervals()) if "keyed_lengths_vary" in exp or "first_key_after_ms" in exp or "first_key_before_ms" in exp else []
+    if exp.get("keyed_lengths_vary"):
+        lens = {round((b - a) / 1000) for a, b in keyed_iv}
+        if len(lens) < 2: fails.append("keyed lengths do not vary: %s" % sorted(lens))
+    if "first_key_after_ms" in exp and (not keyed_iv or keyed_iv[0][0] < exp["first_key_after_ms"]): fails.append("first key at %s ms, want >= %d" % (keyed_iv[0][0] if keyed_iv else None, exp["first_key_after_ms"]))
+    if "first_key_before_ms" in exp and (not keyed_iv or keyed_iv[0][0] > exp["first_key_before_ms"]): fails.append("first key at %s ms, want <= %d" % (keyed_iv[0][0] if keyed_iv else None, exp["first_key_before_ms"]))
+    for needle, n in exp.get("prints_count_max", {}).items():
+        got = sum(1 for p in rec.prints if needle in p)
+        if got > n: fails.append("%d print(s) containing %r, want <= %d" % (got, needle, n))
     for ev, n in exp.get("net_events_min", {}).items():
         got = sum(1 for _, e, _ in getattr(rec, "net", []) if e == ev)
         if got < n:

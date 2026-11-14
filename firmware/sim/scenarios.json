@@ -769,7 +769,7 @@
    }
   },
   {
-   "name": "features-named-payload-built-stealth-not-yet",
+   "name": "features-named-payload-and-stealth-built",
    "board_id": "esp32c3",
    "stop_after_unkeys": 2,
    "cap_ms": 90000,
@@ -799,13 +799,14 @@
     },
     "keyed_min": 2,
     "prints_contain": [
-     "note: stealth is accepted but not in foxlib",
      "payload: name this cycle ONE",
      "wifi-ap up: ONE",
-     "wifi-ap up: TWO"
+     "wifi-ap up: TWO",
+     "stealth: mac this cycle"
     ],
     "prints_not_contain": [
-     "note: payload is accepted"
+     "note: payload is accepted",
+     "note: stealth is accepted"
     ]
    }
   },
@@ -1082,6 +1083,315 @@
     },
     "keyed_min": 1
    }
+  },
+  {
+   "name": "stealth-mac-per-cycle-changes",
+   "board_id": "esp32c3",
+   "stop_after_unkeys": 3,
+   "cap_ms": 100000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "stealth": {
+     "enabled": true,
+     "rotate_mac": "per-cycle"
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "ok",
+     "features": "stealth"
+    },
+    "keyed_min": 3,
+    "prints_contain": [
+     "stealth: mac this cycle"
+    ],
+    "net_distinct_min": {
+     "ap_up": {
+      "field": "mac=",
+      "n": 3
+     }
+    },
+    "net_not_contains": [
+     "mac=F2:B0:00:00:00:01"
+    ]
+   }
+  },
+  {
+   "name": "stealth-mac-per-boot-is-one-per-boot",
+   "board_id": "esp32c3",
+   "stop_after_unkeys": 3,
+   "cap_ms": 100000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "stealth": {
+     "enabled": true,
+     "rotate_mac": "per-boot"
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "ok"
+    },
+    "keyed_min": 3,
+    "prints_count_min": {
+     "stealth: mac this cycle": 1
+    },
+    "prints_count_max": {
+     "stealth: mac this cycle": 1
+    },
+    "net_distinct_min": {
+     "ap_up": {
+      "field": "mac=",
+      "n": 1
+     }
+    },
+    "net_distinct_max": {
+     "ap_up": {
+      "field": "mac=",
+      "n": 1
+     }
+    },
+    "net_not_contains": [
+     "mac=F2:B0:00:00:00:01"
+    ]
+   }
+  },
+  {
+   "name": "stealth-names-at-random-from-the-payload-list",
+   "board_id": "esp32c3",
+   "stop_after_unkeys": 6,
+   "cap_ms": 200000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "payload": {
+     "enabled": true,
+     "kind": "rotate",
+     "names": [
+      "A1",
+      "B2",
+      "C3"
+     ]
+    },
+    "stealth": {
+     "enabled": true,
+     "rotate_name": true
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "ok",
+     "features": "payload,stealth"
+    },
+    "keyed_min": 6,
+    "net_only_names": [
+     "A1",
+     "B2",
+     "C3"
+    ],
+    "net_distinct_min": {
+     "ap_up": {
+      "field": "",
+      "n": 2
+     }
+    }
+   }
+  },
+  {
+   "name": "stealth-duty-jitter-changes-the-timing",
+   "board_id": "esp32c3",
+   "stop_after_unkeys": 3,
+   "cap_ms": 200000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "schedule": {
+     "wake_s": 20,
+     "sleep_s": 10
+    },
+    "stealth": {
+     "enabled": true,
+     "duty_jitter_s": 8
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "ok"
+    },
+    "keyed_min": 3,
+    "prints_contain": [
+     "stealth: this cycle wake"
+    ],
+    "keyed_lengths_vary": true
+   }
+  },
+  {
+   "name": "stealth-silent-after-s-then-starts",
+   "board_id": "esp32c6",
+   "stop_after_unkeys": 1,
+   "cap_ms": 120000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "stealth": {
+     "enabled": true,
+     "start": {
+      "after_s": 40
+     }
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "ok"
+    },
+    "keyed_min": 1,
+    "prints_contain": [
+     "stealth: silent for 40 s",
+     "stealth: starting"
+    ],
+    "first_key_after_ms": 40000,
+    "led_edges_min": 10
+   },
+   "cp_board_id": "seeed_xiao_esp32c6"
+  },
+  {
+   "name": "stealth-silent-until-a-time-with-the-clock-set",
+   "board_id": "esp32c3",
+   "clock": "2026-08-08T08:59:30",
+   "stop_after_unkeys": 1,
+   "cap_ms": 120000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "stealth": {
+     "enabled": true,
+     "start": {
+      "at": "2026-08-08T09:00:00-04:00"
+     }
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "ok",
+     "clock": "2026-08-08T08:59:30"
+    },
+    "keyed_min": 1,
+    "prints_contain": [
+     "stealth: silent until 2026-08-08T09:00:00-04:00",
+     "stealth: starting"
+    ],
+    "first_key_after_ms": 30000
+   }
+  },
+  {
+   "name": "stealth-start-at-with-the-clock-unset-starts-now",
+   "board_id": "esp32c3",
+   "stop_after_unkeys": 1,
+   "cap_ms": 60000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "stealth": {
+     "enabled": true,
+     "start": {
+      "at": "2026-08-08T09:00:00"
+     }
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "ok",
+     "clock": "unset"
+    },
+    "keyed_min": 1,
+    "prints_contain": [
+     "but the board clock is unset; starting now"
+    ],
+    "first_key_before_ms": 2000
+   }
+  },
+  {
+   "name": "stealth-started-survives-deep-sleep",
+   "board_id": "esp32c3",
+   "stop_after_unkeys": 3,
+   "cap_ms": 200000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "schedule": {
+     "wake_s": 5,
+     "sleep_s": 5,
+     "sleep": "deep"
+    },
+    "stealth": {
+     "enabled": true,
+     "start": {
+      "after_s": 30
+     }
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "ok"
+    },
+    "keyed_min": 3,
+    "prints_count_max": {
+     "stealth: silent for": 1
+    },
+    "prints_contain": [
+     "stealth: already started before this deep sleep"
+    ]
+   }
+  },
+  {
+   "name": "stealth-decoys-walk-the-ssid-list",
+   "board_id": "esp32c3",
+   "stop_after_unkeys": 1,
+   "cap_ms": 60000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "schedule": {
+     "wake_s": 12,
+     "sleep_s": 2
+    },
+    "stealth": {
+     "enabled": true,
+     "decoys": [
+      "FREE WIFI",
+      "Printer-2F"
+     ]
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "ok"
+    },
+    "keyed_min": 1,
+    "net_contains": [
+     "FOXBENCH WiFi Beacon ch=1",
+     "FREE WIFI ch=1",
+     "Printer-2F ch=1"
+    ],
+    "net_events_min": {
+     "ap_swap": 3,
+     "ap_down": 1
+    },
+    "net_events_max": {
+     "ap_down": 1
+    }
+   }
   }
  ],
  "wifi-probe": [
@@ -1297,6 +1607,70 @@
      "name=FOX A",
      "name=FOX B"
     ]
+   }
+  },
+  {
+   "name": "stealth-ble-only-turns-wifi-off-and-drops-the-split-wifi-half",
+   "board_id": "esp32c3",
+   "stop_after_unkeys": 1,
+   "cap_ms": 60000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "payload": {
+     "enabled": true,
+     "split": {
+      "wifi": "W",
+      "ble": "B"
+     }
+    },
+    "stealth": {
+     "enabled": true,
+     "ble_only": true
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "ok",
+     "features": "payload,stealth"
+    },
+    "keyed_min": 1,
+    "prints_contain": [
+     "stealth: BLE only; Wi-Fi radio off",
+     "split clue's Wi-Fi half is dropped"
+    ],
+    "net_events_max": {
+     "ap_up": 0
+    },
+    "net_contains_event": [
+     "wifi_disabled"
+    ]
+   }
+  },
+  {
+   "name": "stealth-mac-per-cycle-on-ble",
+   "board_id": "esp32c6",
+   "cp_board_id": "seeed_xiao_esp32c6",
+   "stop_after_unkeys": 2,
+   "cap_ms": 90000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "stealth": {
+     "enabled": true,
+     "rotate_mac": "per-cycle"
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "ok"
+    },
+    "keyed_min": 2,
+    "prints_count_min": {
+     "stealth: mac this cycle": 2
+    }
    }
   }
  ],

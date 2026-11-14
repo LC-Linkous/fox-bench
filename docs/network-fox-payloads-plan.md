@@ -5,7 +5,9 @@ sections validate on both sides, the Payload tab has the cards, the Deploy
 tab sets the clock, templates can declare `needs`, the simulator has the
 hooks and an `rtc` mock. **Phase B built** (page 0.11.0, foxlib 1.4.0):
 `netpayload.py`, the `puzzle-beacon` template, the card's on-the-air
-preview; bench steps 12–14 in `network-fox-bench.md`. Phases C–E next.
+preview; bench steps 12–14 in `network-fox-bench.md`. **Phase C built**
+(page 0.12.0, foxlib 1.5.0): `netstealth.py`; bench steps 15–19. Phases
+D–E next.
 Scope: the `net`-contract foxes (`wifi-beacon`, `wifi-probe`, `ble-beacon`
 on the chip targets). The FM foxes are untouched.
 

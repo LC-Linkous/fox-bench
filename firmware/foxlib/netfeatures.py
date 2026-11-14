@@ -8,7 +8,7 @@
 from . import netcfg
 
 # section -> module name once built; None = not in this foxlib yet
-MODULES = {"payload": "netpayload", "checkpoint": None, "sense": None, "stealth": None}
+MODULES = {"payload": "netpayload", "checkpoint": None, "sense": None, "stealth": "netstealth"}
 
 
 def attach(fox):

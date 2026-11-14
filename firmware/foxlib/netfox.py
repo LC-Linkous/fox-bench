@@ -29,7 +29,7 @@ class Tx:
 
     def beacon(self, seconds=None):
         """Radio up for the wake time (or `seconds`), then down."""
-        s = seconds if seconds is not None else self.fox.cfg["schedule"]["wake_s"]
+        s = seconds if seconds is not None else (self.fox.override_wake_s or self.fox.cfg["schedule"]["wake_s"])
         self.fox.radio.up()
         self.fox.log("%s up: %s (%s) for %d s" % (self.fox.radio.kind, self.name, self.fox.radio.mac(), s))
         pattern = "tx" if self.fox.cfg["led"]["enabled"] else None
@@ -76,6 +76,8 @@ class NetFox:
         self.name = netcfg.display_name(c)
         self.features = netcfg.enabled_features(c)
         self.hooks = {"before_up": [], "while_up": [], "after_down": []}     # the contest features register here
+        self.override_wake_s = None          # a feature (stealth jitter) may set this cycle's timing in before_up
+        self.override_sleep_s = None
         if not self.fatal:
             try:
                 self.radio = netradio.make(c["net"], self.name)
@@ -176,11 +178,12 @@ class NetFox:
         try:
             while True:
                 self.log("cycle %d" % n)
+                self.override_wake_s = self.override_sleep_s = None
                 self._run_hooks("before_up", n)
                 yield Tx(self, n)
                 self._run_hooks("after_down", n)
                 n += 1
-                sleep_s = c["schedule"]["sleep_s"]
+                sleep_s = c["schedule"]["sleep_s"] if self.override_sleep_s is None else self.override_sleep_s
                 if sleep_s <= 0:
                     continue
                 if c["schedule"]["sleep"] == "deep":

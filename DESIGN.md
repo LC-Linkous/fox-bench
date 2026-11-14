@@ -369,6 +369,7 @@ firmware/foxlib/
   netfeatures.py  the contest features (payload, checkpoint, sense, stealth) attached to NetFox's hooks; a section
                   without a module yet is named in the banner as accepted, not built (docs/network-fox-payloads-plan.md)
   netpayload.py   what the fox says: rotating / Morse names, iBeacon code, Eddystone-URL and -TLM frames, a split clue
+  netstealth.py   how hard it is to find: MAC / name rotation, duty jitter, a silent start, decoy SSIDs, BLE only
   VERSION         single line, e.g. 1.0.0
 ```
 

@@ -13,6 +13,7 @@
     "netfox.py",
     "netpayload.py",
     "netradio.py",
+    "netstealth.py",
     "radio.py",
     "schedule.py",
     "sstv.py",
@@ -38,7 +39,8 @@
     "puzzle-beacon"
   ],
   "features": [
-    "payload"
+    "payload",
+    "stealth"
   ],
   "_features": "contest feature sections (payload, checkpoint, sense, stealth) this foxlib runs; the page marks the rest 'accepted, not built'"
 }
