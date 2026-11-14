@@ -368,6 +368,7 @@ firmware/foxlib/
   netfox.py       NetFox: the network foxes' runner — banner, duty cycle, radio-off or deep sleep, bench
   netfeatures.py  the contest features (payload, checkpoint, sense, stealth) attached to NetFox's hooks; a section
                   without a module yet is named in the banner as accepted, not built (docs/network-fox-payloads-plan.md)
+  netpayload.py   what the fox says: rotating / Morse names, iBeacon code, Eddystone-URL and -TLM frames, a split clue
   VERSION         single line, e.g. 1.0.0
 ```
 

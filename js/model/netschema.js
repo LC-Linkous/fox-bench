@@ -179,6 +179,21 @@ function validateFeature(sec, u, cfg, bad, radios) {
   for (const k of Object.keys(u)) if (!known.has(k)) bad(sec + '.' + k, 'unknown');
 }
 
+/** What the fox calls itself on cycle n — the payload section's rule, as netpayload.name_for() applies it. */
+export function nameForCycle(cfg, n, morseTable = null) {
+  const p = cfg.payload;
+  if (p?.enabled && p.kind === 'rotate' && p.names?.length) return p.names[n % p.names.length];
+  if (p?.enabled && p.kind === 'morse-name' && p.morse_of && morseTable) return morseName(p.morse_of, morseTable);
+  return displayName(cfg);
+}
+/** 'KY4ZR' → '-.- -.-- ....- --.. .-.' cut to 32 bytes at a space (netpayload.morse_name). */
+export function morseName(word, table) {
+  const words = word.toLowerCase().split(' ').map(w => [...w].filter(c => table[c]).map(c => table[c])).filter(w => w.length);
+  let s = words.map(w => w.join(' ')).join(' / ');
+  if (s.length > 32) { s = s.slice(0, 32).trimEnd(); if (s.includes(' ')) s = s.slice(0, s.lastIndexOf(' ')); }
+  return s || '-';
+}
+
 /** The feature sections switched on in a validated cfg, in contract order. */
 export const enabledFeatures = cfg => FEATURES.filter(s => cfg[s] && typeof cfg[s] === 'object' && cfg[s].enabled);
 

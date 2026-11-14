@@ -1919,6 +1919,34 @@
      "ble_only": true
     }
    }
+  },
+  {
+   "name": "puzzle-beacon-defaults@esp32c6",
+   "template": "puzzle-beacon",
+   "board": "esp32c6",
+   "user": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    }
+   }
+  },
+  {
+   "name": "puzzle-beacon-url-and-bad-code@nrf52840",
+   "template": "puzzle-beacon",
+   "board": "nrf52840",
+   "user": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "payload": {
+     "eddystone": {
+      "url": "https://fox.example/9"
+     },
+     "code": {
+      "major": 99999
+     }
+    }
+   }
   }
  ]
 }

@@ -25,7 +25,7 @@ class Tx:
     def __init__(self, fox, cycle):
         self.fox = fox
         self.cycle = cycle
-        self.name = fox.name
+        self.name = fox.radio.name if fox.radio is not None else fox.name      # the payload feature may change it per cycle
 
     def beacon(self, seconds=None):
         """Radio up for the wake time (or `seconds`), then down."""

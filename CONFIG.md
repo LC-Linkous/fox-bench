@@ -355,10 +355,26 @@ the fox runs without it`. The page says the same on each card.
 
 | section | keys | phase |
 |---|---|---|
-| `payload` | `enabled`; `kind` static \| rotate \| morse-name; `names` (≤ 16 × 1–32 B); `morse_of` (≤ 16); `code.major` / `.minor` 0–65535; `eddystone.url` (http(s), ≤ 64) / `.tlm` bool; `split.wifi` (≤ 32 B) / `.ble` (≤ 29 B); `interleave_ms` 100–10000 | B |
+| `payload` | `enabled`; `kind` static \| rotate \| morse-name; `names` (≤ 16 × 1–32 B); `morse_of` (≤ 16); `code.major` / `.minor` 0–65535; `eddystone.url` (http(s), ≤ 64) / `.tlm` bool; `split.wifi` (≤ 32 B) / `.ble` (≤ 29 B); `interleave_ms` 100–10000 | **built, foxlib 1.4.0** |
 | `checkpoint` | `enabled`; `portal.{enabled, title ≤ 40 B, body ≤ 512 B plain text, code ≤ 16, ask_callsign, captive_dns, log}`; `ble.{enabled, service_uuid, code ≤ 16}` | D |
 | `sense` | `enabled`; `slot_ms` 200–5000; `tags.{enabled, match 1–16 B, log, rssi_min −100–0}`; `relay.{enabled, wait_for ≤ 32 B, then up \| down \| rotate}`; `probes.{enabled, channel 1–13, window_s 1–10}` | E |
 | `stealth` | `enabled`; `rotate_mac` false \| per-cycle \| per-boot; `rotate_name` bool; `duty_jitter_s` 0–300; `start.after_s` 0–86400 / `start.at` `YYYY-MM-DDTHH:MM:SS[zone]`; `decoys` (≤ 4 × 1–32 B); `ble_only` bool | C |
+
+**`payload` (built):** `rotate` makes `names[cycle % n]` the SSID / BLE name
+of each cycle (the fox logs `payload: name this cycle …`); `morse-name`
+puts the Morse of `morse_of` on the air (`-.- -.-- ....- --.. .-.`, words
+joined by ` / `, cut to 32 bytes at a space); `static` is the configured
+name or callsign. `id.use_callsign_as_name` still wins when set. On a BLE
+fox, `code` replaces the iBeacon major/minor when either is non-zero, and
+the advertisement rotates through its frames every `interleave_ms`:
+iBeacon → Eddystone-URL (frame type 0x10; the URL in the compact encoding,
+up to 17 bytes after the scheme — a longer one is logged and not sent) →
+Eddystone-TLM (0x20: battery mV or 0, temperature *not supported*, frame
+count, uptime in 0.1 s). `split` runs the fox's other radio alongside with
+the other half as its name (Wi-Fi template → a BLE advertiser; BLE
+template → an open AP), on boards with both radios; the simulator and a
+scanner app both see the two halves. The `puzzle-beacon` template ships
+with the section on.
 
 Cross-section rules the validator applies: `payload.kind: rotate` with no
 names falls back to `static`; `checkpoint.portal` and `sense.probes`/`relay`

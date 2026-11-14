@@ -376,7 +376,8 @@ for tid in fw["templates"]:
             for k in ("net", "id", "schedule", "led", "fleet"):
                 if k not in d: bad(drel, f"{k} section missing")
             if d.get("net", {}).get("kind") not in ("wifi-ap", "wifi-probe", "ble"): bad(drel, f"net.kind {d.get('net', {}).get('kind')!r}")
-            if "payload" in d or "plan" in d: bad(drel, "a network fox has no plan/payload")
+            if "plan" in d: bad(drel, "a network fox has no plan")
+            if isinstance(d.get("payload"), dict) and "kind" in d["payload"] and "enabled" not in d["payload"]: bad(drel, "a network fox's payload is the contest section (enabled, kind, names, ...), not an FM payload")
             if d.get("variant") != b.get("hardware"): bad(drel, f"variant {d.get('variant')!r} should be the chip target's default hardware {b.get('hardware')!r}")
             if set((d.get("pins") or {}).keys()) != set(fnetcfg.NET_PINS): bad(drel, f"pins must be exactly {list(fnetcfg.NET_PINS)}")
             vhw = hardware.get(b.get("hardware"), {})

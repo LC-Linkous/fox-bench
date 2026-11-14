@@ -14,6 +14,31 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.11.0 · foxlib 1.4.0 · foxlib-c 0.1.11
+
+**Contest features, phase B — what the fox says** (`payload` section,
+built). foxlib 1.4.0 `netpayload.py`:
+
+- Names: `rotate` (one of the list per cycle, in order), `morse-name` (the
+  Morse of a word as the SSID / BLE name, cut to 32 bytes at a space),
+  `static`. The callsign-as-name switch still wins.
+- BLE: an iBeacon `code` (major/minor), an **Eddystone-URL** frame (the
+  phone offers to open it; a URL over 17 encoded bytes is logged and not
+  sent) and an **Eddystone-TLM** frame (battery, frame count, uptime),
+  rotated every `interleave_ms` while the radio is up.
+- **Split clue**: the fox's other radio runs alongside with the other half
+  of a clue as its name (Wi-Fi + BLE boards).
+- New template **`puzzle-beacon`** (BLE; experimental): rotating names,
+  code 1/1 and telemetry on by default — the contest beacon.
+- Page: the payload card previews what is on the air (names for cycles
+  0–2, the BLE frame order); the demo board prints the payload lines;
+  `nameForCycle` / `morseName` in `netschema.js` mirror the firmware.
+- Simulator: frame swaps recorded as `adv_swap` (not an unkey), 11
+  payload scenarios incl. frame-byte goldens, `test_netpayload.py`
+  (Eddystone encoding, TLM, Morse names — add it to CI's sim job next to
+  `test_sniffer_parse.py`); parity corpus +2 (146).
+- `docs/network-fox-bench.md` steps 12–14; CONFIG.md payload paragraph.
+
 ### Page 0.10.0 · foxlib 1.3.0 · foxlib-c 0.1.11
 
 **Contest features, phase A** (`docs/network-fox-payloads-plan.md`): the

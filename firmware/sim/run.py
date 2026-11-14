@@ -24,6 +24,17 @@ import types as _types
 _pkg = _types.ModuleType("_fwpkg"); _pkg.__path__ = [os.path.join(FW, "foxlib")]; sys.modules["_fwpkg"] = _pkg; sys.modules["_fwpkg.cfg"] = fwcfg
 _nspec = importlib.util.spec_from_file_location("_fwpkg.netcfg", os.path.join(FW, "foxlib", "netcfg.py"))
 fwnetcfg = importlib.util.module_from_spec(_nspec); _nspec.loader.exec_module(fwnetcfg)
+sys.modules["_fwpkg.netcfg"] = fwnetcfg
+
+
+def load_fw(name):
+    """A foxlib module on the host, inside the same package shim (for modules without hardware imports at top level)."""
+    key = "_fwpkg." + name
+    if key in sys.modules:
+        return sys.modules[key]
+    spec = importlib.util.spec_from_file_location(key, os.path.join(FW, "foxlib", name + ".py"))
+    mod = importlib.util.module_from_spec(spec); sys.modules[key] = mod; spec.loader.exec_module(mod)
+    return mod
 BOARD_NAMES = ["D0", "D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8", "D9", "D10", "A0", "A1", "A2", "A3", "TX", "RX"]
 NET_BOARD_NAMES = BOARD_NAMES + ["LED", "IO27", "IO15"]      # the module-less boards' LED names (XIAO C6/S3, Nano 33; the C5 DevKit build's IOxx)
 

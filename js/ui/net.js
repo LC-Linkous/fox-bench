@@ -2,7 +2,8 @@
 // on a duty cycle. Contract: js/model/netschema.js (firmware twin foxlib/netcfg.py).
 // SPDX-License-Identifier: GPL-2.0-only
 import { h, field, select, numInput, check, badge } from './dom.js';
-import { WIFI24_CHANNELS, WIFI5_CHANNELS, WIFI_POWER_DBM, BLE_POWER_DBM, MAX_NAME, MAX_NAMES, MAX_DECOYS, MAX_BODY, MAX_URL, MAX_CODE, FEATURES, FEATURE_DEFAULTS, FEATURE_PHASE, randomMac, displayName, cycle } from '../model/netschema.js';
+import { WIFI24_CHANNELS, WIFI5_CHANNELS, WIFI_POWER_DBM, BLE_POWER_DBM, MAX_NAME, MAX_NAMES, MAX_DECOYS, MAX_BODY, MAX_URL, MAX_CODE, FEATURES, FEATURE_DEFAULTS, FEATURE_PHASE, randomMac, displayName, cycle, nameForCycle } from '../model/netschema.js';
+import { TABLE as MORSE } from '../audio/morse.js';
 
 let app;
 export function init(a) { app = a; }   // idempotent; every tab that renders a net form calls it from its own init
@@ -176,7 +177,15 @@ function featureCard(sec, body) {
 
 export function renderPayload(root) {
   const hw = app.hardware || {}, radios = hw.radios || [], wifi = radios.includes('wifi24'), ble = radios.includes('ble'), kind = app.cfg.net?.kind;
+  const preview = c => {
+    const names = [0, 1, 2].map(n => nameForCycle(app.cfg, n, MORSE));
+    const frames = kind === 'ble' ? ['iBeacon' + ((c.code.major || c.code.minor) ? ` ${c.code.major}/${c.code.minor}` : ''), c.eddystone.url ? 'Eddystone-URL' : null, c.eddystone.tlm ? 'Eddystone-TLM' : null].filter(Boolean) : [];
+    return h('p.hint', {}, h('b', {}, 'On the air: '), `cycles 0, 1, 2 → ${names.map(n => '"' + n + '"').join(', ')}`,
+      frames.length > 1 ? ` · BLE frames ${frames.join(' → ')} every ${c.interleave_ms} ms` : frames.length === 1 ? ` · ${frames[0]}` : '',
+      c.split.wifi && c.split.ble ? ` · split clue: Wi-Fi "${c.split.wifi}" + BLE "${c.split.ble}"` : '');
+  };
   const payloadBody = c => h('div', {},
+    preview(c),
     h('div.two-col', {},
       sel(c, 'kind', 'Name on the air', [['static', 'static — the configured name / callsign'], ['rotate', 'rotate — one of the names below per cycle'], ['morse-name', 'morse-name — the Morse of a word, as the name']]),
       c.kind === 'morse-name' ? fld(c, 'morse_of', 'Word to send as Morse', { max: 16, upper: true }, 'becomes "-.- -.-- ...." on the air (≤ 32 bytes after encoding)') : null),

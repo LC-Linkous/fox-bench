@@ -769,7 +769,7 @@
    }
   },
   {
-   "name": "features-accepted-and-named-not-yet-built",
+   "name": "features-named-payload-built-stealth-not-yet",
    "board_id": "esp32c3",
    "stop_after_unkeys": 2,
    "cap_ms": 90000,
@@ -799,9 +799,13 @@
     },
     "keyed_min": 2,
     "prints_contain": [
-     "note: payload is accepted but not in foxlib",
      "note: stealth is accepted but not in foxlib",
-     "wifi-ap up: FOXBENCH WiFi Beacon"
+     "payload: name this cycle ONE",
+     "wifi-ap up: ONE",
+     "wifi-ap up: TWO"
+    ],
+    "prints_not_contain": [
+     "note: payload is accepted"
     ]
    }
   },
@@ -882,6 +886,160 @@
      "note: payload"
     ],
     "keyed_min": 1
+   }
+  },
+  {
+   "name": "payload-rotate-three-names-in-order",
+   "board_id": "esp32c3",
+   "stop_after_unkeys": 4,
+   "cap_ms": 120000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "payload": {
+     "enabled": true,
+     "kind": "rotate",
+     "names": [
+      "ALPHA",
+      "BRAVO",
+      "CHARLIE"
+     ]
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "ok",
+     "features": "payload"
+    },
+    "keyed_min": 4,
+    "prints_contain": [
+     "wifi-ap up: ALPHA",
+     "wifi-ap up: BRAVO",
+     "wifi-ap up: CHARLIE"
+    ],
+    "net_contains": [
+     "ALPHA ch=1",
+     "BRAVO ch=1",
+     "CHARLIE ch=1",
+     "ALPHA ch=1"
+    ]
+   }
+  },
+  {
+   "name": "payload-morse-name",
+   "board_id": "esp32c3",
+   "stop_after_unkeys": 1,
+   "cap_ms": 60000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "payload": {
+     "enabled": true,
+     "kind": "morse-name",
+     "morse_of": "KY4ZR"
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "ok"
+    },
+    "keyed_min": 1,
+    "net_contains": [
+     "-.- -.-- ....- --.. .-. ch=1"
+    ]
+   }
+  },
+  {
+   "name": "payload-morse-name-long-word-cut-at-32",
+   "board_id": "esp32c3",
+   "stop_after_unkeys": 1,
+   "cap_ms": 60000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "payload": {
+     "enabled": true,
+     "kind": "morse-name",
+     "morse_of": "FOXHUNTING"
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "ok"
+    },
+    "keyed_min": 1,
+    "net_contains": [
+     "..-. --- -..- .... ..- -. - .. ch=1"
+    ]
+   }
+  },
+  {
+   "name": "payload-split-clue-both-radios",
+   "board_id": "esp32c3",
+   "stop_after_unkeys": 2,
+   "cap_ms": 90000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "payload": {
+     "enabled": true,
+     "split": {
+      "wifi": "HALF ONE",
+      "ble": "HALF TWO"
+     }
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "ok"
+    },
+    "keyed_min": 1,
+    "prints_contain": [
+     "payload: split clue on ble: \"HALF TWO\""
+    ],
+    "net_contains": [
+     "FOXBENCH WiFi Beacon ch=1",
+     "name=HALF TWO"
+    ],
+    "net_events_min": {
+     "adv_up": 1,
+     "adv_down": 1
+    }
+   }
+  },
+  {
+   "name": "payload-static-is-the-callsign",
+   "board_id": "esp32c3",
+   "stop_after_unkeys": 1,
+   "cap_ms": 60000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX",
+     "use_callsign_as_name": true
+    },
+    "payload": {
+     "enabled": true,
+     "kind": "static",
+     "names": [
+      "IGNORED"
+     ]
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "ok"
+    },
+    "keyed_min": 1,
+    "net_contains": [
+     "W1ABC FOX ch=1"
+    ],
+    "prints_not_contain": [
+     "IGNORED"
+    ]
    }
   }
  ],
@@ -987,6 +1145,219 @@
      "radio": "noble"
     },
     "never_keyed": true
+   }
+  },
+  {
+   "name": "payload-ibeacon-code-and-eddystone-frames-rotate",
+   "board_id": "esp32c6",
+   "cp_board_id": "seeed_xiao_esp32c6",
+   "stop_after_unkeys": 1,
+   "cap_ms": 60000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "schedule": {
+     "wake_s": 5,
+     "sleep_s": 1
+    },
+    "payload": {
+     "enabled": true,
+     "code": {
+      "major": 1234,
+      "minor": 5678
+     },
+     "eddystone": {
+      "url": "https://fox.example/3",
+      "tlm": true
+     },
+     "interleave_ms": 1000
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "ok",
+     "features": "payload"
+    },
+    "keyed_min": 1,
+    "prints_contain": [
+     "payload: 3 BLE frames, every 1000 ms"
+    ],
+    "net_contains": [
+     "len=27",
+     "04d2162e",
+     "aafe10",
+     "aafe20"
+    ],
+    "net_events_min": {
+     "adv_swap": 3,
+     "adv_down": 1
+    }
+   }
+  },
+  {
+   "name": "payload-eddystone-url-too-long-not-sent",
+   "board_id": "esp32c6",
+   "cp_board_id": "seeed_xiao_esp32c6",
+   "stop_after_unkeys": 1,
+   "cap_ms": 60000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "payload": {
+     "enabled": true,
+     "eddystone": {
+      "url": "https://this-is-a-very-long-hostname.example/path"
+     }
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "ok"
+    },
+    "keyed_min": 1,
+    "prints_contain": [
+     "Eddystone URL does not fit"
+    ],
+    "prints_not_contain": [
+     "BLE frames, every"
+    ]
+   }
+  },
+  {
+   "name": "payload-rotate-ble-names",
+   "board_id": "nrf52840",
+   "cp_board_id": "arduino_nano_33_ble",
+   "radios": [
+    "ble"
+   ],
+   "stop_after_unkeys": 2,
+   "cap_ms": 90000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "payload": {
+     "enabled": true,
+     "kind": "rotate",
+     "names": [
+      "FOX A",
+      "FOX B"
+     ]
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "ok"
+    },
+    "keyed_min": 2,
+    "net_contains": [
+     "name=FOX A",
+     "name=FOX B"
+    ]
+   }
+  }
+ ],
+ "puzzle-beacon": [
+  {
+   "name": "defaults-boot-code-tlm-and-rotating-names",
+   "board_id": "esp32c6",
+   "cp_board_id": "seeed_xiao_esp32c6",
+   "stop_after_unkeys": 3,
+   "cap_ms": 120000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "schedule": {
+     "wake_s": 4,
+     "sleep_s": 1
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "ok",
+     "radio": "ok",
+     "features": "payload"
+    },
+    "keyed_min": 3,
+    "prints_contain": [
+     "payload: 2 BLE frames, every 1000 ms",
+     "payload: name this cycle \"FIND ME\"",
+     "payload: name this cycle \"WHO AM I\""
+    ],
+    "net_contains": [
+     "name=FOXBENCH Puzzle",
+     "name=FIND ME",
+     "name=WHO AM I",
+     "00010001",
+     "aafe20"
+    ],
+    "net_events_min": {
+     "adv_swap": 3
+    }
+   }
+  },
+  {
+   "name": "nano33-ble-only-board-runs-it",
+   "board_id": "nrf52840",
+   "cp_board_id": "arduino_nano_33_ble_rev2",
+   "radios": [
+    "ble"
+   ],
+   "stop_after_unkeys": 1,
+   "cap_ms": 60000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "payload": {
+     "eddystone": {
+      "url": "https://fox.example/1",
+      "tlm": false
+     }
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "ok",
+     "radio": "ok"
+    },
+    "keyed_min": 1,
+    "prints_contain": [
+     "payload: 2 BLE frames"
+    ],
+    "net_contains": [
+     "aafe10"
+    ]
+   }
+  },
+  {
+   "name": "callsign-as-name-wins-over-rotation",
+   "board_id": "esp32c3",
+   "stop_after_unkeys": 2,
+   "cap_ms": 90000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX",
+     "use_callsign_as_name": true
+    },
+    "payload": {
+     "kind": "static"
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "ok"
+    },
+    "keyed_min": 2,
+    "net_contains": [
+     "name=W1ABC FOX"
+    ],
+    "prints_not_contain": [
+     "name this cycle"
+    ]
    }
   }
  ]

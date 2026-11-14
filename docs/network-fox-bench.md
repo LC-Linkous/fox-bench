@@ -66,6 +66,24 @@ when the chip has more than one; the LED pin is the descriptor's default.
     variants has a clean row for 2–9 (the C5 needs both boards; the S3 both
     boards); the templates list the chip in `boards_tested` then.
 
+## Payloads (phase B, foxlib 1.4.0) — on any board that passed 2–9
+
+12. **Rotating names** (wifi-beacon, Payload tab → *What the fox says* →
+    rotate, three names): the phone's Wi-Fi list shows a different name
+    each cycle, in order; the console says `payload: name this cycle …`.
+    Then **morse-name** with the callsign: the SSID reads `-.- -.-- ....-`.
+13. **puzzle-beacon** (BLE): nRF Connect shows, from one address, the
+    iBeacon (major 1 / minor 1 by default — set a code), then an
+    Eddystone-TLM frame (battery 0 mV on boards without a divider, the
+    frame count climbing, uptime), switching every second; the name
+    changes each cycle. Add an Eddystone URL: the phone offers to open it
+    (Android shows it in the scanner; iOS needs an Eddystone-aware app).
+14. **Split clue** (C3 / C6 / C5 / S3 — both radios): wifi-beacon with
+    `split.wifi` and `split.ble`: the Wi-Fi list shows the SSID and the BLE
+    scanner the other half, from the same fox, at the same time. Watch the
+    console for `payload: second radio failed` — the first sign of a RAM
+    or driver limit on that chip.
+
 ## Per-board notes
 
 - **XIAO ESP32C3** (`esp32c3`): the firmware path is the proven one (same

@@ -85,7 +85,9 @@ def install(scenario):
         clock.advance(50_000)          # a call costs 50 us, so busy-waits terminate
         return clock.ns
     t.monotonic_ns = monotonic_ns
+    pre_sleep = []                     # callables run before virtual time moves (the BLE mock flushes a pending stop)
     def sleep(s):
+        for f in pre_sleep: f()
         clock.advance(s * 1e9)
     t.sleep = sleep
     t.time = lambda: clock.ns / 1e9
@@ -281,15 +283,25 @@ def install(scenario):
             def __init__(self, b, kind=0): self.b, self.kind = b, kind
             def __str__(self): return ":".join("%02x" % x for x in self.b) + " (random)"
         class _Adapter:
-            enabled = False; name = ""; address = Address(bytes(6))
+            enabled = False; name = ""; address = Address(bytes(6)); _pending_stop = None
+            # A stop followed by a start with no virtual time in between is a frame swap (the payload feature rotating
+            # iBeacon / Eddystone frames), recorded as adv_swap and not as an unkey; a stop that stands is adv_down.
+            def _flush(self):
+                if self._pending_stop is not None:
+                    self._pending_stop = None; net_event("adv_down")
             def start_advertising(self, data, *, scan_response=b"", connectable=True, interval=0.1, tx_power=0):
-                net_event("adv_up", "len=%d name=%s interval=%.3f tx=%d" % (len(data), scan_response[2:].decode("utf-8", "replace") if len(scan_response) > 2 else "", interval, tx_power))
-            def stop_advertising(self): net_event("adv_down")
+                detail = "len=%d name=%s interval=%.3f tx=%d frame=%s" % (len(data), scan_response[2:].decode("utf-8", "replace") if len(scan_response) > 2 else "", interval, tx_power, bytes(data).hex())
+                if self._pending_stop is not None and self._pending_stop == now_ms():
+                    self._pending_stop = None; net_event("adv_swap", detail); return
+                self._flush(); net_event("adv_up", detail)
+            def stop_advertising(self):
+                self._flush(); self._pending_stop = now_ms()
             def start_scan(self, timeout=2, minimum_rssi=-100):
                 sleep(timeout)
                 yield types.SimpleNamespace(rssi=-60, address=Address(bytes([0xC0, 0, 0, 0, 0, 1])), complete_name="Neighbour beacon")
             def stop_scan(self): pass
         bleio.adapter = _Adapter(); bleio.Address = Address
+        pre_sleep.append(bleio.adapter._flush)
         sys.modules["_bleio"] = bleio
     else:
         sys.modules.pop("_bleio", None)
