@@ -54,6 +54,11 @@ table.grid td.num { text-align: right; font-family: var(--mono); font-variant-nu
 table.grid select { padding: 3px 6px; }
 table.grid tr.bad td { background: color-mix(in srgb, var(--err) 10%, transparent); }
 .grid-wrap { overflow-x: auto; }
+table.grid.wiring { table-layout: fixed; }
+table.grid.wiring th:first-child, table.grid.wiring td:first-child { width: 6.5em; }
+table.grid.wiring th:last-child, table.grid.wiring td:last-child { width: 8em; white-space: nowrap; }
+table.grid.wiring td { vertical-align: top; }
+table.grid.wiring select { width: 100%; }
 
 code, .mono { font-family: var(--mono); font-size: .9em; }
 code { background: var(--screen); border: 1px solid var(--edge); padding: 0 4px; border-radius: 3px; }

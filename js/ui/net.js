@@ -19,7 +19,7 @@ const blen = s => new TextEncoder().encode(String(s)).length;
 function macField(n) {
   const inp = text(n, 'mac', { max: 17, upper: true, mono: true, placeholder: 'F2:xx:xx:xx:xx:xx' });
   return field('MAC address (the fox\'s fingerprint)', h('div.row', {}, inp, h('button.btn.small', { onclick: () => { n.mac = randomMac(6); app.changed('radio'); } }, 'Random')),
-    'Locally administered and unicast (first byte F2 as kitsune does). A hunter\'s scanner shows it as the BSSID / device address; keep one per fox and write it on the fleet sheet.');
+    'Locally administered and unicast. A hunter\'s scanner shows it as the BSSID / device address; keep one per fox and write it on the fleet sheet.');
 }
 
 /** Radio tab: the network section. */
@@ -37,7 +37,7 @@ export function renderRadio(root) {
         field('Channel', select(chans, n.channel, v => { n.channel = Number(v); app.changed('radio'); }), radios.includes('wifi5') ? 'this board has 5 GHz; 5 GHz AP support in CircuitPython on this chip is unverified' : '1–13; 1, 6 and 11 do not overlap'),
         field('Transmit power', select(WIFI_POWER_DBM.map(p => [p, `${p} dBm`]), n.tx_power_dbm, p => { n.tx_power_dbm = Number(p); app.changed('radio'); }), 'the chip\'s power steps; lower is harder to find')),
       h('div.two-col', {},
-        check('Hidden SSID', n.hidden, v => { n.hidden = v; app.changed('radio'); }, 'not possible with this firmware (noted here and in the fox\'s banner); kept so an imported kitsune "hard" fox keeps its intent'),
+        check('Hidden SSID', n.hidden, v => { n.hidden = v; app.changed('radio'); }, 'not possible with this firmware (noted here and in the fox\'s banner)'),
         field('Max clients', numInput(n.max_clients, { min: 1, max: 8, step: 1, onchange: v => { n.max_clients = v; app.changed('radio'); } }), 'how many may join at once')),
       macField(n));
   } else if (n.kind === 'wifi-probe') {
@@ -75,25 +75,28 @@ function wiringCard(labels) {
   const defaults = app.netRolesOf(b);
   const variants = app.variants;
   const boardRow = variants.length > 1
-    ? field('Board', select(variants.map(v => [v.hardware, v.variantName]), app.variantId, v => app.setVariant(v)),
+    ? field('Board', Object.assign(select(variants.map(v => [v.hardware, v.variantName]), app.variantId, v => app.setVariant(v)), { style: 'width:100%;max-width:100%' }),
         app.variantsDifferInPins ? 'the physical board this chip is on: sets the LED / battery pins below and the CircuitPython build to flash' : 'these boards wire the same way; the choice records which one this is (fleet log, hardware log) and picks the CircuitPython build')
     : null;
+  // the card shares the row with the radio form, so the table is three columns with the help under the pin, and the pin
+  // notes are tooltips on the options rather than in their labels (a long label widens the select past the card)
   const rows = ['led', 'batt_sense'].map(role => {
-    const opts = [['', '— none —'], ...(b.pins || []).map(p => [p.name, `${p.name}  (GPIO${p.gpio}${p.aliases?.length ? ', ' + p.aliases.join('/') : ''})${p.note ? '  · ' + p.note : ''}`])];
+    const opts = [['', '— none —'], ...(b.pins || []).map(p => [p.name, `${p.name} (GPIO${p.gpio}${p.aliases?.length ? ', ' + p.aliases.join('/') : ''})`])];
     const sel = select(opts, pins[role] || '', v => { pins[role] = v || null; app.changed('pins'); });
-    const def = defaults[role];
+    sel.style.maxWidth = '100%';
+    for (const o of sel.options) { const p = (b.pins || []).find(x => x.name === o.value); if (p?.note) o.title = p.note; }
+    const def = defaults[role], cur = pins[role] || null, note = (b.pins || []).find(x => x.name === cur)?.note;
     return h('tr', { class: probs[role] ? 'bad' : '' },
-      h('td.mono', {}, role, h('span.hint', {}, ' optional')),
-      h('td', {}, sel),
-      h('td.mono', {}, def || '—', def !== (pins[role] || null) ? h('button.btn.small', { style: 'margin-left:8px', onclick: () => { pins[role] = def; app.changed('pins'); } }, 'reset') : null),
-      h('td', {}, probs[role] ? h('span.hint.err', {}, probs[role]) : h('span.hint', {}, NET_ROLE_HELP[role])));
+      h('td.mono', {}, role, h('div.hint', {}, 'optional')),
+      h('td', {}, sel, h('div.hint', {}, probs[role] ? h('span.err', {}, probs[role]) : NET_ROLE_HELP[role]), note ? h('div.hint', {}, note) : null),
+      h('td.mono', {}, def || '—', def !== cur ? h('button.btn.small', { style: 'margin-left:8px', onclick: () => { pins[role] = def; app.changed('pins'); } }, 'reset') : null));
   });
   return h('div.card', {}, h('h3', {}, `Wiring: ${b.variantName || b.name} `, app.report.some(r => r.key.startsWith('pins.')) ? badge('check', 'err') : badge('ok', 'ok')),
     boardRow,
     h('dl.kv', {}, h('dt', {}, 'Radios'), h('dd', {}, radios.map(r => labels[r] || r).join(', ') || 'unknown'),
       h('dt', {}, 'Firmware'), h('dd', {}, `CircuitPython (${b.circuitpython?.board_id || '?'}) + foxlib ${app.catalog.foxlibVersion}: the SoC's own radio, no module`)),
     h('p.hint', {}, 'Defaults come from the board descriptor; change them if yours is wired differently. The firmware resolves each name with ', h('code', {}, 'getattr(board, name)'), ' at boot; a name the board does not have falls back to the default and is reported in the banner.'),
-    h('div.grid-wrap', {}, h('table.grid', {}, h('thead', {}, h('tr', {}, h('th', {}, 'Role'), h('th', {}, 'Pin'), h('th', {}, 'Default'), h('th', {}, ''))), h('tbody', {}, rows))),
+    h('div.grid-wrap', {}, h('table.grid.wiring', {}, h('thead', {}, h('tr', {}, h('th', {}, 'Role'), h('th', {}, 'Pin'), h('th', {}, 'Default'))), h('tbody', {}, rows))),
     h('p.hint', {}, 'What the firmware cannot do, it says in its banner rather than ignoring: a hidden SSID, a radio the chip lacks. The page checks the same things here.'),
     hw.notes?.length ? h('ul', {}, hw.notes.map(x => h('li.hint', {}, x))) : null);
 }
@@ -124,7 +127,7 @@ export function renderSchedule(root) {
         field('On the air (s)', numInput(s.wake_s, { min: 1, max: 3600, step: 1, onchange: v => { s.wake_s = v; app.changed('schedule'); } }), 'radio up, LED on'),
         field('Off (s)', numInput(s.sleep_s, { min: 0, max: 86400, step: 1, onchange: v => { s.sleep_s = v; app.changed('schedule'); } }), '0 = always on')),
       field('Off time', select([['off', 'radio off, board awake (USB and Listen only stay up)'], ['deep', 'deep sleep (battery; the USB port disappears until it wakes)']], s.sleep, v => { s.sleep = v; app.changed('schedule'); }),
-        'Deep sleep is what kitsune does and what a battery wants; "radio off" is what a bench wants. With deep sleep the page\'s Listen only reconnects when the port returns, and the cycle count restarts at 0 each wake (the board reboots).'),
+        'Deep sleep is what a battery wants; "radio off" is what a bench wants. With deep sleep the page\'s Listen only reconnects when the port returns, and the cycle count restarts at 0 each wake (the board reboots).'),
       issueList('schedule')),
     h('div.card', {}, h('h3', {}, 'Preview'),
       h('div.screen', {}, canvas),

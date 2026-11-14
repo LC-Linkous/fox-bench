@@ -74,6 +74,7 @@ after all three passed, carrying the UF2 that run built
 | `docs/bench-runbook.md` | the queue as commands: what to run per session, what it should print, how to close the session |
 | `docs/first-hardware-session.md` | checklist for a new board, module or CircuitPython build |
 | `docs/network-fox-bench.md` | the bench list for the network foxes, per board |
+| `docs/network-fox-payloads-plan.md` | plan for contest payloads on the network foxes: puzzles, checkpoint portal, sensing, stealth |
 | `docs/picofox-notes.md` | what the PicoFox's vendor firmware reads and does; the basis of the drive family |
 | `docs/picofox-hardware.md`, `firmware/foxlib-c/` | the PicoFox hardware from its schematic, and fox-bench's own firmware for it (the foxlib-c family) |
 

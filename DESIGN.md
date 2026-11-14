@@ -131,7 +131,7 @@ tools/
   batch_flash.py                      headless batch flasher (same CSV as the Fleet tab)
   hw_smoke.py                         bench script against a real (or pty-simulated) board
 tests/                                unit (node:test) and page smoke (Playwright), see tests/README.md
-docs/                                 first-hardware-session, hardware-log, adding-a-target, network-fox-bench, picofox hardware/notes, releasing, project audit, kitsune plan
+docs/                                 first-hardware-session, hardware-log, adding-a-target, network-fox-bench, network-fox-payloads-plan, picofox hardware/notes, releasing, project audit, kitsune plan
 CONFIG.md                             fox.json schema — the contract
 PROTOCOL.md                           REPL exchange byte by byte; the foxlib-c console
 LICENSES.md                           which licence covers what

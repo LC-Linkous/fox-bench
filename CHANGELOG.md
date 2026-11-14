@@ -14,6 +14,16 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.9.7 · foxlib 1.2.1 · foxlib-c 0.1.11
+
+- Network-fox Radio tab: the wiring table no longer overflows its card —
+  pin notes are tooltips on the options instead of part of their labels,
+  the help sits under the pin, three columns; the Board dropdown stays
+  inside the card. Hint wording for Hidden SSID, the MAC field and deep
+  sleep trimmed to what the page does ("not possible with this firmware
+  (noted here and in the fox's banner)"; "locally administered and
+  unicast").
+
 ### Page 0.9.6 · foxlib 1.2.1 · foxlib-c 0.1.11
 
 - Fleet CSV: a cell that itself began with an apostrophe and a formula
