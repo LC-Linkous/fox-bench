@@ -767,6 +767,122 @@
      "cfg: pins.led -> default"
     ]
    }
+  },
+  {
+   "name": "features-accepted-and-named-not-yet-built",
+   "board_id": "esp32c3",
+   "stop_after_unkeys": 2,
+   "cap_ms": 90000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "payload": {
+     "enabled": true,
+     "kind": "rotate",
+     "names": [
+      "ONE",
+      "TWO"
+     ]
+    },
+    "stealth": {
+     "enabled": true,
+     "rotate_mac": "per-cycle"
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "ok",
+     "radio": "ok",
+     "features": "payload,stealth",
+     "clock": "unset"
+    },
+    "keyed_min": 2,
+    "prints_contain": [
+     "note: payload is accepted but not in foxlib",
+     "note: stealth is accepted but not in foxlib",
+     "wifi-ap up: FOXBENCH WiFi Beacon"
+    ]
+   }
+  },
+  {
+   "name": "feature-section-bad-keys-reported",
+   "board_id": "esp32c3",
+   "stop_after_unkeys": 1,
+   "cap_ms": 60000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "checkpoint": {
+     "enabled": true,
+     "portal": {
+      "enabled": true,
+      "code": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "bogus": 1
+     }
+    },
+    "sense": {
+     "enabled": true,
+     "relay": {
+      "enabled": true
+     }
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "partial(checkpoint.portal.code,checkpoint.portal.bogus,sense.relay.wait_for)",
+     "features": "checkpoint,sense"
+    },
+    "keyed_min": 1
+   }
+  },
+  {
+   "name": "clock-set-shows-in-the-banner",
+   "board_id": "esp32c3",
+   "clock": "2026-08-08T09:00:00",
+   "stop_after_unkeys": 1,
+   "cap_ms": 60000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "ok",
+     "clock": "2026-08-08T09:00:00"
+    },
+    "keyed_min": 1
+   }
+  },
+  {
+   "name": "feature-disabled-is-silent",
+   "board_id": "esp32c3",
+   "stop_after_unkeys": 1,
+   "cap_ms": 60000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "payload": {
+     "enabled": false,
+     "kind": "rotate",
+     "names": [
+      "ONE"
+     ]
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "ok"
+    },
+    "prints_not_contain": [
+     "features=",
+     "note: payload"
+    ],
+    "keyed_min": 1
+   }
   }
  ],
  "wifi-probe": [

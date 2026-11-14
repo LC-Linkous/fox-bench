@@ -11,7 +11,7 @@
 import time
 import board
 import microcontroller
-from . import netcfg, netradio, led
+from . import netcfg, netradio, led, netfeatures
 
 try:
     __version__ = open(__file__.rsplit("/", 1)[0] + "/VERSION").read().strip()
@@ -32,7 +32,15 @@ class Tx:
         s = seconds if seconds is not None else self.fox.cfg["schedule"]["wake_s"]
         self.fox.radio.up()
         self.fox.log("%s up: %s (%s) for %d s" % (self.fox.radio.kind, self.name, self.fox.radio.mac(), s))
-        self.fox.led.hold(s * 1000, "tx" if self.fox.cfg["led"]["enabled"] else None)
+        pattern = "tx" if self.fox.cfg["led"]["enabled"] else None
+        if self.fox.hooks["while_up"]:
+            # features that work while the radio is up (a portal, a scan slot) get a tick every ~slot
+            end = time.monotonic() + s
+            while time.monotonic() < end:
+                self.fox.led.hold(min(1000, max(1, int((end - time.monotonic()) * 1000))), pattern)
+                self.fox._run_hooks("while_up", self.cycle)
+        else:
+            self.fox.led.hold(s * 1000, pattern)
         self.fox.radio.down()
         self.fox.log("%s down" % self.fox.radio.kind)
 
@@ -50,6 +58,9 @@ class NetFox:
         self.led = led.Status(None)
         self.name = ""
         self.woke_from_sleep = self._woke()
+        self.features = []
+        self.unbuilt = []
+        self.hooks = {"before_up": [], "while_up": [], "after_down": []}
         if self.cfg is None:
             self.id_ok = False
             self._banner()
@@ -63,12 +74,18 @@ class NetFox:
             self.led = led.Status(None)
         self.id_ok = netcfg.id_ok(c)
         self.name = netcfg.display_name(c)
+        self.features = netcfg.enabled_features(c)
+        self.hooks = {"before_up": [], "while_up": [], "after_down": []}     # the contest features register here
         if not self.fatal:
             try:
                 self.radio = netradio.make(c["net"], self.name)
                 self.radio.setup()
             except Exception as e:
                 self.fatal = "hardware(%s:%s)" % (e.__class__.__name__, str(e).replace(" ", "_")[:40])
+        if not self.fatal:
+            self.unbuilt = netfeatures.attach(self)          # features without firmware yet, named once in the banner
+        else:
+            self.unbuilt = []
         self._banner()
 
     @staticmethod
@@ -112,10 +129,14 @@ class NetFox:
     def banner_line(self):
         c = self.cfg or {}
         net = c.get("net", {}) if c else {}
-        return "FOX template=%s/%s foxlib=%s board=%s uid=%s cfg=%s radio=%s id=%s freq=none net=%s name=%s mac=%s" % (
+        line = "FOX template=%s/%s foxlib=%s board=%s uid=%s cfg=%s radio=%s id=%s freq=none net=%s name=%s mac=%s" % (
             c.get("template", "?") if c else "?", self.template_version, __version__, self.board_id, self.uid,
             ("fatal(%s)" % self.fatal) if self.fatal else self.report.status(), (self.radio.status if self.radio else "skipped"),
             "set" if self.id_ok else "unset", net.get("kind", "?"), _quote(self.name), net.get("mac", "?"))
+        if self.features:
+            line += " features=" + ",".join(self.features)
+        line += " clock=" + clock_text()
+        return line
 
     def _banner(self):
         if self.quiet:
@@ -128,6 +149,8 @@ class NetFox:
             print("** fatal: %s -- staying silent **" % self.fatal)
         elif self.radio and self.radio.status.startswith("ok(hidden"):
             print("  note: this firmware cannot hide the SSID; it is broadcast")
+        for name in self.unbuilt:
+            print("  note: %s is accepted but not in foxlib %s yet; the fox runs without it" % (name, __version__))
         if self.woke_from_sleep:
             print("woke from deep sleep")
 
@@ -145,7 +168,9 @@ class NetFox:
         try:
             while True:
                 self.log("cycle %d" % n)
+                self._run_hooks("before_up", n)
                 yield Tx(self, n)
+                self._run_hooks("after_down", n)
                 n += 1
                 sleep_s = c["schedule"]["sleep_s"]
                 if sleep_s <= 0:
@@ -161,6 +186,13 @@ class NetFox:
         finally:
             if self.radio:
                 self.radio.down()
+
+    def _run_hooks(self, name, cycle):
+        for fn in self.hooks.get(name, ()):
+            try:
+                fn(self, cycle)
+            except Exception as e:
+                self.log("%s hook failed: %s" % (name, e.__class__.__name__))
 
     def _deep_sleep(self, seconds):
         import alarm
@@ -183,6 +215,18 @@ class NetFox:
         if not self.radio:
             return "err: no radio"
         return " | ".join("%d %s" % (x[0], x[1]) for x in self.radio.scan()) or "nothing heard"
+
+
+def clock_text():
+    """The board's idea of now, ISO-ish, or 'unset' (CircuitPython boots at 2000-01-01 until something sets the RTC)."""
+    try:
+        import rtc
+        t = rtc.RTC().datetime
+        if t.tm_year < 2020:
+            return "unset"
+        return "%04d-%02d-%02dT%02d:%02d:%02d" % (t.tm_year, t.tm_mon, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec)
+    except Exception:
+        return "unset"
 
 
 def _quote(s):

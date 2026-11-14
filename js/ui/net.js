@@ -2,7 +2,7 @@
 // on a duty cycle. Contract: js/model/netschema.js (firmware twin foxlib/netcfg.py).
 // SPDX-License-Identifier: GPL-2.0-only
 import { h, field, select, numInput, check, badge } from './dom.js';
-import { WIFI24_CHANNELS, WIFI5_CHANNELS, WIFI_POWER_DBM, BLE_POWER_DBM, MAX_NAME, randomMac, displayName, cycle } from '../model/netschema.js';
+import { WIFI24_CHANNELS, WIFI5_CHANNELS, WIFI_POWER_DBM, BLE_POWER_DBM, MAX_NAME, MAX_NAMES, MAX_DECOYS, MAX_BODY, MAX_URL, MAX_CODE, FEATURES, FEATURE_DEFAULTS, FEATURE_PHASE, randomMac, displayName, cycle } from '../model/netschema.js';
 
 let app;
 export function init(a) { app = a; }   // idempotent; every tab that renders a net form calls it from its own init
@@ -138,4 +138,87 @@ export function renderSchedule(root) {
     const css = getComputedStyle(document.documentElement);
     for (const it of items) { if (it.t > horizon) break; ctx.fillStyle = it.kind === 'tx' ? (css.getPropertyValue('--tx').trim() || '#2a9d8f') : it.kind === 'sleep' ? (css.getPropertyValue('--line').trim() || '#444') : (css.getPropertyValue('--ink-3').trim() || '#888'); ctx.fillRect(it.t / horizon * W, it.kind === 'tx' ? 12 : 44, Math.max(1, it.dur / horizon * W), it.kind === 'tx' ? 36 : 6); }
   });
+}
+
+
+// ---- Payload tab: the contest features (docs/network-fox-payloads-plan.md). Four cards, one per section; a section is
+// absent from fox.json until its card is switched on, and goes back to absent when switched off. The firmware that acts
+// on each arrives in phases B-E; until then the card says so and the fox's banner names the section as accepted.
+const FEATURE_TITLE = { payload: 'What the fox says', checkpoint: 'What the fox serves', sense: 'What the fox listens for', stealth: 'How hard it is to find' };
+const FEATURE_BLURB = {
+  payload: 'Names that change each cycle, a Morse string as the name, a code in the beacon, an Eddystone URL / telemetry frame, a clue split across Wi-Fi and BLE.',
+  checkpoint: 'An open network with a sign-in page that shows a code and takes a callsign (logged on the fox), or a BLE service a hunter reads the code from. Puzzle delivery and a checkpoint log — not the scored find.',
+  sense: 'The fox watches for hunter tags, for another fox on the air, or for phones probing nearby, and logs or reacts.',
+  stealth: 'A new MAC each cycle, names drawn at random, jittered timing, a silent start until a time, decoy names, BLE only.',
+};
+const sect = (sec) => app.cfg[sec] ?? null;
+const on = (sec, v) => { if (v) { app.cfg[sec] = structuredClone(FEATURE_DEFAULTS[sec]); app.cfg[sec].enabled = true; } else delete app.cfg[sec]; app.changed('payload'); };
+const fld = (obj, key, label, opts, hint) => field(label, text(obj, key, opts, 'payload'), hint);
+const num = (obj, key, label, { min, max, width = '110px' }, hint) => field(label, numInput(obj[key], { min, max, step: 1, width, onchange: v => { obj[key] = Math.round(v); app.changed('payload'); } }), hint);
+const chk = (obj, key, label, hint) => check(label, obj[key], v => { obj[key] = v; app.changed('payload'); }, hint);
+const sel = (obj, key, label, options, hint) => field(label, select(options, obj[key], v => { obj[key] = v; app.changed('payload'); }), hint);
+const lines = (obj, key, label, max, each, hint) => {
+  const ta = h('textarea', { rows: Math.min(6, Math.max(3, (obj[key] || []).length + 1)), style: 'width:100%;font-family:var(--mono)', spellcheck: 'false' }, (obj[key] || []).join('\n'));
+  ta.addEventListener('change', () => { obj[key] = ta.value.split('\n').map(x => x.trim()).filter(Boolean); app.changed('payload'); });
+  const over = (obj[key] || []).filter(x => blen(x) > each).length;
+  return field(label, ta, `${hint} One per line, up to ${max}; each 1–${each} bytes.${over ? ` ${over} over ${each} bytes.` : ''}`);
+};
+
+function featureCard(sec, body) {
+  const c = sect(sec), built = app.catalog.foxlibFeatures?.includes(sec);
+  const head = h('div.row', { style: 'justify-content:space-between;align-items:center' },
+    h('h3', { style: 'margin:0' }, FEATURE_TITLE[sec], ' ', h('code', {}, sec), ' ', c ? badge('on', 'ok') : badge('off', '')),
+    check('Enable', !!c, v => on(sec, v)));
+  return h('div.card', {}, head, h('p.hint', {}, FEATURE_BLURB[sec]),
+    built ? null : h('p.hint.warn', {}, `Firmware for this section arrives in phase ${FEATURE_PHASE[sec]} (foxlib ${app.catalog.foxlibVersion} accepts the settings, names the section in its banner, and runs without it).`),
+    c ? body(c) : null, c ? issueList(sec) : null);
+}
+
+export function renderPayload(root) {
+  const hw = app.hardware || {}, radios = hw.radios || [], wifi = radios.includes('wifi24'), ble = radios.includes('ble'), kind = app.cfg.net?.kind;
+  const payloadBody = c => h('div', {},
+    h('div.two-col', {},
+      sel(c, 'kind', 'Name on the air', [['static', 'static — the configured name / callsign'], ['rotate', 'rotate — one of the names below per cycle'], ['morse-name', 'morse-name — the Morse of a word, as the name']]),
+      c.kind === 'morse-name' ? fld(c, 'morse_of', 'Word to send as Morse', { max: 16, upper: true }, 'becomes "-.- -.-- ...." on the air (≤ 32 bytes after encoding)') : null),
+    c.kind === 'rotate' ? lines(c, 'names', 'Names, in order', MAX_NAMES, MAX_NAME, 'The SSID / BLE name this cycle is the next line.') : null,
+    kind === 'ble' || ble ? h('div.two-col', {},
+      field('Beacon code', h('div.row', {}, numInput(c.code.major, { min: 0, max: 65535, step: 1, width: '100px', onchange: v => { c.code.major = Math.round(v); app.changed('payload'); } }), h('span.hint', {}, 'major'),
+        numInput(c.code.minor, { min: 0, max: 65535, step: 1, width: '100px', onchange: v => { c.code.minor = Math.round(v); app.changed('payload'); } }), h('span.hint', {}, 'minor')), 'iBeacon major/minor as a checkpoint number, a grid reference, a code'),
+      num(c, 'interleave_ms', 'Frame interleave', { min: 100, max: 10000 }, 'ms between the iBeacon, URL and telemetry frames when more than one is on')) : null,
+    kind === 'ble' || ble ? h('div.two-col', {},
+      fld(c.eddystone, 'url', 'Eddystone URL', { max: MAX_URL, placeholder: 'https://…' }, 'the phone offers to open it (≤ 64 chars; only http/https)'),
+      chk(c.eddystone, 'tlm', 'Eddystone telemetry', 'battery, temperature, uptime, frame count — a fox that says how long it has been out')) : null,
+    wifi && ble ? h('div.two-col', {}, fld(c.split, 'wifi', 'Split clue — Wi-Fi half', { max: MAX_NAME }, 'an SSID a hunter needs together with…'), fld(c.split, 'ble', 'Split clue — BLE half', { max: 29 }, '…this BLE name')) : null);
+  const checkpointBody = c => h('div', {},
+    h('div.card', { style: 'margin-top:8px' }, chk(c.portal, 'enabled', 'Sign-in page (captive portal) on an open Wi-Fi network', wifi ? '' : 'needs a Wi-Fi radio'),
+      c.portal.enabled ? h('div', {}, h('div.two-col', {}, fld(c.portal, 'title', 'Page title', { max: 40 }), fld(c.portal, 'code', 'Code shown', { max: MAX_CODE, mono: true })),
+        field('Page text', (() => { const ta = h('textarea', { rows: 4, style: 'width:100%', maxlength: MAX_BODY }, c.portal.body); ta.addEventListener('change', () => { c.portal.body = ta.value; app.changed('payload'); }); return ta; })(), `plain text, ≤ ${MAX_BODY} bytes (${blen(c.portal.body)} used)`),
+        h('div.two-col', {}, chk(c.portal, 'ask_callsign', 'Ask for a callsign', 'a one-field form; what is typed goes into the find log'), chk(c.portal, 'captive_dns', 'Captive DNS', 'the phone opens the page by itself on joining; off = hunters open http://192.168.4.1')),
+        chk(c.portal, 'log', 'Keep a find log on the fox', 'finds.csv — fox uid, cycle, time since boot, callsign, client MAC; Collect finds on the Bench tab reads it into the fleet log')) : null),
+    h('div.card', { style: 'margin-top:8px' }, chk(c.ble, 'enabled', 'BLE service with the code', ble ? 'a connectable service beside the beacon; a scanner app reads the code from a characteristic' : 'needs a BLE radio'),
+      c.ble.enabled ? h('div.two-col', {}, fld(c.ble, 'service_uuid', 'Service UUID', { max: 36, upper: true, mono: true }), fld(c.ble, 'code', 'Code', { max: MAX_CODE, mono: true })) : null));
+  const senseBody = c => h('div', {},
+    num(c, 'slot_ms', 'Listening slot', { min: 200, max: 5000 }, 'ms of each second the radio listens instead of transmitting'),
+    h('div.card', { style: 'margin-top:8px' }, chk(c.tags, 'enabled', 'Hunter tags', ble ? '' : 'needs a BLE radio'),
+      c.tags.enabled ? h('div', {}, h('p.hint.warn', {}, h('b', {}, 'Needs: '), 'one BLE tag per team, named with the prefix below (e.g. HUNT-RED). Hand them out at registration; the fox logs each one it hears.'),
+        h('div.two-col', {}, fld(c.tags, 'match', 'Tag name prefix', { max: 16, upper: true, mono: true }), num(c.tags, 'rssi_min', 'Log when stronger than', { min: -100, max: 0 }, 'dBm; −80 is "within a few metres"')),
+        chk(c.tags, 'log', 'Keep a near log on the fox', 'near.csv, same columns as the find log plus kind=tag')) : null),
+    h('div.card', { style: 'margin-top:8px' }, chk(c.relay, 'enabled', 'Relay / chain', 'this fox waits for another fox on the air'),
+      c.relay.enabled ? h('div.two-col', {}, fld(c.relay, 'wait_for', 'Network to wait for', { max: MAX_NAME }, 'the other fox\'s SSID'), sel(c.relay, 'then', 'When heard', [['up', 'go on the air'], ['down', 'go quiet'], ['rotate', 'move to the next name']])) : null),
+    h('div.card', { style: 'margin-top:8px' }, chk(c.probes, 'enabled', 'Count phones probing nearby', wifi ? 'wifi.Monitor on the ESP32 family; the banner reports near=<n>' : 'needs a Wi-Fi radio'),
+      c.probes.enabled ? h('div.two-col', {}, num(c.probes, 'channel', 'Channel to listen on', { min: 1, max: 13 }), num(c.probes, 'window_s', 'Window', { min: 1, max: 10 }, 's per cycle')) : null));
+  const stealthBody = c => h('div', {},
+    h('div.two-col', {},
+      sel(c, 'rotate_mac', 'MAC address', [[false, 'fixed (net.mac)'], ['per-cycle', 'new one each cycle'], ['per-boot', 'new one each boot']]),
+      chk(c, 'rotate_name', 'Names at random', 'draw from the payload names in random order instead of in turn')),
+    h('div.two-col', {},
+      num(c, 'duty_jitter_s', 'Timing jitter', { min: 0, max: 300 }, '± s on each wake and sleep, at random'),
+      chk(c, 'ble_only', 'BLE only', ble ? 'the Wi-Fi radio is never enabled' : 'needs a BLE radio')),
+    h('div.two-col', {},
+      num(c.start, 'after_s', 'Silent for', { min: 0, max: 86400 }, 's after power-on, then starts'),
+      fld(c.start, 'at', 'Or silent until', { max: 32, mono: true, placeholder: '2026-08-08T09:00:00-04:00' }, 'needs the board clock set at deploy (Deploy tab)')),
+    lines(c, 'decoys', 'Decoy names', MAX_DECOYS, MAX_NAME, 'Extra SSIDs the fox cycles through for a few seconds each, so the list shows several.'));
+  root.replaceChildren(h('div', {},
+    h('p.hint', {}, 'Each section is written into fox.json only while it is on. ', h('a', { href: 'docs/network-fox-payloads-plan.md', target: '_blank', rel: 'noopener' }, 'The plan'), ' says what each does and when its firmware lands.'),
+    featureCard('payload', payloadBody), featureCard('checkpoint', checkpointBody), featureCard('sense', senseBody), featureCard('stealth', stealthBody)));
 }

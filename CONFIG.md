@@ -344,6 +344,33 @@ not fit falls back to the defaults file, reported in the banner as
 | `led.enabled` | bool | status LED: 900/100 ms blink while the radio is up, a double flash every 2 s when unconfigured |
 | `fleet.*` | | as the FM contract |
 
+### Contest features (optional sections)
+
+Four more sections, each **absent unless switched on** in the Payload tab
+(docs/network-fox-payloads-plan.md). The firmware validates them like the
+rest (bad keys fall back and are reported), names the enabled ones in the
+banner as `features=payload,stealth`, and — until the phase that builds a
+section lands — prints `note: <section> is accepted but not in foxlib X yet;
+the fox runs without it`. The page says the same on each card.
+
+| section | keys | phase |
+|---|---|---|
+| `payload` | `enabled`; `kind` static \| rotate \| morse-name; `names` (≤ 16 × 1–32 B); `morse_of` (≤ 16); `code.major` / `.minor` 0–65535; `eddystone.url` (http(s), ≤ 64) / `.tlm` bool; `split.wifi` (≤ 32 B) / `.ble` (≤ 29 B); `interleave_ms` 100–10000 | B |
+| `checkpoint` | `enabled`; `portal.{enabled, title ≤ 40 B, body ≤ 512 B plain text, code ≤ 16, ask_callsign, captive_dns, log}`; `ble.{enabled, service_uuid, code ≤ 16}` | D |
+| `sense` | `enabled`; `slot_ms` 200–5000; `tags.{enabled, match 1–16 B, log, rssi_min −100–0}`; `relay.{enabled, wait_for ≤ 32 B, then up \| down \| rotate}`; `probes.{enabled, channel 1–13, window_s 1–10}` | E |
+| `stealth` | `enabled`; `rotate_mac` false \| per-cycle \| per-boot; `rotate_name` bool; `duty_jitter_s` 0–300; `start.after_s` 0–86400 / `start.at` `YYYY-MM-DDTHH:MM:SS[zone]`; `decoys` (≤ 4 × 1–32 B); `ble_only` bool | C |
+
+Cross-section rules the validator applies: `payload.kind: rotate` with no
+names falls back to `static`; `checkpoint.portal` and `sense.probes`/`relay`
+need a Wi-Fi radio, `stealth.ble_only` and `sense.tags` a BLE radio;
+`sense.relay` needs `wait_for`. The page adds what only it can know: a
+portal with deep sleep, a start time with the board clock unset, a split
+clue on a one-radio board, BLE frames on a Wi-Fi template.
+
+The banner's `clock=` is the board's RTC (`unset` until the page sets it
+at deploy — the Deploy tab's *Set the board clock*, from the browser or a
+fixed time given to every fox of a fleet).
+
 `wifi-probe` is a station that keeps trying to join `net.ssid` with a
 password that cannot be right: the probe requests carry the SSID and the
 spoofed MAC, which is what a hunter's sniffer sees, and the fox never
@@ -365,7 +392,8 @@ FOX template=<id>/<ver> foxlib=<ver> board=<board_id> uid=<hex> cfg=<status> rad
 
 A network fox (`net` contract) prints the same keys with `freq=none`, then
 its own: `net=<kind> name=<name> mac=<XX:…>` — `name` is quoted when it has
-spaces. `radio`: `ok` · `ok(hidden_unsupported)` · `nowifi` · `noble` ·
+spaces — then `features=<sections>` when any contest section is on, and
+`clock=<ISO time | unset>`. `radio`: `ok` · `ok(hidden_unsupported)` · `nowifi` · `noble` ·
 `wifi(<Error>)` · `ble(<Error>)`. After `woke from deep sleep` the cycle
 count has restarted.
 

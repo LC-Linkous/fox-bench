@@ -14,6 +14,41 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.10.0 · foxlib 1.3.0 · foxlib-c 0.1.11
+
+**Contest features, phase A** (`docs/network-fox-payloads-plan.md`): the
+scaffolding for payloads, checkpoints, sensing and stealth on the network
+foxes — the contract, the forms, the clock, the simulator hooks. Nothing
+transmits differently yet; the firmware for each section lands in phases
+B–E and says so until then.
+
+- `net` contract: optional `payload`, `checkpoint`, `sense`, `stealth`
+  sections (CONFIG.md "Contest features"), validated by `netcfg.py` and the
+  `netschema.js` twin (parity corpus +12, 144 identical). A section is in
+  fox.json only while its card is on. foxlib 1.3.0: `netfeatures.py`
+  attaches built features to the runner's `before_up` / `while_up` /
+  `after_down` hooks; the banner gains `features=<sections>` and
+  `clock=<time|unset>`, and a `note:` per section that is accepted but not
+  built.
+- Payload tab for network foxes: four cards (*What the fox says / serves /
+  listens for / How hard it is to find*) with every field of the plan,
+  byte counters, and the page checks for what would not work (a sign-in
+  page with deep sleep, a start time with the clock unset, BLE frames on a
+  Wi-Fi template, a split clue on a one-radio board, …).
+- Deploy tab: **Set the board clock** — from this browser now, or a fixed
+  time so every fox of a fleet gets the same one; remembered in the
+  browser; `rtc.RTC().datetime` over the REPL before the files are written.
+- `template.json` `needs`: what an organiser must provide (BLE tags, a
+  sign…), shown on the Behavior and Deploy tabs and lint-checked.
+- Simulator: `rtc` mock (`scenario.clock`), `prints_not_contain`, four
+  phase-A scenarios; the demo board prints the new banner fields.
+- Bench recordings survive a firmware or catalog release: the replay
+  board keeps a small file store, answers the writes of files the
+  recording never saw (a new foxlib module, a changed chunking) with the
+  silence a real board gives, and answers each verify from the bytes
+  written. `docs/bench-recordings.md` says so; `REPLAY_DEBUG=1` traces
+  the matching.
+
 ### Page 0.9.7 · foxlib 1.2.1 · foxlib-c 0.1.11
 
 - Network-fox Radio tab: the wiring table no longer overflows its card —

@@ -1674,6 +1674,251 @@
      "callmessage": "W1ABC FOX"
     }
    }
+  },
+  {
+   "name": "feat-payload-rotate@esp32c3",
+   "template": "wifi-beacon",
+   "board": "esp32c3",
+   "user": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "payload": {
+     "enabled": true,
+     "kind": "rotate",
+     "names": [
+      "ONE",
+      "TWO",
+      "THREE"
+     ],
+     "interleave_ms": 500
+    }
+   }
+  },
+  {
+   "name": "feat-payload-rotate-no-names@esp32c3",
+   "template": "wifi-beacon",
+   "board": "esp32c3",
+   "user": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "payload": {
+     "enabled": true,
+     "kind": "rotate"
+    }
+   }
+  },
+  {
+   "name": "feat-payload-bad-names-and-url@esp32c6",
+   "template": "ble-beacon",
+   "board": "esp32c6",
+   "user": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "payload": {
+     "enabled": true,
+     "names": [
+      "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+     ],
+     "eddystone": {
+      "url": "ftp://x",
+      "tlm": "yes"
+     },
+     "code": {
+      "major": 70000,
+      "minor": -1
+     },
+     "split": {
+      "ble": "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
+     }
+    }
+   }
+  },
+  {
+   "name": "feat-payload-unknown-key@esp32c3",
+   "template": "wifi-probe",
+   "board": "esp32c3",
+   "user": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "payload": {
+     "enabled": false,
+     "color": "red"
+    }
+   }
+  },
+  {
+   "name": "feat-checkpoint-portal@esp32s3",
+   "template": "wifi-beacon",
+   "board": "esp32s3",
+   "user": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "checkpoint": {
+     "enabled": true,
+     "portal": {
+      "enabled": true,
+      "title": "Fox 3",
+      "body": "you found it",
+      "code": "4471",
+      "captive_dns": false
+     }
+    }
+   }
+  },
+  {
+   "name": "feat-checkpoint-portal-no-wifi@nrf52840",
+   "template": "ble-beacon",
+   "board": "nrf52840",
+   "user": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "checkpoint": {
+     "enabled": true,
+     "portal": {
+      "enabled": true,
+      "code": "1"
+     },
+     "ble": {
+      "enabled": true,
+      "service_uuid": "nope",
+      "code": "ccccccccccccccccc"
+     }
+    }
+   }
+  },
+  {
+   "name": "feat-checkpoint-not-object@esp32c3",
+   "template": "wifi-beacon",
+   "board": "esp32c3",
+   "user": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "checkpoint": [
+     1,
+     2
+    ]
+   }
+  },
+  {
+   "name": "feat-sense-relay-no-name@esp32c3",
+   "template": "wifi-beacon",
+   "board": "esp32c3",
+   "user": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "sense": {
+     "enabled": true,
+     "relay": {
+      "enabled": true
+     },
+     "tags": {
+      "enabled": true,
+      "match": "HUNT-",
+      "rssi_min": -120
+     },
+     "probes": {
+      "enabled": true,
+      "channel": 14,
+      "window_s": 2
+     },
+     "slot_ms": 100
+    }
+   }
+  },
+  {
+   "name": "feat-sense-good@esp32c5",
+   "template": "wifi-probe",
+   "board": "esp32c5",
+   "user": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "sense": {
+     "enabled": true,
+     "relay": {
+      "enabled": true,
+      "wait_for": "FOXBENCH Fox 2",
+      "then": "down"
+     },
+     "probes": {
+      "enabled": true,
+      "channel": 1,
+      "window_s": 5
+     }
+    }
+   }
+  },
+  {
+   "name": "feat-stealth-good@esp32c6",
+   "template": "wifi-beacon",
+   "board": "esp32c6",
+   "user": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "stealth": {
+     "enabled": true,
+     "rotate_mac": "per-cycle",
+     "rotate_name": true,
+     "duty_jitter_s": 30,
+     "start": {
+      "at": "2026-08-08T09:00:00-04:00"
+     },
+     "decoys": [
+      "A",
+      "B"
+     ]
+    }
+   }
+  },
+  {
+   "name": "feat-stealth-bad@esp32c3",
+   "template": "wifi-beacon",
+   "board": "esp32c3",
+   "user": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "stealth": {
+     "enabled": true,
+     "rotate_mac": "sometimes",
+     "duty_jitter_s": 301,
+     "start": {
+      "after_s": -1,
+      "at": "tomorrow"
+     },
+     "decoys": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+     ],
+     "ble_only": "yes"
+    }
+   }
+  },
+  {
+   "name": "feat-stealth-ble-only-no-ble@esp32c3",
+   "template": "wifi-beacon",
+   "board": "esp32c3",
+   "user": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "stealth": {
+     "enabled": true,
+     "ble_only": true
+    }
+   }
   }
  ]
 }

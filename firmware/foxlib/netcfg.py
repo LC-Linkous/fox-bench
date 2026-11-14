@@ -201,6 +201,19 @@ def validate(user, defaults, board_id=None, radios=None, board_names=None):
         else:
             rep.bad("schedule.sleep", "off|deep")
 
+    # ---- contest features: payload, checkpoint, sense, stealth (docs/network-fox-payloads-plan.md). Each is optional
+    # and off unless fox.json carries it; a section the defaults lack starts from FEATURE_DEFAULTS. Phase A accepts and
+    # reports them; what each does arrives in phases B-E and is logged as "not in this foxlib" until then.
+    for sec in FEATURES:
+        if sec not in u:
+            continue
+        if not isinstance(u[sec], dict):
+            rep.bad(sec, "object")
+            continue
+        base = cfg.get(sec) if isinstance(cfg.get(sec), dict) else _copy(FEATURE_DEFAULTS[sec])
+        cfg[sec] = base
+        _validate_feature(sec, u[sec], base, rep, radios)
+
     # ---- led, fleet
     l = u.get("led") if isinstance(u.get("led"), dict) else {}
     if "enabled" in l:
@@ -215,6 +228,144 @@ def validate(user, defaults, board_id=None, radios=None, board_names=None):
     if rep.items and rep.mode == "ok":
         rep.mode = "partial"
     return cfg, rep
+
+
+FEATURES = ("payload", "checkpoint", "sense", "stealth")
+FEATURE_DEFAULTS = {
+    "payload": {"enabled": False, "kind": "static", "names": [], "morse_of": "", "code": {"major": 0, "minor": 0},
+                "eddystone": {"url": "", "tlm": False}, "split": {"wifi": "", "ble": ""}, "interleave_ms": 1000},
+    "checkpoint": {"enabled": False,
+                   "portal": {"enabled": False, "title": "", "body": "", "code": "", "ask_callsign": True, "captive_dns": True, "log": True},
+                   "ble": {"enabled": False, "service_uuid": "F0B0F0B0-0000-4000-8000-0000000000C0", "code": ""}},
+    "sense": {"enabled": False, "slot_ms": 1000,
+              "tags": {"enabled": False, "match": "HUNT-", "log": True, "rssi_min": -80},
+              "relay": {"enabled": False, "wait_for": "", "then": "up"},
+              "probes": {"enabled": False, "channel": 6, "window_s": 2}},
+    "stealth": {"enabled": False, "rotate_mac": False, "rotate_name": False, "duty_jitter_s": 0,
+                "start": {"after_s": 0, "at": ""}, "decoys": [], "ble_only": False},
+}
+MAX_NAMES = 16
+MAX_DECOYS = 4
+MAX_BODY = 512
+MAX_URL = 64
+MAX_CODE = 16
+
+
+def _str_max(v, n):
+    return isinstance(v, str) and _blen(v) <= n
+
+
+def _names(v, n, each):
+    return isinstance(v, list) and len(v) <= n and all(isinstance(x, str) and 1 <= _blen(x) <= each for x in v)
+
+
+def _iso_or_empty(v):
+    # "YYYY-MM-DDTHH:MM:SS" with an optional zone; checked by shape, not parsed (the page checks it against its clock)
+    if not isinstance(v, str):
+        return False
+    if v == "":
+        return True
+    if len(v) < 19 or v[4] != "-" or v[7] != "-" or v[10] != "T" or v[13] != ":" or v[16] != ":":
+        return False
+    for i in (0, 1, 2, 3, 5, 6, 8, 9, 11, 12, 14, 15, 17, 18):
+        if v[i] not in "0123456789":
+            return False
+    return len(v) <= 32
+
+
+def _validate_feature(sec, u, cfg, rep, radios):
+    """One feature section: every key checked, bad ones reported and left at the default; unknown keys reported."""
+    def key(path, ok, reason, val=None):
+        if ok:
+            d = cfg
+            parts = path.split(".")
+            for part in parts[:-1]:
+                d = d[part]
+            d[parts[-1]] = val
+        else:
+            rep.bad(sec + "." + path, reason)
+
+    def sub(name, spec):
+        v = u.get(name)
+        if name not in u:
+            return
+        if not isinstance(v, dict):
+            rep.bad(sec + "." + name, "object")
+            return
+        for k, (test, reason) in spec.items():
+            if k in v:
+                key(name + "." + k, test(v[k]), reason, v[k])
+        for k in v:
+            if k not in spec:
+                rep.bad(sec + "." + name + "." + k, "unknown")
+
+    def plain(k, test, reason):
+        if k in u:
+            key(k, test(u[k]), reason, u[k])
+
+    is_bool = lambda x: isinstance(x, bool)
+    known = {"enabled"}
+    plain("enabled", is_bool, "bool")
+    if sec == "payload":
+        known |= {"kind", "names", "morse_of", "code", "eddystone", "split", "interleave_ms"}
+        plain("kind", lambda x: x in ("static", "rotate", "morse-name"), "static|rotate|morse-name")
+        plain("names", lambda x: _names(x, MAX_NAMES, MAX_NAME), "up to %d names of 1-%d bytes" % (MAX_NAMES, MAX_NAME))
+        plain("morse_of", lambda x: _str_max(x, 16), "<= 16 chars")
+        sub("code", {"major": (lambda x: _is_int(x) and 0 <= x <= 65535, "0-65535"), "minor": (lambda x: _is_int(x) and 0 <= x <= 65535, "0-65535")})
+        sub("eddystone", {"url": (lambda x: _str_max(x, MAX_URL) and (x == "" or x.startswith("http://") or x.startswith("https://")), "http(s) URL <= %d chars" % MAX_URL),
+                          "tlm": (is_bool, "bool")})
+        sub("split", {"wifi": (lambda x: _str_max(x, MAX_NAME), "<= 32 bytes"), "ble": (lambda x: _str_max(x, 29), "<= 29 bytes")})
+        plain("interleave_ms", lambda x: _is_int(x) and 100 <= x <= 10000, "100-10000 ms")
+        if cfg.get("kind") == "rotate" and not cfg.get("names"):
+            rep.bad(sec + ".names", "rotate needs at least one name")
+            cfg["kind"] = "static"
+    elif sec == "checkpoint":
+        known |= {"portal", "ble"}
+        sub("portal", {"enabled": (is_bool, "bool"), "title": (lambda x: _str_max(x, 40), "<= 40 bytes"),
+                       "body": (lambda x: _str_max(x, MAX_BODY), "<= %d bytes" % MAX_BODY), "code": (lambda x: _str_max(x, MAX_CODE), "<= %d chars" % MAX_CODE),
+                       "ask_callsign": (is_bool, "bool"), "captive_dns": (is_bool, "bool"), "log": (is_bool, "bool")})
+        sub("ble", {"enabled": (is_bool, "bool"), "service_uuid": (_uuid_ok, "8-4-4-4-12 hex"), "code": (lambda x: _str_max(x, MAX_CODE), "<= %d chars" % MAX_CODE)})
+        if cfg["portal"]["enabled"] and radios is not None and "wifi24" not in radios:
+            rep.bad(sec + ".portal.enabled", "no Wi-Fi radio")
+            cfg["portal"]["enabled"] = False
+    elif sec == "sense":
+        known |= {"slot_ms", "tags", "relay", "probes"}
+        plain("slot_ms", lambda x: _is_int(x) and 200 <= x <= 5000, "200-5000 ms")
+        sub("tags", {"enabled": (is_bool, "bool"), "match": (lambda x: isinstance(x, str) and 1 <= _blen(x) <= 16, "1-16 bytes"),
+                     "log": (is_bool, "bool"), "rssi_min": (lambda x: _is_int(x) and -100 <= x <= 0, "-100-0")})
+        sub("relay", {"enabled": (is_bool, "bool"), "wait_for": (lambda x: _str_max(x, MAX_NAME), "<= 32 bytes"), "then": (lambda x: x in ("up", "down", "rotate"), "up|down|rotate")})
+        sub("probes", {"enabled": (is_bool, "bool"), "channel": (lambda x: _is_int(x) and 1 <= x <= 13, "1-13"), "window_s": (lambda x: _is_int(x) and 1 <= x <= 10, "1-10 s")})
+        if cfg["relay"]["enabled"] and not cfg["relay"]["wait_for"]:
+            rep.bad(sec + ".relay.wait_for", "relay needs a network name")
+            cfg["relay"]["enabled"] = False
+    elif sec == "stealth":
+        known |= {"rotate_mac", "rotate_name", "duty_jitter_s", "start", "decoys", "ble_only"}
+        plain("rotate_mac", lambda x: x is False or x in ("per-cycle", "per-boot"), "false|per-cycle|per-boot")
+        plain("rotate_name", is_bool, "bool")
+        plain("duty_jitter_s", lambda x: _is_int(x) and 0 <= x <= 300, "0-300 s")
+        sub("start", {"after_s": (lambda x: _is_int(x) and 0 <= x <= 86400, "0-86400 s"), "at": (_iso_or_empty, "YYYY-MM-DDTHH:MM:SS[zone] or empty")})
+        plain("decoys", lambda x: _names(x, MAX_DECOYS, MAX_NAME), "up to %d names of 1-%d bytes" % (MAX_DECOYS, MAX_NAME))
+        plain("ble_only", is_bool, "bool")
+        if cfg["ble_only"] and radios is not None and "ble" not in radios:
+            rep.bad(sec + ".ble_only", "no BLE radio")
+            cfg["ble_only"] = False
+    for k in u:
+        if k not in known:
+            rep.bad(sec + "." + k, "unknown")
+
+
+def _uuid_ok(s):
+    if not isinstance(s, str):
+        return False
+    parts = s.split("-")
+    if [len(p) for p in parts] != [8, 4, 4, 4, 12]:
+        return False
+    return all(c in "0123456789abcdefABCDEF" for p in parts for c in p)
+
+
+def enabled_features(cfg):
+    """The feature sections switched on in a validated cfg, in contract order."""
+    return [sec for sec in FEATURES if isinstance(cfg.get(sec), dict) and cfg[sec].get("enabled")]
 
 
 def id_ok(cfg):

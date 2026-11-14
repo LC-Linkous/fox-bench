@@ -56,6 +56,8 @@ export class ReplDevice extends Device {
   async interrupt() { return this._run(() => this.repl.interrupt()); }
 
   async exec(code, opts) { return this._run(() => this._exec(code, opts)); }
+  /** Set the board's RTC: t = [Y, M, D, h, m, s] (the fox reads it back as clock= in its banner). */
+  async setClock(t) { return this._run(() => this._exec(`import rtc, time\nrtc.RTC().datetime = time.struct_time((${t.join(', ')}, 0, 0, -1))\n`)); }
   async _exec(code, opts) {
     this.log(code.split('\n')[0] + (code.includes('\n') ? ' …' : ''), 'tx');
     const { out } = await this.repl.exec(code, opts);

@@ -303,6 +303,9 @@ for tid in fw["templates"]:
         if role not in fcfg.REQUIRED_PINS: bad(rel, f"pins.required has {role}, which the firmware treats as optional")
     for role in t.get("pins", {}).get("optional", []):
         if role not in fcfg.OPTIONAL_PINS: bad(rel, f"pins.optional has {role}, unknown or required")
+    needs = t.get("needs")
+    if needs is not None and (not isinstance(needs, list) or not all(isinstance(x, str) and 3 <= len(x) <= 120 for x in needs)):
+        bad(rel, "needs must be a list of short strings (what an organiser must provide: tags, a sign, a power bank)")
     for c in t.get("capabilities", []):
         if c not in ("keytest", "rssi", "batt"): bad(rel, f"unknown capability {c}")
     for b in t.get("boards_tested", []):

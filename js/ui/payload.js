@@ -1,5 +1,6 @@
 // payload.js — Payload tab: songs (built-ins, RTTTL, playlist), SSTV images, QRSS; full-transmission preview.
 // SPDX-License-Identifier: GPL-2.0-only
+import * as net from './net.js';
 import { h, badge, field, select, numInput, check, fill } from './dom.js';
 import * as morse from '../audio/morse.js';
 import * as melody from '../audio/melody.js';
@@ -10,7 +11,7 @@ import { fmtDuration } from '../model/airtime.js';
 import * as spectrum from '../audio/spectrum.js';
 
 let app, root; const player = new Player();
-export function init(a, el) { app = a; root = el; app.listeners.add(render); render('boot'); }
+export function init(a, el) { app = a; root = el; net.init(a); app.listeners.add(render); render('boot'); }
 
 const KINDS = { songs: 'Songs (Morse ID, then a tune)', sstv: 'SSTV image (Morse ID, then a Robot 36 picture)', none: 'Morse only / QRSS (slow Morse for waterfall copy)' };
 const kindsForTemplate = () => { const s = app.template.sections; return s.includes('payload.*') ? Object.keys(KINDS) : Object.keys(KINDS).filter(k => s.includes('payload.' + k)); };
@@ -213,7 +214,7 @@ function qrssCard() {
 
 function render(source) {
   if (app.isCompiled) { fill(root, h('div.card', {}, h('p.hint', {}, 'kitsune foxes carry no payload: the challenge is the radio itself (an SSID, a beacon, a device name).'))); return; }
-  if (app.isNet) { fill(root, h('div.card', {}, h('p.hint', {}, 'A network fox carries no payload: the challenge is the radio itself (an SSID, a beacon, a device name).'))); return; }
+  if (app.isNet) return net.renderPayload(root);
   if (source === 'theme') { renderPreview(); return; }
   if (source === 'library') { if (libBox) { fill(libBox, libraryCard()); const i = libBox.querySelector('input[type=text]'); if (i && libQuery) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } } return; }
   const p = app.cfg.payload, kinds = kindsForTemplate();
@@ -223,4 +224,5 @@ function render(source) {
     h('div.cols', {}, p.kind === 'songs' ? songsCard() : p.kind === 'sstv' ? sstvCard() : qrssCard(), previewBox));
   renderPreview(0);
 }
-export function shown() { if (!app.isCompiled) renderPreview(0); }
+export function shown() {
+  if (app.isNet) return; if (!app.isCompiled) renderPreview(0); }

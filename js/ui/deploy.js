@@ -12,8 +12,33 @@ import * as foxlibc from './deploy-foxlibc.js';
 import * as compiled from './deploy-compiled.js';
 
 let app, root, gateOk = false, lastResult = null, busy = false;
+// Set the board clock at deploy: CircuitPython boots at 2000-01-01, and a network fox's timed start (stealth.start.at)
+// needs real time. Source: the browser's clock now, or a fixed time so every fox of a fleet is given the same one.
+// Persisted in this browser, so it is a fleet setting: tick it once, deploy fox after fox.
+const CLOCK_KEY = 'fox-bench.deployClock';
+function loadClock() { try { return { enabled: false, source: 'browser', fixed: '', ...JSON.parse(localStorage.getItem(CLOCK_KEY) || '{}') }; } catch { return { enabled: false, source: 'browser', fixed: '' }; } }
+function saveClock(c) { try { localStorage.setItem(CLOCK_KEY, JSON.stringify(c)); } catch {} }
+/** The time to set, as a struct_time tuple (local wall time of the browser, or the fixed field), or null. */
+export function clockToSet() {
+  const c = app.deployClock; if (!c?.enabled) return null;
+  const d = c.source === 'fixed' ? new Date(c.fixed) : new Date();
+  if (Number.isNaN(d.getTime())) return null;
+  return [d.getFullYear(), d.getMonth() + 1, d.getDate(), d.getHours(), d.getMinutes(), d.getSeconds()];
+}
 const setLast = r => { lastResult = r; app.lastDeploy = r ? { ...r, at: new Date().toISOString(), template: app.templateId, uid: app.info?.uid } : null; };
-export function init(a, el) { app = a; root = el; drive.init(a); foxlibc.init(a); compiled.init(a); app.listeners.add(render); render(); }
+export function init(a, el) { app = a; root = el; app.deployClock = loadClock(); drive.init(a); foxlibc.init(a); compiled.init(a); app.listeners.add(render); render(); }
+
+/** The clock control (Deploy card): on, and from where. Changing it re-runs the page checks (stealth.start.at wants it on). */
+function clockRow() {
+  const c = app.deployClock;
+  const set = patch => { Object.assign(c, patch); saveClock(c); app.changed('deploy'); };
+  const fixed = h('input', { type: 'datetime-local', value: c.fixed, step: 1, disabled: c.source !== 'fixed', style: 'margin-left:6px' }); fixed.addEventListener('change', () => set({ fixed: fixed.value }));
+  return h('div.row', { style: 'flex-wrap:wrap;gap:6px 12px;align-items:center;margin:6px 0' },
+    check('Set the board clock', c.enabled, v => set({ enabled: v }), 'CircuitPython boots at 2000-01-01; a timed start needs real time'),
+    c.enabled ? h('label.row', {}, h('select', { onchange: e => set({ source: e.target.value }) }, h('option', { value: 'browser', selected: c.source === 'browser' }, 'this browser\'s time, now'), h('option', { value: 'fixed', selected: c.source === 'fixed' }, 'a fixed time (every fox of the fleet gets the same)')), fixed) : null,
+    c.enabled && c.source === 'fixed' && !clockToSet() ? h('span.hint.err', {}, 'enter a date and time') : null,
+    c.enabled && app.device && !app.device.setClock ? h('span.hint.warn', {}, 'this device cannot set the clock') : null);
+}
 
 /** Flatten a config to dotted key → JSON value for diffing. */
 /** The fleet-log 'freq' and 'power' columns: the FM plan, or for a network fox its kind (and channel) and radio power. */
@@ -78,6 +103,9 @@ async function deploy(btn) {
   const { files } = plan();
   try {
     await d.interrupt();                       // the fox may be running from a previous deploy or restart
+    const t = clockToSet();
+    if (t && d.setClock) { await d.setClock(t); log.dim(`board clock set to ${t[0]}-${String(t[1]).padStart(2, '0')}-${String(t[2]).padStart(2, '0')} ${String(t[3]).padStart(2, '0')}:${String(t[4]).padStart(2, '0')}:${String(t[5]).padStart(2, '0')} (${app.deployClock.source === 'fixed' ? 'fixed time' : 'this browser\'s time'})`); }
+    else if (t) log.dim('this device cannot set the board clock; skipped');
     for (const f of files) {
       if (f.kind === 'foxlib') { await d.mkdir('foxlib'); for (const name of app.catalog.foxlibFiles) await d.writeBytes('foxlib/' + name, await loadFoxlibFile(name)); }
       else if (f.kind === 'code') await d.writeText('code.py', await loadTemplateCode(app.templateId));
@@ -129,6 +157,8 @@ function render() {
       changes.length ? h('details', { open: changes.length < 12, style: 'margin-top:10px' }, h('summary', { class: 'hint' }, `${changes.length} field${changes.length === 1 ? '' : 's'} differ from the board's fox.json`), h('ul.diff', {}, changes.map(c => h('li', {}, h('span', {}, c.key), h('span.from', {}, c.from ?? '—'), h('span.to', {}, c.to ?? '—')))))
         : app.onBoard.cfg ? h('p.hint', {}, 'fox.json matches what is on the board.') : h('p.hint', {}, app.connected ? 'No fox.json on the board yet.' : 'Connect a board to see the difference.')),
     h('div.card', {}, h('h3', {}, 'Deploy'),
+      app.template.needs?.length ? h('p.hint.warn', {}, h('b', {}, 'This template needs: '), app.template.needs.join('; ')) : null,
+      app.isNet ? clockRow() : null,
       h('label.gate', {}, h('input', { type: 'checkbox', checked: gateOk, onchange: e => { gateOk = e.target.checked; render(); } }), h('span', {}, h('b', {}, 'Antenna or dummy load is connected.'), ' The fox transmits within seconds of rebooting, and keying the module with nothing on the RF connector can damage it.')),
       h('div.tools', {}, h('button.btn.primary', { disabled: !ready, onclick: e => deploy(e.currentTarget) }, busy ? 'Writing…' : 'Write to board and reboot'),
         h('button.btn', { disabled: !!blocking.length || busy, title: 'Download the same files as a zip, to copy onto a board by hand (Thonny or a CIRCUITPY drive)', onclick: exportZip }, 'Export deploy set (.zip)'),

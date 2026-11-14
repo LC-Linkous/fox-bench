@@ -10,7 +10,7 @@ to install.
 **Use it:** https://lc-linkous.github.io/fox-bench/ — *Try without
 hardware* runs the whole page against a simulated board.
 
-Status: **v0.9 — four device families, two contracts.** All seven FM templates have been
+Status: **v0.10 — four device families, two contracts.** All seven FM templates have been
 deployed from the page to a XIAO ESP32-C3 + SA868 and run on both 2 m and
 70 cm (checked with `tools/hw_smoke.py`; `docs/hardware-log.md` records
 what was verified on which board, when, with which firmware); CircuitPython itself can be flashed

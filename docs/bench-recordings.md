@@ -18,7 +18,12 @@ from that file instead of running code: a command is looked up by its
 text and gets the recorded reply, a soft reboot gets the recorded boot
 text. Timing and chunking do not matter; only the text does. A command the
 recording never saw gets a `ReplayError` reply naming it, so a changed
-`hw_smoke.py` fails loudly instead of hanging.
+`hw_smoke.py` fails loudly instead of hanging. The one exception is
+`f.write(…)`: the bytes of the files being written change with every
+foxlib or catalog release, so an unrecorded write is answered like every
+real one (silence) and counted as a content write rather than a miss —
+the recording tests the script's commands and the board's replies, not
+the firmware's text.
 
 `tools/replay_check.py` ties the two together — starts the replay board,
 runs `hw_smoke.py` with the recorded arguments, and exits 1 unless every

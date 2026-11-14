@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { validate, checks, cycle, displayName, parseMac, randomMac } from '../../js/model/netschema.js';
+import { validate, checks, cycle, displayName, parseMac, randomMac, enabledFeatures } from '../../js/model/netschema.js';
 
 const defaults = t => JSON.parse(readFileSync(new URL(`../../firmware/templates/${t}/defaults/esp32c3.json`, import.meta.url)));
 const C3 = { id: 'esp32c3', name: 'ESP32-C3', radios: ['wifi24', 'ble'], pins: [{ name: 'D0' }, { name: 'D10' }] };
@@ -52,4 +52,25 @@ test('cycle preview and MAC helpers', () => {
   assert.deepEqual(items.map(i => i.kind), ['tx', 'off', 'tx', 'off', 'tx', 'off']);
   assert.deepEqual(parseMac('F2:B0:00:00:00:01'), [0xf2, 0xb0, 0, 0, 0, 1]); assert.equal(parseMac('01:00:00:00:00:00'), null);
   assert.match(randomMac(6), /^F2(:[0-9A-F]{2}){5}$/);
+});
+
+test('contest features: sections exist only when given, defaults fill in, bad keys fall back, radios gate', () => {
+  const d = defaults('wifi-beacon');
+  let r = validate({ id: { callmessage: 'W1ABC' } }, d, C3);
+  assert.equal('payload' in r.cfg, false);
+  r = validate({ id: { callmessage: 'W1ABC' }, payload: { enabled: true, kind: 'rotate', names: ['ONE', 'TWO'] } }, d, C3);
+  assert.equal(r.status, 'ok'); assert.equal(r.cfg.payload.interleave_ms, 1000); assert.deepEqual(enabledFeatures(r.cfg), ['payload']);
+  r = validate({ id: { callmessage: 'W1ABC' }, payload: { enabled: true, kind: 'rotate' }, stealth: { enabled: true, rotate_mac: 'often', nope: 1 } }, d, C3);
+  assert.equal(r.status, 'partial(payload.names,stealth.rotate_mac,stealth.nope)'); assert.equal(r.cfg.payload.kind, 'static');
+  r = validate({ id: { callmessage: 'W1ABC' }, checkpoint: { enabled: true, portal: { enabled: true } } }, d, { ...C3, radios: ['ble'] });
+  assert.equal(r.status, 'partial(checkpoint.portal.enabled)'); assert.equal(r.cfg.checkpoint.portal.enabled, false);
+});
+
+test('contest features: page checks name the conflicts', () => {
+  const d = defaults('wifi-beacon');
+  const r = validate({ id: { callmessage: 'W1ABC' }, checkpoint: { enabled: true, portal: { enabled: true } }, stealth: { enabled: true, start: { at: '2026-08-08T09:00:00' } }, schedule: { sleep: 'deep' } }, d, C3);
+  const keys = checks(r.cfg, C3, { clockSet: false }).filter(i => i.level === 'err').map(i => i.key);
+  assert.ok(keys.includes('checkpoint.portal.enabled') && keys.includes('stealth.start.at'));
+  const ok = checks(validate({ id: { callmessage: 'W1ABC' }, stealth: { enabled: true, start: { at: '2026-08-08T09:00:00-04:00' } } }, d, C3).cfg, C3, { clockSet: true });
+  assert.equal(ok.filter(i => i.key === 'stealth.start.at').length, 0);
 });

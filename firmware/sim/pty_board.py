@@ -20,7 +20,7 @@
 # the recording does not contain is answered with an error that says so.
 # That makes a bench run a test that needs no board (docs/bench-recordings.md).
 # Linux/macOS only (openpty).
-import os, pty, re, subprocess, sys, tempfile, threading, time
+import ast, os, pty, re, subprocess, sys, tempfile, threading, time, zlib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 WORKER = os.path.join(HERE, "pty_worker.py")
@@ -135,16 +135,61 @@ class Replay:
         self.cursor = 0
         self.misses = []
     def _take(self, kind, cmd=None):
+        match = lambda e: e["kind"] == kind and (cmd is None or e.get("cmd") == cmd)
+        dbg = os.environ.get("REPLAY_DEBUG")
         for i in range(self.cursor, len(self.ex)):
             e = self.ex[i]
-            if not self.used[i] and e["kind"] == kind and (cmd is None or e.get("cmd") == cmd):
+            if not self.used[i] and match(e):
+                if dbg: sys.stderr.write("take %d %s %s\n" % (i, kind, (cmd or "")[:50].replace("\n", "|")))
                 self.used[i] = True; self.cursor = i + 1; return e
         for i, e in enumerate(self.ex):
-            if not self.used[i] and e["kind"] == kind and (cmd is None or e.get("cmd") == cmd):
+            if not self.used[i] and match(e):
+                if dbg: sys.stderr.write("take-back %d %s %s (cursor %d)\n" % (i, kind, (cmd or "")[:50].replace("\n", "|"), self.cursor))
                 self.used[i] = True; return e
+        if dbg: sys.stderr.write("miss %s %s\n" % (kind, (cmd or "")[:50].replace("\n", "|")))
         return None
+    # The bytes of the files hw_smoke writes (foxlib, code.py, defaults, fox.json) change with every firmware or
+    # catalog release, and so do the size/crc replies that verify them. A recording is about the script's commands
+    # and the board's replies, not those bytes: the replay keeps a tiny file store, answers an unrecorded
+    # f.write(...) with the silence every real one gave, and answers the verify command from what was written.
+    _open_re = re.compile(r"^f=open\((?P<p>'[^']*'|\"[^\"]*\"),'wb'\)$")
+    _verify_re = re.compile(r"print\(os\.stat\((?P<p>'[^']*'|\"[^\"]*\")\)\[6\], c\)")
+
     def exec(self, code):
-        e = self._take("exec", code.decode())
+        text = code.decode()
+        m = self._open_re.match(text.strip())
+        if m:
+            self._writing = ast.literal_eval(m.group("p")); self._buf = bytearray()
+        elif text.startswith("f.write(") and getattr(self, "_writing", None) is not None:
+            try: self._buf += ast.literal_eval(text[len("f.write("):].rstrip().rstrip(")"))
+            except Exception: pass
+        elif text.strip() == "f.close()" and getattr(self, "_writing", None) is not None:
+            self.files = getattr(self, "files", {}); self.files[self._writing] = bytes(self._buf); self._writing = None
+        v = self._verify_re.search(text)
+        if v and ast.literal_eval(v.group("p")) in getattr(self, "files", {}):
+            # the verify of a file this replay wrote: answered from the bytes written, whatever the recording said
+            data = self.files[ast.literal_eval(v.group("p"))]
+            self._take("exec", text)                 # the recorded one, if the command text matches; never a later one
+            self.content_writes = getattr(self, "content_writes", 0) + 1
+            return ("%d %d\n" % (len(data), zlib.crc32(data))).encode(), b""
+        if m:
+            e = self._take("exec", text)
+            self._unrecorded_file = e is None               # a file the recording never saw: its writes and close are content too
+            if e is None:
+                self.content_writes = getattr(self, "content_writes", 0) + 1
+                return b"", b""
+            return e["out"].encode(), e["err"].encode()
+        if getattr(self, "_unrecorded_file", False) and (text.startswith("f.write(") or text.strip() == "f.close()"):
+            if text.strip() == "f.close()": self._unrecorded_file = False
+            self.content_writes = getattr(self, "content_writes", 0) + 1
+            return b"", b""
+        e = self._take("exec", text)
+        if e is None and (text.startswith("f.write(") or text.strip() == "f.close()"):
+            # a write, or the open/close of a file the recording never saw (a foxlib module added since): content, not a
+            # miss. Nothing recorded is consumed for it -- taking "the nearest write" would move the cursor past a later
+            # template's reboot when the chunking differs -- so the use count can fall short of the total; that is fine
+            self.content_writes = getattr(self, "content_writes", 0) + 1
+            return b"", b""
         if e is None:
             self.misses.append(code.decode().split("\n")[0][:80])
             return b"", ("ReplayError: command not in the recording: %r\n" % code.decode().split("\n")[0][:60]).encode()
@@ -173,7 +218,7 @@ def main():
         if b.replay and a.replay_report:
             import json
             r = b.replay
-            json.dump({"misses": r.misses, "used": sum(r.used), "total": len(r.ex)}, open(a.replay_report, "w"), indent=1)
+            json.dump({"misses": r.misses, "used": sum(r.used), "total": len(r.ex), "content_writes": getattr(r, "content_writes", 0)}, open(a.replay_report, "w"), indent=1)
     import signal
     signal.signal(signal.SIGTERM, lambda *_: (write_replay_report(), sys.exit(0)))
     try: b.serve()

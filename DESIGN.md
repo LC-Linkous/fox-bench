@@ -366,6 +366,8 @@ firmware/foxlib/
   netcfg.py       the `net` contract: defaults → fox.json → validation (twin of js/model/netschema.js)
   netradio.py     the SoC's radios as transmitters: WifiAp, WifiProbe, BleBeacon (up/down/scan/mac)
   netfox.py       NetFox: the network foxes' runner — banner, duty cycle, radio-off or deep sleep, bench
+  netfeatures.py  the contest features (payload, checkpoint, sense, stealth) attached to NetFox's hooks; a section
+                  without a module yet is named in the banner as accepted, not built (docs/network-fox-payloads-plan.md)
   VERSION         single line, e.g. 1.0.0
 ```
 

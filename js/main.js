@@ -28,7 +28,7 @@ import * as tabBench from './ui/bench.js';
 import * as tabFleet from './ui/fleet.js';
 import * as tabAbout from './ui/about.js';
 
-const VERSION = '0.9.7';
+const VERSION = '0.10.0';
 /** Tab subtitles that read differently per device family (null = the page's original text). */
 const LEDES = { drive: {
   board: 'Which fox is on the bench, open its USB drive (or use the simulated one). The vendor firmware stays; the page writes its files.',
@@ -54,7 +54,7 @@ const LEDES = { drive: {
 } };
 const TAB_ID = Math.random().toString(36).slice(2, 10);   // this page load, for the saved-form handoff between tabs
 const TABS = { board: tabBoard, radio: tabRadio, behavior: tabBehavior, plan: tabPlan, id: tabId, payload: tabPayload, schedule: tabSchedule, deploy: tabDeploy, bench: tabBench, fleet: tabFleet, about: tabAbout };
-const TAB_KEYS = { radio: ['radio', 'module', 'pins', 'net'], plan: ['plan'], id: ['id'], payload: ['payload'], schedule: ['schedule'] };
+const TAB_KEYS = { radio: ['radio', 'module', 'pins', 'net'], plan: ['plan'], id: ['id'], payload: ['payload', 'checkpoint', 'sense', 'stealth'], schedule: ['schedule'] };
 
 export const app = {
   version: VERSION,
@@ -150,7 +150,7 @@ export const app = {
       this.report = r.report; this.status = r.status; this.validCfg = r.cfg; this.issues = this.vendor.checks(r.cfg, this.hardware);
     } else if (this.isNet) {
       const r = netValidate(this.cfg, this.defaults, { ...this.board, radios: this.hardware?.radios });
-      this.report = r.report; this.status = r.status; this.validCfg = r.cfg; this.issues = netChecks(r.cfg, { ...this.board, radios: this.hardware?.radios || [] });
+      this.report = r.report; this.status = r.status; this.validCfg = r.cfg; this.issues = netChecks(r.cfg, { ...this.board, radios: this.hardware?.radios || [] }, { clockSet: this.deployClock?.enabled });
     } else {
       const r = mergeAndValidate(this.cfg, this.defaults, this.board);
       this.report = r.report; this.status = r.status;
@@ -164,7 +164,7 @@ export const app = {
       for (const el of $$('.panel .lede')) if (!(LEDES[this.family] || {})[el.closest('.panel').id.slice(4)] && el.dataset.orig) el.textContent = el.dataset.orig;
     }
     $('.rail button[data-tab="bench"]').hidden = this.family === 'drive' || this.isCompiled;
-    $('.rail button[data-tab="payload"]').hidden = this.isCompiled || this.isNet;
+    $('.rail button[data-tab="payload"]').hidden = this.isCompiled;
     $('.rail button[data-tab="plan"]').hidden = this.isNet;   // no frequencies on a network fox: the channel is on the Radio tab
     $('#demoBtn').disabled = this.isCompiled || !!this._connecting; $('#demoBtn').title = this.isCompiled ? 'no simulated kitsune board yet' : '';
     if (!this.device && this._waiting) { $('#connectBtn').textContent = 'Stop waiting'; $('#connectBtn').disabled = false; $('#listenBtn').hidden = true; }
@@ -194,8 +194,8 @@ export const app = {
     if (carry && prev) {
       // carry what both contracts share; between an FM and a network template only the callsign and the fleet notes carry
       const sameContract = (prev.net ? 'net' : 'fm') === (next.net ? 'net' : 'fm');
-      const keys = sameContract ? (next.net ? ['net', 'pins', 'variant', 'id', 'led', 'fleet'] : ['module', 'pins', 'radio', 'plan', 'id', 'battery', 'limits', 'fleet']) : ['fleet'];
-      for (const k of keys) if (k in prev && k in next) next[k] = structuredClone(prev[k]);
+      const keys = sameContract ? (next.net ? ['net', 'pins', 'variant', 'id', 'led', 'fleet', 'payload', 'checkpoint', 'sense', 'stealth'] : ['module', 'pins', 'radio', 'plan', 'id', 'battery', 'limits', 'fleet']) : ['fleet'];
+      for (const k of keys) if (k in prev && (k in next || ['payload', 'checkpoint', 'sense', 'stealth'].includes(k) && prev.net)) next[k] = structuredClone(prev[k]);   // feature sections exist only while on
       if (!sameContract && prev.id?.callmessage && next.id) next.id.callmessage = prev.id.callmessage;
       if (sameContract && next.net && prev.net && prev.net.kind !== this.defaults.net.kind) next.net = structuredClone(this.defaults.net);   // a different radio: its own fields
       const sec = this.template.sections;

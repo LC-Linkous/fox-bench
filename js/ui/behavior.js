@@ -33,6 +33,7 @@ function render() {
       (t.description || `Reads: ${t.sections.join(', ')}`) + (app.templatesFor(app.family).length < Object.keys(app.catalog.templates).length ? ` (templates for the ${app.board.name}; other boards have others)` : '')),
     h('dl.kv', {},
       h('dt', {}, 'Version'), h('dd', {}, `${t.version} · needs foxlib ${t.foxlib}`),
+      ...(t.needs?.length ? [h('dt', {}, 'Needs'), h('dd', {}, h('ul.needs', { style: 'margin:0;padding-left:1.2em' }, t.needs.map(n => h('li', {}, n))))] : []),
       h('dt', {}, 'Status'), h('dd', {}, badge(t.status, t.status === 'stable' ? 'ok' : 'warn')),
       h('dt', {}, 'Tested on'), h('dd', {}, t.boards_tested.join(', ') || 'nothing yet'),
       h('dt', {}, 'Payload files'), h('dd', {}, t.payloads.map(p => p.file).join(', ') || 'none'),

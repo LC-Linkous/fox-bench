@@ -5,7 +5,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 import { Device } from './device.js';
 import { mergeAndValidate } from '../model/schema.js';
-import { validate as netValidate } from '../model/netschema.js';
+import { validate as netValidate, enabledFeatures } from '../model/netschema.js';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -40,6 +40,7 @@ export class DemoDevice extends Device {
   async mkdir(p) { this.dirs.add(p); }
   async remove(p) { this.fs.delete(p); }
   async exec(code) { this.log(code.split('\n')[0] + ' …', 'tx'); await sleep(60); return ''; }
+  async setClock(t) { this.clock = t; this.log('> import rtc, time …', 'tx'); await sleep(40); }
 
   /** What foxlib.cfg would do at boot. */
   _boot() {
@@ -64,8 +65,11 @@ export class DemoDevice extends Device {
       const fl = this.dec.decode(this.fs.get('foxlib/VERSION') || this.enc.encode('?')).trim();
       const idSet = !cfg.id.callmessage.includes('N0CALL'), name = cfg.id.use_callsign_as_name ? cfg.id.callmessage : (cfg.net.ssid ?? cfg.net.name ?? '');
       const radio = cfgStatus?.startsWith('fatal') ? 'skipped' : cfg.net.kind === 'wifi-ap' && cfg.net.hidden ? 'ok(hidden_unsupported)' : 'ok';
-      lines.push(`FOX template=${template}/${this._tmplVersion()} foxlib=${fl} board=${this.cpBoardId()} uid=${this.uid} cfg=${cfgStatus} radio=${radio} id=${idSet ? 'set' : 'unset'} freq=none net=${cfg.net.kind} name="${name}" mac=${cfg.net.mac}`);
+      const feats = enabledFeatures(cfg), t = this.clock;
+      const clock = t ? `${t[0]}-${String(t[1]).padStart(2, '0')}-${String(t[2]).padStart(2, '0')}T${String(t[3]).padStart(2, '0')}:${String(t[4]).padStart(2, '0')}:${String(t[5]).padStart(2, '0')}` : 'unset';
+      lines.push(`FOX template=${template}/${this._tmplVersion()} foxlib=${fl} board=${this.cpBoardId()} uid=${this.uid} cfg=${cfgStatus} radio=${radio} id=${idSet ? 'set' : 'unset'} freq=none net=${cfg.net.kind} name="${name}" mac=${cfg.net.mac}${feats.length ? ' features=' + feats.join(',') : ''} clock=${clock}`);
       if (radio.startsWith('ok(hidden')) lines.push('  note: this firmware cannot hide the SSID; it is broadcast');
+      for (const f of feats) lines.push(`  note: ${f} is accepted but not in foxlib ${fl} yet; the fox runs without it`);
       lines.push('cycle 0', `${cfg.net.kind} up: ${name} (${cfg.net.mac}) for ${cfg.schedule.wake_s} s`);
       this.lastCfg = cfg; this.lastRadio = radio;
       return lines.join('\n');

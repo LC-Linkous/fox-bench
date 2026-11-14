@@ -4,6 +4,7 @@
 # `busio`, `analogio` and a virtual `time` into sys.modules, and returns a
 # Recorder holding everything the firmware did: tone events, PTT edges, UART
 # traffic, LED edges, prints.
+import time as _REAL_TIME   # the host's time module, captured before install() replaces sys.modules['time']
 import sys
 import types
 
@@ -304,6 +305,26 @@ def install(scenario):
         raise Reboot()                        # the runner starts code.py again, as the board does after deep sleep
     alarm.exit_and_deep_sleep_until_alarms = deep_sleep
     sys.modules["alarm"] = alarm
+    # rtc: the board clock. CircuitPython boots at 2000-01-01 until something sets it; scenario["clock"] = "YYYY-MM-DDTHH:MM:SS"
+    # pretends the page set it at deploy. Setting rtc.RTC().datetime is recorded as a net event.
+    rtcm = types.ModuleType("rtc")
+    _base = [2000, 1, 1, 0, 0, 0]
+    if scenario.get("clock"):
+        c = scenario["clock"]; _base = [int(c[0:4]), int(c[5:7]), int(c[8:10]), int(c[11:13]), int(c[14:16]), int(c[17:19])]
+    class _RTC:
+        @property
+        def datetime(self):
+            secs = int(clock.ns / 1e9)
+            y, mo, d, h, mi, se = _base
+            se += secs; mi += se // 60; se %= 60; h += mi // 60; mi %= 60; d += h // 24; h %= 24
+            return _REAL_TIME.struct_time((y, mo, d, h, mi, se, 0, 0, -1))
+        @datetime.setter
+        def datetime(self, t):
+            _base[:] = [t.tm_year, t.tm_mon, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec]
+            net_event("clock_set", "%04d-%02d-%02dT%02d:%02d:%02d" % tuple(_base))
+    _one = _RTC()
+    rtcm.RTC = lambda: _one
+    sys.modules["rtc"] = rtcm
     if not hasattr(board, "LED"): board.LED = Pin("LED")
 
     for name, mod in (("time", t), ("board", board), ("microcontroller", mc), ("digitalio", dio), ("pwmio", pwm), ("busio", bus), ("analogio", an)):

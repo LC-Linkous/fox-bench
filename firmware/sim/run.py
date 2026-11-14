@@ -146,6 +146,8 @@ def run_one(template, scen, verbose=False):
 def check(template, scen, rec, err):
     exp = scen.get("expect", {})
     fails = []
+    for needle in exp.get("prints_not_contain", []):
+        if any(needle in p for p in rec.prints): fails.append("prints contain %r" % needle)
     if "led_edges_min" in exp and len(rec.led) < exp["led_edges_min"]: fails.append("led edges %d < %d" % (len(rec.led), exp["led_edges_min"]))
     if "led_edges_max" in exp and len(rec.led) > exp["led_edges_max"]: fails.append("led edges %d > %d" % (len(rec.led), exp["led_edges_max"]))
     banner = next((l for l in rec.prints if l.startswith("FOX ")), None)
