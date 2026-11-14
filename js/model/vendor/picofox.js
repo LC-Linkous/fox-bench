@@ -1,6 +1,6 @@
 // picofox.js — the AI6YM PicoFox as a "drive-configured" fox: what its firmware reads,
 // how it behaves, and how a fox-bench config becomes the four files on its drive.
-// Read docs/picofox-notes.md first. The firmware itself (CC BY-NC-SA 4.0) is not
+// Read docs/picofox.md first. The firmware itself (CC BY-NC-SA 4.0) is not
 // included or modified; everything here is derived from its documented file formats.
 // SPDX-License-Identifier: GPL-2.0-only
 import * as morse from '../../audio/morse.js';

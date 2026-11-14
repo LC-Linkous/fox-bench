@@ -16,7 +16,7 @@ code 0 again, so a drift of the reference reading over the session shows.
 Set up first: the fox on a dummy load or a fixed attenuator into the meter (never an antenna — the sweep keys for
 `--hold` seconds per code, 13 codes, ~80 s on the air at full power), the console closed in the page (this script
 takes the port), fox.json with a callsign (bench actions obey the callsign gate). This is the only measurement on the
-PicoFox nobody has made; `docs/picofox-hardware.md` says why it matters (the word format is unverified too — a step
+PicoFox nobody has made; `docs/picofox.md` says why it matters (the word format is unverified too — a step
 size that is not ~0.25 dB per code, or a non-monotonic curve, is the word format question answering itself).
 """
 import argparse, csv, sys, time
@@ -91,7 +91,7 @@ def main():
         print("A slope far from 0.25, or steps against the trend, points at the word format (player.c atten_write) rather than the part.")
     if rows and rows[-1]["code"] == 0 and rows[0]["code"] == 0 and rows[0]["rel_db"] and rows[-1]["rel_db"]:
         print(f"reference drift over the session: {float(rows[-1]['rel_db']):+.2f} dB")
-    print("Put the table in docs/hardware-log.md (F10) and the slope in docs/picofox-hardware.md.")
+    print("Put the table in docs/hardware-log.md (F10) and the slope in docs/picofox.md.")
     return 0
 
 if __name__ == "__main__": sys.exit(main())

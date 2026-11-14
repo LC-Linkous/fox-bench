@@ -32,7 +32,7 @@ The **AI6YM PicoFox** hardware and its vendor firmware are © Giorgi
 Enterprises LLC dba AI6YM.radio, **CC BY-NC-SA 4.0**. fox-bench includes
 and modifies none of it. The `drive` family writes the files that firmware
 reads; the `foxlib-c` firmware was written from the published schematic and
-component datasheets (`docs/picofox-hardware.md`) and credits the hardware
+component datasheets (`docs/picofox.md`) and credits the hardware
 design. Nothing in fox-bench grants rights to the PicoFox design.
 
 The **kitsune** fox firmware (Wi-Fi, BLE, Bluetooth Classic and Zigbee foxes

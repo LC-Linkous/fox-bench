@@ -139,9 +139,9 @@ tools/
   kitsune_bench_conf.mjs              generates fox-bench's bench conference headers for the kitsune build
   sniffer/                            CircuitPython for a second board: a probe-request sniffer (wifi.Monitor)
 tests/                                unit (node:test) and page smoke (Playwright), see tests/README.md
-docs/                                 first-hardware-session, bench-runbook, bench-recordings, hardware-log, adding-a-target,
-                                      network-fox-bench, network-fox-payloads-plan, picofox hardware/notes, releasing,
-                                      project audit, kitsune plan / bench / C6 proposal
+docs/                                 bench-runbook (queue, tick-lists, first session, recordings), hardware-log,
+                                      network-fox-payloads-plan, picofox (hardware + vendor firmware), kitsune plan / bench;
+                                      contributing, releasing and adding a target are in CONTRIBUTING.md
 CONFIG.md                             fox.json schema — the contract
 PROTOCOL.md                           REPL exchange byte by byte; the foxlib-c console
 LICENSES.md                           which licence covers what
@@ -549,7 +549,7 @@ documents honest.
   and TinyUSB (MIT): `firmware/foxlib-c/NOTICE` is what travels with the
   binary.
 - The PicoFox hardware and vendor firmware (CC BY-NC-SA 4.0) are
-  credited, never included; `docs/picofox-hardware.md` is the clean-room
+  credited, never included; `docs/picofox.md` is the clean-room
   boundary for foxlib-c.
 - Every file carries an `SPDX-License-Identifier` line. `LICENSES.md` at
   the root is the one-page map.
@@ -595,7 +595,7 @@ hardware can be several targets — the PicoFox is `picofox-vendor` (drive)
 and `picofox-foxlibc` (foxlib-c) — and the user switches between them by
 flashing. The working config keeps the `fox.json` shape for both families
 (so profiles, the fleet log, the ID and payload tabs are shared) with
-family-specific `radio` and `schedule` contents. `docs/picofox-notes.md`
+family-specific `radio` and `schedule` contents. `docs/picofox.md`
 records what was learnt from the PicoFox's drive and published firmware.
 
 Firmware and page can drift apart for this family (the firmware is baked

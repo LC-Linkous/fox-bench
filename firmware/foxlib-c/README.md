@@ -20,7 +20,7 @@ VERSION      firmware version (the banner's foxlib=c-<version>)
 
 | target | hardware | status |
 |---|---|---|
-| `picofox-foxlibc` | AI6YM PicoFox rev 2/3 (`hardware/picofox.json`, `docs/picofox-hardware.md`) | stable: on the air on a rev 3 board since October 2026 (keying, 8 kHz FM, live reload, console bench, firmware swap both ways); attenuator dB/step not yet metered |
+| `picofox-foxlibc` | AI6YM PicoFox rev 2/3 (`hardware/picofox.json`, `docs/picofox.md`) | stable: on the air on a rev 3 board since October 2026 (keying, 8 kHz FM, live reload, console bench, firmware swap both ways); attenuator dB/step not yet metered |
 
 ## What the PicoFox firmware does
 
@@ -59,7 +59,7 @@ VERSION      firmware version (the banner's foxlib=c-<version>)
   included. The board accepts the codes; the dB per step is not confirmed
   with a power meter, and the word format the firmware clocks out (8 bits,
   code<<1, `player.c atten_write`) is **unverified** against the datasheet's
-  timing diagram — `docs/picofox-hardware.md` describes the interface it was
+  timing diagram — `docs/picofox.md` describes the interface it was
   written from. Until measured, treat the steps as nominal.
 - **Staying off the air when it should**: the cycle's keydown budget is
   enforced by the player in samples *and* by core 0 on the wall clock
@@ -196,7 +196,7 @@ theirs. Opening a drive whose files belong to the other firmware says so.
 
 ## First hardware session
 
-`docs/first-hardware-session.md` has the general checklist. For this target:
+`docs/bench-runbook.md` has the general checklist. For this target:
 Board tab → "Get fox-bench firmware" → "Reboot into bootloader" (the
 1200-baud touch; BOOTSEL is inside the case) → copy to RPI-RP2. A
 `FOXBENCH` drive and a serial port appear. Listen only shows the banner;

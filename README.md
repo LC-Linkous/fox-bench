@@ -26,7 +26,7 @@ targets are **experimental** until a hardware-log row
 says a phone has found them. The
 AI6YM PicoFox is supported two ways: with its **vendor firmware** (the page
 writes its settings, renders its audio and Morse-ID files, and draws the
-cycle that firmware runs — verified on air, `docs/picofox-notes.md`), and
+cycle that firmware runs — verified on air, `docs/picofox.md`), and
 with **fox-bench's own firmware** (`firmware/foxlib-c/`, GPL-3.0-or-later:
 `fox.json`, every template the CircuitPython foxes have including SSTV, FM
 at 8 kHz with pre-emphasis, banner and bench buttons over its serial
@@ -51,7 +51,7 @@ the page itself in headless Chromium (`tests/`), and a lint of every
 descriptor (`tools/check_catalog.py`); the site deploys from `main` only
 after all three passed, carrying the UF2 that run built
 (`.github/workflows/ci.yml`). See `tests/README.md`; releases are tags
-(`docs/releasing.md`, `CHANGELOG.md`).
+(`CONTRIBUTING.md`, `CHANGELOG.md`).
 
 | | |
 |---|---|
@@ -68,19 +68,16 @@ after all three passed, carrying the UF2 that run built
 | `tools/check_catalog.py` | lint for every descriptor, defaults file and index; runs in CI |
 | `tools/hw_smoke.py` | bench script: every template on a real board, banner + bench + memory, JSON report |
 | `tools/sniffer/` | CircuitPython for a second board: prints every Wi-Fi probe request it hears as line-JSON, so `hw_smoke.py --sniffer` can verify the wifi-probe fox over the air |
-| `tools/replay_check.py` | replays a `hw_smoke.py --record` file into the pty board and checks it (`docs/bench-recordings.md`) |
+| `tools/replay_check.py` | replays a `hw_smoke.py --record` file into the pty board and checks it (`docs/bench-runbook.md`) |
 | `tools/bench_queue.py` | what the next bench sessions have to show, derived from the catalog and `docs/hardware-log.md`; `--check` runs in CI |
 | `tools/session_close.py` | after a `hw_smoke.py` run: the hardware-log row and the `boards_tested` additions, from the report (`docs/bench-runbook.md`) |
 | `flasher/` | CircuitPython flashing component (esptool-js bundled; Apache-2.0, licensed separately) |
 | `tools/batch_flash.py` | headless CircuitPython batch flasher, same CSV as the Fleet tab |
 | `tools/check_fleet.py` | checks a fleet CSV with the same rules as the Fleet tab's import |
 | `tools/check_catalog.py`, `tools/check_docs.py`, `tools/check_ci.py` | the lints CI runs: descriptors and version bumps, paths named in the docs, the workflow file |
-| `docs/bench-runbook.md` | the queue as commands: what to run per session, what it should print, how to close the session |
-| `docs/first-hardware-session.md` | checklist for a new board, module or CircuitPython build |
-| `docs/network-fox-bench.md` | the bench list for the network foxes, per board |
+| `docs/bench-runbook.md` | the one page for the bench: the queue as commands, what each should print, the network-fox tick-list, a new board's first session, how recordings become CI tests |
+| `docs/picofox.md` | the PicoFox: its hardware from the schematic (what foxlib-c is written against) and what its vendor firmware reads and does (the drive family) |
 | `docs/network-fox-payloads-plan.md` | plan for contest payloads on the network foxes: puzzles, checkpoint portal, sensing, stealth |
-| `docs/picofox-notes.md` | what the PicoFox's vendor firmware reads and does; the basis of the drive family |
-| `docs/picofox-hardware.md`, `firmware/foxlib-c/` | the PicoFox hardware from its schematic, and fox-bench's own firmware for it (the foxlib-c family) |
 
 ## Running locally
 

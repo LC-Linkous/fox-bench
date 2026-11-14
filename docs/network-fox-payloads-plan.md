@@ -194,7 +194,7 @@ sense:
 
 ## Phase F — bench, docs, bridge
 
-- `docs/network-fox-bench.md` gains a section per feature; hardware-log
+- `docs/bench-runbook.md` gains a section per feature; hardware-log
   rows per board per feature; the templates' `boards_tested`.
 - `tools/hw_smoke.py` (not yet built): `--payload`, `--checkpoint` flags that exercise the
   portal with a Python client over the fox's AP (the laptop joins the AP),

@@ -103,8 +103,10 @@ check the CI log for `fb-seeed-xiao-esp32c6-easy-ap` before the bench.
    ESP32-C6`.
 3. Listen only; phone: **FOXBENCH WiFi AP Easy**. The yellow LED will not
    show colours (a digital-LED driver on a plain LED; on/off flicker at
-   best) — expected until kitsune's LED header knows the board
-   (`docs/kitsune-c6-proposal.md`).
+   best) — expected until kitsune's LED header knows the board. (A
+   proposal to their authors was drafted and withdrawn 2026-11-14:
+   fox-bench carries its own C6 env for experiments, and they will be
+   asked when licensing or a split of the repository comes up.)
 4. Hardware-log row says "fox-bench build (fb- env), not a kitsune
    release". If it works, the proposal document is what goes to the kitsune
    project.

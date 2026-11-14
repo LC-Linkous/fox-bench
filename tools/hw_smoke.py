@@ -25,7 +25,7 @@ carrying its SSID; the template passes only if it saw at least one.
 board's reply, each soft reboot and its boot text, each listen window) to
 a JSON file. firmware/sim/pty_board.py --replay FILE then answers from it,
 so the same run can be repeated in CI without the board: a bench finding
-becomes a regression test. See docs/bench-recordings.md.
+becomes a regression test. See docs/bench-runbook.md.
 
 It transmits (briefly) unless --key-seconds 0, and every template keys
 the module within seconds of its reboot: connect an antenna or a dummy

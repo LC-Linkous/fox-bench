@@ -18,7 +18,7 @@
 # raw-mode command is looked up by its text and the board's recorded reply
 # is returned, a soft reboot returns the recorded boot text, and anything
 # the recording does not contain is answered with an error that says so.
-# That makes a bench run a test that needs no board (docs/bench-recordings.md).
+# That makes a bench run a test that needs no board (docs/bench-runbook.md).
 # Linux/macOS only (openpty).
 import ast, os, pty, re, subprocess, sys, tempfile, threading, time, zlib
 

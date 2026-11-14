@@ -75,7 +75,7 @@ Options worth knowing: `running` (fox transmitting when the port opens),
 `tests/fixtures/bench/*.json` are `tools/hw_smoke.py --record` files;
 `tools/replay_check.py` replays each through `firmware/sim/pty_board.py
 --replay` in CI and fails on a missed command, a failed template or a
-changed uid. `docs/bench-recordings.md` says how to make one on a board.
+changed uid. `docs/bench-runbook.md` says how to make one on a board.
 
 ## The fake ROM
 
@@ -110,7 +110,7 @@ side: the real reset timing, the stub actually running on the chip, the
 chip's own flash (`docs/hardware-log.md`, 2026-10-26). The protocol from
 reset through MD5 is covered above. `tools/hw_smoke.py`
 covers the firmware side from the bench, and
-`docs/first-hardware-session.md` is the manual checklist.
+`docs/bench-runbook.md` is the manual checklist.
 
 ## foxlib-c (the native firmware)
 

@@ -14,6 +14,32 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.12.1 · foxlib 1.5.0 · foxlib-c 0.1.11 — docs consolidated
+
+Twelve documents under `docs/` become six, each the one place for its
+subject:
+
+- `docs/bench-runbook.md` now holds the network-fox tick-list (was
+  network-fox-bench), a new board's first session (was
+  first-hardware-session) and how recordings become CI tests (was
+  bench-recordings): the one page at the bench.
+- `docs/picofox.md` = picofox-hardware + picofox-notes: the
+  hardware foxlib-c is written against, and what the vendor firmware does.
+- `CONTRIBUTING.md` gains *Adding a target* (was adding-a-target) and
+  *Releasing* (was releasing); its pre-push list points at
+  `tests/README.md`, which owns the one copy; the still-open items of the
+  October 2026 audit are listed there and the audit document itself is
+  retired to the git history.
+- The kitsune C6 proposal document withdrawn: fox-bench carries its own C6
+  env for experiments, and kitsune's authors will be asked when licensing
+  or a split of the repository comes up.
+
+Every path in the tree (docs, Python/JS comments, the About tab) repointed;
+`tools/check_docs.py` covers 15 documents. Three comments in
+`firmware/foxlib-c/picofox/` still name the old picofox-hardware path; they
+move with the next firmware change rather than bumping foxlib-c for a
+comment. Page 0.12.1 for the About-tab text.
+
 ### Docs audit (2026-11-14) — no version change
 
 An independent read of every document against the code; 39 findings,
@@ -69,7 +95,7 @@ section, built). foxlib 1.5.0 `netstealth.py`:
   `keyed_lengths_vary`, `first_key_after/before_ms`, `prints_count_max`,
   `net_events_max`, `net_contains_event`, `net_not_contains`); 11 stealth
   scenarios. The demo board prints the stealth lines.
-- `docs/network-fox-bench.md` steps 15–19; CONFIG.md stealth paragraph.
+- `docs/bench-runbook.md` steps 15–19; CONFIG.md stealth paragraph.
 
 ### Page 0.11.1 · foxlib 1.4.1 · foxlib-c 0.1.11
 
@@ -107,7 +133,7 @@ built). foxlib 1.4.0 `netpayload.py`:
   payload scenarios incl. frame-byte goldens, `test_netpayload.py`
   (Eddystone encoding, TLM, Morse names; CI's sim job runs it since 0.11.1);
   parity corpus +2 (146).
-- `docs/network-fox-bench.md` steps 12–14; CONFIG.md payload paragraph.
+- `docs/bench-runbook.md` steps 12–14; CONFIG.md payload paragraph.
 
 ### Page 0.10.0 · foxlib 1.3.0 · foxlib-c 0.1.11
 
@@ -141,7 +167,7 @@ B–E and says so until then.
   board keeps a small file store, answers the writes of files the
   recording never saw (a new foxlib module, a changed chunking) with the
   silence a real board gives, and answers each verify from the bytes
-  written. `docs/bench-recordings.md` says so; `REPLAY_DEBUG=1` traces
+  written. `docs/bench-runbook.md` says so; `REPLAY_DEBUG=1` traces
   the matching.
 
 ### Page 0.9.7 · foxlib 1.2.1 · foxlib-c 0.1.11
@@ -190,7 +216,7 @@ board.
 
 
 - Tests: Playwright 1.49.1 → 1.65.0 (Chrome for Testing 158), the
-  deliberate bump `docs/releasing.md` describes; no change to the smoke or
+  deliberate bump `CONTRIBUTING.md` describes; no change to the smoke or
   its fake serial port was needed. Node 20 stays (1.65 wants ≥ 20).
 
 - The page's typefaces are served from `css/fonts/` (woff2, OFL 1.1,
@@ -200,7 +226,7 @@ board.
   (`tools/stamp_assets.py`, in the deploy and release jobs, self-tested in
   CI), so a new version is a new URL to a browser that cached the last one
   (audit: the mixed-version window). Bump `VERSION` on any user-visible
-  change — `check_catalog --since` already insists (`docs/releasing.md`).
+  change — `check_catalog --since` already insists (`CONTRIBUTING.md`).
 - **A sniffer for the wifi-probe fox** (`tools/sniffer/code.py`, a second
   XIAO C3/C6 in monitor mode printing every probe request as line-JSON)
   and `hw_smoke.py --sniffer <port>`, which counts probe requests from the
@@ -241,7 +267,7 @@ on the bench and kitsune work pauses.
   third-party request. The deploy stamps `?v=<VERSION>` onto the asset
   links (`tools/stamp_assets.py`), so a new version is a new URL to a
   browser that cached the last one; bump `VERSION` on any user-visible
-  change (`docs/releasing.md`).
+  change (`CONTRIBUTING.md`).
 - `tools/bench_queue.py`: the bench queue derived from the catalog and
   `docs/hardware-log.md`; `--check` in CI fails when a stable target has no
   row. Hardware descriptors may carry `log_names` for the match.
@@ -327,8 +353,8 @@ family, and the bare boards listed by chip:
   targets, variants, one radio set per chip, shared builds only within a
   chip when both declare `shared_build`, net defaults' pins match the
   default variant. `tools/hw_smoke.py --board <chip> --variant <hardware>`.
-- `docs/network-fox-bench.md`: the per-board bench list; hardware-log table
-  of the seven boards and the build each runs; `docs/adding-a-target.md`
+- `docs/bench-runbook.md`: the per-board bench list; hardware-log table
+  of the seven boards and the build each runs; `CONTRIBUTING.md`
   on combos vs chips vs variants.
 
 ### Page 0.8.2 · foxlib 1.1.1 · foxlib-c 0.1.10
@@ -451,8 +477,9 @@ First kitsune build, for the boards on fox-bench's bench:
   with the three stand-in targets (chip refusal, written at 0x0).
 - `docs/kitsune-bench.md`: the first-flash checklist per board; the battery
   auto-off and serial-during-sleep notes from kitsune's README are on every
-  kitsune hardware descriptor. `docs/kitsune-c6-proposal.md`: the PR text
-  for the C6, kept with its evidence.
+  kitsune hardware descriptor. A C6 proposal to kitsune's authors (the
+  PR text, with its evidence; withdrawn 2026-11-14 — fox-bench carries its
+  own C6 env and they will be asked when licensing or a split comes up).
 
 ### Page 0.7.12 · foxlib 1.0.4 · foxlib-c 0.1.10
 
@@ -682,7 +709,7 @@ https://github.com/rfhs/kitsune, nothing of it hosted here).
 
 ### Page 0.6.2 · foxlib 1.0.3 · foxlib-c 0.1.7
 
-The October 2026 audit (`docs/project-audit-2026-10.md`) and what followed it.
+The October 2026 audit (its document is in the git history; the open items are in CONTRIBUTING.md) and what followed it.
 
 **foxlib-c 0.1.5–0.1.7 — stability**
 - Off the air on every exit path: `reboot`, `bootsel` and the 1200-baud touch
