@@ -126,13 +126,21 @@ class NetFox:
         if not self.quiet:
             print(text)
 
+    def id_state(self):
+        """set: a callsign is recorded. none: the placeholder, but the callsign is not the name on the air (a Part 15
+        device need not identify; the fleet record is just empty). unset: the placeholder would be the name on the air."""
+        if self.id_ok:
+            return "set"
+        c = self.cfg or {}
+        return "unset" if (c.get("id") or {}).get("use_callsign_as_name") else "none"
+
     def banner_line(self):
         c = self.cfg or {}
         net = c.get("net", {}) if c else {}
         line = "FOX template=%s/%s foxlib=%s board=%s uid=%s cfg=%s radio=%s id=%s freq=none net=%s name=%s mac=%s" % (
             c.get("template", "?") if c else "?", self.template_version, __version__, self.board_id, self.uid,
             ("fatal(%s)" % self.fatal) if self.fatal else self.report.status(), (self.radio.status if self.radio else "skipped"),
-            "set" if self.id_ok else "unset", net.get("kind", "?"), _quote(self.name), net.get("mac", "?"))
+            self.id_state(), net.get("kind", "?"), _quote(self.name), net.get("mac", "?"))
         if self.features:
             line += " features=" + ",".join(self.features)
         line += " clock=" + clock_text()

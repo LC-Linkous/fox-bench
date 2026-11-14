@@ -335,7 +335,7 @@ not fit falls back to the defaults file, reported in the banner as
 | `net.adv_min`, `net.adv_max` | 20–10240 ms | `ble`: advertising interval; `adv_min ≤ adv_max` |
 | `net.tx_power_dbm` | Wi-Fi: one of 2 5 7 8.5 11 13 15 17 18.5 19 19.5; BLE: one of −12 −9 −6 −3 0 3 6 9 | radio power |
 | `net.mac` | `XX:XX:XX:XX:XX:XX` | the address the fox uses, locally administered unicast (the defaults use `F2:B0:00:00:00:xx`); the Radio tab's **Random** draws one. Not every CircuitPython port lets the BLE address be set — the beacon still runs on the chip's own |
-| `id.callmessage` | string, 1–64 bytes | the operator's callsign (the usual gate: `N0CALL` is refused at deploy) |
+| `id.callmessage` | string, 1–64 bytes | the operator's callsign — the fleet record. A network fox is a Part 15 device and need not identify: with the `N0CALL` placeholder it still runs under its configured name (banner `id=none`, the page warns); the placeholder is refused only when it would be the name on the air (`use_callsign_as_name`, banner `id=unset`) |
 | `id.use_callsign_as_name` | bool | the callsign is the SSID / BLE name on the air (a ham fox hunt); off, the configured `net.ssid`/`net.name` is (a contest) |
 | `schedule.kind` | `duty` | the only kind |
 | `schedule.wake_s` | 1–3600 | radio up for this long each cycle |
@@ -409,7 +409,9 @@ FOX template=<id>/<ver> foxlib=<ver> board=<board_id> uid=<hex> cfg=<status> rad
 A network fox (`net` contract) prints the same keys with `freq=none`, then
 its own: `net=<kind> name=<name> mac=<XX:…>` — `name` is quoted when it has
 spaces — then `features=<sections>` when any contest section is on, and
-`clock=<ISO time | unset>`. `radio`: `ok` · `ok(hidden_unsupported)` · `nowifi` · `noble` ·
+`clock=<ISO time | unset>`. Its `id=` has three values: `set`, `none` (the
+placeholder, not on the air — allowed), `unset` (the placeholder would be
+the name on the air). `radio`: `ok` · `ok(hidden_unsupported)` · `nowifi` · `noble` ·
 `wifi(<Error>)` · `ble(<Error>)`. After `woke from deep sleep` the cycle
 count has restarted.
 

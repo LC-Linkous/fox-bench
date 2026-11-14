@@ -39,11 +39,12 @@ test('ble: uuid shape, major/minor range, adv_min <= adv_max, power steps', () =
   assert.equal(b.status, 'partial(net.uuid,net.minor,net.adv_min,net.tx_power_dbm)'); assert.equal(b.cfg.net.adv_min, 100);
 });
 
-test('page checks: hidden SSID is a warning, a missing radio an error, deep sleep an info, the placeholder callsign an error', () => {
+test('page checks: hidden SSID is a warning, a missing radio an error, deep sleep an info, the placeholder callsign a warning (an error only as the name on the air)', () => {
   const d = defaults('wifi-beacon');
   const hid = checks(validate({ net: { hidden: true }, id: { callmessage: 'KY4ZR' }, schedule: { sleep: 'deep' } }, d, C3).cfg, C3).map(i => `${i.level}:${i.key}`);
   assert.deepEqual(hid, ['warn:net.hidden', 'info:net.psk', 'info:schedule.sleep']);
-  assert.ok(checks(validate({}, d, C3).cfg, C3).some(i => i.level === 'err' && i.key === 'id.callmessage'));
+  assert.ok(checks(validate({}, d, C3).cfg, C3).some(i => i.level === 'warn' && i.key === 'id.callmessage'), 'placeholder not on the air: a warning');
+  assert.ok(checks(validate({ id: { use_callsign_as_name: true } }, d, C3).cfg, C3).some(i => i.level === 'err' && i.key === 'id.callmessage'), 'placeholder as the name on the air: an error');
   assert.ok(checks(validate({}, defaults('ble-beacon'), { ...C3, radios: ['wifi24'] }).cfg, { ...C3, radios: ['wifi24'] }).some(i => i.level === 'err' && i.key === 'net.kind'));
 });
 

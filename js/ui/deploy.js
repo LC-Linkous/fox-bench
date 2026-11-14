@@ -116,7 +116,7 @@ async function deploy(btn) {
     const bootLog = await d.reboot();
     const banner = parseBanner(bootLog);
     if (banner) app.lastBanner = banner;
-    setLast({ bootLog, banner, ok: !!banner && banner.cfg === 'ok' && banner.radio === 'ok' && banner.id === 'set' });
+    setLast({ bootLog, banner, ok: !!banner && banner.cfg === 'ok' && banner.radio === 'ok' && (banner.id === 'set' || banner.id === 'none') });   // none: a network fox with no callsign on the air
     const written = Object.fromEntries(files.map(f => [f.path.replace('/*', ''), { size: 1, dir: f.kind === 'foxlib' }]));
     app.onBoard = { ...app.onBoard, cfg: structuredClone(cfg), raw: JSON.stringify(cfg), template: app.templateId, foxlibVersion: app.catalog.foxlibVersion, foxlibComplete: true, foxlibMissing: [], files: { ...app.onBoard.files, ...written } };
     app.info.foxlibVersion = app.catalog.foxlibVersion;
@@ -176,7 +176,7 @@ function render() {
 function resultBox(r) {
   if (r.error) return h('pre.out', {}, h('span.err', {}, 'deploy failed: ' + r.error));
   const b = r.banner;
-  const kv = b ? ['template', 'foxlib', 'cfg', 'radio', 'id', 'freq'].map(k => h('span', { class: k === 'cfg' ? (b.cfg === 'ok' ? 'ok' : 'warn') : k === 'radio' ? (b.radio === 'ok' ? 'ok' : 'err') : k === 'id' ? (b.id === 'set' ? 'ok' : 'err') : '' }, `${k}=${b[k] ?? '?'}  `)) : [h('span.err', {}, 'no FOX banner in the boot log — the firmware did not start')];
+  const kv = b ? ['template', 'foxlib', 'cfg', 'radio', 'id', 'freq'].map(k => h('span', { class: k === 'cfg' ? (b.cfg === 'ok' ? 'ok' : 'warn') : k === 'radio' ? (b.radio === 'ok' ? 'ok' : 'err') : k === 'id' ? (b.id === 'set' ? 'ok' : b.id === 'none' ? 'warn' : 'err') : '' }, `${k}=${b[k] ?? '?'}  `)) : [h('span.err', {}, 'no FOX banner in the boot log — the firmware did not start')];
   return h('div', {}, h('p', { style: 'margin:12px 0 4px' }, r.ok ? badge('fox is up', 'ok') : badge('check the banner', 'warn'), ' ', ...kv),
     h('p.hint', {}, 'The fox is running now. Re-read board (Board tab) or a Bench action interrupts it; ', h('button.btn.small', { onclick: () => app.restartFox() }, 'Restart fox'), ' starts it again.'),
     h('details', {}, h('summary.hint', {}, 'boot log'), h('pre.out', {}, r.bootLog)));

@@ -5,7 +5,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 import { Device } from './device.js';
 import { mergeAndValidate } from '../model/schema.js';
-import { validate as netValidate, enabledFeatures, nameForCycle } from '../model/netschema.js';
+import { validate as netValidate, enabledFeatures, nameForCycle, idState } from '../model/netschema.js';
 import { TABLE as MORSE } from '../audio/morse.js';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -64,11 +64,11 @@ export class DemoDevice extends Device {
     lines.push('initializing system ... ');
     if (isNet && cfg) {
       const fl = this.dec.decode(this.fs.get('foxlib/VERSION') || this.enc.encode('?')).trim();
-      const idSet = !cfg.id.callmessage.includes('N0CALL'), name = cfg.id.use_callsign_as_name ? cfg.id.callmessage : (cfg.net.ssid ?? cfg.net.name ?? '');
+      const idSet = !cfg.id.callmessage.includes('N0CALL'), name = cfg.id.use_callsign_as_name ? cfg.id.callmessage : (cfg.net.ssid ?? cfg.net.name ?? '');   // eslint-disable-line no-unused-vars
       const radio = cfgStatus?.startsWith('fatal') ? 'skipped' : cfg.net.kind === 'wifi-ap' && cfg.net.hidden ? 'ok(hidden_unsupported)' : 'ok';
       const feats = enabledFeatures(cfg), t = this.clock;
       const clock = t ? `${t[0]}-${String(t[1]).padStart(2, '0')}-${String(t[2]).padStart(2, '0')}T${String(t[3]).padStart(2, '0')}:${String(t[4]).padStart(2, '0')}:${String(t[5]).padStart(2, '0')}` : 'unset';
-      lines.push(`FOX template=${template}/${this._tmplVersion()} foxlib=${fl} board=${this.cpBoardId()} uid=${this.uid} cfg=${cfgStatus} radio=${radio} id=${idSet ? 'set' : 'unset'} freq=none net=${cfg.net.kind} name="${name}" mac=${cfg.net.mac}${feats.length ? ' features=' + feats.join(',') : ''} clock=${clock}`);
+      lines.push(`FOX template=${template}/${this._tmplVersion()} foxlib=${fl} board=${this.cpBoardId()} uid=${this.uid} cfg=${cfgStatus} radio=${radio} id=${idState(cfg)} freq=none net=${cfg.net.kind} name="${name}" mac=${cfg.net.mac}${feats.length ? ' features=' + feats.join(',') : ''} clock=${clock}`);
       if (radio.startsWith('ok(hidden')) lines.push('  note: this firmware cannot hide the SSID; it is broadcast');
       const built = ['payload'];                       // what this foxlib runs (firmware/index.json features)
       for (const f of feats) if (!built.includes(f)) lines.push(`  note: ${f} is accepted but not in foxlib ${fl} yet; the fox runs without it`);

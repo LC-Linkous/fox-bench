@@ -109,7 +109,7 @@ export function renderId(root) {
   callInput.addEventListener('input', () => { d.callmessage = callInput.value.toUpperCase(); app.changed('id-live'); });
   root.replaceChildren(h('div.cols', {},
     h('div.card', {}, h('h3', {}, 'Callsign / operator'),
-      field('callmessage', callInput, 'Who is responsible for this fox. A network fox sends no Morse; this is the fleet record and, if ticked below, the name on the air. The N0CALL placeholder keeps the fox silent, as for the FM foxes.'),
+      field('callmessage', callInput, 'Who is responsible for this fox. A network fox sends no Morse; this is the fleet record and, if ticked below, the name on the air. With the placeholder the fox still runs under its own name (a Part 15 device need not identify); it is refused only when the placeholder would be the name on the air.'),
       check('Use the callsign as the SSID / BLE name', d.use_callsign_as_name, v => { d.use_callsign_as_name = v; app.changed('id'); }, `on the air as "${name}". Untick to use the name on the Radio tab (a contest will usually want its own name).`),
       issueList('id')),
     h('div.card', {}, h('h3', {}, 'On the air'),

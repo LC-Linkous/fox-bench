@@ -134,6 +134,13 @@ try {
   await tab('behavior'); await page.selectOption('#tab-behavior select', 'wifi-beacon'); await settle(300);
   eq(await app(() => window.foxbench.isNet), true, 'wifi-beacon is a network-contract template');
   eq(await app(() => JSON.stringify(window.foxbench.cfg.pins)), '{"led":null,"batt_sense":null}', 'the bare XIAO C3 has no LED: pins from the variant');
+  // the callsign gate on a network fox (bench finding 2026-11-14): the placeholder blocks only when it would be the name on the air
+  { const saved = await app(() => window.foxbench.cfg.id.callmessage);
+    await app(() => { window.foxbench.cfg.id.callmessage = 'N0CALL DECOY DECOY N0CALL'; window.foxbench.cfg.id.use_callsign_as_name = false; window.foxbench.changed('id'); }); await settle(200);
+    check(await app(() => window.foxbench.issues.some(i => i.key === 'id.callmessage' && i.level === 'warn') && !window.foxbench.issues.some(i => i.key === 'id.callmessage' && i.level === 'err')), 'placeholder callsign, not on the air: a warning, not a block');
+    await app(() => { window.foxbench.cfg.id.use_callsign_as_name = true; window.foxbench.changed('id'); }); await settle(200);
+    check(await app(() => window.foxbench.issues.some(i => i.key === 'id.callmessage' && i.level === 'err')), 'placeholder as the name on the air: blocked');
+    await app(c => { window.foxbench.cfg.id.use_callsign_as_name = false; window.foxbench.cfg.id.callmessage = c; window.foxbench.changed('id'); }, saved); await settle(200); }
   eq(await app(() => window.foxbench.cfg.variant), 'seeed_xiao_esp32c3', 'fox.json records the variant');
   check(await page.isHidden('.rail button[data-tab="plan"]') && await page.isVisible('.rail button[data-tab="payload"]'), 'Plan tab hidden for a network fox; Payload tab shown (the contest features)');
   eq(await app(() => window.foxbench.cfg.id.callmessage), 'W1ABC FOX DE W1ABC', 'the callsign carried from the FM template');

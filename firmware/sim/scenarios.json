@@ -1041,6 +1041,47 @@
      "IGNORED"
     ]
    }
+  },
+  {
+   "name": "placeholder-callsign-not-on-the-air-runs-id-none",
+   "board_id": "esp32c3",
+   "stop_after_unkeys": 1,
+   "cap_ms": 60000,
+   "fox": {
+    "id": {
+     "callmessage": "N0CALL DECOY DECOY N0CALL"
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "ok",
+     "radio": "ok",
+     "id": "none"
+    },
+    "keyed_min": 1,
+    "net_contains": [
+     "FOXBENCH WiFi Beacon ch=1"
+    ]
+   }
+  },
+  {
+   "name": "placeholder-callsign-as-name-is-unset",
+   "board_id": "esp32c3",
+   "stop_after_unkeys": 1,
+   "cap_ms": 60000,
+   "fox": {
+    "id": {
+     "callmessage": "N0CALL DECOY DECOY N0CALL",
+     "use_callsign_as_name": true
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "ok",
+     "id": "unset"
+    },
+    "keyed_min": 1
+   }
   }
  ],
  "wifi-probe": [

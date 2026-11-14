@@ -198,6 +198,8 @@ export function morseName(word, table) {
 export const enabledFeatures = cfg => FEATURES.filter(s => cfg[s] && typeof cfg[s] === 'object' && cfg[s].enabled);
 
 export const idOk = cfg => !cfg.id.callmessage.includes(PLACEHOLDER);
+/** The banner's id= for a network fox: set | none (placeholder, not on the air) | unset (placeholder would be the name). */
+export const idState = cfg => idOk(cfg) ? 'set' : cfg.id.use_callsign_as_name ? 'unset' : 'none';
 export const displayName = cfg => cfg.id.use_callsign_as_name ? cfg.id.callmessage.slice(0, MAX_NAME) : (cfg.net.ssid ?? cfg.net.name ?? '');
 
 /** Page checks: what the firmware accepts but the operator should know. Same shape as pageChecks(). */
@@ -230,7 +232,9 @@ export function checks(cfg, board, { clockSet = false } = {}) {
   if (cfg.net.kind === 'ble' && !radios.includes('ble') && radios.length) issues.push({ level: 'err', key: 'net.kind', msg: `${board.name} has no BLE radio` });
   if (cfg.net.kind === 'wifi-ap' && WIFI5_CHANNELS.includes(cfg.net.channel)) issues.push({ level: 'warn', key: 'net.channel', msg: '5 GHz: only a 5 GHz-capable phone sees it, and CircuitPython\'s 5 GHz AP support on this chip is unverified' });
   if (cfg.schedule.sleep === 'deep') issues.push({ level: 'info', key: 'schedule.sleep', msg: `deep sleep: the USB port disappears for ${cfg.schedule.sleep_s} s each cycle (Listen only reconnects when it returns); a power bank with auto-off will cut the fox off` });
-  if (!idOk(cfg)) issues.push({ level: 'err', key: 'id.callmessage', msg: 'callsign / operator not set (N0CALL placeholder)' });
+  // a network fox need not identify on the air (a Part 15 device): the placeholder blocks only when it would be the name
+  if (!idOk(cfg) && cfg.id.use_callsign_as_name) issues.push({ level: 'err', key: 'id.callmessage', msg: 'the callsign is the name on the air, but it is the N0CALL placeholder' });
+  else if (!idOk(cfg)) issues.push({ level: 'warn', key: 'id.callmessage', msg: 'no operator recorded (N0CALL placeholder): allowed for a network fox, but the fleet log will not say whose fox this is' });
   if (cfg.id.use_callsign_as_name && !/^[A-Z0-9]{3,}/.test(cfg.id.callmessage)) issues.push({ level: 'info', key: 'id.use_callsign_as_name', msg: 'the name on the air is the callsign field as typed' });
   return issues;
 }
