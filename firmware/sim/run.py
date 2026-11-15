@@ -164,8 +164,18 @@ def check(template, scen, rec, err):
     if "led_edges_max" in exp and len(rec.led) > exp["led_edges_max"]: fails.append("led edges %d > %d" % (len(rec.led), exp["led_edges_max"]))
     banner = next((l for l in rec.prints if l.startswith("FOX ")), None)
     kv = dict(re.findall(r"(\w+)=(\S+)", banner or ""))
-    if err:
+    if exp.get("raises"):                        # the scenario expects code.py to end with this exception
+        if not err or exp["raises"] not in err: fails.append("expected code.py to raise %s, got %s" % (exp["raises"], (err or "no exception").strip().splitlines()[-1]))
+    elif err:
         fails.append("exception:\n" + err)
+    if getattr(rec, "watchdog_bite", None):
+        fails.append("watchdog bite: last fed at %.0f ms, bit at %.0f ms (a wait that does not feed it)" % rec.watchdog_bite)
+    if "keyed_on_default_max" in exp and rec.keyed_on_default > exp["keyed_on_default_max"]:
+        fails.append("%d key-up(s) while the module was on its default channel, want <= %d" % (rec.keyed_on_default, exp["keyed_on_default_max"]))
+    if "module_resets_min" in exp and rec.module_resets < exp["module_resets_min"]:
+        fails.append("the scripted module reset %d time(s), scenario wanted >= %d (cap_ms too short?)" % (rec.module_resets, exp["module_resets_min"]))
+    if "watchdog_feeds_min" in exp and rec.watchdog_feeds < exp["watchdog_feeds_min"]:
+        fails.append("watchdog fed %d times, want >= %d" % (rec.watchdog_feeds, exp["watchdog_feeds_min"]))
     for k, want in exp.get("banner", {}).items():
         got = kv.get(k)
         if got is None or not (got == want or got.startswith(want)):

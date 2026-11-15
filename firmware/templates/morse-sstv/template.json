@@ -1,7 +1,7 @@
 {
   "id": "morse-sstv",
   "name": "Morse ID + SSTV image",
-  "version": "1.1.0",
+  "version": "1.1.2",
   "families": [
     "foxlib",
     "foxlib-c"

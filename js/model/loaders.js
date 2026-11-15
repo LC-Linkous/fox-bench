@@ -95,7 +95,7 @@ export async function loadCatalog() {
     if (!/^[a-z0-9_-]+$/.test(b.vendor)) { console.warn(`board ${b.id}: vendor id ${b.vendor} refused`); continue; }
     try { vendors[b.vendor] = await import(new URL(`./vendor/${b.vendor}.js`, import.meta.url)); } catch (e) { console.warn(`board ${b.id}: no vendor model ${b.vendor} on this page — target skipped`, e); delete boards[b.id]; }
   }
-  return { boards, hardware, modules, bands, templates, foxlibFiles: fw.foxlib, foxlibVersion, foxlibFeatures: fw.features || [], foxlibcVersion, songLibraries, vendors, packs };
+  return { boards, hardware, modules, bands, templates, foxlibFiles: fw.foxlib, rootFiles: fw.root || [], foxlibVersion, foxlibFeatures: fw.features || [], foxlibcVersion, songLibraries, vendors, packs };
 }
 
 export async function loadDefaults(templateId, boardId) {
@@ -107,3 +107,5 @@ export async function loadDefaults(templateId, boardId) {
 }
 export const loadTemplateCode = templateId => fetchFrom(templateBase[templateId] || base, `firmware/templates/${templateId}/code.py`, 'text');
 export const loadFoxlibFile = name => get(`firmware/foxlib/${name}`, 'bytes');
+/** A file that lives beside code.py (firmware/index.json `root`: safemode.py), written with every foxlib install. */
+export const loadRootFile = name => get(`firmware/${name}`, 'bytes');

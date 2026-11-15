@@ -69,6 +69,62 @@ The dry run first so you can read the row before it is written. Add
 Then the Recordings section below: list the new fixture in the table and drop
 `pty-c3-all-fm.json`'s "should replace" note.
 
+### After the field report: foxlib 1.6 on the SA868 fox
+
+The field test reported the foxes stopping after a few hours. foxlib 1.6
+hardens the loop (CHANGELOG, "a fox that lasts the hunt"); this is what to
+look at on the bench before the next outing, and what to ask of anyone who
+finds a "dead" fox.
+
+Bench, one board, a real pack, the handheld on the frequency:
+
+1. Deploy morse-songs with **enable automatic recovery attempts** ticked on
+   Behavior (the default). The boot log gains `watchdog 90s` after the
+   banner; `ls` on the board shows `safemode.py` beside `code.py`. To
+   watch a fox die the old way instead, untick it: the log says
+   `recovery off`, and a brownout then leaves the board in safe mode with
+   its reason on the console.
+2. **Module reset while running.** Pull the SA868's power lead (or its PD pin
+   low) for a second between transmissions and restore it. The next cycle
+   should be on frequency again and the log should not change — the fox
+   re-tunes before every key-up, so the handheld hears nothing different. Do
+   the same *during* a transmission: the keyed audio stops, the next cycle is
+   back.
+3. **Brownout.** Run from a pack that is nearly flat with `radio.high_power`
+   on, or brown the board out on purpose (a bench supply at 2.6 V for a
+   moment). The console shows `fox safemode: BROWNOUT, reset 1 of 50 in 5 s`,
+   then a normal boot whose banner is followed by
+   `note: 1 safe-mode reset since the last completed cycle`. After the first
+   full cycle the note is gone on the next reboot.
+4. **Hang.** From the REPL, `import microcontroller; microcontroller.watchdog`
+   shows the timer running while code.py is; interrupting code.py and
+   building a bench `Fox(quiet=True)` disarms it (no reset while you sit at
+   the REPL). With code.py running, `Ctrl-C` and wait 90 s: nothing happens,
+   the interrupt disarmed it in the loop's `finally`.
+5. Leave it running from a full pack overnight (a soak); the handheld or a
+   recording confirms it is still on frequency in the morning. Put the hours
+   in `docs/hardware-log.md`.
+
+What to ask when a fox is found quiet:
+
+- Was the status LED doing anything? `unconfigured`/`fatal` double-blinks
+  mean the loop is running and something is wrong with the config or module;
+  a dark LED with a warm module means brownout or a hang; a dark LED and a
+  cold module is the pack.
+- Did a power cycle bring it back? Yes = safe mode or a hang (the 1.6 fixes
+  apply). No = the pack or the wiring.
+- Was it keying (the handheld's S-meter) with no audio, or silent? Keying
+  with no audio on the planned frequency is the module on its default channel
+  (fixed by re-tuning); silent is the ESP32.
+- How was the SA868 powered? From the pack through the XIAO's 3V3 regulator
+  is marginal at high power (the module draws up to ~1 A keyed); the module
+  wants the pack or 5 V directly, with a decoupling capacitor at its pins.
+- Was a laptop attached? A console with a sleeping host is one way for a
+  print to stall; the watchdog now covers it.
+- The C3 defaults have `pins.batt_sense: null`: no low-battery pause. A fox
+  with the divider wired and the pin set pauses at `battery.critical_v`
+  instead of browning out mid-transmission.
+
 ## 3. Bare XIAO ESP32-C3 (`esp32c3`, network foxes, first session)
 
 The same board, module unplugged (or a second C3). Two boards on the bench:

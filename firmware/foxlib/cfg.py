@@ -362,6 +362,17 @@ def validate(user, defaults, board_names, board_id=None):
             cfg["limits"]["max_keydown_s"] = v
         else:
             rep.bad("limits.max_keydown_s", "null or 1-7200")
+    if "watchdog_s" in l:
+        v = l["watchdog_s"]
+        if v is None or (_is_int(v) and 10 <= v <= 3600):
+            cfg["limits"]["watchdog_s"] = v
+        else:
+            rep.bad("limits.watchdog_s", "null or 10-3600")
+    if "recover" in l:
+        if isinstance(l["recover"], bool):
+            cfg["limits"]["recover"] = l["recover"]
+        else:
+            rep.bad("limits.recover", "true | false")
 
     # ---- fleet (opaque), unknown keys
     if isinstance(u.get("fleet"), dict):

@@ -8,6 +8,7 @@
 
 import time
 import digitalio
+from . import guard
 
 PATTERNS = {
     "alive": [(80, 140)],
@@ -52,15 +53,15 @@ class Status:
     def hold(self, ms, pattern=None):
         """sleep ms; if pattern is given, loop it the whole time."""
         if not pattern or not self.pin:
-            time.sleep(ms / 1000)
+            guard.sleep(ms / 1000)           # in steps, feeding the watchdog
             return
-        end = time.monotonic() + ms / 1000
-        while time.monotonic() < end:
+        end = time.monotonic_ns() + int(ms) * 1000000
+        while time.monotonic_ns() < end:
             for on_ms, off_ms in PATTERNS[pattern]:
                 self._set(True)
-                time.sleep(on_ms / 1000)
+                guard.sleep(on_ms / 1000)
                 self._set(False)
-                time.sleep(off_ms / 1000)
-                if time.monotonic() >= end:
+                guard.sleep(off_ms / 1000)
+                if time.monotonic_ns() >= end:
                     break
         self._set(False)

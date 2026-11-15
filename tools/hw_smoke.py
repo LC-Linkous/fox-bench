@@ -266,6 +266,8 @@ def main():
     r.mkdir("foxlib")
     for name in idx["foxlib"]:
         r.write_file("foxlib/" + name, open(os.path.join(ROOT, "firmware/foxlib", name), "rb").read())
+    for name in idx.get("root", []):           # safemode.py, beside code.py
+        r.write_file(name, open(os.path.join(ROOT, "firmware", name), "rb").read())
         print(".", end="", flush=True)
     stale = [n for n in r.listdir("foxlib") if n not in idx["foxlib"]]
     for n in stale:

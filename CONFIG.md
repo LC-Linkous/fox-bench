@@ -236,8 +236,23 @@ LED `critical`, recheck every 60 s, resume above `recovery_v`.
 ## `limits`
 
 ```json
-"limits": { "max_keydown_s": null }
+"limits": { "max_keydown_s": null, "watchdog_s": 90, "recover": true }
 ```
+
+`recover` (foxlib 1.6.1; the Behavior tab's "enable automatic recovery
+attempts", default `true`): `false` is the pre-1.6 behaviour, for finding
+out what a fox dies of — the watchdog is not armed whatever `watchdog_s`
+says, a cycle that raises stops the fox with a traceback, and `safemode.py`
+reads this key and leaves the board in safe mode. The module is re-tuned
+before every transmission either way.
+
+`watchdog_s` (foxlib 1.6; `null` or 10–3600, the ESP32-C3 defaults say 90)
+arms the hardware watchdog when the cycle loop starts; every wait in foxlib
+feeds it, so a board whose interpreter has hung resets instead of staying
+silent. The reset lands in safe mode, where `safemode.py` (written beside
+`code.py` with foxlib) resets again into a normal boot; the same file
+brings a board back after a brownout. Not read by foxlib-c. A bench session
+(`Fox(quiet=True)`) never arms it.
 
 `null` = no limit from the configuration, and no template sets one. When
 a number (1–7200) is set in the UI, the firmware unkeys when a single

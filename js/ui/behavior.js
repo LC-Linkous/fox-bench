@@ -1,6 +1,6 @@
 // behavior.js — Behavior tab: the firmware template (what the fox does), from the set this board can run.
 // SPDX-License-Identifier: GPL-2.0-only
-import { h, badge, field, select } from './dom.js';
+import { h, badge, field, select, check } from './dom.js';
 
 let app, root;
 export function init(a, el) { app = a; root = el; app.listeners.add(render); render(); }
@@ -41,7 +41,14 @@ function render() {
     t.status === 'experimental' ? h('p.hint.warn', {}, 'Experimental: any payload × schedule × plan. Combinations outside the six discrete templates have not been run on hardware yet.') : null);
 
   const others = app.templatesFor(app.family).filter(x => x.id !== t.id);
-  root.replaceChildren(tmplCard,
+  const lim = app.cfg.limits;
+  const recoveryCard = app.isNet || !lim ? null : h('div.card', {}, h('h3', {}, 'Recovery'),
+    check('enable automatic recovery attempts', lim.recover !== false, v => { lim.recover = v; app.changed('limits'); },
+      'foxlib 1.6: a brownout or a hung board resets itself back into a normal boot (safemode.py), and a cycle that fails is logged and skipped'),
+    h('p.hint', {}, lim.recover !== false
+      ? `On: the board resets out of safe mode after a brownout or a hard fault (with a 5 s pause for the supply; up to 50 times in a row), the watchdog${lim.watchdog_s ? ` (${lim.watchdog_s} s, set on Deploy)` : ' is off on Deploy, so a hang still stands'} resets a hung interpreter, and an error inside a cycle releases PTT and moves on. The boot log counts any resets since the last completed cycle.`
+      : 'Off: the pre-1.6 behaviour, for finding out what a fox dies of. A brownout leaves the board in safe mode (dark, silent) until it is power-cycled; the watchdog is not armed; the first error inside a cycle stops the fox with a traceback on the console. The module is still re-tuned before every transmission either way.'));
+  root.replaceChildren(...[tmplCard, recoveryCard].filter(Boolean),
     h('div.card', {}, h('h3', {}, 'What a template is'),
       h('p.hint', {}, 'A template is the behaviour: a short ', h('code', {}, 'code.py'), ' runner over the shared ', h('code', {}, 'foxlib'), '. It decides which payload kinds and schedules the next tabs offer; the frequency plan, callsign and radio settings apply to all of them. Switching keeps the sections the new template still reads.'),
       others.length ? h('p.hint', {}, 'Also available for this board: ', others.map(x => x.name).join(' · '), '.') : null));

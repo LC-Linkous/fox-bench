@@ -298,6 +298,141 @@
      "AT+DMOSETGROUP=1,"
     ]
    }
+  },
+  {
+   "name": "soak-8h",
+   "_doc": "a whole hunt of virtual time under the 90 s watchdog: every wait must feed it, nothing may raise, the heap is collected each cycle; keyed_min is set for the slowest template (QRSS)",
+   "cap_ms": 28800000,
+   "stop_after_unkeys": 100000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX DE W1ABC"
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "ok",
+     "radio": "ok",
+     "id": "set"
+    },
+    "keyed_min": 40,
+    "watchdog_feeds_min": 1000,
+    "prints_not_contain": [
+     "failed"
+    ],
+    "id_contains": [
+     "W1ABC FOX DE W1ABC"
+    ]
+   }
+  },
+  {
+   "name": "module-reset",
+   "_doc": "the SA8x8 lost power at 100 s and came back on its default channel; the fox must re-tune before keying again",
+   "cap_ms": 1800000,
+   "stop_after_unkeys": 3,
+   "module_reset_at_s": 100,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    }
+   },
+   "expect": {
+    "keyed_min": 3,
+    "module_resets_min": 1,
+    "keyed_on_default_max": 0,
+    "retunes_min": 3,
+    "uart_contains": [
+     "AT+DMOSETGROUP"
+    ]
+   }
+  },
+  {
+   "name": "module-noreply-then-ok",
+   "_doc": "the module was not awake at boot (radio=noreply); once it answers the fox sets it up and tunes it",
+   "cap_ms": 600000,
+   "stop_after_unkeys": 2,
+   "module_silent_until_s": 30,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    }
+   },
+   "expect": {
+    "banner": {
+     "radio": "noreply"
+    },
+    "keyed_min": 2,
+    "prints_contain": [
+     "radio noreply -> ok"
+    ]
+   }
+  },
+  {
+   "name": "play-raises",
+   "_doc": "the port refuses a PWM frequency once, mid-song (RuntimeError): logged, PTT released, the next cycle goes on",
+   "cap_ms": 1800000,
+   "stop_after_unkeys": 3,
+   "pwm_fail_at_s": 20,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    }
+   },
+   "expect": {
+    "keyed_min": 3,
+    "prints_contain": [
+     "play failed (RuntimeError"
+    ],
+    "id_contains": [
+     null,
+     "W1ABC FOX"
+    ]
+   }
+  },
+  {
+   "name": "watchdog-off",
+   "cap_ms": 120000,
+   "stop_after_unkeys": 1,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "limits": {
+     "watchdog_s": null
+    }
+   },
+   "expect": {
+    "keyed_min": 1,
+    "prints_contain": [
+     "watchdog off"
+    ]
+   }
+  },
+  {
+   "name": "recovery-off",
+   "_doc": "limits.recover=false: the watchdog stays off and the PWM refusal ends code.py as it did before 1.6",
+   "cap_ms": 1800000,
+   "stop_after_unkeys": 3,
+   "pwm_fail_at_s": 20,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "limits": {
+     "recover": false
+    }
+   },
+   "expect": {
+    "keyed_min": 1,
+    "raises": "RuntimeError",
+    "prints_contain": [
+     "watchdog off",
+     "recovery off"
+    ],
+    "prints_not_contain": [
+     "play failed"
+    ]
+   }
   }
  ],
  "morse-songs": [

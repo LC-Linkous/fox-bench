@@ -1,7 +1,7 @@
 // deploy.js — Deploy tab: diff, keydown limit, antenna gate, write set, reboot, banner.
 // SPDX-License-Identifier: GPL-2.0-only
 import { h, badge, field, numInput, check } from './dom.js';
-import { loadTemplateCode, loadFoxlibFile } from '../model/loaders.js';
+import { loadTemplateCode, loadFoxlibFile, loadRootFile } from '../model/loaders.js';
 import { parseBanner } from '../device/device.js';
 import { airtime, fmtDuration } from '../model/airtime.js';
 import { packImages } from '../audio/sstv.js';
@@ -51,6 +51,7 @@ function plan() {
   const ob = app.onBoard, cfg = app.validCfg || app.cfg;
   const fwNeeded = !app.connected || ob.foxlibVersion !== app.catalog.foxlibVersion || !ob.foxlibComplete;
   if (fwNeeded) files.push({ path: 'foxlib/*', why: ob.foxlibVersion && !ob.foxlibComplete ? `foxlib ${ob.foxlibVersion} is incomplete on the board (${ob.foxlibMissing.length} file${ob.foxlibMissing.length === 1 ? '' : 's'} missing) → reinstall ${app.catalog.foxlibVersion}` : ob.foxlibVersion ? `foxlib ${ob.foxlibVersion} → ${app.catalog.foxlibVersion}` : 'install foxlib ' + app.catalog.foxlibVersion, kind: 'foxlib' });
+  if (fwNeeded) for (const name of app.catalog.rootFiles) files.push({ path: name, why: 'with foxlib: resets the board out of safe mode after a brownout or watchdog reset', kind: 'root' });
   if (!app.connected || ob.template !== app.templateId || fwNeeded) files.push({ path: 'code.py', why: ob.template && ob.template !== app.templateId ? `${ob.template} → ${app.templateId}` : `${app.templateId} ${app.template.version}`, kind: 'code' });
   files.push({ path: 'defaults.json', why: `${app.templateId} defaults for ${app.boardId}`, kind: 'defaults' });
   files.push({ path: 'fox.json', why: 'configuration', kind: 'cfg' });
@@ -70,6 +71,7 @@ async function _exportZip() {
   if (overrides.length && !confirm(`Export anyway?\n\n${overrides.map(o => '• ' + o.msg.replace(/ — .*$/, '')).join('\n')}`)) return;
   const cfg = app.validCfg, files = [];
   for (const name of app.catalog.foxlibFiles) files.push({ path: 'foxlib/' + name, data: await loadFoxlibFile(name) });
+  for (const name of app.catalog.rootFiles) files.push({ path: name, data: await loadRootFile(name) });
   files.push({ path: 'code.py', data: await loadTemplateCode(app.templateId) });
   files.push({ path: 'defaults.json', data: JSON.stringify(app.defaults) });
   files.push({ path: 'fox.json', data: JSON.stringify(cfg, null, 1) });
@@ -79,7 +81,9 @@ async function _exportZip() {
     `callsign ${cfg.id.callmessage} · ${app.isNet ? freqText(cfg) : cfg.plan.frequencies_mhz.join(', ') + ' MHz'} · exported ${new Date().toISOString()}`,
     '',
     'Copy everything in this zip to the root of the CircuitPython board, keeping the foxlib/ folder:',
-    '  code.py  defaults.json  fox.json  foxlib/  ' + (cfg.payload?.kind === 'sstv' ? cfg.payload.images_file : ''),
+    '  code.py  safemode.py  defaults.json  fox.json  foxlib/  ' + (cfg.payload?.kind === 'sstv' ? cfg.payload.images_file : ''),
+    'safemode.py runs only when CircuitPython boots into safe mode (a brownout while keyed, the watchdog): it resets the',
+    'board so the fox comes back instead of sitting silent until someone power-cycles it.',
     'With Thonny: File → Open each file → File → Save As → CircuitPython device, same name and path.',
     'With a board that mounts a CIRCUITPY drive: drag the files onto the drive.',
     'Then reset (Ctrl-D in the REPL, or the R button). The boot log prints a line starting with "FOX" that reports',
@@ -108,6 +112,7 @@ async function deploy(btn) {
     else if (t) log.dim('this device cannot set the board clock; skipped');
     for (const f of files) {
       if (f.kind === 'foxlib') { await d.mkdir('foxlib'); for (const name of app.catalog.foxlibFiles) await d.writeBytes('foxlib/' + name, await loadFoxlibFile(name)); }
+      else if (f.kind === 'root') await d.writeBytes(f.path, await loadRootFile(f.path));
       else if (f.kind === 'code') await d.writeText('code.py', await loadTemplateCode(app.templateId));
       else if (f.kind === 'defaults') await d.writeText('defaults.json', JSON.stringify(app.defaults));
       else if (f.kind === 'cfg') await d.writeText('fox.json', JSON.stringify(cfg, null, 1));
@@ -151,7 +156,9 @@ function render() {
         h('dl.kv', {}, h('dt', {}, 'Typical transmission'), h('dd', {}, fmtDuration(at.typical_ms)), h('dt', {}, 'Worst case'), h('dd', {}, fmtDuration(at.worst_ms))),
         field('Keydown limit', h('div.row', {}, numInput(lim.max_keydown_s ?? '', { min: 1, max: 7200, step: 1, width: '120px', onchange: v => { lim.max_keydown_s = v; app.changed('limits'); } }), h('span.suffix', {}, 's'), h('button.btn.small', { onclick: () => { lim.max_keydown_s = null; app.changed('limits'); } }, 'no limit')),
           lim.max_keydown_s ? `The firmware unkeys at ${lim.max_keydown_s} s and logs it.` : 'None set (default). No template imposes one; a QRSS fox keys as long as its message takes.'),
-        lim.max_keydown_s && at.worst_ms > lim.max_keydown_s * 1000 ? h('p.hint.warn', {}, 'The worst-case transmission is longer than this limit and will be cut.') : null)),
+        lim.max_keydown_s && at.worst_ms > lim.max_keydown_s * 1000 ? h('p.hint.warn', {}, 'The worst-case transmission is longer than this limit and will be cut.') : null,
+        field('Watchdog', h('div.row', {}, numInput(lim.watchdog_s ?? '', { min: 10, max: 3600, step: 1, width: '120px', onchange: v => { lim.watchdog_s = v; app.changed('limits'); } }), h('span.suffix', {}, 's'), h('button.btn.small', { onclick: () => { lim.watchdog_s = null; app.changed('limits'); } }, 'off')),
+          lim.watchdog_s ? `The board resets itself if the firmware stops for ${lim.watchdog_s} s (a hung console write, a stuck peripheral); safemode.py brings it back into a normal boot. Every wait in foxlib feeds it.` : 'Off: a hung board stays hung until someone power-cycles it. 90 s is the field default.'))),
     h('div.card', {}, h('h3', {}, 'What will be written'),
       h('ul.diff', {}, files.map(f => h('li.file', {}, h('span', {}, f.path), h('span.to', {}, f.why), h('span')))),
       changes.length ? h('details', { open: changes.length < 12, style: 'margin-top:10px' }, h('summary', { class: 'hint' }, `${changes.length} field${changes.length === 1 ? '' : 's'} differ from the board's fox.json`), h('ul.diff', {}, changes.map(c => h('li', {}, h('span', {}, c.key), h('span.from', {}, c.from ?? '—'), h('span.to', {}, c.to ?? '—')))))

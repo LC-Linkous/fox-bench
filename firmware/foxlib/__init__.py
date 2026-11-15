@@ -13,7 +13,7 @@
 
 import board
 import microcontroller
-from . import cfg as _cfg, radio as _radio, tones, melody, sstv, battery, schedule, led, cycle
+from . import cfg as _cfg, radio as _radio, tones, melody, sstv, battery, schedule, led, cycle, guard
 
 try:
     __version__ = open(__file__.rsplit("/", 1)[0] + "/VERSION").read().strip()
@@ -24,6 +24,8 @@ except Exception:
 class Fox:
     def __init__(self, path="fox.json", defaults="defaults.json", version="?", quiet=False):
         self.quiet = quiet
+        if quiet:
+            guard.disarm()        # a bench session: never under a watchdog a previous code.py may have armed
         self.template_version = version
         self.board_id = getattr(board, "board_id", "unknown")
         self.uid = "".join("%02x" % b for b in microcontroller.cpu.uid)
@@ -83,6 +85,7 @@ class Fox:
                 except Exception:
                     pass
         self.radio = self.player = self.batt = None
+        guard.disarm()
 
     # ---- output
     def log(self, text):
@@ -103,6 +106,9 @@ class Fox:
         print(self.banner_line())
         for key, reason in self.report.items:
             print("  cfg: %s -> default (%s)" % (key, reason))
+        n = guard.resets()
+        if n:
+            print("  note: %d safe-mode reset%s since the last completed cycle (brownout or watchdog; see safemode.py)" % (n, "" if n == 1 else "s"))
         if self.fatal:
             print("** fatal: %s -- staying silent **" % self.fatal)
         elif not self.id_ok:

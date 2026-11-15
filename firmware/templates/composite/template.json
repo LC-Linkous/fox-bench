@@ -1,7 +1,7 @@
 {
   "id": "composite",
   "name": "Composite (mix and match)",
-  "version": "0.2.0",
+  "version": "0.2.2",
   "families": ["foxlib", "foxlib-c"],
   "status": "experimental",
   "description": "Reads every axis from fox.json: any payload, any schedule, any plan. Combinations outside the six discrete templates have not been run on hardware.",

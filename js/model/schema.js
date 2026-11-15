@@ -163,6 +163,8 @@ export function mergeAndValidate(user, defaults, board) {
   // ---- limits
   const l = u.limits || {};
   if ('max_keydown_s' in l) { if (l.max_keydown_s === null || (isNum(l.max_keydown_s) && inRange(l.max_keydown_s, 1, 7200))) cfg.limits.max_keydown_s = l.max_keydown_s; else bad('limits.max_keydown_s', 'null or 1–7200'); }
+  if ('recover' in l) { if (typeof l.recover === 'boolean') cfg.limits.recover = l.recover; else bad('limits.recover', 'true | false'); }
+  if ('watchdog_s' in l) { if (l.watchdog_s === null || (isInt(l.watchdog_s) && inRange(l.watchdog_s, 10, 3600))) cfg.limits.watchdog_s = l.watchdog_s; else bad('limits.watchdog_s', 'null or 10–3600'); }
 
   // ---- fleet (opaque)
   if (u.fleet && typeof u.fleet === 'object') cfg.fleet = { ...cfg.fleet, ...u.fleet };

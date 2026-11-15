@@ -62,7 +62,9 @@
     "recovery_v": 3.4
   },
   "limits": {
-    "max_keydown_s": null
+    "max_keydown_s": null,
+    "watchdog_s": 90,
+    "recover": true
   },
   "fleet": {
     "profile": "",

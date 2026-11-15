@@ -1469,7 +1469,7 @@
    "board": "seeed_xiao_esp32c3",
    "user": {
     "id": {
-     "callmessage": "ÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉ"
+     "callmessage": "\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9"
     }
    }
   },
@@ -1479,7 +1479,7 @@
    "board": "seeed_xiao_esp32c3",
    "user": {
     "id": {
-     "callmessage": "ÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉÉ"
+     "callmessage": "\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9\u00c9"
     }
    }
   },
@@ -1945,6 +1945,66 @@
      "code": {
       "major": 99999
      }
+    }
+   }
+  },
+  {
+   "name": "watchdog_set@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "limits": {
+     "watchdog_s": 120
+    }
+   }
+  },
+  {
+   "name": "watchdog_off@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "limits": {
+     "watchdog_s": null
+    }
+   }
+  },
+  {
+   "name": "watchdog_bad@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "limits": {
+     "watchdog_s": 5
+    }
+   }
+  },
+  {
+   "name": "watchdog_float@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "limits": {
+     "watchdog_s": 60.5
+    }
+   }
+  },
+  {
+   "name": "recover_off@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "limits": {
+     "recover": false
+    }
+   }
+  },
+  {
+   "name": "recover_bad@morse-songs",
+   "template": "morse-songs",
+   "board": "seeed_xiao_esp32c3",
+   "user": {
+    "limits": {
+     "recover": "yes"
     }
    }
   }

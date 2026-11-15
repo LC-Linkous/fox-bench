@@ -14,6 +14,70 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.13.1 · foxlib 1.6.1 · foxlib-c 0.1.11 — recovery is a checkbox
+
+`limits.recover` (default `true`; the Behavior tab's **enable automatic
+recovery attempts**, FM foxes) switches the 1.6 recovery off as one thing
+while it is being tested: the watchdog is not armed, a cycle that raises
+stops the fox with a traceback as before, and `safemode.py` reads the key
+from `fox.json` and leaves the board in safe mode. Re-tuning before every
+transmission stays on either way. The card says what each state means and
+whether the watchdog is set on Deploy. Simulator: `recovery-off` (the PWM
+refusal ends `code.py`; a scenario may now expect `raises`). FM templates
+1.1.2 / composite 0.2.2 (defaults carry the key).
+
+### Page 0.13.0 · foxlib 1.6.0 · foxlib-c 0.1.11 — a fox that lasts the hunt
+
+A field test of the XIAO ESP32-C3 + SA868 fox reported the foxes stopping
+after a few hours. Nothing in the firmware could have raised its way to a
+visible crash; the ways a fox goes quiet for the rest of a hunt are quieter
+than that, and foxlib 1.6 closes each one:
+
+- **Safe mode is now survivable.** A supply dip while the module keys
+  (brownout) makes CircuitPython boot into safe mode, where `code.py` never
+  runs again until someone power-cycles the board. A new `safemode.py`,
+  written beside `code.py` with every foxlib install (`firmware/index.json`
+  `root`), resets the board back into a normal boot after a 5 s pause for the
+  supply to recover. It counts consecutive resets in `microcontroller.nvm`
+  and gives up after 50; `foxlib.guard.healthy()` clears the count when a
+  cycle completes, and the boot log notes any resets since the last one.
+  Safe mode entered on purpose (reset pressed twice, a flash-write failure,
+  a USB problem) is left alone.
+- **Hardware watchdog** (`limits.watchdog_s`, 10–3600 or `null`; the C3
+  defaults set 90 s; a field on Deploy). `cycle.run()` arms it and every wait
+  in foxlib feeds it: `led.hold`, each tone event in `tones.Player.play`
+  (an SSTV frame is one call), the cycle prologue. A hung interpreter (a
+  console write nobody reads, a stuck peripheral) resets; `safemode.py`
+  brings it back. Never armed by a bench `Fox(quiet=True)`; disarmed when the
+  loop ends and in `Fox.deinit()`.
+- **The module is re-tuned before every transmission** (`radio.ensure`): the
+  DMO modules keep their channel in RAM only, so an SA868 that lost power
+  comes back on its default channel and the fox sounds dead while the ESP32
+  keys on happily. One `AT+DMOSETGROUP` per cycle (~150 ms); setup is redone
+  first when the module never answered at boot. Status changes are logged
+  (`radio noreply -> ok (re-tuned)`).
+- **A cycle that raises is logged and the loop goes on** (PTT released,
+  LED `fatal` for 5 s). `Tx.play` catches what the transmitter raises
+  (`play failed (RuntimeError: …)`, `tx.failed`), so a template body never
+  ends `code.py`. `gc.collect()` runs at the top of every cycle.
+- Cycle timing is integer milliseconds from `time.monotonic_ns()`
+  (`cycle._now_ms`, `radio.keyed_ms`, `led.hold`): CircuitPython floats have
+  ~22 bits of mantissa, so `time.monotonic()` is only good to several ms
+  after a few hours.
+
+Simulator: a mocked watchdog (a wait that does not feed it fails the run),
+`microcontroller.nvm`, and fault injection — `module_reset_at_s` (the
+module forgets its channel; `keyed_on_default_max` counts key-ups on the
+wrong channel), `module_silent_until_s`, `pwm_fail_at_s`. Shared scenarios
+`soak-8h` (eight virtual hours under the watchdog, every template),
+`module-reset`, `module-noreply-then-ok`, `play-raises`, `watchdog-off`.
+Schema corpus: `watchdog_set/off/bad/float`.
+
+Not changed, worth checking in the field: the C3 defaults have
+`pins.batt_sense: null`, so there is no low-battery pause — a sagging pack
+transmits until it browns out. Wire the divider and set the pin, or set
+`battery.critical_v` for the pack in use.
+
 ### Page 0.12.1 · foxlib 1.5.0 · foxlib-c 0.1.11 — docs consolidated
 
 Twelve documents under `docs/` become six, each the one place for its

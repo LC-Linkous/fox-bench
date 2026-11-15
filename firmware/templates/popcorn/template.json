@@ -1,7 +1,7 @@
 {
   "id": "popcorn",
   "name": "Popcorn (seeded clusters)",
-  "version": "1.1.0",
+  "version": "1.1.2",
   "families": ["foxlib", "foxlib-c"],
   "status": "stable",
   "description": "Short random bursts at irregular, seeded intervals; the fox pops on and off so hunters have to be quick with the bearing.",

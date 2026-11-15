@@ -25,6 +25,7 @@ class Clock:
         self.ns = 0
         self.cap_ns = int(cap_ms * 1e6)
         self.on_tick = None
+        self.checks = []             # run after every advance (the watchdog mock)
         self.stop_requested = None   # set by the recorder (e.g. "unkeys"); raised at the next advance, never from inside a pin setter
 
     def advance(self, ns):
@@ -35,6 +36,8 @@ class Clock:
             raise SimDone("time cap")
         if self.on_tick:
             self.on_tick()
+        for f in self.checks:
+            f()
 
 
 class Recorder:
@@ -105,6 +108,32 @@ def install(scenario):
 
     mc = types.ModuleType("microcontroller")
     mc.cpu = types.SimpleNamespace(uid=bytes(range(0x10, 0x18)))
+    mc.nvm = bytearray(b"\xff" * 16)       # erased flash reads 0xFF, as a new board's does
+    # the hardware watchdog: armed by foxlib.guard from cycle.run(). If virtual time passes `timeout` without a
+    # feed() the board would reset; the mock records the bite (rec.watchdog_bite) and the runner fails the scenario.
+    wdm = types.ModuleType("watchdog")
+    wdm.WatchDogMode = types.SimpleNamespace(RESET="reset", RAISE="raise")
+    rec.watchdog_bite = None
+    rec.watchdog_feeds = 0
+    class _WDT:
+        def __init__(self):
+            self._timeout = None; self.mode = None; self._fed_ns = 0
+        @property
+        def timeout(self): return self._timeout
+        @timeout.setter
+        def timeout(self, v):
+            if not (0 < float(v) <= 3600): raise ValueError("watchdog timeout")
+            self._timeout = float(v)
+        def feed(self):
+            if self.mode is None: raise ValueError("watchdog not running")
+            self._fed_ns = clock.ns; rec.watchdog_feeds += 1
+        def deinit(self): self.mode = None
+        def _check(self):
+            if self.mode and rec.watchdog_bite is None and clock.ns - self._fed_ns > self._timeout * 1e9:
+                rec.watchdog_bite = (self._fed_ns / 1e6, clock.ns / 1e6)
+    mc.watchdog = _WDT()
+    clock.checks.append(mc.watchdog._check)
+    sys.modules["watchdog"] = wdm
 
     roles = scenario.get("pin_roles", {})
     ptt_name, led_name = roles.get("ptt", "D3"), roles.get("led", "D10")
@@ -142,6 +171,8 @@ def install(scenario):
                 keyed = not v
                 was_keyed = bool(rec.ptt) and rec.ptt[-1][1]
                 rec.ptt.append((now_ms(), keyed))
+                if keyed and getattr(rec, "module_present", False) and rec.module_mhz is None:
+                    rec.keyed_on_default += 1
                 if not keyed and was_keyed:
                     rec.unkeys += 1
                     if rec.stop_after_unkeys and rec.unkeys >= rec.stop_after_unkeys:
@@ -177,6 +208,9 @@ def install(scenario):
             return self._d
         @duty_cycle.setter
         def duty_cycle(self, d):
+            if d and scenario.get("pwm_fail_at_s") is not None and clock.ns / 1e9 >= scenario["pwm_fail_at_s"]:
+                scenario["pwm_fail_at_s"] = None        # once: the port refuses the PWM, as a RuntimeError
+                raise RuntimeError("All timers in use")
             self._d = d
             rec.tone(now_ms(), self._f if d else 0)
         def deinit(self):
@@ -190,6 +224,7 @@ def install(scenario):
     class UART:
         def __init__(self, tx, rx, baudrate=9600, timeout=1.0, **kw):
             claim(tx, self); claim(rx, self)
+            rec.module_present = True
             self._pins = (tx, rx)
             self._out = b""
         def deinit(self):
@@ -200,12 +235,15 @@ def install(scenario):
             rec.uart.append((now_ms(), line))
             if scenario.get("module_silent"):
                 return
+            if scenario.get("module_silent_until_s") is not None and clock.ns / 1e9 < scenario["module_silent_until_s"]:
+                return                       # the module is still booting / not yet powered
             if line == "AT+DMOCONNECT":
                 self._out += b"+DMOCONNECT:0\r\n"
             elif line.startswith("AT+DMOSETGROUP="):
                 mhz = float(line.split("=")[1].split(",")[1])
                 ok = any(lo <= mhz <= hi for lo, hi in ranges)
                 rec.retunes.append((now_ms(), mhz, ok))
+                if ok: rec.module_mhz = mhz
                 self._out += b"+DMOSETGROUP:0\r\n" if ok else b"+DMOSETGROUP:1\r\n"
             elif line.startswith("AT+DMOSETVOLUME"):
                 self._out += b"+DMOSETVOLUME:0\r\n"
@@ -219,6 +257,15 @@ def install(scenario):
         def reset_input_buffer(self):
             self._out = b""
     bus.UART = UART
+    rec.module_mhz = None          # the channel the scripted module is on (None: its power-on default)
+    rec.module_resets = 0
+    rec.keyed_on_default = 0       # key-ups while the module was on no channel: a fox that sounds dead
+    def module_dip():
+        # scenario module_reset_at_s: the module lost power and came back on its default channel
+        t = scenario.get("module_reset_at_s")
+        if t is not None and clock.ns / 1e9 >= t:
+            scenario["module_reset_at_s"] = None; rec.module_mhz = None; rec.module_resets += 1
+    clock.checks.append(module_dip)
 
     # ---- analogio with a scripted battery
     sched = scenario.get("battery")

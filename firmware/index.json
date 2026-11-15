@@ -5,6 +5,7 @@
     "battery.py",
     "cfg.py",
     "cycle.py",
+    "guard.py",
     "led.py",
     "melody.py",
     "morse.py",
@@ -19,6 +20,10 @@
     "sstv.py",
     "tones.py"
   ],
+  "root": [
+    "safemode.py"
+  ],
+  "_root": "files written beside code.py with every foxlib install: safemode.py resets the board out of safe mode after a brownout or watchdog reset (see firmware/foxlib/guard.py)",
   "templates": [
     "morse-songs",
     "morse-sstv",

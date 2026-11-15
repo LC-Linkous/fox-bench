@@ -40,7 +40,7 @@ class Base:
     def key(self):
         self.ptt.value = False
         self.keyed = True
-        self.keyed_since = time.monotonic()
+        self.keyed_since = time.monotonic_ns()
 
     def unkey(self):
         self.ptt.value = True
@@ -59,7 +59,16 @@ class Base:
                 pass
 
     def keyed_ms(self):
-        return 0 if not self.keyed else (time.monotonic() - self.keyed_since) * 1000
+        return 0 if not self.keyed else (time.monotonic_ns() - self.keyed_since) // 1000000
+
+    def ensure(self, mhz):
+        """Before a transmission: redo setup if the module never answered, then re-send the channel. The DMO
+        modules keep their group in RAM only; one that lost power (a sagging pack while keyed, a loose wire)
+        comes back on its default channel and would otherwise be keyed there for the rest of the hunt.
+        Costs one AT exchange (~150 ms) per cycle."""
+        if self.status != "ok":
+            self.setup()
+        return self.retune(mhz)
 
     def key_for(self, seconds):
         """bench: key unmodulated for N seconds, then release"""

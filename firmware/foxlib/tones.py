@@ -9,6 +9,7 @@
 
 import time
 import pwmio
+from . import guard
 
 DUTY_ON = 32768
 
@@ -23,8 +24,10 @@ class Player:
         deadline = start
         budget = None if max_ms is None else start + int(max_ms * 1e6)
         pwm = self.pwm
+        feed = guard.feed                 # the watchdog, once per event: a long SSTV frame is one play() call
         try:
             for hz, ms in events:
+                feed()
                 if hz > 0:
                     f = int(hz)
                     if f < 1:
