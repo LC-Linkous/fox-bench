@@ -1,12 +1,54 @@
 // bench.js — Bench tab: key test, RSSI, battery, against the firmware on the board; event log.
 // SPDX-License-Identifier: GPL-2.0-only
 import { h, badge, field, numInput } from './dom.js';
-import { download } from '../model/profiles.js';
+import { download, fleet } from '../model/profiles.js';
 
 let app, root, busy = false; const events = [];
 export function init(a, el) { app = a; root = el; app.benchEvents = events; app.listeners.add(render); render(); }
 
 function note(action, detail) { events.push({ t: new Date().toISOString(), uid: app.info?.uid || '', action, detail }); render(); }
+
+/** finds.csv from the fox (the checkpoint section's find log) into the fleet log: one row per find, action 'find',
+ *  deduplicated on fox uid + ms_since_boot + callsign so collecting twice adds nothing. Returns a summary line. */
+let lastFinds = null;
+async function collectFinds(btn) {
+  if (busy) return;
+  busy = true; const prev = btn.textContent; btn.textContent = 'Reading…'; btn.classList.add('running');
+  note('finds:start', '');
+  try {
+    await app.device.interrupt();
+    const text = await app.device.readText('finds.csv');
+    if (text == null) { lastFinds = { rows: [], text: '', added: 0, present: 0 }; note('finds', 'no finds.csv on the fox yet'); }
+    else {
+      const rows = parseFinds(text), have = fleet.all();
+      const key = r => `${r.fox_uid}|${r.ms_since_boot}|${r.callsign}`;
+      const seen = new Set(have.filter(x => x.action === 'find').map(x => `${x.uid}|${(x.notes || '').match(/\+(\d+) ms/)?.[1] || ''}|${x.callsign}`));
+      let added = 0, present = 0;
+      for (const r of rows) {
+        if (seen.has(key(r))) { present++; continue; }
+        seen.add(key(r)); added++;
+        fleet.append({ board_number: '', uid: r.fox_uid, board: app.info?.boardId || '', action: 'find', template: r.template, profile: app.cfg.fleet?.profile || '', callsign: r.callsign, freq: app.cfg.net ? app.cfg.net.kind : '', result: 'find', notes: `cycle ${r.cycle}, +${r.ms_since_boot} ms after boot, client ${r.client_mac}` });
+      }
+      lastFinds = { rows, text, added, present };
+      note('finds', `${rows.length} find${rows.length === 1 ? '' : 's'} on the fox: ${added} new in the fleet log, ${present} already there`);
+    }
+  } catch (e) { note('finds:error', String(e.message || e)); }
+  busy = false; btn.textContent = prev; btn.classList.remove('running');
+  render();
+}
+function parseFinds(text) {
+  const lines = text.split(/\r?\n/).filter(l => l.trim());
+  if (!lines.length) return [];
+  const head = lines[0].split(',');
+  return lines.slice(1).map(l => { const c = l.split(','); const r = {}; head.forEach((k, i) => { r[k.trim()] = (c[i] || '').trim(); }); return r; }).filter(r => r.callsign);
+}
+async function clearFinds(btn) {
+  if (busy || !confirm('Delete finds.csv on the fox? Collect first; the fleet log keeps what was collected.')) return;
+  busy = true;
+  try { await app.device.interrupt(); await app.device.remove('finds.csv'); lastFinds = null; note('finds:clear', 'finds.csv removed'); }
+  catch (e) { note('finds:error', String(e.message || e)); }
+  busy = false; render();
+}
 
 async function run(action, args, btn, label) {
   if (busy) return;
@@ -24,6 +66,7 @@ function render() {
   if (app.isCompiled) { root.replaceChildren(h('div.card', {}, h('p.hint', {}, `${app.board.name}: no bench. kitsune has no command interface; Listen only shows its boot lines and self-check result.`))); return; }
   if (app.family === 'drive') { root.replaceChildren(h('div.card', {}, h('p.hint', {}, `${app.board.name}: no bench. The firmware has no command interface and does not transmit while the drive is mounted. Use a receiver after the power cycle; Listen only shows the boot messages.`))); return; }
   const caps = new Set(app.template.capabilities);
+  if (app.isNet && app.cfg.checkpoint?.enabled) caps.add('finds');      // any net fox with the checkpoint section on keeps a find log
   const ready = app.connected && (app.device.kind === 'demo' || app.onBoard.foxlibVersion);
   let keySecs = 3;
   const last = a => [...events].reverse().find(e => e.action === a)?.detail;
@@ -44,6 +87,13 @@ function render() {
       caps.has('rssi') ? h('div.card', {}, h('h3', {}, 'Receive / RSSI'),
         h('p.hint', {}, 'Reads the module\'s receive signal strength on the fox frequency. Checks the channel is clear before a hunt, or uses this fox as a crude field-strength meter for another.'),
         h('div.tools', {}, h('button.btn', { disabled: !ready, onclick: e => run('rssi', {}, e.currentTarget) }, 'Read RSSI'), last('rssi') ? h('span.big', {}, last('rssi')) : null)) : null,
+      caps.has('finds') ? h('div.card', {}, h('h3', {}, 'Collect finds'),
+        h('p.hint', {}, 'Reads ', h('code', {}, 'finds.csv'), ' from the fox — every callsign handed in on the sign-in page or over BLE — and merges each as a ', h('code', {}, 'find'), ' row into the fleet log (Fleet tab), keyed by this fox\'s uid. Collecting twice adds nothing. The checkpoint desk reads the fleet log; this is not the scored find.'),
+        h('div.tools', {}, h('button.btn.primary', { disabled: !ready, onclick: e => collectFinds(e.currentTarget) }, 'Collect finds'),
+          lastFinds?.rows.length ? h('button.btn.small', { onclick: () => download(`finds-${(app.info?.uid || 'fox').slice(-6)}-${Date.now()}.csv`, lastFinds.text, 'text/csv') }, 'Download this fox\'s CSV') : null,
+          lastFinds?.rows.length ? h('button.btn.small', { disabled: !ready, onclick: e => clearFinds(e.currentTarget) }, 'Clear on fox') : null,
+          last('finds') ? badge(last('finds'), 'info') : null),
+        lastFinds?.rows.length ? h('pre.out', { style: 'margin-top:8px;max-height:160px;overflow:auto' }, lastFinds.rows.slice(-12).map(r => `${r.callsign.padEnd(12)} cycle ${r.cycle}  +${(r.ms_since_boot / 1000).toFixed(0)} s  ${r.client_mac}`).join('\n')) : null) : null,
       caps.has('batt') ? h('div.card', {}, h('h3', {}, 'Battery'),
         app.cfg.pins?.batt_sense ? h('p.hint', {}, `Averaged ADC read on ${app.cfg.pins.batt_sense} through the divider, with the calibration from fox.json.`) : h('p.hint.warn', {}, 'No batt_sense pin configured; the firmware has no battery monitor.'),
         h('div.tools', {}, h('button.btn', { disabled: !ready || !app.cfg.pins?.batt_sense, onclick: e => run('batt', {}, e.currentTarget) }, 'Read voltage'), last('batt') ? h('span.big', {}, last('batt'), h('span.unit', {}, 'V')) : null)) : null),

@@ -100,6 +100,8 @@ export function validate(user, defaults, board) {
     cfg[sec] = base;
     validateFeature(sec, u[sec], base, bad, radios);
   }
+  const cpv = cfg.checkpoint;
+  if (cpv && cpv.enabled && cpv.portal.enabled && cfg.schedule.sleep === 'deep') { bad('schedule.sleep', 'deep sleep would drop a hunter mid-page; off'); cfg.schedule.sleep = 'off'; }
 
   const l = u.led && typeof u.led === 'object' ? u.led : {};
   if ('enabled' in l) { if (typeof l.enabled === 'boolean') cfg.led.enabled = l.enabled; else bad('led.enabled', 'bool'); }
@@ -208,7 +210,7 @@ export function checks(cfg, board, { clockSet = false } = {}) {
   const radios = board?.radios || [];
   // contest features: what the firmware accepts but would not work as a fox
   const cp = cfg.checkpoint, se = cfg.sense, st = cfg.stealth, pl = cfg.payload;
-  if (cp?.enabled && cp.portal?.enabled && cfg.net.kind !== 'wifi-ap') issues.push({ level: 'err', key: 'checkpoint.portal.enabled', msg: 'a sign-in page needs the fox to be an access point (the wifi-beacon template)' });
+  if (cp?.enabled && cp.portal?.enabled && cfg.net.kind !== 'wifi-ap') issues.push({ level: 'err', key: 'checkpoint.portal.enabled', msg: 'a sign-in page needs the fox to be an access point (the checkpoint or wifi-beacon template)' });
   if (cp?.enabled && cp.portal?.enabled && cfg.schedule.sleep === 'deep') issues.push({ level: 'err', key: 'checkpoint.portal.enabled', msg: 'deep sleep would drop a hunter mid-page: use "radio off" between wakes with a sign-in page' });
   if (cp?.enabled && cp.portal?.enabled && cfg.net.psk) issues.push({ level: 'warn', key: 'net.psk', msg: 'a sign-in page on a password-protected network: hunters would need the PSK first (open is the usual choice)' });
   if (cp?.enabled && cp.ble?.enabled && !radios.includes('ble') && radios.length) issues.push({ level: 'err', key: 'checkpoint.ble.enabled', msg: `${board.name} has no BLE radio` });

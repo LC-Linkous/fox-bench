@@ -213,6 +213,10 @@ def validate(user, defaults, board_id=None, radios=None, board_names=None):
         base = cfg.get(sec) if isinstance(cfg.get(sec), dict) else _copy(FEATURE_DEFAULTS[sec])
         cfg[sec] = base
         _validate_feature(sec, u[sec], base, rep, radios)
+    cp = cfg.get("checkpoint")
+    if isinstance(cp, dict) and cp.get("enabled") and cp["portal"]["enabled"] and cfg["schedule"]["sleep"] == "deep":
+        rep.bad("schedule.sleep", "deep sleep would drop a hunter mid-page; off")      # the page refuses the same way
+        cfg["schedule"]["sleep"] = "off"
 
     # ---- led, fleet
     l = u.get("led") if isinstance(u.get("led"), dict) else {}

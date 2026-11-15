@@ -154,8 +154,12 @@ class WifiProbe(Base):
 
 
 class BleBeacon(Base):
-    """iBeacon: a manufacturer-data advertisement (Apple 0x004C, type 0x02, length 0x15, UUID, major, minor, power)."""
+    """iBeacon: a manufacturer-data advertisement (Apple 0x004C, type 0x02, length 0x15, UUID, major, minor, power).
+    A checkpoint service (netcheckpoint) sets connectable and service_uuid: the advertisement becomes connectable and
+    the scan response carries the 128-bit service UUID before the name (the name is then cut to 11 bytes)."""
     kind = "ble"
+    connectable = False
+    service_uuid = None     # netpayload may replace frame() per instance with a callable; restart() calls whichever is there
 
     def setup(self):
         try:
@@ -188,16 +192,26 @@ class BleBeacon(Base):
         body = bytes([0x4C, 0x00, 0x02, 0x15]) + uuid + c["major"].to_bytes(2, "big") + c["minor"].to_bytes(2, "big") + bytes([c["signal_power_dbm"] & 0xFF])
         return bytes([len(body) + 1, 0xFF]) + body          # one AD structure: length, type 0xFF (manufacturer data), payload
 
+    def scan_response(self):
+        if self.service_uuid:
+            svc = bytes([17, 0x07]) + bytes(reversed(self.service_uuid))      # complete list of 128-bit service UUIDs, little-endian
+            name = self.name.encode("utf-8")[:31 - len(svc) - 2]
+            return svc + bytes([len(name) + 1, 0x09]) + name
+        name = self.name.encode("utf-8")[:29]
+        return bytes([len(name) + 1, 0x09]) + name           # complete local name in the scan response
+
     def up(self):
         Base.up(self)
+        self.restart()
+
+    def restart(self):
+        """(Re)start advertising: after up(), and after a central disconnected (a connection stops advertising)."""
         c = self.cfg
-        name = self.name.encode("utf-8")[:29]
-        scan_resp = bytes([len(name) + 1, 0x09]) + name       # complete local name in the scan response
         try:
-            self.adapter.start_advertising(self.frame(), scan_response=scan_resp, connectable=False,
+            self.adapter.start_advertising(self.frame(), scan_response=self.scan_response(), connectable=self.connectable,
                                            interval=c["adv_min"] / 1000.0, tx_power=c["tx_power_dbm"])
         except TypeError:
-            self.adapter.start_advertising(self.frame(), scan_response=scan_resp, connectable=False, interval=c["adv_min"] / 1000.0)
+            self.adapter.start_advertising(self.frame(), scan_response=self.scan_response(), connectable=self.connectable, interval=c["adv_min"] / 1000.0)
 
     def down(self):
         if not self.is_up:

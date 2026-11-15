@@ -10,6 +10,7 @@
     "melody.py",
     "morse.py",
     "netcfg.py",
+    "netcheckpoint.py",
     "netfeatures.py",
     "netfox.py",
     "netpayload.py",
@@ -41,10 +42,12 @@
     "wifi-beacon",
     "wifi-probe",
     "ble-beacon",
-    "puzzle-beacon"
+    "puzzle-beacon",
+    "checkpoint"
   ],
   "features": [
     "payload",
+    "checkpoint",
     "stealth"
   ],
   "_features": "contest feature sections (payload, checkpoint, sense, stealth) this foxlib runs; the page marks the rest 'accepted, not built'"

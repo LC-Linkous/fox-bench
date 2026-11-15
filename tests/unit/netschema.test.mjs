@@ -70,8 +70,10 @@ test('contest features: sections exist only when given, defaults fill in, bad ke
 test('contest features: page checks name the conflicts', () => {
   const d = defaults('wifi-beacon');
   const r = validate({ id: { callmessage: 'W1ABC' }, checkpoint: { enabled: true, portal: { enabled: true } }, stealth: { enabled: true, start: { at: '2026-08-08T09:00:00' } }, schedule: { sleep: 'deep' } }, d, C3);
+  // a portal with deep sleep is now the validator's job (foxlib 1.7 does the same): deep sleep goes off and is reported
+  assert.ok(r.report.some(x => x.key === 'schedule.sleep')); assert.equal(r.cfg.schedule.sleep, 'off');
   const keys = checks(r.cfg, C3, { clockSet: false }).filter(i => i.level === 'err').map(i => i.key);
-  assert.ok(keys.includes('checkpoint.portal.enabled') && keys.includes('stealth.start.at'));
+  assert.ok(keys.includes('stealth.start.at') && !keys.includes('checkpoint.portal.enabled'));
   const ok = checks(validate({ id: { callmessage: 'W1ABC' }, stealth: { enabled: true, start: { at: '2026-08-08T09:00:00-04:00' } } }, d, C3).cfg, C3, { clockSet: true });
   assert.equal(ok.filter(i => i.key === 'stealth.start.at').length, 0);
 });

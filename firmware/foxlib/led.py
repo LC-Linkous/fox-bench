@@ -43,6 +43,10 @@ class Status:
         if self.pin:
             self.pin.value = on
 
+    def set(self, on):
+        """Steady on/off (a network fox serving a page keeps it on for the window)."""
+        self._set(bool(on))
+
     def show(self, pattern):
         for on_ms, off_ms in PATTERNS.get(pattern, PATTERNS["alive"]):
             self._set(True)

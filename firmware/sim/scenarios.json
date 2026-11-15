@@ -1807,6 +1807,31 @@
      "stealth: mac this cycle": 2
     }
    }
+  },
+  {
+   "name": "checkpoint-service",
+   "_doc": "the checkpoint service on a BLE fox: connectable, service UUID in the scan response, name shortened",
+   "cap_ms": 120000,
+   "stop_after_unkeys": 1,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "checkpoint": {
+     "enabled": true,
+     "ble": {
+      "enabled": true,
+      "code": "77"
+     }
+    }
+   },
+   "expect": {
+    "keyed_min": 1,
+    "net_contains": [
+     "connectable service=f0b0f0b00000400080000000000000c0",
+     "value=77"
+    ]
+   }
   }
  ],
  "puzzle-beacon": [
@@ -1908,6 +1933,175 @@
     "prints_not_contain": [
      "name this cycle"
     ]
+   }
+  }
+ ],
+ "checkpoint": [
+  {
+   "name": "portal-phone",
+   "_doc": "an iPhone joins: DNS for the captive check, GET hotspot-detect, then the hunter posts a callsign; finds.csv gets the row",
+   "cap_ms": 200000,
+   "stop_after_unkeys": 1,
+   "phone": [
+    {
+     "at_s": 3,
+     "dns": "captive.apple.com"
+    },
+    {
+     "at_s": 4,
+     "get": "/hotspot-detect.html"
+    },
+    {
+     "at_s": 9,
+     "dns": "connectivitycheck.gstatic.com"
+    },
+    {
+     "at_s": 10,
+     "get": "/generate_204",
+     "host": "connectivitycheck.gstatic.com"
+    },
+    {
+     "at_s": 20,
+     "post": "callsign=w1abc%2Fp"
+    },
+    {
+     "at_s": 30,
+     "post": "callsign=KY4ZR",
+     "split": true
+    }
+   ],
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "ok",
+     "radio": "ok",
+     "features": "checkpoint"
+    },
+    "keyed_min": 1,
+    "dns_min": 2,
+    "http_min": 4,
+    "http_body_contains": [
+     "<div class=code>4471</div>",
+     "Logged: <b>W1ABC/P</b>",
+     "Logged: <b>KY4ZR</b>",
+     "<form method=post action=/find>"
+    ],
+    "prints_contain": [
+     "checkpoint: portal at http://192.168.4.1/ with captive DNS",
+     "checkpoint: find W1ABC/P from DA:11:22:33:44:55"
+    ],
+    "file_contains": {
+     "finds.csv": [
+      "fox_uid,template,cycle,ms_since_boot,callsign,client_mac",
+      "checkpoint,0,",
+      "W1ABC/P,DA:11:22:33:44:55",
+      "KY4ZR,DA:11:22:33:44:55"
+     ]
+    }
+   }
+  },
+  {
+   "name": "portal-no-log",
+   "cap_ms": 200000,
+   "stop_after_unkeys": 1,
+   "phone": [
+    {
+     "at_s": 5,
+     "post": "callsign=W1ABC"
+    }
+   ],
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "checkpoint": {
+     "portal": {
+      "log": false,
+      "captive_dns": false
+     }
+    }
+   },
+   "expect": {
+    "keyed_min": 1,
+    "http_min": 1,
+    "files_absent": [
+     "finds.csv"
+    ],
+    "prints_contain": [
+     "checkpoint: portal at http://192.168.4.1/"
+    ],
+    "prints_not_contain": [
+     "captive DNS"
+    ]
+   }
+  },
+  {
+   "name": "portal-refuses-deep-sleep",
+   "cap_ms": 200000,
+   "stop_after_unkeys": 2,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "schedule": {
+     "sleep": "deep",
+     "sleep_s": 5
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "partial(schedule.sleep)"
+    },
+    "keyed_min": 2,
+    "net_events_max": {
+     "deep_sleep": 0
+    }
+   }
+  },
+  {
+   "name": "portal-and-ble-service",
+   "_doc": "the BLE service beside the access point: a central writes a callsign to the characteristic",
+   "cap_ms": 200000,
+   "stop_after_unkeys": 1,
+   "central": [
+    {
+     "at_s": 12,
+     "write": "N1XYZ"
+    }
+   ],
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "checkpoint": {
+     "ble": {
+      "enabled": true
+     }
+    }
+   },
+   "expect": {
+    "keyed_min": 1,
+    "net_contains_event": [
+     "ble_char",
+     "adv_up"
+    ],
+    "net_contains": [
+     "connectable service=f0b0f0b00000400080000000000000c0",
+     "value=4471"
+    ],
+    "prints_contain": [
+     "checkpoint: BLE service F0B0F0B0-0000-4000-8000-0000000000C0 (code 4471)",
+     "checkpoint: find N1XYZ over BLE"
+    ],
+    "file_contains": {
+     "finds.csv": [
+      "N1XYZ,ble"
+     ]
+    }
    }
   }
  ]

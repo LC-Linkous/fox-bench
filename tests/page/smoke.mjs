@@ -129,7 +129,7 @@ try {
   await app(() => window.foxbench.setBoard('esp32c3')); await settle(400);     // the chip target (experimental: not in the picker yet, reachable by id)
   eq(await app(() => window.foxbench.connected), true, 'the demo REPL stays connected across a switch within the foxlib family');
   const netTemplates = await app(() => window.foxbench.templatesFor('foxlib').map(t => t.id).sort());
-  eq(netTemplates.join(), 'ble-beacon,puzzle-beacon,wifi-beacon,wifi-probe', 'the bare ESP32-C3 offers the network templates only (the three beacons and the puzzle beacon)');
+  eq(netTemplates.join(), 'ble-beacon,checkpoint,puzzle-beacon,wifi-beacon,wifi-probe', 'the bare ESP32-C3 offers the network templates only (the three beacons, the puzzle beacon, the checkpoint)');
   eq(await app(() => window.foxbench.variantId), 'seeed_xiao_esp32c3', 'its one variant is selected');
   await tab('behavior'); await page.selectOption('#tab-behavior select', 'wifi-beacon'); await settle(300);
   eq(await app(() => window.foxbench.isNet), true, 'wifi-beacon is a network-contract template');
@@ -187,12 +187,12 @@ try {
   await page.locator('#tab-payload .card', { hasText: 'What the fox says' }).locator('textarea').first().fill('ONE\nTWO'); await page.locator('#tab-payload .card', { hasText: 'What the fox says' }).locator('textarea').first().dispatchEvent('change'); await settle(300);
   check(await app(() => !window.foxbench.report.some(r => r.key.startsWith('payload')) && window.foxbench.cfg.payload.names.length === 2), 'two names: clean');
   check(/On the air: cycles 0, 1, 2 → "ONE", "TWO", "ONE"/.test(await text('#tab-payload')), 'the card previews the names per cycle');
-  check(!/arrives in phase B/.test(await text('#tab-payload')) && !/arrives in phase C/.test(await text('#tab-payload')) && /arrives in phase D/.test(await text('#tab-payload')), 'payload and stealth are built (no phase note); checkpoint still says phase D');
+  check(!/arrives in phase [BCD]/.test(await text('#tab-payload')) && /arrives in phase E/.test(await text('#tab-payload')), 'payload, checkpoint and stealth are built (no phase note); sense still says phase E');
   await (await enableOf('What the fox serves')).check(); await settle(300);
   await page.locator('#tab-payload .card', { hasText: 'What the fox serves' }).locator('label.check input').nth(1).check(); await settle(300);   // the portal
   check(await app(() => window.foxbench.cfg.checkpoint?.portal?.enabled === true), 'portal switched on');
   await tab('schedule'); await page.selectOption('#tab-schedule select', 'deep'); await settle(300);
-  check(await app(() => window.foxbench.issues.some(i => i.key === 'checkpoint.portal.enabled' && i.level === 'err')), 'portal + deep sleep is a blocking error');
+  check(await app(() => window.foxbench.report.some(r => r.key === 'schedule.sleep') && window.foxbench.validCfg.schedule.sleep === 'off'), 'portal + deep sleep: the validator turns deep sleep off and reports it (as the firmware does)');
   await page.selectOption('#tab-schedule select', 'off'); await settle(200);
   await tab('payload');
   await (await enableOf('How hard it is to find')).check(); await settle(300);
@@ -219,7 +219,13 @@ try {
   await tab('deploy'); await page.check('#tab-deploy .gate input'); await app(() => { window.foxbench.lastDeploy = null; }); await page.click('#tab-deploy button.btn.primary'); await until(() => !!window.foxbench.lastDeploy, 'redeploy with stealth', 20000); await settle(300);
   check(/stealth: mac this cycle F2:/.test(await text('#log')), 'the demo fox announces a per-cycle MAC');
   eq(nb?.clock, '2026-08-08T08:30:00', 'banner shows the clock the page set (fixed time)');
-  check(/board clock set to 2026-08-08 08:30:00 \(fixed time\)/.test(await text('#log')) && /note: checkpoint is accepted but not in foxlib/.test(await text('#log')) && !/note: payload is accepted/.test(await text('#log')) && !/note: stealth is accepted/.test(await text('#log')), 'console: clock set line and the not-built note for checkpoint, none for payload or stealth');
+  check(/board clock set to 2026-08-08 08:30:00 \(fixed time\)/.test(await text('#log')) && !/is accepted but not in foxlib/.test(await text('#log')) && /checkpoint: portal at http:\/\/192\.168\.4\.1\/ with captive DNS/.test(await text('#log')), 'console: clock set line, no not-built note, the portal announced');
+  // Collect finds: the demo fox seeded two finds on its drive; they land in the fleet log once
+  await tab('bench'); await page.locator('#tab-bench button', { hasText: 'Collect finds' }).click(); await until(() => window.foxbench.benchEvents.some(e => e.action === 'finds'), 'collect finds', 15000); await settle(200);
+  eq(await app(() => JSON.parse(localStorage.getItem('fox-bench.fleet') || '[]').filter(r => r.action === 'find').map(r => r.callsign).join()), 'W1ABC,KY4ZR/P', 'two find rows in the fleet log, keyed by the fox');
+  await page.locator('#tab-bench button', { hasText: 'Collect finds' }).click(); await until(() => window.foxbench.benchEvents.filter(e => e.action === 'finds').length >= 2, 'collect again', 15000); await settle(200);
+  check(/2 finds on the fox: 0 new in the fleet log, 2 already there/.test(await text('#tab-bench')), 'collecting again adds nothing');
+  await tab('payload');
   check(/stealth: silent until 2026-08-08T09:00:00-04:00 \(clock 2026-08-08T08:30:00\)/.test(await text('#log')), 'the demo fox says it waits for the start time against the clock it was given');
   check(/payload: name this cycle "ONE"/.test(await text('#log')) && /wifi-ap up: ONE/.test(await text('#log')), 'the demo fox announces the first rotated name');
   const fjson = await app(() => JSON.parse(window.foxbench.lastDeploy?.files?.['fox.json'] || window.foxbench.onBoard.raw));

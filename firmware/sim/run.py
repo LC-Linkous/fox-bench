@@ -149,7 +149,12 @@ def run_one(template, scen, verbose=False):
         rec = mocks.install({**scen, "pin_roles": eff["pins"], "board_id": board_id, "divider_ratio": eff["battery"]["divider_ratio"], "board_names": BOARD_NAMES})
         rec.effective_cfg = eff
     try:
-        return _exec_in(d, rec)
+        rec, err = _exec_in(d, rec)
+        rec.files = {}
+        for name in ("finds.csv", "near.csv"):          # what the fox wrote to its drive
+            fp = os.path.join(d, name)
+            if os.path.exists(fp): rec.files[name] = open(fp).read()
+        return rec, err
     finally:
         shutil.rmtree(d, ignore_errors=True)
 
@@ -266,6 +271,19 @@ def check(template, scen, rec, err):
     for want in exp.get("prints_contain", []):
         if not any(want in l for l in rec.prints):
             fails.append("no print containing %r" % want)
+    # the checkpoint's server side: what the scripted phone got, what the fox wrote
+    http = getattr(rec, "http", [])
+    if "http_min" in exp and len(http) < exp["http_min"]: fails.append("%d HTTP response(s), want >= %d" % (len(http), exp["http_min"]))
+    for want in exp.get("http_body_contains", []):
+        if not any(want in body for *_, body in http): fails.append("no HTTP response body containing %r" % want)
+    if "dns_min" in exp and len(getattr(rec, "dns", [])) < exp["dns_min"]: fails.append("%d DNS answer(s), want >= %d" % (len(rec.dns), exp["dns_min"]))
+    files = getattr(rec, "files", {})
+    for name, needles in exp.get("file_contains", {}).items():
+        if name not in files: fails.append("the fox did not write %s" % name); continue
+        for want in needles:
+            if want not in files[name]: fails.append("%s does not contain %r:\n%s" % (name, want, files[name][:400]))
+    for name in exp.get("files_absent", []):
+        if name in files: fails.append("%s was written but should not be" % name)
     return fails, banner, texts, sorted(kinds), keyed
 
 

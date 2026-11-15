@@ -277,6 +277,49 @@ when the chip has more than one; the LED pin is the descriptor's default.
 19. **BLE only** (ble-beacon on a Wi-Fi + BLE chip): nothing in the Wi-Fi
     list, the beacon as before; `stealth: BLE only; Wi-Fi radio off`.
 
+### Checkpoint (phase D, foxlib 1.7.0) — the fox as a server
+
+20. **checkpoint** template (Wi-Fi chips; C3 first — it is the tight one for
+    RAM), defaults: SSID `FOXBENCH Checkpoint`, wake 120 / off 10, the
+    portal on with code `4471`, captive DNS, the callsign box, the find log.
+    Deploy. Console: `checkpoint: portal at http://192.168.4.1/ with
+    captive DNS`; the LED is steadily on while the radio is up (the server
+    ticks every 50 ms; a blink cannot be sliced that fine).
+21. **Phone joins the network.** The point of the phase: the "sign in to
+    network" sheet should open by itself with the page — title, text, the
+    code large, the callsign box. Try an iPhone and an Android; note each
+    OS's behaviour in the hardware log (iOS fetches Apple's hotspot-detect page, Android Google's
+    generate_204 check; both get the fox's page instead). If
+    no sheet appears within ~10 s, open `http://192.168.4.1/` in the browser
+    by hand — that is the `captive_dns: false` experience, and the answer to
+    whether captive DNS works on that phone.
+22. **Hand in a callsign.** Submit the form: the page comes back with
+    `Logged: <callsign>`; the console says `checkpoint: find <callsign>
+    from <MAC or IP>`. If the console instead says `find log: cannot write
+    finds.csv`, the host holds the drive (an S3 with USB mass storage):
+    note it — the finds are kept in RAM for that session, and a `boot.py`
+    remount is the fix to come.
+23. **Collect finds** (Bench tab): reads `finds.csv`, merges one `find` row
+    per callsign into the fleet log (Fleet tab) under this fox's uid;
+    pressing it again adds nothing. **Download this fox's CSV**, then
+    **Clear on fox**. **Restart fox** afterwards.
+24. **Deep sleep refused**: Schedule → deep → the Deploy checks block it
+    (and the firmware, if fed such a fox.json by hand, logs
+    `schedule.sleep -> default` and runs with the radio off between wakes).
+25. **BLE service** (C3 / C6 / C5 / S3): Payload tab → *What the fox serves*
+    → *BLE service with the code*. nRF Connect: the beacon is now
+    connectable and advertises the service UUID (the name is cut to 11
+    bytes beside it); connect, read the `…C1` characteristic (the code),
+    write a callsign to `…C2` → console `checkpoint: find <callsign> over
+    BLE`, a `ble` row in `finds.csv`. On the checkpoint template this is a
+    second radio beside the access point — watch for `second radio failed`
+    on the C3.
+26. **RAM**: after a wake with several phones attached, the REPL's
+    `gc.mem_free()` (Bench → any action, then the console) tells whether
+    the C3 has headroom; a `MemoryError` in the console during step 21 or
+    25 means the portal goes `radios: ["wifi24"]` + a minimum-RAM note and
+    the page offers it on the C6 / S3 / C5 only.
+
 ### Per-board notes
 
 - **XIAO ESP32C3** (`esp32c3`): the firmware path is the proven one (same

@@ -33,12 +33,19 @@ class Tx:
         self.fox.radio.up()
         self.fox.log("%s up: %s (%s) for %d s" % (self.fox.radio.kind, self.name, self.fox.radio.mac(), s))
         pattern = "tx" if self.fox.cfg["led"]["enabled"] else None
+        self.fox._run_hooks("on_up", self.cycle)
         if self.fox.hooks["while_up"]:
-            # features that work while the radio is up (a portal, a scan slot) get a tick every ~slot
-            end = time.monotonic() + s
-            while time.monotonic() < end:
-                self.fox.led.hold(min(1000, max(1, int((end - time.monotonic()) * 1000))), pattern)
+            # features that work while the radio is up get a tick every fox.tick_ms (1 s; a portal asks for 50 ms, and
+            # then the LED is simply on for the window: a blink pattern cannot be sliced that fine)
+            tick = self.fox.tick_ms
+            if tick < 1000 and pattern:
+                self.fox.led.set(True)
+                pattern = None
+            end = time.monotonic_ns() + int(s * 1e9)
+            while time.monotonic_ns() < end:
+                self.fox.led.hold(min(tick, max(1, (end - time.monotonic_ns()) // 1000000)), pattern)
                 self.fox._run_hooks("while_up", self.cycle)
+            self.fox.led.set(False)
         else:
             self.fox.led.hold(s * 1000, pattern)
         self.fox.radio.down()
@@ -60,7 +67,8 @@ class NetFox:
         self.woke_from_sleep = self._woke()
         self.features = []
         self.unbuilt = []
-        self.hooks = {"before_up": [], "while_up": [], "after_down": []}
+        self.hooks = {"before_up": [], "on_up": [], "while_up": [], "after_down": []}
+        self.tick_ms = 1000
         if self.cfg is None:
             self.id_ok = False
             self._banner()
@@ -75,7 +83,7 @@ class NetFox:
         self.id_ok = netcfg.id_ok(c)
         self.name = netcfg.display_name(c)
         self.features = netcfg.enabled_features(c)
-        self.hooks = {"before_up": [], "while_up": [], "after_down": []}     # the contest features register here
+        self.hooks = {"before_up": [], "on_up": [], "while_up": [], "after_down": []}     # the contest features register here
         self.override_wake_s = None          # a feature (stealth jitter) may set this cycle's timing in before_up
         self.override_sleep_s = None
         if not self.fatal:

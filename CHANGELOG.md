@@ -14,6 +14,47 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.14.0 · foxlib 1.7.0 · foxlib-c 0.1.11 — phase D: the fox as a server
+
+The `checkpoint` section is built (`firmware/foxlib/netcheckpoint.py`):
+
+- **Portal**: a `wifi-ap` fox serves one page on port 80 while its radio is
+  up — title, plain-text paragraphs, the code set large, a callsign form
+  that POSTs to `/find` — to every GET whatever the path, so a phone's
+  captive-portal check opens the sign-in sheet; **captive DNS** on port 53
+  answers every A query with the fox's address. Our own responder (GET,
+  POST, one DNS answer), ~100 lines, no library. Non-blocking sockets,
+  bounded per tick; the runner ticks `while_up` every 50 ms when a
+  checkpoint is on (`NetFox.tick_ms`; the LED is then steadily on).
+- **Find log**: `finds.csv` — `fox_uid,template,cycle,ms_since_boot,
+  callsign,client_mac`, ≤ 200 lines, client MAC from `stations_ap` when the
+  port gives it; a read-only filesystem is said once and finds kept in RAM.
+- **BLE service**: a connectable service (read characteristic `…C1` = the
+  code, write `…C2` = a callsign) on the beacon of a BLE fox or on a
+  second BLE radio beside a Wi-Fi fox; `BleBeacon` gains `connectable`,
+  `service_uuid` (128-bit UUID list in the scan response, the name cut to
+  fit) and `restart()` after a central disconnects.
+- `schedule.sleep: deep` with a portal is refused by the firmware as well
+  as the page (`schedule.sleep` → off, reported).
+- New **`checkpoint`** template (Wi-Fi chips: C3, C5, C6, S3), the portal
+  on by default with code 4471, wake 120 / off 10, four clients.
+- Page: Bench tab **Collect finds** (reads `finds.csv`, one `find` row per
+  callsign into the fleet log keyed by the fox uid, deduplicated; download
+  the fox's CSV; clear on fox). The demo fox seeds two finds. The
+  checkpoint card drops its "arrives in phase D" note.
+- Simulator: `socketpool` mock with a scripted phone (`scenario.phone`:
+  `dns` / `get` / `post`, split bodies), `_bleio` service, characteristic
+  and buffer mocks with a scripted central (`scenario.central`); the fox's
+  `finds.csv` is read back; expectations `http_min`, `http_body_contains`,
+  `dns_min`, `file_contains`, `files_absent`. Scenarios `portal-phone`,
+  `portal-no-log`, `portal-refuses-deep-sleep`, `portal-and-ble-service`,
+  ble-beacon `checkpoint-service`. Schema corpus: four checkpoint cases.
+- `NetFox` hooks gain `on_up` (after the radio is up, before the window).
+
+Hardware gates (runbook steps 20–26): the captive sheet on an iPhone and
+an Android; RAM on the C3 with phones attached; `finds.csv` on a board
+whose host holds the drive.
+
 ### Page 0.13.1 · foxlib 1.6.1 · foxlib-c 0.1.11 — recovery is a checkbox
 
 `limits.recover` (default `true`; the Behavior tab's **enable automatic

@@ -307,7 +307,7 @@ for tid in fw["templates"]:
     if needs is not None and (not isinstance(needs, list) or not all(isinstance(x, str) and 3 <= len(x) <= 120 for x in needs)):
         bad(rel, "needs must be a list of short strings (what an organiser must provide: tags, a sign, a power bank)")
     for c in t.get("capabilities", []):
-        if c not in ("keytest", "rssi", "batt"): bad(rel, f"unknown capability {c}")
+        if c not in ("keytest", "rssi", "batt", "finds"): bad(rel, f"unknown capability {c}")
     for b in t.get("boards_tested", []):
         if b not in boards: bad(rel, f"boards_tested names unknown board {b}")
     if is_fw and "code.py" not in t.get("files", []): bad(rel, "files must include code.py")

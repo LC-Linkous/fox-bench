@@ -332,36 +332,88 @@ def install(scenario):
             def start_scanning_networks(self):
                 for n in (("Neighbour", -55, 6), ("AnotherAP", -70, 11)): yield _Net(*n)
             def stop_scanning_networks(self): pass
+            class _Ip:
+                packed = bytes([192, 168, 4, 1])
+                def __str__(self): return "192.168.4.1"
+            ipv4_address_ap = _Ip()
+            stations_ap = [types.SimpleNamespace(mac_address=bytes([0xDA, 0x11, 0x22, 0x33, 0x44, 0x55]), ipv4_address="192.168.4.2", rssi=-50)]
         wifi.radio = _Radio(); wifi.AuthMode = types.SimpleNamespace(OPEN=0, WPA2=1)
         pre_sleep.append(wifi.radio._flush)
         sys.modules["wifi"] = wifi
+        _install_socketpool(scenario, clock, rec, net_event, wifi)
     else:
-        sys.modules.pop("wifi", None)
+        sys.modules.pop("wifi", None); sys.modules.pop("socketpool", None)
     if "ble" in radios:
         bleio = types.ModuleType("_bleio")
         class Address:
             RANDOM_STATIC = 1
             def __init__(self, b, kind=0): self.b, self.kind = b, kind
             def __str__(self): return ":".join("%02x" % x for x in self.b) + " (random)"
+        class UUID:
+            def __init__(self, v): self.v = v
+            def __repr__(self): return "UUID(%s)" % self.v
+        class Attribute:
+            OPEN, NO_ACCESS = 1, 0
+        class Service:
+            def __init__(self, uuid, secondary=False): self.uuid, self.chars = uuid, []
+        class Characteristic:
+            READ, WRITE, WRITE_NO_RESPONSE, NOTIFY = 2, 8, 4, 16
+            def __init__(self, uuid, properties, initial_value):
+                self.uuid, self.properties, self.value = uuid, properties, initial_value
+            @staticmethod
+            def add_to_service(service, uuid, properties=0, read_perm=1, write_perm=1, max_length=20, fixed_length=False, initial_value=b""):
+                c = Characteristic(uuid, properties, initial_value); service.chars.append(c)
+                net_event("ble_char", "%s props=%d value=%s" % (uuid.v, properties, (initial_value or b"").decode("utf-8", "replace")))
+                return c
+        class CharacteristicBuffer:
+            """The scripted central's writes (scenario.central = [{"at_s": t, "write": "W1ABC"}]) arrive here once their time has come."""
+            def __init__(self, characteristic, timeout=0, buffer_size=64):
+                self.c, self.pending = characteristic, b""
+                rec.ble_buffers.append(self)
+            @property
+            def in_waiting(self):
+                self._pull(); return len(self.pending)
+            def read(self, n=None):
+                self._pull(); out, self.pending = self.pending[:n], self.pending[n:] if n else b""; return out
+            def _pull(self):
+                for ev in scenario.get("central", []):
+                    if not ev.get("_done") and "write" in ev and clock.ns / 1e9 >= ev["at_s"]:
+                        ev["_done"] = True; self.pending += ev["write"].encode(); net_event("ble_write", ev["write"])
+        rec.ble_buffers = []
         class _Adapter:
-            enabled = False; name = ""; address = Address(bytes(6)); _pending_stop = None
+            enabled = False; name = ""; address = Address(bytes(6)); _pending_stop = None; advertising = False
+            @property
+            def connected(self):
+                # a scripted central is "connected" for 2 s around each of its events
+                return any(abs(clock.ns / 1e9 - ev["at_s"]) < 1.0 for ev in scenario.get("central", []))
             # A stop followed by a start with no virtual time in between is a frame swap (the payload feature rotating
             # iBeacon / Eddystone frames), recorded as adv_swap and not as an unkey; a stop that stands is adv_down.
             def _flush(self):
                 if self._pending_stop is not None:
                     self._pending_stop = None; net_event("adv_down")
             def start_advertising(self, data, *, scan_response=b"", connectable=True, interval=0.1, tx_power=0):
-                detail = "len=%d name=%s interval=%.3f tx=%d frame=%s" % (len(data), scan_response[2:].decode("utf-8", "replace") if len(scan_response) > 2 else "", interval, tx_power, bytes(data).hex())
+                if len(data) > 31 or len(scan_response) > 31: raise ValueError("Data too large")
+                # the name: the 0x09 AD structure wherever it sits in the scan response
+                name, svc, i = "", "", 0
+                while i < len(scan_response) - 1:
+                    ln, typ = scan_response[i], scan_response[i + 1]
+                    if typ == 0x09: name = scan_response[i + 2:i + 1 + ln].decode("utf-8", "replace")
+                    if typ == 0x07: svc = bytes(reversed(scan_response[i + 2:i + 1 + ln])).hex()
+                    i += 1 + ln
+                detail = "len=%d name=%s interval=%.3f tx=%d frame=%s%s%s" % (len(data), name, interval, tx_power, bytes(data).hex(), " connectable" if connectable else "", (" service=" + svc) if svc else "")
+                self.advertising = True
                 if self._pending_stop is not None and self._pending_stop == now_ms():
                     self._pending_stop = None; net_event("adv_swap", detail); return
                 self._flush(); net_event("adv_up", detail)
             def stop_advertising(self):
+                self.advertising = False
                 self._flush(); self._pending_stop = now_ms()
             def start_scan(self, timeout=2, minimum_rssi=-100):
                 sleep(timeout)
                 yield types.SimpleNamespace(rssi=-60, address=Address(bytes([0xC0, 0, 0, 0, 0, 1])), complete_name="Neighbour beacon")
             def stop_scan(self): pass
         bleio.adapter = _Adapter(); bleio.Address = Address
+        bleio.UUID, bleio.Attribute, bleio.Service, bleio.Characteristic, bleio.CharacteristicBuffer = UUID, Attribute, Service, Characteristic, CharacteristicBuffer
         pre_sleep.append(bleio.adapter._flush)
         sys.modules["_bleio"] = bleio
     else:
@@ -408,3 +460,82 @@ def install(scenario):
     rec.clock = clock
     rec.flush = lambda: [f() for f in pre_sleep]      # the runner calls it when the script ends: pending stops become stops
     return rec
+
+
+def _install_socketpool(scenario, clock, rec, net_event, wifi):
+    """socketpool with a scripted phone: scenario.phone = [{"at_s": 12, "dns": "captive.apple.com"},
+    {"at_s": 13, "get": "/hotspot-detect.html"}, {"at_s": 20, "post": "callsign=W1ABC"}]. A DNS event becomes a query
+    on the UDP socket; a get/post becomes one accepted TCP client whose request is read with recv_into and whose
+    response (send) is recorded as a net event (http_response status=... body contains the page)."""
+    import types as _t, errno as _errno
+    rec.http = []          # (t_ms, method, path, status, body)
+    rec.dns = []           # (t_ms, name, answer_ip)
+    phone = scenario.get("phone", [])
+    def due(kind):
+        for ev in phone:
+            if kind in ev and not ev.get("_done") and clock.ns / 1e9 >= ev["at_s"]:
+                ev["_done"] = True
+                return ev
+        return None
+    def dns_query(name, qid=0x1234):
+        q = bytes([qid >> 8, qid & 0xFF, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0])
+        for label in name.split("."):
+            q += bytes([len(label)]) + label.encode()
+        return q + b"\x00\x00\x01\x00\x01"
+    class _Sock:
+        def __init__(self, pool, fam, typ):
+            self.typ, self.bound, self.blocking, self.timeout = typ, None, True, None
+            self.req, self.sent, self.ev, self.closed = b"", b"", None, False
+        def setsockopt(self, *a): pass
+        def bind(self, addr): self.bound = addr
+        def listen(self, n): pass
+        def setblocking(self, v): self.blocking = v
+        def settimeout(self, t): self.timeout = t
+        def close(self): self.closed = True
+        # ---- TCP listener
+        def accept(self):
+            ev = due("get") or due("post")
+            if ev is None: raise OSError(_errno.EAGAIN)
+            c = _Sock(None, 0, 1); c.ev = ev
+            if "get" in ev: c.req = ("GET %s HTTP/1.1\r\nHost: %s\r\nUser-Agent: CaptiveNetworkSupport\r\n\r\n" % (ev["get"], ev.get("host", "captive.apple.com"))).encode()
+            else:
+                body = ev["post"].encode()
+                c.req = ("POST /find HTTP/1.1\r\nHost: 192.168.4.1\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: %d\r\n\r\n" % len(body)).encode()
+                c.body_later = body if ev.get("split") else b""
+                if not ev.get("split"): c.req += body
+            return c, ("192.168.4.2", 50000)
+        # ---- TCP client
+        def recv_into(self, buf):
+            clock.advance(2_000_000)      # 2 ms on the wire
+            if self.req:
+                data, self.req = self.req[:len(buf)], self.req[len(buf):]
+            elif getattr(self, "body_later", b""):
+                data, self.body_later = self.body_later, b""
+            else:
+                raise OSError(_errno.ETIMEDOUT)
+            buf[:len(data)] = data
+            return len(data)
+        def send(self, data):
+            self.sent += bytes(data)
+            head, _, body = self.sent.partition(b"\r\n\r\n")
+            status = head.split(b"\r\n")[0].decode(errors="replace")
+            m = self.ev
+            rec.http.append((clock.ns / 1e6, "GET" if "get" in m else "POST", m.get("get", "/find"), status, body.decode("utf-8", "replace")))
+            net_event("http_response", "%s %s %s len=%d" % ("GET" if "get" in m else "POST", m.get("get", "/find"), status, len(body)))
+            return len(data)
+        # ---- UDP (DNS)
+        def recvfrom_into(self, buf):
+            ev = due("dns")
+            if ev is None: raise OSError(_errno.EAGAIN)
+            q = dns_query(ev["dns"]); buf[:len(q)] = q; self.last_name = ev["dns"]
+            return len(q), ("192.168.4.2", 53000)
+        def sendto(self, data, addr):
+            ip = ".".join(str(b) for b in data[-4:]) if len(data) > 16 and data[7] == 1 else "-"
+            rec.dns.append((clock.ns / 1e6, self.last_name, ip)); net_event("dns_answer", "%s -> %s" % (self.last_name, ip))
+            return len(data)
+    class SocketPool:
+        AF_INET, SOCK_STREAM, SOCK_DGRAM, SOL_SOCKET, SO_REUSEADDR = 2, 1, 2, 1, 4
+        def __init__(self, radio): pass
+        def socket(self, fam=2, typ=1, proto=0): return _Sock(self, fam, typ)
+    sp = _t.ModuleType("socketpool"); sp.SocketPool = SocketPool
+    sys.modules["socketpool"] = sp

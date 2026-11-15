@@ -2007,6 +2007,52 @@
      "recover": "yes"
     }
    }
+  },
+  {
+   "name": "checkpoint-template@esp32c3",
+   "template": "checkpoint",
+   "board": "esp32c3",
+   "user": {}
+  },
+  {
+   "name": "checkpoint-deep-sleep@esp32c3",
+   "template": "checkpoint",
+   "board": "esp32c3",
+   "user": {
+    "schedule": {
+     "sleep": "deep",
+     "sleep_s": 30
+    }
+   }
+  },
+  {
+   "name": "checkpoint-portal-off-deep@esp32c3",
+   "template": "checkpoint",
+   "board": "esp32c3",
+   "user": {
+    "checkpoint": {
+     "portal": {
+      "enabled": false
+     }
+    },
+    "schedule": {
+     "sleep": "deep",
+     "sleep_s": 30
+    }
+   }
+  },
+  {
+   "name": "checkpoint-ble-too@esp32c6",
+   "template": "checkpoint",
+   "board": "esp32c6",
+   "user": {
+    "checkpoint": {
+     "ble": {
+      "enabled": true,
+      "code": "12345678901234567"
+     }
+    }
+   }
   }
  ]
 }
