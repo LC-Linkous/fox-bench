@@ -10,7 +10,7 @@ line endings and a trailing blank line are fine (spreadsheets add all three).
 """
 import csv, io, re, sys
 
-FLEET_FIELDS = ['board_number', 'timestamp', 'uid', 'mac', 'board', 'chip_type', 'revision', 'features', 'crystal', 'usb_mode', 'action', 'template', 'profile', 'callsign', 'freq', 'power', 'seed', 'result', 'challenge', 'keyphrase', 'notes']
+FLEET_FIELDS = ['board_number', 'timestamp', 'uid', 'mac', 'board', 'chip_type', 'revision', 'features', 'crystal', 'usb_mode', 'action', 'template', 'profile', 'callsign', 'owner', 'event', 'freq', 'power', 'seed', 'result', 'challenge', 'keyphrase', 'on_air', 'notes']
 ISO = re.compile(r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d")
 
 def check(text):

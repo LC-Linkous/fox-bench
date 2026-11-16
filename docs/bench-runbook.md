@@ -320,6 +320,30 @@ when the chip has more than one; the LED pin is the descriptor's default.
     25 means the portal goes `radios: ["wifi24"]` + a minimum-RAM note and
     the page offers it on the C6 / S3 / C5 only.
 
+### What varies per wake (phase G, foxlib 1.8.0) and the event sheet
+
+27. **Channel per wake.** wifi-beacon, Radio tab → Channel per wake → *1 / 6
+    / 11*. Deploy; a phone's Wi-Fi analyser (or `tools/sniffer`) shows the
+    AP's channel differ across wakes while the console says `channel this
+    cycle N`. *any* writes the region's list (US 1–11).
+28. **Probe list.** wifi-probe, Radio tab → *Other networks it looks for*
+    (three names), *Change network every* 5 s, wake 30 s. The sniffer sees
+    probe requests for each name in turn from one MAC; the console says
+    `probing for X` every 5 s. With the interval at 0, one name per wake.
+29. **Variable power.** Payload tab → Stealth → *Variable power* 2–13 dBm,
+    *every N seconds* 5. A scanner's RSSI for the fox steps up and down
+    within one wake while the console says `tx power now N dBm`; on a BLE
+    fox the beacon drops out for a moment at each change (advertising
+    restarts). Per wake: one `tx power this cycle` line per wake.
+30. **TLM data.** ble-beacon, Payload → Eddystone telemetry on → Battery
+    4471, Frame count 146565. nRF Connect's TLM decode shows 4471 mV and the
+    count fixed, temperature as before, uptime still counting.
+31. **Event sheet.** Deploy → Fleet record: number 1, event "bench",
+    operator. Deploy two foxes (two numbers). Fleet tab → Event sheet, event
+    "bench": two lines with the `on the air` summaries; *Export CSV*;
+    *Print view* opens the one-page table. Re-deploy fox 1 with another
+    channel list: still two lines, fox 1's updated.
+
 ### Per-board notes
 
 - **XIAO ESP32C3** (`esp32c3`): the firmware path is the proven one (same

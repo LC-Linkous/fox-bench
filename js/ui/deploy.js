@@ -6,6 +6,7 @@ import { parseBanner } from '../device/device.js';
 import { airtime, fmtDuration } from '../model/airtime.js';
 import { packImages } from '../audio/sstv.js';
 import { fleet, download } from '../model/profiles.js';
+import { onAir } from '../model/sheet.js';
 import { makeZip } from '../model/zip.js';
 import * as drive from './deploy-drive.js';
 import * as foxlibc from './deploy-foxlibc.js';
@@ -16,6 +17,17 @@ let app, root, gateOk = false, lastResult = null, busy = false;
 // needs real time. Source: the browser's clock now, or a fixed time so every fox of a fleet is given the same one.
 // Persisted in this browser, so it is a fleet setting: tick it once, deploy fox after fox.
 const CLOCK_KEY = 'fox-bench.deployClock';
+const RECOVERY_KEY = 'fox-bench.deployRecovery';          // whether safemode.py goes onto the board (a browser setting, remembered)
+function loadRecovery() { try { return { safemode: true, ...JSON.parse(localStorage.getItem(RECOVERY_KEY) || '{}') }; } catch { return { safemode: true }; } }
+function saveRecovery(r) { try { localStorage.setItem(RECOVERY_KEY, JSON.stringify(r)); } catch {} }
+/** safemode.py is written when the browser setting says so and, on an FM fox, recovery is not switched off on Behavior. */
+const wantSafemode = () => app.deployRecovery.safemode && !(app.cfg.limits && app.cfg.limits.recover === false);
+function recoveryRow() {
+  const r = app.deployRecovery, fmOff = app.cfg.limits && app.cfg.limits.recover === false;
+  return h('div.row', { style: 'flex-wrap:wrap;gap:6px 12px;align-items:center;margin:6px 0' },
+    check('Write safemode.py', r.safemode, v => { Object.assign(r, { safemode: v }); saveRecovery(r); app.changed('deploy'); }, 'the recovery file beside code.py (~2 KB): resets the board out of safe mode after a brownout or a watchdog reset'),
+    fmOff ? h('span.hint', {}, 'not written: recovery is off on the Behavior tab') : !r.safemode ? h('span.hint.warn', {}, 'off: a browned-out board stays in safe mode, silent, until it is power-cycled') : null);
+}
 function loadClock() { try { return { enabled: false, source: 'browser', fixed: '', ...JSON.parse(localStorage.getItem(CLOCK_KEY) || '{}') }; } catch { return { enabled: false, source: 'browser', fixed: '' }; } }
 function saveClock(c) { try { localStorage.setItem(CLOCK_KEY, JSON.stringify(c)); } catch {} }
 /** The time to set, as a struct_time tuple (local wall time of the browser, or the fixed field), or null. */
@@ -26,7 +38,7 @@ export function clockToSet() {
   return [d.getFullYear(), d.getMonth() + 1, d.getDate(), d.getHours(), d.getMinutes(), d.getSeconds()];
 }
 const setLast = r => { lastResult = r; app.lastDeploy = r ? { ...r, at: new Date().toISOString(), template: app.templateId, uid: app.info?.uid } : null; };
-export function init(a, el) { app = a; root = el; app.deployClock = loadClock(); drive.init(a); foxlibc.init(a); compiled.init(a); app.listeners.add(render); render(); }
+export function init(a, el) { app = a; root = el; app.deployClock = loadClock(); app.deployRecovery = loadRecovery(); drive.init(a); foxlibc.init(a); compiled.init(a); app.listeners.add(render); render(); }
 
 /** The clock control (Deploy card): on, and from where. Changing it re-runs the page checks (stealth.start.at wants it on). */
 function clockRow() {
@@ -41,6 +53,20 @@ function clockRow() {
 }
 
 /** Flatten a config to dotted key → JSON value for diffing. */
+/** The fleet section of fox.json: bookkeeping the firmware ignores and the fleet log / event sheet carry. */
+function fleetRecordCard() {
+  const f = app.cfg.fleet || (app.cfg.fleet = {});
+  const txt = (key, attrs = {}) => { const i = h('input', { type: 'text', value: f[key] ?? '', style: 'width:100%', ...attrs }); i.addEventListener('change', () => { f[key] = i.value.trim(); app.changed('deploy'); }); return i; };
+  return h('div.card', {}, h('h3', {}, 'Fleet record'),
+    h('p.hint', {}, 'Written into fox.json (', h('code', {}, 'fleet'), ') and onto every fleet-log row this deploy makes; the Event sheet (Fleet tab) is built from them. The firmware ignores all of it.'),
+    h('div.two-col', {},
+      field('Fox number', numInput(f.number ?? '', { min: 1, max: 999, step: 1, width: '100px', onchange: v => { f.number = Math.round(v); app.changed('deploy'); } }), 'the # on the sheet and the fleet log'),
+      field('Event', txt('event', { placeholder: 'Spring hunt 2027', maxlength: 64 }), 'filters the Event sheet; one name for the whole fleet')),
+    h('div.two-col', {},
+      field('Operator', txt('owner', { placeholder: 'KY4ZR', maxlength: 32, style: 'width:100%;text-transform:uppercase' }), 'whose fox this is when the callsign is not theirs; never on the air'),
+      field('Notes', txt('notes', { maxlength: 120 }), 'free text for the sheet')));
+}
+
 /** The fleet-log 'freq' and 'power' columns: the FM plan, or for a network fox its kind (and channel) and radio power. */
 const freqText = cfg => app.isNet ? `${cfg.net.kind}${cfg.net.kind === 'wifi-ap' ? ' ch' + cfg.net.channel : ''}` : cfg.plan.frequencies_mhz.join(' ');
 const powerText = cfg => app.isNet ? `${cfg.net.tx_power_dbm}dBm` : `${cfg.radio.high_power ? 'high' : 'low'}${cfg.radio.power_dbm != null ? ' ' + cfg.radio.power_dbm + 'dBm' : ''}`;
@@ -51,7 +77,10 @@ function plan() {
   const ob = app.onBoard, cfg = app.validCfg || app.cfg;
   const fwNeeded = !app.connected || ob.foxlibVersion !== app.catalog.foxlibVersion || !ob.foxlibComplete;
   if (fwNeeded) files.push({ path: 'foxlib/*', why: ob.foxlibVersion && !ob.foxlibComplete ? `foxlib ${ob.foxlibVersion} is incomplete on the board (${ob.foxlibMissing.length} file${ob.foxlibMissing.length === 1 ? '' : 's'} missing) → reinstall ${app.catalog.foxlibVersion}` : ob.foxlibVersion ? `foxlib ${ob.foxlibVersion} → ${app.catalog.foxlibVersion}` : 'install foxlib ' + app.catalog.foxlibVersion, kind: 'foxlib' });
-  if (fwNeeded) for (const name of app.catalog.rootFiles) files.push({ path: name, why: 'with foxlib: resets the board out of safe mode after a brownout or watchdog reset', kind: 'root' });
+  for (const name of app.catalog.rootFiles) {
+    if (wantSafemode()) { if (fwNeeded || (app.connected && !ob.files?.[name])) files.push({ path: name, why: 'with foxlib: resets the board out of safe mode after a brownout or watchdog reset', kind: 'root' }); }
+    else if (app.connected && ob.files?.[name]) files.push({ path: name, why: 'removed: the recovery file is switched off', kind: 'remove' });
+  }
   if (!app.connected || ob.template !== app.templateId || fwNeeded) files.push({ path: 'code.py', why: ob.template && ob.template !== app.templateId ? `${ob.template} → ${app.templateId}` : `${app.templateId} ${app.template.version}`, kind: 'code' });
   files.push({ path: 'defaults.json', why: `${app.templateId} defaults for ${app.boardId}`, kind: 'defaults' });
   files.push({ path: 'fox.json', why: 'configuration', kind: 'cfg' });
@@ -71,7 +100,7 @@ async function _exportZip() {
   if (overrides.length && !confirm(`Export anyway?\n\n${overrides.map(o => '• ' + o.msg.replace(/ — .*$/, '')).join('\n')}`)) return;
   const cfg = app.validCfg, files = [];
   for (const name of app.catalog.foxlibFiles) files.push({ path: 'foxlib/' + name, data: await loadFoxlibFile(name) });
-  for (const name of app.catalog.rootFiles) files.push({ path: name, data: await loadRootFile(name) });
+  if (wantSafemode()) for (const name of app.catalog.rootFiles) files.push({ path: name, data: await loadRootFile(name) });
   files.push({ path: 'code.py', data: await loadTemplateCode(app.templateId) });
   files.push({ path: 'defaults.json', data: JSON.stringify(app.defaults) });
   files.push({ path: 'fox.json', data: JSON.stringify(cfg, null, 1) });
@@ -81,9 +110,9 @@ async function _exportZip() {
     `callsign ${cfg.id.callmessage} · ${app.isNet ? freqText(cfg) : cfg.plan.frequencies_mhz.join(', ') + ' MHz'} · exported ${new Date().toISOString()}`,
     '',
     'Copy everything in this zip to the root of the CircuitPython board, keeping the foxlib/ folder:',
-    '  code.py  safemode.py  defaults.json  fox.json  foxlib/  ' + (cfg.payload?.kind === 'sstv' ? cfg.payload.images_file : ''),
-    'safemode.py runs only when CircuitPython boots into safe mode (a brownout while keyed, the watchdog): it resets the',
-    'board so the fox comes back instead of sitting silent until someone power-cycles it.',
+    '  code.py  defaults.json  fox.json  foxlib/  ' + (wantSafemode() ? 'safemode.py  ' : '') + (cfg.payload?.kind === 'sstv' ? cfg.payload.images_file : ''),
+    ...(wantSafemode() ? ['safemode.py runs only when CircuitPython boots into safe mode (a brownout while keyed, the watchdog): it resets the',
+      'board so the fox comes back instead of sitting silent until someone power-cycles it.'] : []),
     'With Thonny: File → Open each file → File → Save As → CircuitPython device, same name and path.',
     'With a board that mounts a CIRCUITPY drive: drag the files onto the drive.',
     'Then reset (Ctrl-D in the REPL, or the R button). The boot log prints a line starting with "FOX" that reports',
@@ -93,7 +122,7 @@ async function _exportZip() {
   ].join('\n') });
   const safe = s => s.replace(/[^A-Za-z0-9._-]+/g, '_');
   download(`fox-${safe(cfg.id.callmessage.split(' ')[0])}-${app.templateId}.zip`, makeZip(files));
-  fleet.append({ board_number: '', uid: app.info?.uid || '', board: app.boardId, action: 'export-zip', template: `${app.templateId}/${app.template.version}`, profile: cfg.fleet?.profile || '', callsign: cfg.id.callmessage, freq: freqText(cfg), power: powerText(cfg), seed: cfg.schedule?.seed ?? '', result: 'zip', notes: '' });
+  fleet.append({ board_number: cfg.fleet?.number ?? '', uid: app.info?.uid || '', board: app.boardId, action: 'export-zip', template: `${app.templateId}/${app.template.version}`, profile: cfg.fleet?.profile || '', callsign: cfg.id.callmessage, owner: cfg.fleet?.owner || '', event: cfg.fleet?.event || '', on_air: onAir(cfg, { template: app.templateId }), freq: freqText(cfg), power: powerText(cfg), seed: cfg.schedule?.seed ?? '', result: 'zip', notes: '' });
   app.console.dim(`exported deploy set (${files.length} files)`);
 }
 
@@ -113,6 +142,7 @@ async function deploy(btn) {
     for (const f of files) {
       if (f.kind === 'foxlib') { await d.mkdir('foxlib'); for (const name of app.catalog.foxlibFiles) await d.writeBytes('foxlib/' + name, await loadFoxlibFile(name)); }
       else if (f.kind === 'root') await d.writeBytes(f.path, await loadRootFile(f.path));
+      else if (f.kind === 'remove') await d.remove(f.path);
       else if (f.kind === 'code') await d.writeText('code.py', await loadTemplateCode(app.templateId));
       else if (f.kind === 'defaults') await d.writeText('defaults.json', JSON.stringify(app.defaults));
       else if (f.kind === 'cfg') await d.writeText('fox.json', JSON.stringify(cfg, null, 1));
@@ -122,11 +152,12 @@ async function deploy(btn) {
     const banner = parseBanner(bootLog);
     if (banner) app.lastBanner = banner;
     setLast({ bootLog, banner, ok: !!banner && banner.cfg === 'ok' && banner.radio === 'ok' && (banner.id === 'set' || banner.id === 'none') });   // none: a network fox with no callsign on the air
-    const written = Object.fromEntries(files.map(f => [f.path.replace('/*', ''), { size: 1, dir: f.kind === 'foxlib' }]));
-    app.onBoard = { ...app.onBoard, cfg: structuredClone(cfg), raw: JSON.stringify(cfg), template: app.templateId, foxlibVersion: app.catalog.foxlibVersion, foxlibComplete: true, foxlibMissing: [], files: { ...app.onBoard.files, ...written } };
+    const written = Object.fromEntries(files.filter(f => f.kind !== 'remove').map(f => [f.path.replace('/*', ''), { size: 1, dir: f.kind === 'foxlib' }]));
+    const remaining = { ...app.onBoard.files, ...written }; for (const f of files) if (f.kind === 'remove') delete remaining[f.path];
+    app.onBoard = { ...app.onBoard, cfg: structuredClone(cfg), raw: JSON.stringify(cfg), template: app.templateId, foxlibVersion: app.catalog.foxlibVersion, foxlibComplete: true, foxlibMissing: [], files: remaining };
     app.info.foxlibVersion = app.catalog.foxlibVersion;
     app.setStatus(`${d.kind === 'demo' ? 'Demo · ' : ''}${app.info.boardId} · uid ${app.info.uid.slice(-6)} · foxlib ${app.catalog.foxlibVersion} · fox running`, d.kind === 'demo' ? 'demo' : 'tx');
-    fleet.append({ board_number: '', uid: app.info.uid, board: app.info.boardId, action: 'deploy', template: `${app.templateId}/${app.template.version}`, profile: cfg.fleet?.profile || '', callsign: cfg.id.callmessage, freq: freqText(cfg), power: powerText(cfg), seed: cfg.schedule?.seed ?? '', result: lastResult.ok ? 'ok' : (banner ? `${banner.cfg} ${banner.radio} ${banner.id}` : 'no banner'), notes: [app.variantId ? app.board.variantName : '', app.device.kind === 'demo' ? 'demo' : ''].filter(Boolean).join(' · ') });
+    fleet.append({ board_number: cfg.fleet?.number ?? '', uid: app.info.uid, board: app.info.boardId, action: 'deploy', template: `${app.templateId}/${app.template.version}`, profile: cfg.fleet?.profile || '', callsign: cfg.id.callmessage, owner: cfg.fleet?.owner || '', event: cfg.fleet?.event || '', on_air: onAir(cfg, { template: app.templateId }), freq: freqText(cfg), power: powerText(cfg), seed: cfg.schedule?.seed ?? '', result: lastResult.ok ? 'ok' : (banner ? `${banner.cfg} ${banner.radio} ${banner.id}` : 'no banner'), notes: [app.variantId ? app.board.variantName : '', app.device.kind === 'demo' ? 'demo' : ''].filter(Boolean).join(' · ') });
   } catch (e) { setLast({ error: String(e.message || e) + (/HTTP 404/.test(e.message || '') ? ' — a firmware file is missing from the site; the repo needs a .nojekyll marker so GitHub Pages serves foxlib/__init__.py' : '') }); log.err(lastResult.error); }
   busy = false; gateOk = false; app.changed('deploy');
 }
@@ -166,11 +197,13 @@ function render() {
     h('div.card', {}, h('h3', {}, 'Deploy'),
       app.template.needs?.length ? h('p.hint.warn', {}, h('b', {}, 'This template needs: '), app.template.needs.join('; ')) : null,
       app.isNet ? clockRow() : null,
+      recoveryRow(),
       h('label.gate', {}, h('input', { type: 'checkbox', checked: gateOk, onchange: e => { gateOk = e.target.checked; render(); } }), h('span', {}, h('b', {}, 'Antenna or dummy load is connected.'), ' The fox transmits within seconds of rebooting, and keying the module with nothing on the RF connector can damage it.')),
       h('div.tools', {}, h('button.btn.primary', { disabled: !ready, onclick: e => deploy(e.currentTarget) }, busy ? 'Writing…' : 'Write to board and reboot'),
         h('button.btn', { disabled: !!blocking.length || busy, title: 'Download the same files as a zip, to copy onto a board by hand (Thonny or a CIRCUITPY drive)', onclick: exportZip }, 'Export deploy set (.zip)'),
         !app.connected ? h('span.hint', {}, 'Connect a board to write, or export the zip.') : transportWhy ? h('span.hint.err', {}, transportWhy) : blocking.length ? h('span.hint.err', {}, 'Fix the blocking checks above.') : overrides.length ? h('span.hint.err', {}, `${overrides.length} out-of-band override${overrides.length === 1 ? '' : 's'} — you will be asked to confirm.`) : null),
       lastResult ? resultBox(lastResult) : null),
+    fleetRecordCard(),
     h('div.card', {}, h('h3', {}, 'Save as profile'),
       h('p.hint', {}, 'Keep this whole configuration under a name so it can be loaded onto the next fox in a couple of clicks (Profiles & fleet tab). Saving here does not write anything to the board.'),
       (() => { const nameIn = h('input', { type: 'text', value: cfg.fleet?.profile || '', placeholder: 'Fox 3 — 146.565 — W1ABC/3', style: 'flex:1;min-width:220px' });

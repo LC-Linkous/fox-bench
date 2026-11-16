@@ -9,6 +9,17 @@ export const WIFI24_CHANNELS = Array.from({ length: 13 }, (_, i) => i + 1);
 export const WIFI5_CHANNELS = [36, 40, 44, 48, 149, 153, 157, 161, 165];
 export const WIFI_POWER_DBM = [2, 5, 7, 8.5, 11, 13, 15, 17, 18.5, 19, 19.5];
 export const BLE_POWER_DBM = [-12, -9, -6, -3, 0, 3, 6, 9];
+export const MAX_PROBE_SSIDS = 8;
+/** The 2.4 GHz channels a region allows an access point: what `channels: "any"` means on the page (the validator's "any" is the 1–11 everyone shares). */
+export const WIFI24_BY_REGION = { US: WIFI24_CHANNELS.slice(0, 11), EU: WIFI24_CHANNELS.slice(0, 13) };
+export const TLM_FIELDS = { batt_mv: [0, 65535], temp_c: [-128, 127.99], count: [0, 4294967295], uptime_s: [0, 429496729] };
+const tlmDataOk = x => !!x && typeof x === 'object' && !Array.isArray(x) && Object.entries(x).every(([k, v]) => k in TLM_FIELDS && isNum(v) && v >= TLM_FIELDS[k][0] && v <= TLM_FIELDS[k][1]);
+const variablePowerOk = (x, kind) => {
+  if (x === null) return true;
+  if (!x || typeof x !== 'object' || Object.keys(x).sort().join() !== 'max_dbm,min_dbm,per,slot_s') return false;
+  const steps = kind === 'ble' ? BLE_POWER_DBM : WIFI_POWER_DBM;
+  return isNum(x.min_dbm) && isNum(x.max_dbm) && steps.includes(x.min_dbm) && steps.includes(x.max_dbm) && x.min_dbm < x.max_dbm && ['wake', 'slot'].includes(x.per) && isInt(x.slot_s) && x.slot_s >= 2 && x.slot_s <= 600;
+};
 export const MAX_NAME = 32, MAX_PSK = 63, PLACEHOLDER = 'N0CALL';
 export const NET_PINS = ['led', 'batt_sense'];   // optional, both: a network fox has no module to wire
 export { randomMac };
@@ -63,8 +74,21 @@ export function validate(user, defaults, board) {
       const band5 = !!radios && radios.includes('wifi5');
       if (isInt(n.channel) && (WIFI24_CHANNELS.includes(n.channel) || (band5 && WIFI5_CHANNELS.includes(n.channel)))) cfg.net.channel = n.channel; else bad('net.channel', '1-13' + (band5 ? ' or a 5 GHz channel' : ''));
     }
+    if (!('channels' in cfg.net)) cfg.net.channels = [];
+    if ('channels' in n) {
+      const band5 = !!radios && radios.includes('wifi5'), v = n.channels;
+      if (v === 'any') cfg.net.channels = WIFI24_CHANNELS.slice(0, 11);           // the channels every region allows
+      else if (Array.isArray(v) && v.length <= 13 && new Set(v).size === v.length && v.every(x => isInt(x) && (WIFI24_CHANNELS.includes(x) || (band5 && WIFI5_CHANNELS.includes(x))))) cfg.net.channels = v.slice();
+      else bad('net.channels', '"any" or up to 13 distinct channels');
+    }
     if ('hidden' in n) { if (typeof n.hidden === 'boolean') cfg.net.hidden = n.hidden; else bad('net.hidden', 'bool'); }
     if ('max_clients' in n) { if (isInt(n.max_clients) && n.max_clients >= 1 && n.max_clients <= 8) cfg.net.max_clients = n.max_clients; else bad('net.max_clients', '1-8'); }
+  }
+  if (kind === 'wifi-probe') {
+    if (!('probe_ssids' in cfg.net)) cfg.net.probe_ssids = [];
+    if (!('probe_ssid_s' in cfg.net)) cfg.net.probe_ssid_s = 0;
+    if ('probe_ssids' in n) { if (namesOk(n.probe_ssids, MAX_PROBE_SSIDS, MAX_NAME) && new Set(n.probe_ssids).size === n.probe_ssids.length) cfg.net.probe_ssids = n.probe_ssids.slice(); else bad('net.probe_ssids', `up to ${MAX_PROBE_SSIDS} distinct names of 1-${MAX_NAME} bytes`); }
+    if ('probe_ssid_s' in n) { if (isInt(n.probe_ssid_s) && n.probe_ssid_s >= 0 && n.probe_ssid_s <= 600) cfg.net.probe_ssid_s = n.probe_ssid_s; else bad('net.probe_ssid_s', '0-600 s'); }
   }
   if (kind === 'ble') {
     if ('name' in n) { if (typeof n.name === 'string' && blen(n.name) >= 1 && blen(n.name) <= MAX_NAME) cfg.net.name = n.name; else bad('net.name', '1-32 bytes'); }
@@ -98,14 +122,14 @@ export function validate(user, defaults, board) {
     if (!u[sec] || typeof u[sec] !== 'object' || Array.isArray(u[sec])) { bad(sec, 'object'); continue; }
     const base = cfg[sec] && typeof cfg[sec] === 'object' ? cfg[sec] : structuredClone(FEATURE_DEFAULTS[sec]);
     cfg[sec] = base;
-    validateFeature(sec, u[sec], base, bad, radios);
+    validateFeature(sec, u[sec], base, bad, radios, cfg.net.kind);
   }
   const cpv = cfg.checkpoint;
   if (cpv && cpv.enabled && cpv.portal.enabled && cfg.schedule.sleep === 'deep') { bad('schedule.sleep', 'deep sleep would drop a hunter mid-page; off'); cfg.schedule.sleep = 'off'; }
 
   const l = u.led && typeof u.led === 'object' ? u.led : {};
   if ('enabled' in l) { if (typeof l.enabled === 'boolean') cfg.led.enabled = l.enabled; else bad('led.enabled', 'bool'); }
-  if (u.fleet && typeof u.fleet === 'object') for (const [k, v] of Object.entries(u.fleet)) if (k in cfg.fleet && (v === null || typeof v === 'string' || typeof v === 'number')) cfg.fleet[k] = v;
+  if (u.fleet && typeof u.fleet === 'object') for (const [k, v] of Object.entries(u.fleet)) if ((k in cfg.fleet || k === 'owner') && (v === null || typeof v === 'string' || typeof v === 'number')) cfg.fleet[k] = v;
 
   const status = report.length ? `partial(${report.map(x => x.key).join(',')})` : 'ok';
   return { cfg, report, fatal: null, status };
@@ -113,7 +137,7 @@ export function validate(user, defaults, board) {
 
 export const FEATURES = ['payload', 'checkpoint', 'sense', 'stealth'];
 export const FEATURE_DEFAULTS = {
-  payload: { enabled: false, kind: 'static', names: [], morse_of: '', code: { major: 0, minor: 0 }, eddystone: { url: '', tlm: false }, split: { wifi: '', ble: '' }, interleave_ms: 1000 },
+  payload: { enabled: false, kind: 'static', names: [], morse_of: '', code: { major: 0, minor: 0 }, eddystone: { url: '', tlm: false, tlm_data: {} }, split: { wifi: '', ble: '' }, interleave_ms: 1000 },
   checkpoint: { enabled: false,
     portal: { enabled: false, title: '', body: '', code: '', ask_callsign: true, captive_dns: true, log: true },
     ble: { enabled: false, service_uuid: 'F0B0F0B0-0000-4000-8000-0000000000C0', code: '' } },
@@ -121,7 +145,7 @@ export const FEATURE_DEFAULTS = {
     tags: { enabled: false, match: 'HUNT-', log: true, rssi_min: -80 },
     relay: { enabled: false, wait_for: '', then: 'up' },
     probes: { enabled: false, channel: 6, window_s: 2 } },
-  stealth: { enabled: false, rotate_mac: false, rotate_name: false, duty_jitter_s: 0, start: { after_s: 0, at: '' }, decoys: [], ble_only: false },
+  stealth: { enabled: false, rotate_mac: false, rotate_name: false, duty_jitter_s: 0, start: { after_s: 0, at: '' }, decoys: [], ble_only: false, variable_power: null },
 };
 export const MAX_NAMES = 16, MAX_DECOYS = 4, MAX_BODY = 512, MAX_URL = 64, MAX_CODE = 16;
 /** Which foxlib first runs each section (the page says "accepted, not built" until then). */
@@ -133,7 +157,7 @@ const uuidOk = s => typeof s === 'string' && s.split('-').map(p => p.length).joi
 const isoOrEmpty = v => typeof v === 'string' && (v === '' || (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(v) && v.length <= 32));
 const isBool = x => typeof x === 'boolean';
 
-function validateFeature(sec, u, cfg, bad, radios) {
+function validateFeature(sec, u, cfg, bad, radios, kind = null) {
   const key = (path, ok, reason, val) => { if (ok) { const parts = path.split('.'); let d = cfg; for (const p of parts.slice(0, -1)) d = d[p]; d[parts.at(-1)] = val; } else bad(sec + '.' + path, reason); };
   const sub = (name, spec) => {
     if (!(name in u)) return;
@@ -151,7 +175,8 @@ function validateFeature(sec, u, cfg, bad, radios) {
     plain('names', x => namesOk(x, MAX_NAMES, MAX_NAME), `up to ${MAX_NAMES} names of 1-${MAX_NAME} bytes`);
     plain('morse_of', x => strMax(x, 16), '<= 16 chars');
     sub('code', { major: [x => isInt(x) && x >= 0 && x <= 65535, '0-65535'], minor: [x => isInt(x) && x >= 0 && x <= 65535, '0-65535'] });
-    sub('eddystone', { url: [x => strMax(x, MAX_URL) && (x === '' || x.startsWith('http://') || x.startsWith('https://')), `http(s) URL <= ${MAX_URL} chars`], tlm: [isBool, 'bool'] });
+    sub('eddystone', { url: [x => strMax(x, MAX_URL) && (x === '' || x.startsWith('http://') || x.startsWith('https://')), `http(s) URL <= ${MAX_URL} chars`], tlm: [isBool, 'bool'],
+      tlm_data: [tlmDataOk, 'batt_mv 0-65535, temp_c -128-127, count / uptime_s unsigned 32-bit'] });
     sub('split', { wifi: [x => strMax(x, MAX_NAME), '<= 32 bytes'], ble: [x => strMax(x, 29), '<= 29 bytes'] });
     plain('interleave_ms', x => isInt(x) && x >= 100 && x <= 10000, '100-10000 ms');
     if (cfg.kind === 'rotate' && !cfg.names.length) { bad(sec + '.names', 'rotate needs at least one name'); cfg.kind = 'static'; }
@@ -169,7 +194,8 @@ function validateFeature(sec, u, cfg, bad, radios) {
     sub('probes', { enabled: [isBool, 'bool'], channel: [x => isInt(x) && x >= 1 && x <= 13, '1-13'], window_s: [x => isInt(x) && x >= 1 && x <= 10, '1-10 s'] });
     if (cfg.relay.enabled && !cfg.relay.wait_for) { bad(sec + '.relay.wait_for', 'relay needs a network name'); cfg.relay.enabled = false; }
   } else if (sec === 'stealth') {
-    for (const k of ['rotate_mac', 'rotate_name', 'duty_jitter_s', 'start', 'decoys', 'ble_only']) known.add(k);
+    for (const k of ['rotate_mac', 'rotate_name', 'duty_jitter_s', 'start', 'decoys', 'ble_only', 'variable_power']) known.add(k);
+    plain('variable_power', x => variablePowerOk(x, kind), 'null or {min_dbm, max_dbm (power steps, min < max), per: wake|slot, slot_s 2-600}');
     plain('rotate_mac', x => x === false || ['per-cycle', 'per-boot'].includes(x), 'false|per-cycle|per-boot');
     plain('rotate_name', isBool, 'bool');
     plain('duty_jitter_s', x => isInt(x) && x >= 0 && x <= 300, '0-300 s');
@@ -215,6 +241,11 @@ export function checks(cfg, board, { clockSet = false } = {}) {
   if (cp?.enabled && cp.portal?.enabled && cfg.net.psk) issues.push({ level: 'warn', key: 'net.psk', msg: 'a sign-in page on a password-protected network: hunters would need the PSK first (open is the usual choice)' });
   if (cp?.enabled && cp.ble?.enabled && !radios.includes('ble') && radios.length) issues.push({ level: 'err', key: 'checkpoint.ble.enabled', msg: `${board.name} has no BLE radio` });
   if (cp?.enabled && !cp.portal?.enabled && !cp.ble?.enabled) issues.push({ level: 'warn', key: 'checkpoint.enabled', msg: 'checkpoint is on but neither the sign-in page nor the BLE service is' });
+  // what varies per wake (phase G)
+  if (cfg.net.kind === 'wifi-probe' && cfg.net.probe_ssids?.length && pl?.enabled && pl.kind !== 'static') issues.push({ level: 'warn', key: 'net.probe_ssids', msg: 'the probe list and the payload names both choose the network sought; the list wins each wake' });
+  if (cfg.net.kind === 'wifi-probe' && cfg.net.probe_ssids?.length && cfg.id.use_callsign_as_name) issues.push({ level: 'warn', key: 'net.probe_ssids', msg: 'the callsign is the name on the air, but the probe list replaces it each wake' });
+  if (cfg.net.kind === 'wifi-ap' && cfg.net.channels?.length === 1) issues.push({ level: 'info', key: 'net.channels', msg: `one channel in the per-wake list is a fixed channel ${cfg.net.channels[0]}` });
+  if (st?.enabled && st.variable_power && st.variable_power.per === 'slot' && cfg.net.kind === 'ble' && st.variable_power.slot_s < 5) issues.push({ level: 'warn', key: 'stealth.variable_power', msg: 'BLE restarts advertising at every power change; under 5 s a scanner may miss the beacon' });
   if (se?.enabled && se.tags?.enabled && !radios.includes('ble') && radios.length) issues.push({ level: 'err', key: 'sense.tags.enabled', msg: `${board.name} has no BLE radio to hear tags with` });
   if (se?.enabled && se.tags?.enabled) issues.push({ level: 'info', key: 'sense.tags.enabled', msg: 'needs one BLE tag per team, named ' + (se.tags.match || 'HUNT-') + '<team>' });
   if (se?.enabled && (se.probes?.enabled || se.relay?.enabled) && !radios.includes('wifi24') && radios.length) issues.push({ level: 'err', key: 'sense.enabled', msg: `${board.name} has no Wi-Fi radio` });
@@ -236,7 +267,7 @@ export function checks(cfg, board, { clockSet = false } = {}) {
   if (cfg.schedule.sleep === 'deep') issues.push({ level: 'info', key: 'schedule.sleep', msg: `deep sleep: the USB port disappears for ${cfg.schedule.sleep_s} s each cycle (Listen only reconnects when it returns); a power bank with auto-off will cut the fox off` });
   // a network fox need not identify on the air (a Part 15 device): the placeholder blocks only when it would be the name
   if (!idOk(cfg) && cfg.id.use_callsign_as_name) issues.push({ level: 'err', key: 'id.callmessage', msg: 'the callsign is the name on the air, but it is the N0CALL placeholder' });
-  else if (!idOk(cfg)) issues.push({ level: 'warn', key: 'id.callmessage', msg: 'no operator recorded (N0CALL placeholder): allowed for a network fox, but the fleet log will not say whose fox this is' });
+  else if (!idOk(cfg)) issues.push({ level: 'warn', key: 'id.callmessage', msg: cfg.fleet?.owner ? `no callsign (N0CALL placeholder): allowed for a network fox; the fleet log records ${cfg.fleet.owner} as the operator` : 'no operator recorded (N0CALL placeholder): allowed for a network fox, but the fleet log will not say whose fox this is beyond its chip uid — fill in Operator on the ID tab' });
   if (cfg.id.use_callsign_as_name && !/^[A-Z0-9]{3,}/.test(cfg.id.callmessage)) issues.push({ level: 'info', key: 'id.use_callsign_as_name', msg: 'the name on the air is the callsign field as typed' });
   return issues;
 }

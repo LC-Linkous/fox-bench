@@ -7,6 +7,7 @@
 #   code              iBeacon major/minor when either is non-zero (a checkpoint number, a grid reference)
 #   eddystone.url     an Eddystone-URL frame beside the iBeacon one (the phone offers to open it)
 #   eddystone.tlm     an Eddystone-TLM frame: battery mV, temperature, advertising count, uptime
+#   eddystone.tlm_data  any of those four fields replaced by a fixed number: the telemetry carries a clue
 #   interleave_ms     how often the BLE advertisement switches to the next frame while the radio is up
 #   split             a clue in two halves: this fox also runs its other radio with the other half as the name
 #
@@ -162,7 +163,8 @@ class Payload:
                     batt = int(b.read() * 1000)
             except Exception:
                 pass
-            return eddystone_tlm_frame(batt, None, self.adv_count, time.monotonic())
+            d = self.cfg["eddystone"].get("tlm_data") or {}            # phase G: any field given carries a clue instead
+            return eddystone_tlm_frame(d.get("batt_mv", batt), d.get("temp_c"), d.get("count", self.adv_count), d.get("uptime_s", time.monotonic()))
         return f
 
     def _first_frame(self):

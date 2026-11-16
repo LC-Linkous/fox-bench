@@ -16,6 +16,7 @@
     "netpayload.py",
     "netradio.py",
     "netstealth.py",
+    "netvary.py",
     "radio.py",
     "schedule.py",
     "sstv.py",

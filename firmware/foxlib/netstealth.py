@@ -37,7 +37,7 @@ class Rng:
         return self.s
 
     def below(self, n):
-        return self.next() % n if n > 0 else 0
+        return (self.next() >> 16) % n if n > 0 else 0      # the high bits: an LCG's low bits barely move
 
 
 def random_mac(rng):

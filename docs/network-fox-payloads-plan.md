@@ -6,8 +6,9 @@ tab sets the clock, templates can declare `needs`, the simulator has the
 hooks and an `rtc` mock. **Phase B built** (page 0.11.0, foxlib 1.4.0):
 `netpayload.py`, the `puzzle-beacon` template, the card's on-the-air
 preview; bench steps 12–14 in `network-fox-bench.md`. **Phase C built**
-(page 0.12.0, foxlib 1.5.0): `netstealth.py`; bench steps 15–19. Phases
-D–E next.
+(page 0.12.0, foxlib 1.5.0): `netstealth.py`; bench steps 15–19. **Phase D
+built** (page 0.14.0, foxlib 1.7.0) — see "Status 2026-11-16" below for D
+and the second round of features (phases G, H, E′, J).
 Scope: the `net`-contract foxes (`wifi-beacon`, `wifi-probe`, `ble-beacon`
 on the chip targets). The FM foxes are untouched.
 
@@ -43,7 +44,7 @@ stealth    how hard it is to find       (5)   rotation, random duty, scheduled s
 
 Firmware: `netcfg.py` validates them (JS twin `netschema.js`, parity
 corpus), `netfox.py` runs them per cycle, new modules `netpayload.py`,
-`netserve.py`, `netsense.py`. Page: the **Payload** tab comes back for net
+`netcheckpoint.py`, `netsense.py`. Page: the **Payload** tab comes back for net
 foxes (today hidden) with the four cards; the Bench tab gains "Collect
 finds" and "Who is near". Simulator: mocks for `socketpool`, `wifi.Monitor`,
 BLE scanning; scenarios per feature. Each phase ends green on the full
@@ -137,27 +138,26 @@ checkpoint:
   ble:     { "enabled": true, "service_uuid": "…", "code": "4471" }
 ```
 
-- **Portal**: `adafruit_httpserver` vendored under `firmware/foxlib/vendor/`
-  (MIT; licence file alongside, noted in README/DESIGN). One page: title,
-  body (a safe Markdown subset rendered on the fox — headings, paragraphs,
-  bold, links — or plain text), the code, an optional callsign form.
-  **Captive DNS**: a ~40-line UDP responder answering every A query with the
-  fox's IP, so the phone pops its "sign in to network" sheet — that is the
-  whole UX, no app, no typing an address. Tested per phone OS on the bench;
-  `captive_dns: false` falls back to "open http://192.168.4.1".
+- **Portal**: our own minimal responder (decision 3): one page — title,
+  plain-text body, the code, an optional callsign form — served to every
+  GET. **Captive DNS**: a ~40-line UDP responder answering every A query
+  with the fox's IP, so the phone pops its "sign in to network" sheet —
+  that is the whole UX, no app, no typing an address. Tested per phone OS
+  on the bench; `captive_dns: false` falls back to "open http://192.168.4.1".
 - **Find log**: `finds.csv` on CIRCUITPY, one line per callsign submission
-  (`ms_since_boot, cycle, callsign, client_mac`), append-only, capped at
-  N lines. The page's Bench tab gains **Collect finds** (reads it over the
-  REPL, merges into the fleet log with the fox's uid, offers a CSV). This
-  is the "who found it and when" list a contest desk can use by hand; it
-  is **not** a scored find (see the foxdash note above).
+  (`fox_uid, template, cycle, ms_since_boot, callsign, client_mac`),
+  append-only, capped at 200 lines. The page's Bench tab gains **Collect
+  finds** (reads it over the REPL, merges into the fleet log with the fox's
+  uid, offers a CSV). This is the "who found it and when" list a contest
+  desk can use by hand; it is **not** a scored find (see the foxdash note
+  above).
 - **BLE service**: a connectable advertisement alongside the beacon
   (`_bleio.Service` + a read-only `Characteristic` carrying the code; a
   write characteristic for the callsign when `log` is on). Raw `_bleio`,
   no `adafruit_ble` dependency.
 - Scheduling: a portal fox keeps the radio up for the whole wake window
   (the duty cycle still applies); `schedule.sleep = deep` with a portal is
-  refused (the phone would lose the page mid-sheet).
+  refused by page and firmware (the phone would lose the page mid-sheet).
 - RAM: the C3 is the tight one; Phase D is tested on the C3 first and, if
   it does not fit, the portal is marked `radios: ["wifi24"]` + a
   `min_ram` note so the page offers it on S3/C6/C5 only.
@@ -177,6 +177,7 @@ sense:
   probes:  { "enabled": true, "channel": 6, "window_s": 2 }
            wifi.Monitor for a short window each cycle; counts probe requests (distinct senders) as a crude
            "hunters nearby" meter → banner line `near=<n>` and the LED pattern changes
+           (superseded by honeypot / crowd in Phase E′ below)
 ```
 
 - Hunter tags: what hunters carry is a decision (below). The fox side is
@@ -194,9 +195,9 @@ sense:
 
 ## Phase F — bench, docs, bridge
 
-- `docs/bench-runbook.md` gains a section per feature; hardware-log
+- The bench runbook gains a section per feature; hardware-log
   rows per board per feature; the templates' `boards_tested`.
-- `tools/hw_smoke.py` (not yet built): `--payload`, `--checkpoint` flags that exercise the
+- `tools/hw_smoke.py`: `--payload`, `--checkpoint` flags that exercise the
   portal with a Python client over the fox's AP (the laptop joins the AP),
   and the find log read-back.
 - **foxdash bridge (optional)**: the portal/BLE code becomes a rolling
@@ -212,7 +213,7 @@ sense:
 | A contract + scaffolding | firmware 150 · page 250 · sim 150 · tests | none (sim + demo) |
 | B payloads | firmware 200 · page 200 · sim 100 | C3 + phone (Wi-Fi list, nRF Connect) |
 | C stealth | firmware 120 · page 120 · sim 80 | C3 + phone; RTC check across deep sleep |
-| D checkpoint | firmware 350 + vendored lib · page 200 · sim 200 | C3 then S3 (RAM); iPhone and Android captive sheets |
+| D checkpoint | firmware 350 · page 200 · sim 200 | C3 then S3 (RAM); iPhone and Android captive sheets |
 | E sense | firmware 250 · page 150 · sim 150 | two boards + a tag; a chip with `wifi.Monitor` |
 | F bench + bridge | docs, tools | all boards |
 
@@ -247,3 +248,193 @@ per phase, page minor version per phase (0.10 → 0.14), foxlib 1.3 → 1.7.
    (`puzzle-beacon` shipped in phase B), in the Behavior tab's dropdown
    next to the three beacons on the chip targets (nowhere else); optgroups
    if the list grows past five.
+
+## Status 2026-11-16
+
+**Phase D built** (page 0.14.0, foxlib 1.7.0; patch 0123): `netcheckpoint.py`
+(portal, captive DNS, `finds.csv`, BLE service), the `checkpoint` template,
+*Collect finds*; runbook steps 20–26. Page 0.14.1 added `fleet.owner`
+(the Operator field) and the *Write safemode.py* switch. Phase E waits on
+the per-chip `wifi.Monitor` check. The hardware gates for 1.6 (watchdog,
+safe mode) and D (captive sheet on iPhone/Android, C3 RAM) are open.
+
+## Second round (decided 2026-11-16) — more options than a compiled-in fox
+
+Why: kitsune is an established, compiled-per-fox firmware whose operators
+keep their answers offline. The way to have *more* options than that is not
+one more fox type but behaviour that is **drawn at deploy and changes over
+the day**, so nothing about fox 3 follows from fox 2 and a watcher cannot
+enumerate what we might be doing. Chosen from the brainstorm:
+
+| area | decision |
+|---|---|
+| channel per wake, fixed list or any | **build** |
+| event sheet (assignment summary, exportable) | **build** |
+| mode rotation (AP / probe / BLE across wakes) | **build** |
+| variable power (tx power drawn per wake or per slot) | **build** |
+| shell game (foxes trade identities on a schedule) | **build** |
+| probe-client SSID lists | **build** |
+| data in Eddystone-TLM | **build** |
+| honeypot log, crowd control, stop after N finds | **build** (sense / checkpoint) |
+| Net → FM handoff | **build** (page-level, with the sheet) |
+| personas by time of day, identity pools + shuffle | **shelved**: too much to keep track of at an event |
+| rotating / first-N codes, riddle tree, PSK chaining, hot/cold, gating | **not now** (rotating code stays the Phase F bridge) |
+
+Hunter verification (keyphrase, keyword sheets) is a game/venue matter and
+is not part of the firmware or the page.
+
+### Phase G — channels, probe lists, power variation, TLM data, the sheet
+
+Small contract additions, one patch.
+
+```
+net:
+  channel:      6                      as today (fixed)
+  channels:     [] | [1, 6, 11] | "any"   wifi-ap: one drawn per wake from the list ("any" = every channel the
+                                        board's region allows, from the catalog); [] = channel as fixed
+  probe_ssids:  []                     wifi-probe: several networks sought in turn (one per wake, or within the wake
+                                        every probe_ssid_s seconds); [] = net.ssid only
+  probe_ssid_s: 0                      0 = one per wake
+stealth:
+  variable_power: { "min_dbm": 2, "max_dbm": 13, "per": "wake" | "slot", "slot_s": 10 }
+                                        tx power drawn per wake, or re-drawn every slot_s inside the wake;
+                                        null = fixed net.tx_power_dbm.  (named 2026-11-16: "variable power")
+payload:
+  eddystone:    { "tlm": true, "tlm_data": { "batt_mv": 1234, "temp_c": 42.0, "count": 7, "uptime_s": 1965 } }
+                                        any field given replaces the measured one; the TLM frame carries a clue
+                                        (a phone's beacon scanner shows the fields as numbers)
+```
+
+- Draws seed from chip uid + cycle (as in C) so the fleet does not hop in
+  lockstep and the simulator is deterministic. Log lines per wake:
+  `channel this cycle 6`, `tx power this cycle 8 dBm`, `probing for <ssid>`.
+- Region: `channels: "any"` resolves at validation from the target's region
+  (FCC 1–11 / ETSI 1–13); the firmware receives the resolved list.
+- Page: Radio tab — channel chips under the channel field; probe SSID list
+  editor (one per line, byte counter); Stealth card — power variation
+  fields with a hint on RSSI-only hunting; Payload card — TLM data fields.
+  The on-air preview says "ch 1/6/11, one per wake", "power 2–13 dBm".
+- **Event sheet**: at deploy, each fleet row gets an `on_air` column — a
+  compact summary of what a hunter can observe plus the code: name/SSID (or
+  the rotation), MAC (or "per cycle"), channel(s), probe list, iBeacon
+  UUID/major/minor, payload kind, Eddystone frames, schedule, portal code,
+  owner, points_to (Phase J). The Fleet tab gains **Event sheet**: the
+  latest deploy row per chip uid, one line per fox, filtered by
+  `fleet.event`, with *Export CSV* and a print view (a plain table that
+  fits a page). Regenerable from the fleet log alone — a laptop with the
+  log prints the sheet without the boards. It is the field document; the
+  fleet log stays the audit trail. No keyphrases, no passwords: there are
+  none.
+- Sim: `net_contains` for the channel/power/probe lines; distinct-channel
+  and distinct-power counts over N cycles; TLM golden with overridden
+  fields. Schema corpus +8.
+
+### Phase H — mode rotation and the shell game
+
+Bigger: a fox becomes several foxes over time.
+
+```
+stealth:
+  modes:        [] | ["wifi-ap", "wifi-probe", "ble"]   the radio kind per wake, in order ("random": drawn);
+                                                         [] = net.kind only. Needs the hardware's radios.
+  shell_game:   { "identities": [ { "name": "FOX-A", "mac": "F2:..." }, ... ], "period_s": 1800, "index": 0 }
+                                        every period_s (board clock) each fox advances one identity: fox with
+                                        index i shows identities[(i + floor(clock / period_s)) % n]. Every fox in
+                                        the game carries the same list and period; index is its seat.
+```
+
+- **Mode rotation**: the fox keeps one radio object per kind
+  (`netradio.make` for each in `modes` at setup; RAM check on the C3 —
+  AP + BLE already run together in a split clue). `before_up` picks the
+  kind for the cycle; the payload/checkpoint/stealth hooks already branch
+  on `fox.radio.kind`, so they follow. The name for each kind comes from
+  the existing fields (`net.ssid`, `net.name`, `probe_ssids`).
+- **Shell game**: needs the board clock (template `needs`: *set the board
+  clock at deploy*, blocking without it — same rule as `start.at`). The
+  page's Fleet tab gets a **Shell game** helper: pick the foxes, enter the
+  identities (name + MAC per seat, MACs generated), period; *Deploy fleet*
+  writes the same list to each with its seat index; the sheet prints the
+  rotation table (which fox shows which name when). Deep sleep keeps the
+  RTC; drift across a day is minutes at most, fine for a 30-minute period.
+- Page checks: `modes` entries the hardware lacks → error; shell game with
+  `payload.kind = rotate` or `stealth.rotate_mac` → error (two things
+  changing the name/MAC); shell game without the clock → error.
+- Sim: a two-fox scenario (two runs of the same list with seats 0 and 1,
+  same clock) proving the names never collide at any time; mode rotation
+  scenario with `net_events` per kind.
+
+### Phase E′ — sense, revised (honeypot, crowd control) + stop after N finds
+
+Replaces the `probes` item of Phase E with what was chosen; `tags` and
+`relay` stay as written.
+
+```
+sense:
+  honeypot: { "enabled": true, "log": true }     wifi-ap: every station that joins (wifi.radio.stations_ap — MAC,
+                                                  RSSI, time) → near.csv kind=join. With wifi.Monitor on the chip:
+                                                  probe requests for our SSIDs too → kind=probe (not on chips
+                                                  without it; the card says which)
+  crowd:    { "enabled": true, "max": 8, "quiet_s": 120, "window_s": 3 }
+                                                  a BLE scan each cycle counts distinct advertisers above rssi_min;
+                                                  more than max → the fox goes quiet for quiet_s (radio down, LED
+                                                  'armed' pattern) so a swarm following one team gets nothing.
+                                                  BLE scanning exists on every chip; Wi-Fi probe counting only
+                                                  where wifi.Monitor does.
+checkpoint:
+  stop_after_finds: 0                             0 = never; N = after the N-th callsign logged this boot the fox
+                                                  goes silent (radio down, LED 'done' = long slow blink) until
+                                                  power-cycled; the console says so; the sheet shows N
+  stop_at:          null | "2026-08-08T16:00:00"   the same silence at a wall-clock time (board clock, set at
+                                                  deploy; blocking without it, as start.at). The 'done' state is one
+                                                  mechanism with two triggers, so later designs (a finds quota per
+                                                  hour, a stop on a relay signal) reuse it.
+```
+
+- `near.csv`: `fox_uid, template, cycle, ms_since_boot, kind, mac, rssi,
+  name` (the finds format plus kind/rssi/name). Bench **Who is near**
+  reads it into the fleet log like finds.
+- Hardware gate: the `wifi.Monitor` check per chip (`import wifi;
+  hasattr(wifi, "Monitor")` at the REPL on C3, C5, C6, S3) decides whether
+  honeypot `kind=probe` is offered per target; `stations_ap` and BLE
+  scanning need no check.
+- Sim: `scenario.world.stations`, `.probes`, `.advertisers` (counts over
+  time) drive the mocks; crowd-control scenario proves quiet_s and the
+  return; stop-after-N scenario with the scripted phone.
+
+### Phase J — Net → FM handoff (page-level)
+
+No new firmware: both fleets already carry text. What is missing is the
+link and the fill-in.
+
+```
+fleet:
+  points_to:   "<chip uid or fleet board_number>"      the fox this one leads to (any family)
+```
+
+- Payload / portal / callmessage text accepts placeholders filled at
+  deploy from the target fox's profile: `{{to.freq}}` (an FM fox's first
+  frequency), `{{to.name}}` (a net fox's SSID / BLE name), `{{to.code}}`
+  (its portal code), `{{to.number}}`. A net fox's portal body "Next: listen
+  on {{to.freq}} MHz"; an FM fox's Morse `id.callmessage`
+  "… QSY {{to.name}}". Unfilled placeholders are a blocking check.
+- The sheet gets a `points to` column and prints the chain; the Fleet tab
+  draws it as a list (A → B → C), flags loops and dead ends.
+- Both directions: an FM fox pointing at a net fox and the reverse; a net
+  fox pointing at a net fox is the relay of Phase E by content instead of
+  radio.
+
+### Order and size (second round)
+
+| phase | new code (est.) | hardware gate |
+|---|---|---|
+| G channels, probe lists, power, TLM data, sheet | firmware 120 · page 350 · sim 100 | C3 + phone (channel seen changing; power on a scanner) |
+| H mode rotation, shell game | firmware 200 · page 250 · sim 150 | two boards + clock; RAM on the C3 with three radios |
+| E′ honeypot, crowd, stop-after-N | firmware 220 · page 150 · sim 150 | per-chip wifi.Monitor answer; a phone to join; a few BLE advertisers |
+| J handoff | page 150 | none (sim + demo); then one FM + one net fox |
+
+G first (the sheet is wanted for every later phase and adds columns as
+they land), then J (cheap, page-only, exercises the sheet), then H, then
+E′ when the Monitor answers are in. One patch per phase; page 0.15 → 0.18,
+foxlib 1.8 → 1.10.
+
+Named 2026-11-16: *variable power* (`stealth.variable_power`). `checkpoint.stop_at` added beside `stop_after_finds`. Nothing open before G.

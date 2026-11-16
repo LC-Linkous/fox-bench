@@ -2,7 +2,7 @@
 // on a duty cycle. Contract: js/model/netschema.js (firmware twin foxlib/netcfg.py).
 // SPDX-License-Identifier: GPL-2.0-only
 import { h, field, select, numInput, check, badge } from './dom.js';
-import { WIFI24_CHANNELS, WIFI5_CHANNELS, WIFI_POWER_DBM, BLE_POWER_DBM, MAX_NAME, MAX_NAMES, MAX_DECOYS, MAX_BODY, MAX_URL, MAX_CODE, FEATURES, FEATURE_DEFAULTS, FEATURE_PHASE, randomMac, displayName, cycle, nameForCycle } from '../model/netschema.js';
+import { WIFI24_CHANNELS, WIFI5_CHANNELS, WIFI_POWER_DBM, BLE_POWER_DBM, WIFI24_BY_REGION, MAX_PROBE_SSIDS, TLM_FIELDS, MAX_NAME, MAX_NAMES, MAX_DECOYS, MAX_BODY, MAX_URL, MAX_CODE, FEATURES, FEATURE_DEFAULTS, FEATURE_PHASE, randomMac, displayName, cycle, nameForCycle } from '../model/netschema.js';
 import { TABLE as MORSE } from '../audio/morse.js';
 
 let app;
@@ -37,6 +37,7 @@ export function renderRadio(root) {
       h('div.two-col', {},
         field('Channel', select(chans, n.channel, v => { n.channel = Number(v); app.changed('radio'); }), radios.includes('wifi5') ? 'this board has 5 GHz; 5 GHz AP support in CircuitPython on this chip is unverified' : '1–13; 1, 6 and 11 do not overlap'),
         field('Transmit power', select(WIFI_POWER_DBM.map(p => [p, `${p} dBm`]), n.tx_power_dbm, p => { n.tx_power_dbm = Number(p); app.changed('radio'); }), 'the chip\'s power steps; lower is harder to find')),
+      channelChips(n, radios),
       h('div.two-col', {},
         check('Hidden SSID', n.hidden, v => { n.hidden = v; app.changed('radio'); }, 'not possible with this firmware (noted here and in the fox\'s banner)'),
         field('Max clients', numInput(n.max_clients, { min: 1, max: 8, step: 1, onchange: v => { n.max_clients = v; app.changed('radio'); } }), 'how many may join at once')),
@@ -45,6 +46,8 @@ export function renderRadio(root) {
     main = h('div', {},
       field('Network it looks for (SSID)', cfg.id.use_callsign_as_name ? h('input', { type: 'text', value: name, disabled: true, style: 'width:100%' }) : text(n, 'ssid', { max: MAX_NAME }), 'the fox keeps trying to join this network, which does not exist: its probe requests carry the name and the MAC, which a sniffer sees. It never connects to anything.'),
       field('Transmit power', select(WIFI_POWER_DBM.map(p => [p, `${p} dBm`]), n.tx_power_dbm, p => { n.tx_power_dbm = Number(p); app.changed('radio'); })),
+      lines(n, 'probe_ssids', 'Other networks it looks for', MAX_PROBE_SSIDS, MAX_NAME, 'A list: the fox probes for one of these per wake instead of the SSID above (drawn at random), or walks the list inside each wake with the interval below. A sniffer sees several networks sought from one MAC.', 'radio'),
+      (n.probe_ssids || []).length ? field('Change network every', h('div.row', {}, numInput(n.probe_ssid_s, { min: 0, max: 600, step: 1, width: '110px', onchange: v => { n.probe_ssid_s = Math.round(v); app.changed('radio'); } }), h('span.suffix', {}, 's')), n.probe_ssid_s ? `inside each wake the fox probes for the next name every ${n.probe_ssid_s} s, in list order` : '0 = one name per wake, drawn at random') : null,
       macField(n));
   } else {
     main = h('div', {},
@@ -111,6 +114,8 @@ export function renderId(root) {
     h('div.card', {}, h('h3', {}, 'Callsign / operator'),
       field('callmessage', callInput, 'Who is responsible for this fox. A network fox sends no Morse; this is the fleet record and, if ticked below, the name on the air. With the placeholder the fox still runs under its own name (a Part 15 device need not identify); it is refused only when the placeholder would be the name on the air.'),
       check('Use the callsign as the SSID / BLE name', d.use_callsign_as_name, v => { d.use_callsign_as_name = v; app.changed('id'); }, `on the air as "${name}". Untick to use the name on the Radio tab (a contest will usually want its own name).`),
+      field('Operator (recorded only)', (() => { const f = app.cfg.fleet || (app.cfg.fleet = {}); const i = h('input', { type: 'text', value: f.owner || '', maxlength: 32, spellcheck: 'false', placeholder: 'KY4ZR', style: 'width:100%;text-transform:uppercase' }); i.addEventListener('change', () => { f.owner = i.value.toUpperCase().trim(); app.changed('id'); }); return i; })(),
+        'Whose fox this is, when the callsign above is left at the placeholder or is not yours: written to fox.json (fleet.owner) and to the fleet log\'s owner column, never on the air. The fleet log keys every fox by its chip uid either way.'),
       issueList('id')),
     h('div.card', {}, h('h3', {}, 'On the air'),
       h('dl.kv', {}, h('dt', {}, 'Name'), h('dd.mono', {}, name || '—'), h('dt', {}, 'MAC'), h('dd.mono', {}, app.cfg.net.mac || '—'), h('dt', {}, 'Cycle'), h('dd', {}, `${app.cfg.schedule.wake_s} s on, ${app.cfg.schedule.sleep_s} s ${app.cfg.schedule.sleep === 'deep' ? 'deep sleep' : 'off'}`)),
@@ -158,12 +163,51 @@ const fld = (obj, key, label, opts, hint) => field(label, text(obj, key, opts, '
 const num = (obj, key, label, { min, max, width = '110px' }, hint) => field(label, numInput(obj[key], { min, max, step: 1, width, onchange: v => { obj[key] = Math.round(v); app.changed('payload'); } }), hint);
 const chk = (obj, key, label, hint) => check(label, obj[key], v => { obj[key] = v; app.changed('payload'); }, hint);
 const sel = (obj, key, label, options, hint) => field(label, select(options, obj[key], v => { obj[key] = v; app.changed('payload'); }), hint);
-const lines = (obj, key, label, max, each, hint) => {
+const lines = (obj, key, label, max, each, hint, tab = 'payload') => {
   const ta = h('textarea', { rows: Math.min(6, Math.max(3, (obj[key] || []).length + 1)), style: 'width:100%;font-family:var(--mono)', spellcheck: 'false' }, (obj[key] || []).join('\n'));
-  ta.addEventListener('change', () => { obj[key] = ta.value.split('\n').map(x => x.trim()).filter(Boolean); app.changed('payload'); });
+  ta.addEventListener('change', () => { obj[key] = ta.value.split('\n').map(x => x.trim()).filter(Boolean); app.changed(tab); });
   const over = (obj[key] || []).filter(x => blen(x) > each).length;
   return field(label, ta, `${hint} One per line, up to ${max}; each 1–${each} bytes.${over ? ` ${over} over ${each} bytes.` : ''}`);
 };
+
+/** The AP's channel per wake: chips for every channel the board can use; a list of one or more means "drawn per wake". */
+function channelChips(n, radios) {
+  const list = n.channels || [];
+  const all = [...WIFI24_CHANNELS, ...(radios.includes('wifi5') ? WIFI5_CHANNELS : [])];
+  const region = WIFI24_BY_REGION[app.region] || WIFI24_BY_REGION.US;
+  const set = v => { n.channels = v; app.changed('radio'); };
+  const chip = c => h('button.btn.small', { class: list.includes(c) ? 'btn small primary' : 'btn small', title: c > 14 ? `${c} (5 GHz)` : `channel ${c}`, onclick: () => set(list.includes(c) ? list.filter(x => x !== c) : [...list, c].sort((a, b) => a - b)) }, String(c));
+  return field('Channel per wake', h('div', {},
+    h('div.row', { style: 'flex-wrap:wrap;gap:4px' }, ...all.map(chip)),
+    h('div.row', { style: 'gap:6px;margin-top:6px' },
+      h('button.btn.small', { onclick: () => set(region.slice()) }, `any (${app.region}: 1–${region.length})`),
+      h('button.btn.small', { onclick: () => set([1, 6, 11]) }, '1 / 6 / 11'),
+      h('button.btn.small', { onclick: () => set([]) }, 'fixed'))),
+    list.length ? `one of ${list.join(', ')} drawn each wake (seeded by this chip, so a fleet does not hop together); the fixed channel above is unused` : 'none selected: the fixed channel above, every wake. Pick channels for a fox that moves, or "any" for every channel this region allows');
+}
+
+/** stealth.variable_power: tx power drawn from the kind's steps between min and max, per wake or per slot. */
+function variablePower(c, kind) {
+  const steps = kind === 'ble' ? BLE_POWER_DBM : WIFI_POWER_DBM;
+  const vp = c.variable_power;
+  const on = v => { c.variable_power = v ? { min_dbm: steps[0], max_dbm: steps[Math.min(steps.length - 1, 5)], per: 'wake', slot_s: 10 } : null; app.changed('payload'); };
+  const setv = (k, v) => { vp[k] = v; if (vp.min_dbm >= vp.max_dbm) { const i = steps.indexOf(vp.min_dbm); vp.max_dbm = steps[Math.min(steps.length - 1, i + 1)]; } app.changed('payload'); };
+  return h('div', {},
+    check('Variable power', !!vp, on, vp ? '' : 'transmit power drawn from the chip\'s steps each wake (or every few seconds), so signal strength alone says little about distance'),
+    vp ? h('div.two-col', {},
+      field('Between', h('div.row', {}, select(steps.map(p => [p, `${p} dBm`]), vp.min_dbm, v => setv('min_dbm', Number(v))), h('span.hint', {}, 'and'), select(steps.filter(p => p > vp.min_dbm).map(p => [p, `${p} dBm`]), vp.max_dbm, v => setv('max_dbm', Number(v)))), `${steps.filter(p => p >= vp.min_dbm && p <= vp.max_dbm).length} steps in range; the fixed power on the Radio tab is unused`),
+      field('Drawn', h('div.row', {}, select([['wake', 'once per wake'], ['slot', 'every N seconds while up']], vp.per, v => setv('per', v)), vp.per === 'slot' ? numInput(vp.slot_s, { min: 2, max: 600, step: 1, width: '90px', onchange: v => setv('slot_s', Math.round(v)) }) : null, vp.per === 'slot' ? h('span.suffix', {}, 's') : null), vp.per === 'slot' ? 'BLE restarts advertising at each change; Wi-Fi changes power live' : '')) : null);
+}
+
+/** payload.eddystone.tlm_data: the four telemetry fields, each either measured (blank) or a fixed number. */
+function tlmData(c) {
+  const d = c.eddystone.tlm_data || (c.eddystone.tlm_data = {});
+  const labels = { batt_mv: ['Battery (mV)', 'measured'], temp_c: ['Temperature (°C)', 'not supported → 0x8000'], count: ['Frame count', 'counted'], uptime_s: ['Uptime (s)', 'since boot'] };
+  const one = k => field(labels[k][0], h('div.row', {}, numInput(d[k] ?? '', { min: TLM_FIELDS[k][0], max: TLM_FIELDS[k][1], step: k === 'temp_c' ? 0.5 : 1, width: '130px', onchange: v => { d[k] = v; app.changed('payload'); } }),
+    k in d ? h('button.btn.small', { onclick: () => { delete d[k]; app.changed('payload'); } }, labels[k][1].split(' ')[0]) : null), k in d ? 'fixed: carries this number' : `blank = ${labels[k][1]}`);
+  return h('div', {}, h('p.hint', {}, 'Telemetry a beacon scanner shows as plain numbers. Leave a field blank for the real value, or set it: a code in the battery field, a grid square in the frame count.'),
+    h('div.two-col', {}, one('batt_mv'), one('temp_c')), h('div.two-col', {}, one('count'), one('uptime_s')));
+}
 
 function featureCard(sec, body) {
   const c = sect(sec), built = app.catalog.foxlibFeatures?.includes(sec);
@@ -197,6 +241,7 @@ export function renderPayload(root) {
     kind === 'ble' || ble ? h('div.two-col', {},
       fld(c.eddystone, 'url', 'Eddystone URL', { max: MAX_URL, placeholder: 'https://…' }, 'the phone offers to open it (≤ 64 chars; only http/https)'),
       chk(c.eddystone, 'tlm', 'Eddystone telemetry', 'battery, temperature, uptime, frame count — a fox that says how long it has been out')) : null,
+    (kind === 'ble' || ble) && c.eddystone.tlm ? tlmData(c) : null,
     wifi && ble ? h('div.two-col', {}, fld(c.split, 'wifi', 'Split clue — Wi-Fi half', { max: MAX_NAME }, 'an SSID a hunter needs together with…'), fld(c.split, 'ble', 'Split clue — BLE half', { max: 29 }, '…this BLE name')) : null);
   const checkpointBody = c => h('div', {},
     h('div.card', { style: 'margin-top:8px' }, chk(c.portal, 'enabled', 'Sign-in page (captive portal) on an open Wi-Fi network', wifi ? '' : 'needs a Wi-Fi radio'),
@@ -226,7 +271,8 @@ export function renderPayload(root) {
     h('div.two-col', {},
       num(c.start, 'after_s', 'Silent for', { min: 0, max: 86400 }, 's after power-on, then starts'),
       fld(c.start, 'at', 'Or silent until', { max: 32, mono: true, placeholder: '2026-08-08T09:00:00-04:00' }, 'needs the board clock set at deploy (Deploy tab)')),
-    lines(c, 'decoys', 'Decoy names', MAX_DECOYS, MAX_NAME, 'Extra SSIDs the fox cycles through for a few seconds each, so the list shows several.'));
+    lines(c, 'decoys', 'Decoy names', MAX_DECOYS, MAX_NAME, 'Extra SSIDs the fox cycles through for a few seconds each, so the list shows several.'),
+    variablePower(c, kind));
   root.replaceChildren(h('div', {},
     h('p.hint', {}, 'Each section is written into fox.json only while it is on. ', h('a', { href: 'docs/network-fox-payloads-plan.md', target: '_blank', rel: 'noopener' }, 'The plan'), ' says what each does and when its firmware lands.'),
     featureCard('payload', payloadBody), featureCard('checkpoint', checkpointBody), featureCard('sense', senseBody), featureCard('stealth', stealthBody)));

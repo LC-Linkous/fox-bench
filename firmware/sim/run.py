@@ -264,6 +264,9 @@ def check(template, scen, rec, err):
     for needle, n in exp.get("prints_count_max", {}).items():
         got = sum(1 for p in rec.prints if needle in p)
         if got > n: fails.append("%d print(s) containing %r, want <= %d" % (got, needle, n))
+    for needle, n in exp.get("prints_count_min", {}).items():
+        got = sum(1 for p in rec.prints if needle in p)
+        if got < n: fails.append("%d print(s) containing %r, want >= %d" % (got, needle, n))
     for ev, n in exp.get("net_events_min", {}).items():
         got = sum(1 for _, e, _ in getattr(rec, "net", []) if e == ev)
         if got < n:

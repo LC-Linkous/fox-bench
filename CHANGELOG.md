@@ -14,6 +14,47 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.15.0 · foxlib 1.8.0 · foxlib-c 0.1.11 — phase G: what varies per wake, and the event sheet
+
+Second round of contest features (plan, "Second round"); kitsune is a
+compiled-per-fox firmware, so the headroom is behaviour drawn at deploy
+and changing over the day.
+
+- **Channel per wake** — `net.channels`: a list (chips on the Radio tab,
+  *1 / 6 / 11*, *any* for the region's channels, *fixed* to clear), one
+  drawn per wake; `"any"` in a hand-written fox.json is 1–11.
+- **Probe-client SSID lists** — `net.probe_ssids` + `net.probe_ssid_s`:
+  several networks sought from one MAC, one per wake at random or the next
+  every N s inside the wake (which also means a fresh probe burst each
+  time, where the probe fox used to send one per wake).
+- **Variable power** — `stealth.variable_power {min_dbm, max_dbm, per
+  wake | slot, slot_s}`: tx power drawn from the kind's steps; Wi-Fi
+  changes live, BLE restarts advertising. The Stealth card has it.
+- **Data in TLM** — `payload.eddystone.tlm_data`: any of battery,
+  temperature, count, uptime fixed to a number so the telemetry carries a
+  clue; fields on the Payload card when telemetry is on.
+- All draws seed from the chip uid and the cycle (`netvary.py`); the
+  stealth RNG now uses its high bits (`Rng.below`), since an LCG's low bits
+  barely move — per-cycle MAC and name draws are better spread too.
+- **Event sheet** (Fleet tab): the latest deploy per chip uid, one line
+  per fox, filtered by event, with *Export CSV* and a *Print view*. Built
+  from the fleet log alone; each deploy row now carries `event` and an
+  `on_air` summary (new fleet-log columns, also in `tools/check_fleet.py`).
+  A **Fleet record** card on Deploy edits `fleet.number`, `event`,
+  `owner` and `notes`; the fox number becomes the row's `#`.
+- Folded in from 0124 (never pushed separately): **Operator** on a
+  network fox's ID tab → `fleet.owner` and the fleet log's `owner` column;
+  the N0CALL warning names the operator or points at the field. **Write
+  safemode.py** switch on Deploy (a remembered browser setting; off
+  removes the file from a board that has it; an FM fox with recovery off
+  skips it regardless).
+- Page checks: a probe list beside payload names or the callsign-as-name
+  (warn), a one-channel list (info), BLE slot re-draws under 5 s (warn).
+- Simulator: `channels-per-wake`, `channels-any`, `variable-power-wake /
+  -slot / -bad`, `probe-list-per-wake / -in-wake`, `tlm-data`;
+  `prints_count_min`. Schema corpus +13 (`channels-*`, `probe-list*`,
+  `variable-power*`, `tlm-data*`, `fleet-owner`).
+
 ### Page 0.14.0 · foxlib 1.7.0 · foxlib-c 0.1.11 — phase D: the fox as a server
 
 The `checkpoint` section is built (`firmware/foxlib/netcheckpoint.py`):

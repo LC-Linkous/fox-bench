@@ -1,7 +1,8 @@
 // fleet.js — Profiles (named configs) and the fleet log.
 // SPDX-License-Identifier: GPL-2.0-only
-import { h, badge, field } from './dom.js';
+import { h, badge, field, select } from './dom.js';
 import { profiles, fleet, download, FLEET_FIELDS, unpackProfileImages } from '../model/profiles.js';
+import { sheetRows, sheetCsv, sheetHtml } from '../model/sheet.js';
 import { batchCard, onChange as onFlashChange } from './flash.js';
 import { observe, match, auditRow } from '../model/audit.js';
 
@@ -36,6 +37,23 @@ function auditCard() {
       la.m.checks.length ? h('ul.diff', {}, la.m.checks.map(c => h('li', {}, h('span', {}, c.key), h('span.from', {}, String(c.expected)), h('span' + (c.ok ? '.to' : '.err'), {}, String(c.actual) + (c.ok ? ' ✓' : ' ✗'))))) : null) : null);
 }
 
+let sheetEvent = null;          // the event filter on the sheet; null = the current form's fleet.event
+function sheetCard(log) {
+  const events = [...new Set(log.map(r => r.event).filter(Boolean))].sort();
+  const ev = sheetEvent ?? (app.cfg.fleet?.event || '');
+  const rows = sheetRows(log, { event: ev });
+  const stamp = () => new Date().toISOString().slice(0, 10);
+  const open = () => { const w = window.open('', '_blank'); if (!w) { app.console.err('the browser blocked the print window'); return; } w.document.write(sheetHtml(rows, { event: ev })); w.document.close(); };
+  return h('div.card', {}, h('h3', {}, 'Event sheet ', badge(rows.length + (rows.length === 1 ? ' fox' : ' foxes'))),
+    h('p.hint', {}, 'What is deployed and what each fox shows on the air — the latest deploy per chip uid, one line each, from the fleet log alone. The field document for the day; the fleet log above stays the audit trail. Nothing secret is on it beyond the portal codes.'),
+    h('div.row', { style: 'gap:8px;align-items:center;flex-wrap:wrap' },
+      field('Event', select([['', 'all events'], ...events.map(e => [e, e])], ev, v => { sheetEvent = v; render(); }), events.length ? '' : 'set fleet.event on the Fleet section of each fox to filter'),
+      h('div.tools', {}, h('button.btn.small', { disabled: !rows.length, onclick: () => download(`event-sheet-${(ev || 'all').replace(/[^\w-]+/g, '_')}-${stamp()}.csv`, sheetCsv(rows), 'text/csv') }, 'Export CSV'),
+        h('button.btn.small', { disabled: !rows.length, onclick: open }, 'Print view'))),
+    rows.length ? h('div.grid-wrap', {}, h('table.grid', { id: 'event-sheet' }, h('thead', {}, h('tr', {}, ['#', 'fox', 'template', 'uid', 'operator', 'on the air', 'deployed'].map(f => h('th', {}, f)))),
+      h('tbody', {}, rows.map(r => h('tr', {}, h('td.mono', {}, r.board_number || ''), h('td', {}, r.profile || ''), h('td.mono', {}, r.template || ''), h('td.mono', {}, String(r.uid || '').slice(-8)), h('td', {}, r.owner || r.callsign || ''), h('td', { style: 'font-size:12px' }, r.on_air || ''), h('td.mono', {}, String(r.timestamp || '').slice(0, 16).replace('T', ' '))))))) : h('p.hint', {}, 'No deploys in the log yet' + (ev ? ` for "${ev}"` : '') + '.'));
+}
+
 function render() {
   const list = profiles.all(), log = fleet.all();
   const nameIn = h('input', { type: 'text', value: app.cfg.fleet?.profile || '', placeholder: 'Fox 3 — 146.565 — W1ABC/3', style: 'width:100%' });
@@ -64,9 +82,10 @@ function render() {
         h('div.tools', {}, h('button.btn.small', { disabled: !list.length, onclick: () => download('fox-bench-profiles.json', profiles.exportJson(), 'application/json') }, 'Export all'), h('button.btn.small', { onclick: () => fileIn.click() }, 'Import'), fileIn)),
       batchCard(app)),
     auditCard(),
+    sheetCard(log),
     h('div.card', {}, h('h3', {}, 'Fleet log ', badge(log.length + ' rows')),
       h('p.hint', {}, 'Every deploy, flash, export and audit appends a row keyed on the chip UID, which survives reflashing. Same columns as the batch flasher\'s CSV so the two merge.'),
-      log.length ? h('div.grid-wrap', {}, h('table.grid', {}, h('thead', {}, h('tr', {}, ['timestamp', '#', 'uid', 'action', 'template', 'profile', 'callsign', 'freq', 'power', 'chip_type', 'result', 'notes'].map(f => h('th', {}, f)))),
-        h('tbody', {}, log.slice(-50).reverse().map(r => h('tr', {}, ['timestamp', 'board_number', 'uid', 'action', 'template', 'profile', 'callsign', 'freq', 'power', 'chip_type', 'result', 'notes'].map(f => h('td.mono', {}, f === 'timestamp' ? String(r[f]).slice(0, 19).replace('T', ' ') : f === 'uid' ? String(r[f] || '').slice(-8) : r[f] ?? ''))))))) : null,
+      log.length ? h('div.grid-wrap', {}, h('table.grid', { id: 'fleet-log' }, h('thead', {}, h('tr', {}, ['timestamp', '#', 'uid', 'action', 'template', 'profile', 'callsign', 'owner', 'event', 'freq', 'power', 'chip_type', 'result', 'notes'].map(f => h('th', {}, f)))),
+        h('tbody', {}, log.slice(-50).reverse().map(r => h('tr', {}, ['timestamp', 'board_number', 'uid', 'action', 'template', 'profile', 'callsign', 'owner', 'event', 'freq', 'power', 'chip_type', 'result', 'notes'].map(f => h('td.mono', {}, f === 'timestamp' ? String(r[f]).slice(0, 19).replace('T', ' ') : f === 'uid' ? String(r[f] || '').slice(-8) : r[f] ?? ''))))))) : null,
       h('div.tools', { style: 'margin-top:8px' }, h('button.btn.small', { disabled: !log.length, onclick: () => download('flash_log.csv', fleet.toCsv(), 'text/csv') }, 'Download CSV'), h('button.btn.small', { title: 'Merge rows from a CSV this page or the batch flasher wrote; a row already here (same uid and timestamp) is left alone', onclick: () => csvIn.click() }, 'Import CSV'), csvIn, h('button.btn.small', { disabled: !log.length, onclick: () => { if (confirm('Clear the fleet log in this browser?')) { fleet.clear(); render(); } } }, 'Clear'), h('span.hint', {}, FLEET_FIELDS.length + ' columns in the CSV'))));
 }

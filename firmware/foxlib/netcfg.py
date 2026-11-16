@@ -22,6 +22,7 @@ WIFI_POWER_DBM = (2, 5, 7, 8.5, 11, 13, 15, 17, 18.5, 19, 19.5)
 BLE_POWER_DBM = (-12, -9, -6, -3, 0, 3, 6, 9)
 MAX_NAME = 32         # Wi-Fi SSID and BLE name: 32 bytes
 MAX_PSK = 63
+MAX_PROBE_SSIDS = 8
 PLACEHOLDER = "N0CALL"
 NET_PINS = ("led", "batt_sense")      # optional, both: a network fox has no module to wire
 
@@ -112,6 +113,16 @@ def validate(user, defaults, board_id=None, radios=None, board_names=None):
                 cfg["net"]["channel"] = n["channel"]
             else:
                 rep.bad("net.channel", "1-13" + (" or a 5 GHz channel" if band5 else ""))
+        cfg["net"].setdefault("channels", [])
+        if "channels" in n:
+            band5 = radios is not None and "wifi5" in radios
+            v = n["channels"]
+            if v == "any":
+                cfg["net"]["channels"] = list(WIFI24_CHANNELS[:11])           # the channels every region allows
+            elif isinstance(v, list) and len(v) <= 13 and len(set(v)) == len(v) and all(_is_int(x) and (x in WIFI24_CHANNELS or (band5 and x in WIFI5_CHANNELS)) for x in v):
+                cfg["net"]["channels"] = list(v)
+            else:
+                rep.bad("net.channels", "\"any\" or up to 13 distinct channels")
         if "hidden" in n:
             if isinstance(n["hidden"], bool):
                 cfg["net"]["hidden"] = n["hidden"]
@@ -122,6 +133,19 @@ def validate(user, defaults, board_id=None, radios=None, board_names=None):
                 cfg["net"]["max_clients"] = n["max_clients"]
             else:
                 rep.bad("net.max_clients", "1-8")
+    if kind == "wifi-probe":
+        cfg["net"].setdefault("probe_ssids", [])
+        cfg["net"].setdefault("probe_ssid_s", 0)
+        if "probe_ssids" in n:
+            if _names(n["probe_ssids"], MAX_PROBE_SSIDS, MAX_NAME) and len(set(n["probe_ssids"])) == len(n["probe_ssids"]):
+                cfg["net"]["probe_ssids"] = list(n["probe_ssids"])
+            else:
+                rep.bad("net.probe_ssids", "up to %d distinct names of 1-%d bytes" % (MAX_PROBE_SSIDS, MAX_NAME))
+        if "probe_ssid_s" in n:
+            if _is_int(n["probe_ssid_s"]) and 0 <= n["probe_ssid_s"] <= 600:
+                cfg["net"]["probe_ssid_s"] = n["probe_ssid_s"]
+            else:
+                rep.bad("net.probe_ssid_s", "0-600 s")
     if kind == "ble":
         if "name" in n:
             if isinstance(n["name"], str) and 1 <= _blen(n["name"]) <= MAX_NAME:
@@ -212,7 +236,7 @@ def validate(user, defaults, board_id=None, radios=None, board_names=None):
             continue
         base = cfg.get(sec) if isinstance(cfg.get(sec), dict) else _copy(FEATURE_DEFAULTS[sec])
         cfg[sec] = base
-        _validate_feature(sec, u[sec], base, rep, radios)
+        _validate_feature(sec, u[sec], base, rep, radios, cfg["net"]["kind"])
     cp = cfg.get("checkpoint")
     if isinstance(cp, dict) and cp.get("enabled") and cp["portal"]["enabled"] and cfg["schedule"]["sleep"] == "deep":
         rep.bad("schedule.sleep", "deep sleep would drop a hunter mid-page; off")      # the page refuses the same way
@@ -227,7 +251,7 @@ def validate(user, defaults, board_id=None, radios=None, board_names=None):
             rep.bad("led.enabled", "bool")
     if isinstance(u.get("fleet"), dict):
         for k, v in u["fleet"].items():
-            if k in cfg["fleet"] and (v is None or isinstance(v, (str, int))):
+            if (k in cfg["fleet"] or k == "owner") and (v is None or isinstance(v, (str, int))):
                 cfg["fleet"][k] = v
     if rep.items and rep.mode == "ok":
         rep.mode = "partial"
@@ -237,7 +261,7 @@ def validate(user, defaults, board_id=None, radios=None, board_names=None):
 FEATURES = ("payload", "checkpoint", "sense", "stealth")
 FEATURE_DEFAULTS = {
     "payload": {"enabled": False, "kind": "static", "names": [], "morse_of": "", "code": {"major": 0, "minor": 0},
-                "eddystone": {"url": "", "tlm": False}, "split": {"wifi": "", "ble": ""}, "interleave_ms": 1000},
+                "eddystone": {"url": "", "tlm": False, "tlm_data": {}}, "split": {"wifi": "", "ble": ""}, "interleave_ms": 1000},
     "checkpoint": {"enabled": False,
                    "portal": {"enabled": False, "title": "", "body": "", "code": "", "ask_callsign": True, "captive_dns": True, "log": True},
                    "ble": {"enabled": False, "service_uuid": "F0B0F0B0-0000-4000-8000-0000000000C0", "code": ""}},
@@ -246,8 +270,23 @@ FEATURE_DEFAULTS = {
               "relay": {"enabled": False, "wait_for": "", "then": "up"},
               "probes": {"enabled": False, "channel": 6, "window_s": 2}},
     "stealth": {"enabled": False, "rotate_mac": False, "rotate_name": False, "duty_jitter_s": 0,
-                "start": {"after_s": 0, "at": ""}, "decoys": [], "ble_only": False},
+                "start": {"after_s": 0, "at": ""}, "decoys": [], "ble_only": False, "variable_power": None},
 }
+TLM_FIELDS = {"batt_mv": (0, 65535), "temp_c": (-128, 127.99), "count": (0, 4294967295), "uptime_s": (0, 429496729)}
+
+
+def _tlm_data_ok(x):
+    return isinstance(x, dict) and all(k in TLM_FIELDS and _is_num(v) and TLM_FIELDS[k][0] <= v <= TLM_FIELDS[k][1] for k, v in x.items())
+
+
+def _variable_power_ok(x, kind):
+    if x is None:
+        return True
+    if not isinstance(x, dict) or set(x) != {"min_dbm", "max_dbm", "per", "slot_s"}:
+        return False
+    steps = BLE_POWER_DBM if kind == "ble" else WIFI_POWER_DBM
+    return (_is_num(x["min_dbm"]) and _is_num(x["max_dbm"]) and x["min_dbm"] in steps and x["max_dbm"] in steps and x["min_dbm"] < x["max_dbm"]
+            and x["per"] in ("wake", "slot") and _is_int(x["slot_s"]) and 2 <= x["slot_s"] <= 600)
 MAX_NAMES = 16
 MAX_DECOYS = 4
 MAX_BODY = 512
@@ -277,7 +316,7 @@ def _iso_or_empty(v):
     return len(v) <= 32
 
 
-def _validate_feature(sec, u, cfg, rep, radios):
+def _validate_feature(sec, u, cfg, rep, radios, kind=None):
     """One feature section: every key checked, bad ones reported and left at the default; unknown keys reported."""
     def key(path, ok, reason, val=None):
         if ok:
@@ -317,7 +356,8 @@ def _validate_feature(sec, u, cfg, rep, radios):
         plain("morse_of", lambda x: _str_max(x, 16), "<= 16 chars")
         sub("code", {"major": (lambda x: _is_int(x) and 0 <= x <= 65535, "0-65535"), "minor": (lambda x: _is_int(x) and 0 <= x <= 65535, "0-65535")})
         sub("eddystone", {"url": (lambda x: _str_max(x, MAX_URL) and (x == "" or x.startswith("http://") or x.startswith("https://")), "http(s) URL <= %d chars" % MAX_URL),
-                          "tlm": (is_bool, "bool")})
+                          "tlm": (is_bool, "bool"),
+                          "tlm_data": (_tlm_data_ok, "batt_mv 0-65535, temp_c -128-127, count / uptime_s unsigned 32-bit")})
         sub("split", {"wifi": (lambda x: _str_max(x, MAX_NAME), "<= 32 bytes"), "ble": (lambda x: _str_max(x, 29), "<= 29 bytes")})
         plain("interleave_ms", lambda x: _is_int(x) and 100 <= x <= 10000, "100-10000 ms")
         if cfg.get("kind") == "rotate" and not cfg.get("names"):
@@ -343,7 +383,8 @@ def _validate_feature(sec, u, cfg, rep, radios):
             rep.bad(sec + ".relay.wait_for", "relay needs a network name")
             cfg["relay"]["enabled"] = False
     elif sec == "stealth":
-        known |= {"rotate_mac", "rotate_name", "duty_jitter_s", "start", "decoys", "ble_only"}
+        known |= {"rotate_mac", "rotate_name", "duty_jitter_s", "start", "decoys", "ble_only", "variable_power"}
+        plain("variable_power", lambda x: _variable_power_ok(x, kind), "null or {min_dbm, max_dbm (power steps, min < max), per: wake|slot, slot_s 2-600}")
         plain("rotate_mac", lambda x: x is False or x in ("per-cycle", "per-boot"), "false|per-cycle|per-boot")
         plain("rotate_name", is_bool, "bool")
         plain("duty_jitter_s", lambda x: _is_int(x) and 0 <= x <= 300, "0-300 s")

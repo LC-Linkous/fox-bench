@@ -2053,6 +2053,192 @@
      }
     }
    }
+  },
+  {
+   "name": "fleet-owner@esp32c3",
+   "template": "wifi-beacon",
+   "board": "esp32c3",
+   "user": {
+    "fleet": {
+     "owner": "KY4ZR",
+     "bogus": "x"
+    }
+   }
+  },
+  {
+   "name": "channels-list@esp32c3",
+   "template": "wifi-beacon",
+   "board": "esp32c3",
+   "user": {
+    "net": {
+     "channels": [
+      1,
+      6,
+      11
+     ]
+    }
+   }
+  },
+  {
+   "name": "channels-any@esp32c3",
+   "template": "wifi-beacon",
+   "board": "esp32c3",
+   "user": {
+    "net": {
+     "channels": "any"
+    }
+   }
+  },
+  {
+   "name": "channels-dup@esp32c3",
+   "template": "wifi-beacon",
+   "board": "esp32c3",
+   "user": {
+    "net": {
+     "channels": [
+      1,
+      1,
+      6
+     ]
+    }
+   }
+  },
+  {
+   "name": "channels-5g@esp32c5",
+   "template": "wifi-beacon",
+   "board": "esp32c5",
+   "user": {
+    "net": {
+     "channels": [
+      1,
+      36,
+      149
+     ]
+    }
+   }
+  },
+  {
+   "name": "channels-5g-on-c3@esp32c3",
+   "template": "wifi-beacon",
+   "board": "esp32c3",
+   "user": {
+    "net": {
+     "channels": [
+      1,
+      36
+     ]
+    }
+   }
+  },
+  {
+   "name": "probe-list@esp32c3",
+   "template": "wifi-probe",
+   "board": "esp32c3",
+   "user": {
+    "net": {
+     "probe_ssids": [
+      "A",
+      "B"
+     ],
+     "probe_ssid_s": 5
+    }
+   }
+  },
+  {
+   "name": "probe-list-bad@esp32c3",
+   "template": "wifi-probe",
+   "board": "esp32c3",
+   "user": {
+    "net": {
+     "probe_ssids": [
+      "A",
+      "A"
+     ],
+     "probe_ssid_s": 601
+    }
+   }
+  },
+  {
+   "name": "variable-power@esp32c3",
+   "template": "wifi-beacon",
+   "board": "esp32c3",
+   "user": {
+    "stealth": {
+     "enabled": true,
+     "variable_power": {
+      "min_dbm": 2,
+      "max_dbm": 13,
+      "per": "slot",
+      "slot_s": 10
+     }
+    }
+   }
+  },
+  {
+   "name": "variable-power-ble@esp32c3",
+   "template": "ble-beacon",
+   "board": "esp32c3",
+   "user": {
+    "stealth": {
+     "enabled": true,
+     "variable_power": {
+      "min_dbm": -12,
+      "max_dbm": 9,
+      "per": "wake",
+      "slot_s": 10
+     }
+    }
+   }
+  },
+  {
+   "name": "variable-power-wrong-steps@esp32c3",
+   "template": "ble-beacon",
+   "board": "esp32c3",
+   "user": {
+    "stealth": {
+     "enabled": true,
+     "variable_power": {
+      "min_dbm": 2,
+      "max_dbm": 13,
+      "per": "wake",
+      "slot_s": 10
+     }
+    }
+   }
+  },
+  {
+   "name": "tlm-data@esp32c3",
+   "template": "ble-beacon",
+   "board": "esp32c3",
+   "user": {
+    "payload": {
+     "enabled": true,
+     "eddystone": {
+      "tlm": true,
+      "tlm_data": {
+       "batt_mv": 4471,
+       "temp_c": 21.5
+      }
+     }
+    }
+   }
+  },
+  {
+   "name": "tlm-data-bad@esp32c3",
+   "template": "ble-beacon",
+   "board": "esp32c3",
+   "user": {
+    "payload": {
+     "enabled": true,
+     "eddystone": {
+      "tlm": true,
+      "tlm_data": {
+       "batt_mv": 70000,
+       "nope": 1
+      }
+     }
+    }
+   }
   }
  ]
 }

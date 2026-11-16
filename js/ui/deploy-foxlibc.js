@@ -6,6 +6,7 @@
 import { stringifyFoxJson } from '../model/foxlibc-limits.js';
 import { h, badge, field, numInput } from './dom.js';
 import { fleet, download } from '../model/profiles.js';
+import { onAir } from '../model/sheet.js';
 import { makeZip } from '../model/zip.js';
 import { airtime, fmtDuration } from '../model/airtime.js';
 import { packImages } from '../audio/sstv.js';
@@ -39,7 +40,7 @@ async function write(btn, render) {
     setLast({ ok: true, files: fs.map(f => ({ path: f.path, size: size(f) })) });
     await app.readDrive();
     app.setStatus(`${d.kind === 'demo' ? 'Demo · ' : ''}${app.board.name} · fox.json written — the fox reloads by itself`, d.kind === 'demo' ? 'demo' : 'ok');
-    fleet.append({ board_number: '', uid: app.info?.uid || '', board: app.boardId, action: 'deploy', template: `${app.templateId}/${app.template.version}`, profile: cfg.fleet?.profile || '', callsign: cfg.id.callmessage, freq: cfg.plan.frequencies_mhz.join(' '), power: powerText(cfg), seed: cfg.schedule.seed ?? '', result: 'written', notes: [app.info?.driveName, d.kind === 'demo' ? 'demo' : ''].filter(Boolean).join(' · ') });
+    fleet.append({ board_number: '', uid: app.info?.uid || '', board: app.boardId, action: 'deploy', template: `${app.templateId}/${app.template.version}`, profile: cfg.fleet?.profile || '', callsign: cfg.id.callmessage, owner: cfg.fleet?.owner || '', event: cfg.fleet?.event || '', on_air: onAir(cfg, { family: app.family, template: app.templateId }), freq: cfg.plan.frequencies_mhz.join(' '), power: powerText(cfg), seed: cfg.schedule.seed ?? '', result: 'written', notes: [app.info?.driveName, d.kind === 'demo' ? 'demo' : ''].filter(Boolean).join(' · ') });
     log.line(`wrote fox.json and defaults.json to ${app.info?.driveName || 'the drive'} — the fox reloads them in about a second; Listen only shows the new banner`, 'ok');
   } catch (e) { setLast({ error: String(e.message || e) }); log.err('deploy failed: ' + last.error); }
   busy = false; gateOk = false; app.changed('deploy');
@@ -56,7 +57,7 @@ function exportZip() {
     'foxbench-picofox.uf2 (Board tab → Firmware) onto the RPI-RP2 drive first.',
   ].join('\n');
   download(`picofox-foxbench-${safe(cfg.id.callmessage.split(' ')[0])}-${app.templateId}.zip`, makeZip([...fs, { path: 'README.txt', data: readme }]));
-  fleet.append({ board_number: '', uid: '', board: app.boardId, action: 'export-zip', template: `${app.templateId}/${app.template.version}`, profile: cfg.fleet?.profile || '', callsign: cfg.id.callmessage, freq: cfg.plan.frequencies_mhz.join(' '), power: powerText(cfg), seed: cfg.schedule.seed ?? '', result: 'zip', notes: '' });
+  fleet.append({ board_number: '', uid: '', board: app.boardId, action: 'export-zip', template: `${app.templateId}/${app.template.version}`, profile: cfg.fleet?.profile || '', callsign: cfg.id.callmessage, owner: cfg.fleet?.owner || '', event: cfg.fleet?.event || '', on_air: onAir(cfg, { family: app.family, template: app.templateId }), freq: cfg.plan.frequencies_mhz.join(' '), power: powerText(cfg), seed: cfg.schedule.seed ?? '', result: 'zip', notes: '' });
   app.console.dim('exported fox.json + defaults.json as a zip');
 }
 

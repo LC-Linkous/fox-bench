@@ -298,7 +298,7 @@ try {
   check(/Flash board #2/.test(await text('#tab-fleet')), 'batch number advances after a flash');
   flashRows = await app(() => JSON.parse(localStorage.getItem('fox-bench.fleet') || '[]').filter(r => r.action === 'flash'));
   check(flashRows.length === 2 && String(flashRows[1].board_number) === '1', 'batch row carries the board number');
-  check(/flash/.test(await text('#tab-fleet table')), 'fleet table shows the flash rows');
+  check(/flash/.test(await text('#tab-fleet table#fleet-log')), 'fleet table shows the flash rows');
 
   section('payload: library, SSTV, spectrum');
   await tab('behavior'); await page.selectOption('#tab-behavior select', 'morse-songs'); await settle(300);
@@ -363,10 +363,11 @@ try {
   page.on('dialog', d => d.dismiss());
 
   section('profiles');
-  await page.fill('#tab-deploy input[type=text]', 'smoke profile');
+  await page.fill('#tab-deploy input[placeholder^="Fox 3"]', 'smoke profile');
   await page.click('#tab-deploy button:has-text("Save profile")'); await settle(200);
   await tab('fleet');
   check(/smoke profile/.test(await text('#tab-fleet ul.list')), 'profile saved from Deploy appears in Fleet');
+  check(/FM |AP "|BLE "|probes for/.test(await text('#tab-fleet table#event-sheet')), 'event sheet lists the deploys so far with an on-the-air summary');
   await page.click('#tab-fleet ul.list li:has-text("smoke profile") button:has-text("Load")'); await settle(300);
   eq(await app(() => window.foxbench.cfg.fleet.profile), 'smoke profile', 'profile loads back');
   // audit: the demo board was deployed earlier in this run; its UID is in the log, and what is on it matches

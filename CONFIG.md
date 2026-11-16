@@ -266,11 +266,25 @@ warns when the worst-case transmission exceeds it.
 ## `fleet`
 
 ```json
-"fleet": { "profile": "Fox 3 — 146.565", "number": 3, "event": "", "notes": "" }
+"fleet": { "profile": "Fox 3 — 146.565", "number": 3, "event": "", "notes": "", "owner": "KY4ZR" }
 ```
+
+The Deploy tab's **Fleet record** card edits `number`, `event`, `owner` and
+`notes`. Every fleet-log row a deploy makes carries them, plus an
+`on_air` column — a one-line summary of what a hunter could observe (name,
+MAC, channel or list, power or range, iBeacon ids, payload frames, decoys,
+start, portal code, schedule). The Fleet tab's **Event sheet** is the
+latest deploy per chip uid, filtered by `event`, as a table, a CSV and a
+print view: the field document for the day, built from the fleet log
+alone.
 
 Bookkeeping for the page. The firmware ignores this block entirely
 (it is merged over the defaults' `fleet` block so no key is lost).
+`owner` (page 0.14.1) is the operator's callsign when `id.callmessage` is
+not it — a network fox left at the placeholder, a club fox — recorded in
+fox.json and in the fleet log's `owner` column, never on the air; the ID
+tab of a network fox has the field. Every fleet row is keyed by the chip
+uid regardless, so a connected board is recognised with or without it.
 
 ## The `compiled` family (RFHS kitsune foxes)
 
@@ -342,6 +356,8 @@ not fit falls back to the defaults file, reported in the banner as
 | `net.ssid` | string, 1–32 bytes | `wifi-ap`, `wifi-probe`: the network name on the air (unless `id.use_callsign_as_name`) |
 | `net.psk` | string, empty or 8–63 bytes | `wifi-ap`: empty = open network (the page says so), otherwise WPA2 |
 | `net.channel` | int | `wifi-ap`: 1–13, or one of 36 40 44 48 149 153 157 161 165 when the hardware lists the `wifi5` radio |
+| `net.channels` | `[]`, up to 13 distinct channels, or `"any"` | `wifi-ap` (foxlib 1.8): one drawn per wake from the list, seeded by the chip uid and the cycle so a fleet does not hop together; `[]` = `net.channel` every wake; `"any"` is stored as 1–11 (the channels every region allows; the page's *any* button writes the region's own list) |
+| `net.probe_ssids`, `net.probe_ssid_s` | ≤ 8 distinct names of 1–32 B; 0–600 s | `wifi-probe` (foxlib 1.8): other networks sought instead of `net.ssid` — one per wake drawn at random when `probe_ssid_s` is 0, else the next in list order every `probe_ssid_s` s inside the wake (a fresh round of probe requests each time) |
 | `net.hidden` | bool | `wifi-ap`: **CircuitPython cannot hide an AP** — accepted and reported, the SSID is broadcast; `radio=ok(hidden_unsupported)` and a `note:` line in the banner |
 | `net.max_clients` | 1–8 | `wifi-ap` |
 | `net.name` | string, 1–32 bytes | `ble`: the complete local name (in the scan response, cut to 29 bytes) |
@@ -371,10 +387,10 @@ the fox runs without it`. The page says the same on each card.
 
 | section | keys | phase |
 |---|---|---|
-| `payload` | `enabled`; `kind` static \| rotate \| morse-name; `names` (≤ 16 × 1–32 B); `morse_of` (≤ 16); `code.major` / `.minor` 0–65535; `eddystone.url` (http(s), ≤ 64) / `.tlm` bool; `split.wifi` (≤ 32 B) / `.ble` (≤ 29 B); `interleave_ms` 100–10000 | **built, foxlib 1.4.0** |
+| `payload` | `enabled`; `kind` static \| rotate \| morse-name; `names` (≤ 16 × 1–32 B); `morse_of` (≤ 16); `code.major` / `.minor` 0–65535; `eddystone.url` (http(s), ≤ 64) / `.tlm` bool / `.tlm_data` `{batt_mv 0–65535, temp_c −128–127, count, uptime_s}` any subset (1.8); `split.wifi` (≤ 32 B) / `.ble` (≤ 29 B); `interleave_ms` 100–10000 | **built, foxlib 1.4.0** |
 | `checkpoint` | `enabled`; `portal.{enabled, title ≤ 40 B, body ≤ 512 B plain text, code ≤ 16, ask_callsign, captive_dns, log}`; `ble.{enabled, service_uuid, code ≤ 16}` | **built, foxlib 1.7.0** |
 | `sense` | `enabled`; `slot_ms` 200–5000; `tags.{enabled, match 1–16 B, log, rssi_min −100–0}`; `relay.{enabled, wait_for ≤ 32 B, then up \| down \| rotate}`; `probes.{enabled, channel 1–13, window_s 1–10}` | E — accepted, not built |
-| `stealth` | `enabled`; `rotate_mac` false \| per-cycle \| per-boot; `rotate_name` bool; `duty_jitter_s` 0–300; `start.after_s` 0–86400 / `start.at` `YYYY-MM-DDTHH:MM:SS[zone]`; `decoys` (≤ 4 × 1–32 B); `ble_only` bool | **built, foxlib 1.5.0** |
+| `stealth` | `enabled`; `rotate_mac` false \| per-cycle \| per-boot; `rotate_name` bool; `duty_jitter_s` 0–300; `start.after_s` 0–86400 / `start.at` `YYYY-MM-DDTHH:MM:SS[zone]`; `decoys` (≤ 4 × 1–32 B); `ble_only` bool; `variable_power` null \| `{min_dbm, max_dbm, per wake \| slot, slot_s 2–600}` | **built, foxlib 1.5.0; `variable_power` 1.8.0** |
 
 **`payload` (built):** `rotate` makes `names[cycle % n]` the SSID / BLE name
 of each cycle (the fox logs `payload: name this cycle …`); `morse-name`
@@ -434,6 +450,19 @@ the page and the firmware (`schedule.sleep` → `off`): deep sleep would
 drop a hunter mid-page. The `checkpoint` template ships with the portal on.
 The Bench tab's **Collect finds** reads `finds.csv` into the fleet log, one
 `find` row per callsign.
+
+**What varies per wake (foxlib 1.8, `netvary.py`):** `net.channels`,
+`net.probe_ssids` and `stealth.variable_power` are drawn from the chip uid
+and the cycle (the stealth RNG), so the simulator is deterministic and a
+fleet does not move in lockstep; each draw is one log line (`channel this
+cycle 6`, `probing for X`, `tx power this cycle 8 dBm`, `tx power now 11
+dBm` for a slot re-draw). `variable_power` picks from the kind's power
+steps between `min_dbm` and `max_dbm` (Wi-Fi steps for `wifi-ap` /
+`wifi-probe`, BLE steps for `ble`; both must be steps of that kind and
+`min < max`); `per: slot` re-draws every `slot_s` while the radio is up —
+Wi-Fi changes power live, BLE restarts advertising. `eddystone.tlm_data`
+replaces any of the four measured TLM fields with a fixed number, so the
+telemetry a beacon scanner shows carries a clue.
 
 Cross-section rules the validator applies: `payload.kind: rotate` with no
 names falls back to `static`; `checkpoint.portal` and `sense.probes`/`relay`

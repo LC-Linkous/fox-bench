@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 import { h, badge, select, field } from './dom.js';
 import { fleet, download } from '../model/profiles.js';
+import { onAir } from '../model/sheet.js';
 
 let app, last = null;
 export function init(a) { app = a; }
@@ -13,7 +14,7 @@ function fleetRow(cfg, action, result, notes = '') {
   const ident = t.section === 'wifi' ? sec.ssid : t.section === 'ble' ? sec.device_name : t.section === 'bt' ? sec.name : 'zigbee';
   const chan = t.section === 'wifi' && t.mode === 'AP' ? `${sec.band === '5' ? '5 GHz' : '2.4 GHz'} ch ${sec.channel || 'random'}` : t.section === 'zigbee' ? `ch ${sec.channel || 'random'}` : '';
   const power = sec.tx_power_dbm != null ? `${sec.tx_power_dbm} dBm` : '';
-  return { board_number: '', uid: '', mac: sec.mac || '', board: app.boardId, action, template: `${cfg.template}/${app.template.version}`, profile: cfg.fleet?.profile || '', callsign: ident, freq: chan, power, seed: '', result, challenge: cfg.challenge?.name || '', keyphrase: cfg.challenge?.keyphrase || '', notes };
+  return { board_number: '', uid: '', mac: sec.mac || '', board: app.boardId, action, template: `${cfg.template}/${app.template.version}`, profile: cfg.fleet?.profile || '', callsign: ident, owner: cfg.fleet?.owner || '', event: cfg.fleet?.event || '', on_air: [ident, chan, power].filter(Boolean).join(' · '), freq: chan, power, seed: '', result, challenge: cfg.challenge?.name || '', keyphrase: cfg.challenge?.keyphrase || '', notes };
 }
 
 function exportHeader() {

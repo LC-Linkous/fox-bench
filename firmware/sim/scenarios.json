@@ -1527,6 +1527,155 @@
      "ap_down": 1
     }
    }
+  },
+  {
+   "name": "channels-per-wake",
+   "_doc": "net.channels: a channel drawn per wake from the list; over 8 wakes at least two different ones",
+   "cap_ms": 600000,
+   "stop_after_unkeys": 8,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "net": {
+     "channels": [
+      1,
+      6,
+      11
+     ]
+    },
+    "schedule": {
+     "wake_s": 5,
+     "sleep_s": 2
+    }
+   },
+   "expect": {
+    "keyed_min": 8,
+    "prints_contain": [
+     "channel this cycle"
+    ],
+    "net_distinct_min": {
+     "ap_up": {
+      "field": "ch=",
+      "n": 2
+     }
+    }
+   }
+  },
+  {
+   "name": "channels-any",
+   "cap_ms": 120000,
+   "stop_after_unkeys": 1,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "net": {
+     "channels": "any"
+    }
+   },
+   "expect": {
+    "keyed_min": 1,
+    "banner": {
+     "cfg": "ok"
+    },
+    "prints_contain": [
+     "channel this cycle"
+    ]
+   }
+  },
+  {
+   "name": "variable-power-wake",
+   "cap_ms": 600000,
+   "stop_after_unkeys": 8,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "stealth": {
+     "enabled": true,
+     "variable_power": {
+      "min_dbm": 2,
+      "max_dbm": 13,
+      "per": "wake",
+      "slot_s": 10
+     }
+    },
+    "schedule": {
+     "wake_s": 5,
+     "sleep_s": 2
+    }
+   },
+   "expect": {
+    "keyed_min": 8,
+    "prints_contain": [
+     "tx power this cycle"
+    ],
+    "prints_not_contain": [
+     "tx power now"
+    ]
+   }
+  },
+  {
+   "name": "variable-power-slot",
+   "cap_ms": 300000,
+   "stop_after_unkeys": 1,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "stealth": {
+     "enabled": true,
+     "variable_power": {
+      "min_dbm": 2,
+      "max_dbm": 13,
+      "per": "slot",
+      "slot_s": 5
+     }
+    },
+    "schedule": {
+     "wake_s": 30,
+     "sleep_s": 2
+    }
+   },
+   "expect": {
+    "keyed_min": 1,
+    "prints_contain": [
+     "tx power this cycle",
+     "tx power now"
+    ],
+    "prints_count_min": {
+     "tx power now": 4
+    }
+   }
+  },
+  {
+   "name": "variable-power-bad",
+   "cap_ms": 120000,
+   "stop_after_unkeys": 1,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "stealth": {
+     "enabled": true,
+     "variable_power": {
+      "min_dbm": 13,
+      "max_dbm": 2,
+      "per": "wake",
+      "slot_s": 10
+     }
+    }
+   },
+   "expect": {
+    "keyed_min": 1,
+    "banner": {
+     "cfg": "partial(stealth.variable_power)"
+    },
+    "prints_not_contain": [
+     "tx power this cycle"
+    ]
+   }
   }
  ],
  "wifi-probe": [
@@ -1550,6 +1699,73 @@
     ],
     "net_events_min": {
      "probe": 2
+    }
+   }
+  },
+  {
+   "name": "probe-list-per-wake",
+   "cap_ms": 600000,
+   "stop_after_unkeys": 8,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "net": {
+     "probe_ssids": [
+      "HOTEL-GUEST",
+      "CoffeeShop",
+      "xfinitywifi"
+     ]
+    },
+    "schedule": {
+     "wake_s": 5,
+     "sleep_s": 2
+    }
+   },
+   "expect": {
+    "keyed_min": 8,
+    "prints_contain": [
+     "probing for"
+    ],
+    "net_distinct_min": {
+     "probe": {
+      "field": "",
+      "n": 2
+     }
+    }
+   }
+  },
+  {
+   "name": "probe-list-in-wake",
+   "cap_ms": 300000,
+   "stop_after_unkeys": 6,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "net": {
+     "probe_ssids": [
+      "HOTEL-GUEST",
+      "CoffeeShop",
+      "xfinitywifi"
+     ],
+     "probe_ssid_s": 5
+    },
+    "schedule": {
+     "wake_s": 30,
+     "sleep_s": 2
+    }
+   },
+   "expect": {
+    "keyed_min": 6,
+    "prints_count_min": {
+     "probing for": 5
+    },
+    "net_distinct_min": {
+     "probe": {
+      "field": "",
+      "n": 3
+     }
     }
    }
   }
@@ -1830,6 +2046,36 @@
     "net_contains": [
      "connectable service=f0b0f0b00000400080000000000000c0",
      "value=77"
+    ]
+   }
+  },
+  {
+   "name": "tlm-data",
+   "_doc": "the TLM frame carries fixed numbers instead of the measured ones",
+   "cap_ms": 120000,
+   "stop_after_unkeys": 1,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "payload": {
+     "enabled": true,
+     "eddystone": {
+      "tlm": true,
+      "tlm_data": {
+       "batt_mv": 4471,
+       "temp_c": 21.5,
+       "count": 146565,
+       "uptime_s": 12
+      }
+     },
+     "interleave_ms": 500
+    }
+   },
+   "expect": {
+    "keyed_min": 1,
+    "net_contains": [
+     "aafe20001177"
     ]
    }
   }
