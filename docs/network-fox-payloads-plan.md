@@ -173,7 +173,7 @@ sense:
   tags:    { "enabled": true, "match": "HUNT-", "log": true, "rssi_min": -80 }
            BLE scan between advertising bursts; every advertiser whose name starts with `match` (or whose
            address is in `allow`) is logged with RSSI and time → `near.csv`; the page's "Who is near" reads it
-  relay:   { "enabled": true, "wait_for": "FOXBENCH Fox 2", "then": "up" | "down" | "rotate" }
+  relay:   { "enabled": true, "wait_for": "FOXBENCH Fox 2", "then": "up" | "down" | "toggle" }   (built as toggle)
            Wi-Fi scan each cycle; the fox stays silent until it hears the named SSID (chain hunts), or goes
            quiet when it does (hot/cold inverted)
   probes:  { "enabled": true, "channel": 6, "window_s": 2 }

@@ -30,11 +30,15 @@ class Vary:
         self.base_name = fox.radio.name
 
     # -- hooks
-    def before_up(self, fox, cycle):
+    def channel(self, fox, cycle):
+        """Early in before_up (right after a mode swap): the honeypot's probe listen uses this wake's channel."""
         r = fox.radio
         if self.channels and r.kind == "wifi-ap":
             r.cfg["channel"] = self.channels[netstealth.Rng(cycle * 7877 + 11).below(len(self.channels))]
             fox.log("channel this cycle %d" % r.cfg["channel"])
+
+    def before_up(self, fox, cycle):
+        r = fox.radio
         if self.ssids and r.kind == "wifi-probe":
             if self.ssid_s > 0:
                 self.ssid_i = 0
@@ -97,6 +101,9 @@ def wanted(cfg):
 
 def attach(fox):
     v = Vary(fox)
+    if v.channels:
+        # first, or second after netmodes' swap (which must see the cycle before anything reads fox.radio)
+        fox.hooks["before_up"].insert(1 if getattr(fox, "modes", None) else 0, v.channel)
     fox.hooks["before_up"].append(v.before_up)
     fox.hooks["while_up"].append(v.while_up)
     fox.hooks["after_down"].append(v.after_down)

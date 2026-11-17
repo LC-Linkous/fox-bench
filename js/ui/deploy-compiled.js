@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 import { h, badge, select, field } from './dom.js';
 import { fleet, download } from '../model/profiles.js';
-import { onAir } from '../model/sheet.js';
 
 let app, last = null;
 export function init(a) { app = a; }

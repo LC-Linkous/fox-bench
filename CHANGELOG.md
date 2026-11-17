@@ -14,6 +14,52 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.18.1 · foxlib 1.10.1 · foxlib-c 0.1.11 — audit of 0.13–0.18
+
+A read of everything added since page 0.12 (foxlib 1.6–1.10) for what the
+simulator could not see. Each firmware finding has a scenario that fails
+without its fix.
+
+- **Fix — a shell-game fox broke the page:** `checks()` read
+  `opts.clockSet` where its parameter is `clockSet`; any network fox with
+  `stealth.shell_game` threw on every change. Unit test; an
+  undefined-identifier lint over `js/` found no other.
+- **Fix — network foxes never cleared `safemode.py`'s count:** only the
+  FM loop called `guard.healthy()`, so every brownout of a network fox
+  added to `microcontroller.nvm[0]` for life, and after 50 across any
+  number of days the board would stay in safe mode. `NetFox` now clears it
+  after each completed wake and its banner notes resets since the last
+  one (`safemode-count-cleared`).
+- **Fix — variable power never changed live on a BLE fox:** the beacon
+  restarted advertising without stopping it, which `_bleio` refuses; the
+  error was logged as `not applied`. `BleBeacon.restart()` stops first;
+  the advertising mock now refuses a second start as `_bleio` does
+  (`variable-power-slot-ble`).
+- **Fix — the honeypot listened on last wake's channel** when
+  `net.channels` drew a new one: the channel draw now runs first in the
+  wake (`honeypot-listens-on-this-wakes-channel`).
+- **near.csv no longer fills in an hour:** a tag or prober is written at
+  most once per 5 minutes per MAC (every sighting stays on the console;
+  joins are always written) — `near-log-rate`, `file_lines`.
+- Page check: a relay or honeypot on a BLE-only fox (their Wi-Fi scan
+  would turn the Wi-Fi radio back on) is an error.
+- Event sheet: an exported fox is keyed by its profile, so exporting it
+  again replaces its line, and a later deploy of that profile to a board
+  supersedes it (before, every export added a line). Handoff chain: two
+  profiles with one fox number are flagged. `tests/unit/sheet.test.mjs`
+  (new; the sheet had no unit tests) and a chain test.
+- Docs: DESIGN's file tree and foxlib list name every module added since
+  0.12 (`guard`, `safemode.py`, `netcheckpoint`, `netsense`, `netvary`,
+  `netmodes`, `sheet`, `handoff`, `shellgame`), the tabs table the new
+  cards, §8 the new mocks, and what the 1.6 recovery does and does not
+  cover (an exception a template body raises outside `tx` still ends
+  `code.py`). `tests/README.md`'s "Everything CI runs" now lists every
+  step CI runs (it had half; the C runner was the missing one behind the
+  0128 CI failure). README describes the contest features and counts
+  `checkpoint`. The FireBeetle 2 ESP32-C5's notes no longer call it a
+  kitsune stand-in. The runbook opens with the ten open hardware
+  questions (Q1–Q10). CONFIG's cross-section rules list the newer checks.
+
 ### Page 0.18.0 · foxlib 1.10.0 · foxlib-c 0.1.11 — phase E′: the fox that listens, and done for the day
 
 - **`sense` built** (`netsense.py`; the Payload tab's last "arrives in

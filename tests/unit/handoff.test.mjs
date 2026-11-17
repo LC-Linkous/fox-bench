@@ -51,3 +51,8 @@ test('chain lists links and finds loops and dead ends', () => {
   assert.ok(loop.problems.some(p => p.includes('points to itself')));
   assert.ok(loop.problems.some(p => p.includes('not a saved profile')));
 });
+
+test('chain flags two profiles with one fox number', () => {
+  const c = chain([{ name: 'a', cfg: { fleet: { number: 5 } } }, { name: 'b', cfg: { fleet: { number: 5 } } }, { name: 'c', cfg: { fleet: { number: 6, points_to: 5 } } }]);
+  assert.ok(c.problems.some(p => /fox number 5 is on 2 profiles \(a, b\)/.test(p)));
+});

@@ -60,13 +60,13 @@
   },
   "battery": {
     "charger": false,
-    "divider_note": "Powered from USB or a 5 V pack. kitsune's note: the pack must not have a low-current cut-off, or the board never wakes from deep sleep."
+    "divider_note": "Powered from USB or a 5 V pack. A pack with a low-current auto-off cuts power while the fox sleeps (schedule.sleep deep), and the board never wakes; use one without."
   },
   "notes": [
-    "A stand-in for the Seeed XIAO ESP32C5 target: the firmware image is the same, the LED pin differs.",
-    "Serial: native USB CDC (no bridge chip); Listen only shows the ROM banner and kitsune's lines.",
-    "Power: kitsune foxes sleep between transmissions; a USB power bank with a low-current auto-off cuts power during the sleep and the fox never wakes (kitsune's README). Use a pack without auto-off.",
-    "Serial: native USB — the console port disappears while the chip sleeps and returns when it wakes (kitsune's README: 'Serial console during sleep: no'). 'serial port dropped' each cycle is expected."
+    "A variant of the ESP32-C5 chip target: it runs the same CircuitPython build as the XIAO ESP32-C5 (espressif_esp32c5_devkitc_1_n8r8); the Board dropdown on the Radio & pins tab picks this board's LED pin.",
+    "Serial: native USB CDC (no bridge chip); Listen only shows the ROM banner and the fox's lines.",
+    "Power: a network fox with schedule.sleep deep sleeps between wakes; a USB power bank with a low-current auto-off cuts power during the sleep and the fox never wakes. Use a pack without auto-off.",
+    "Serial: native USB — with deep sleep the console port disappears while the chip sleeps and returns when it wakes; 'serial port dropped' each cycle is expected (Listen only waits for it)."
   ],
   "serial": {
     "baud": 115200,

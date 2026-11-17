@@ -88,6 +88,9 @@ js/
     uf2.js                 UF2 structure / family id / sha256 checks before a copy
     audit.js               the connected fox against the fleet log
     profiles.js            saved configs + fleet log (localStorage, CSV export)
+    sheet.js               the event sheet: an on-the-air summary per deploy row, latest deploy per uid, CSV / print view
+    handoff.js             fleet.points_to: {{to.*}} placeholders filled from the target profile; the chain, loops, dead ends
+    shellgame.js           the shell game's page half: seat → identity over time, collision check, MAC generator
     airtime.js             computed keydown per transmission, duty check
     zip.js                 deploy-set export
     vendor/picofox.js      the vendor PicoFox firmware's files, modelled
@@ -110,8 +113,10 @@ bands.json                            amateur allocations by region
 firmware/
   LICENSE                             GPL-3.0-or-later (see §9)
   index.json                          foxlib file list, template list
+  safemode.py                         written beside code.py with foxlib: resets a board out of safe mode after a brownout
+                                      or watchdog reset (counted in microcontroller.nvm[0]; see foxlib/guard.py)
   foxlib/                             shared CircuitPython firmware library: __init__.py (Fox: FM, SA868), netfox.py + netradio.py + netcfg.py
-                                      (network foxes: the SoC's Wi-Fi / BLE on a duty cycle)
+                                      (network foxes: the SoC's Wi-Fi / BLE on a duty cycle) and the contest-feature modules
   templates/<id>/
     code.py                           the behaviour file (CircuitPython)
     template.json                     manifest, see §5
@@ -373,22 +378,38 @@ firmware/foxlib/
   sstv.py         image → events (Robot 36 grayscale); test card
   battery.py      divider monitor, averaging, calibration, telemetry format
   schedule.py     seeded LCG + fixed/popcorn/resurrection schedulers
-  led.py          patterns: alive · low · critical · unconfigured · keydown-limit
+  led.py          patterns: alive · low · critical · unconfigured · keydown-limit · tx · fatal · armed · done
+  guard.py        the hardware watchdog (limits.watchdog_s) and safemode.py's consecutive-reset counter
   cycle.py        the per-cycle prologue every fox repeats (see below)
   netcfg.py       the `net` contract: defaults → fox.json → validation (twin of js/model/netschema.js)
   netradio.py     the SoC's radios as transmitters: WifiAp, WifiProbe, BleBeacon (up/down/scan/mac)
   netfox.py       NetFox: the network foxes' runner — banner, duty cycle, radio-off or deep sleep, bench
-  netfeatures.py  the contest features (payload, checkpoint, sense, stealth) attached to NetFox's hooks; a section
-                  without a module yet is named in the banner as accepted, not built (docs/network-fox-payloads-plan.md)
-  netpayload.py   what the fox says: rotating / Morse names, iBeacon code, Eddystone-URL and -TLM frames, a split clue
-  netstealth.py   how hard it is to find: MAC / name rotation, duty jitter, a silent start, decoy SSIDs, BLE only
+  netfeatures.py  the contest features (payload, checkpoint, sense, stealth) attached to NetFox's hooks
+                  (docs/network-fox-payloads-plan.md); all four are built since foxlib 1.10
+  netpayload.py   what the fox says: rotating / Morse names, iBeacon code, Eddystone-URL and -TLM frames (TLM data), a split clue
+  netcheckpoint.py what the fox serves: sign-in page + captive DNS, finds.csv, a BLE service with the code; done for the day
+  netsense.py     what the fox listens for: hunter tags, relay, honeypot (joins, probe requests), crowd control; near.csv
+  netstealth.py   how hard it is to find: MAC / name rotation, duty jitter, a silent start, decoy SSIDs, BLE only,
+                  variable power's caller, the shell game
+  netvary.py      what varies per wake: channel from a list, probe-client SSID list, variable power
+  netmodes.py     mode rotation: one radio per kind, swapped before each wake
   VERSION         single line, e.g. 1.0.0
 ```
 
 `cycle.py` owns what every one of the six main loops did identically:
 read battery → critical lockout with hysteresis → LED pattern → assemble
-the ID (with optional `BAT 3V4` telemetry) → key PTT inside `try/finally`
-→ hand control to the template → unkey → let the schedule decide the wait.
+the ID (with optional `BAT 3V4` telemetry) → re-tune the module → key PTT
+inside `try/finally` → hand control to the template → unkey → let the
+schedule decide the wait. Since foxlib 1.6 it also keeps the fox alive
+for a whole hunt: the hardware watchdog is armed and fed through every
+wait, a cycle that raises is logged and the loop goes on, and
+`safemode.py` brings a browned-out board back (`limits.recover: false`
+turns all of that off, for finding out what a fox dies of). The recovery
+covers what runs inside the generator and inside `Tx`; an exception a
+template body raises itself, outside `tx.morse` / `tx.play`, still ends
+`code.py` — a generator cannot catch what its caller raises — so template
+bodies do their work through `tx`. `NetFox` arms no watchdog but clears
+`safemode.py`'s count after every completed wake.
 A template body is therefore only what is distinctive about that fox:
 
 ```python
@@ -487,9 +508,9 @@ FOX template=composite/0.3.0 … cfg=partial(radio.freq_mhz,pins.ptt) radio=err(
 | **Plan** | Frequencies: one, or a rotating list with the `QSY` option. Each entry validated against module ∩ band. |
 | **Payload** | For a network fox: the four contest-feature cards (what the fox says / serves / listens for / how hard it is to find; `docs/network-fox-payloads-plan.md`), each written into fox.json only while on. For an FM template it depends on the template. Songs: built-ins, RTTTL paste, note editor, playlist order. SSTV: drop a PNG or type a card → 40×240 grayscale → decoded preview on canvas. QRSS: dit length, waterfall preview. **Preview** plays the full transmission (ID then payload) through Web Audio from the same event stream the fox will use. |
 | **Schedule** | Fixed / popcorn / resurrection parameters. **Timeline**: the LCG run from the seed, drawn across the day, so an organizer sees every cluster and phase change in advance. |
-| **Deploy** | Diff between board and form; for a network fox **Set the board clock** (this browser's time, or one fixed time for a whole fleet — remembered in the browser) and the template's **needs** line when it has one; airtime per transmission vs `limits`; "antenna or dummy load attached?" gate; writes `fox.json`, payloads, and any out-of-date firmware files (size + CRC32 verified); reboots; parses the banner; pass/fail. Export the same set as a zip. |
-| **Bench** | Capability-gated: **Key test** (key for N seconds, confirm `radio=ok`), **RSSI** (module receiver on the fox frequency), **Battery** (live voltage when `batt_sense` is set). Every action is appended to a timestamped event log that any external test procedure can line up against. |
-| **Fleet** | Profiles (save/load/export a config set) and the fleet log: board UID, MAC, chip info, which profile went on when. Batch flashing: plug → click → erase → flash CircuitPython → log → next, same CSV columns as `tools/batch_flash.py`. (The single-board **Flash CircuitPython** card, with the image source and options, is on the Board tab next to the bootloader instructions.) |
+| **Deploy** | Diff between board and form; **Fleet record** (fox number, event, operator, notes, points to); **Write safemode.py**; for a network fox **Set the board clock** (this browser's time, or one fixed time for a whole fleet — remembered in the browser) and the template's **needs** line when it has one; airtime per transmission vs `limits`; "antenna or dummy load attached?" gate; writes `fox.json`, payloads, and any out-of-date firmware files (size + CRC32 verified); reboots; parses the banner; pass/fail. Export the same set as a zip. |
+| **Bench** | Capability-gated: **Key test** (key for N seconds, confirm `radio=ok`), **RSSI** (module receiver on the fox frequency), **Battery** (live voltage when `batt_sense` is set); for a network fox **Collect finds** (`finds.csv` into the fleet log) and **Who is near** (`near.csv`, shown and downloadable, not merged). Every action is appended to a timestamped event log that any external test procedure can line up against. |
+| **Fleet** | Profiles (save/load/export a config set) and the fleet log: board UID, MAC, chip info, which profile went on when. The **Event sheet** (latest deploy per uid with what each fox shows on the air; CSV, print view), the **Handoff chain** (who points to whom), the **Shell game** (identities shared across saved network foxes). Batch flashing: plug → click → erase → flash CircuitPython → log → next, same CSV columns as `tools/batch_flash.py`. (The single-board **Flash CircuitPython** card, with the image source and options, is on the Board tab next to the bootloader instructions.) |
 | **Console** | Raw exchange, history, log download. |
 
 Bench actions run through `exec-and-capture` after the fox is interrupted.
@@ -514,9 +535,12 @@ the log says it is".
 ## 8. Simulator and CI
 
 `firmware/sim/` is the desktop harness from the earlier foxes, generalised:
-mocked `board`/`busio`/`digitalio`/`pwmio`/`analogio` — and, for the
-network foxes, `wifi`/`_bleio`/`alarm` (deep sleep re-executes `code.py`,
-as the board would reboot) — a virtual clock,
+mocked `board`/`busio`/`digitalio`/`pwmio`/`analogio` and the watchdog and
+`microcontroller.nvm` — and, for the network foxes, `wifi` (with
+`wifi.Monitor`), `_bleio` (advertising, scanning, a connectable service),
+`socketpool` (a scripted phone) and `alarm` (deep sleep re-executes
+`code.py`, as the board would reboot); `scenario.world` says who is near
+and when — a virtual clock,
 and decoders for the event stream (Morse back to text, SSTV back to
 pixels, schedule back to a timeline). `firmware/sim/scenarios.json`
 lists battery schedules and expected behaviour per template. CI
@@ -524,7 +548,8 @@ lists battery schedules and expected behaviour per template. CI
 template through every scenario, the bench script against a pty-simulated
 board, the catalog lint, Python↔JS parity of the encoders and of the
 `fox.json` validator on a shared corpus; the `foxlib-c` job — the C core's
-parity with foxlib and the C runner through the same scenarios, then the
+parity with foxlib and the C runner through the same scenarios (those
+marked `families: ["foxlib"]` are skipped by name), then the
 UF2 with a pinned toolchain and its fingerprint; the `page` job — unit tests
 and the Playwright smoke walk, which also boots exported deploy sets in the
 Python simulator and the C host build. The `deploy` job (Pages, `main`

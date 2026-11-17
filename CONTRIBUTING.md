@@ -26,8 +26,10 @@ the Releasing section below (tags).
 Run the list in `tests/README.md` ("Everything CI runs") from the
 repository root; it is the same set of commands CI runs, kept in one place.
 `tools/check_catalog.py --since origin/main` is the version-bump lint: give
-it the base of what you are about to push, not `HEAD`. Run it last — after
-every change is in the tree.
+it the base of what you are about to push, not `HEAD`. It only sees
+committed changes, so run it last — after every change is committed.
+Run the whole list, including `make -C firmware/foxlib-c/tests check`: a
+shared scenario added for CircuitPython is replayed by the C runner too.
 
 ## When to bump what
 

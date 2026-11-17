@@ -109,6 +109,9 @@ def install(scenario):
     mc = types.ModuleType("microcontroller")
     mc.cpu = types.SimpleNamespace(uid=bytes(range(0x10, 0x18)))
     mc.nvm = bytearray(b"\xff" * 16)       # erased flash reads 0xFF, as a new board's does
+    if scenario.get("nvm0") is not None:   # safemode.py's consecutive-reset count, as left by earlier boots
+        mc.nvm[0] = scenario["nvm0"]
+    rec.nvm = mc.nvm
     # the hardware watchdog: armed by foxlib.guard from cycle.run(). If virtual time passes `timeout` without a
     # feed() the board would reset; the mock records the bite (rec.watchdog_bite) and the runner fails the scenario.
     wdm = types.ModuleType("watchdog")
@@ -428,6 +431,7 @@ def install(scenario):
                     self._pending_stop = None; net_event("adv_down")
             def start_advertising(self, data, *, scan_response=b"", connectable=True, interval=0.1, tx_power=0):
                 if len(data) > 31 or len(scan_response) > 31: raise ValueError("Data too large")
+                if self.advertising: raise RuntimeError("Already advertising")      # _bleio raises BluetoothError
                 # the name: the 0x09 AD structure wherever it sits in the scan response
                 name, svc, i = "", "", 0
                 while i < len(scan_response) - 1:

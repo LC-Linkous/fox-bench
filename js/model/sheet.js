@@ -77,14 +77,21 @@ function name(cfg) {
 
 /** The sheet: latest deploy (or export) per chip uid, newest first; rows without a uid are kept by profile+timestamp. */
 export function sheetRows(log, { event = '' } = {}) {
+  // a row with a chip uid is that board; an export (no board) is its profile, so exporting the same fox again replaces
+  // its line instead of adding one, and a later deploy of that profile to a board supersedes the export
   const byKey = new Map();
   for (const r of log) {
     if (!['deploy', 'export-zip', 'export-header'].includes(r.action)) continue;
     if (r.action === 'deploy' && r.result && r.result !== 'ok') continue;
     if (event && (r.event || '') !== event) continue;
-    const key = r.uid || `${r.profile}|${r.template}|${r.timestamp}`;
+    const key = r.uid ? `uid:${r.uid}` : `profile:${r.profile || r.template}`;
     const have = byKey.get(key);
     if (!have || String(r.timestamp) > String(have.timestamp)) byKey.set(key, r);
+  }
+  for (const [key, r] of [...byKey]) {
+    if (!key.startsWith('profile:') || !r.profile) continue;
+    const deployed = [...byKey.values()].some(x => x.uid && x.profile === r.profile && String(x.timestamp) > String(r.timestamp));
+    if (deployed) byKey.delete(key);
   }
   return [...byKey.values()].sort((a, b) => (Number(a.board_number) || 1e9) - (Number(b.board_number) || 1e9) || String(a.profile).localeCompare(String(b.profile)));
 }

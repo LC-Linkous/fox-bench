@@ -270,7 +270,7 @@ export function checks(cfg, board, { clockSet = false } = {}) {
     if (pl?.enabled && pl.split?.wifi && pl.split?.ble) issues.push({ level: 'warn', key: 'stealth.modes', msg: 'a split clue runs both radios every wake; mode rotation then only changes which one is the main fox' });
   }
   if (st?.enabled && st.shell_game) {
-    if (!opts.clockSet) issues.push({ level: 'err', key: 'stealth.shell_game', msg: 'the shell game follows the board clock: tick "Set the board clock" on the Deploy tab' });
+    if (!clockSet) issues.push({ level: 'err', key: 'stealth.shell_game', msg: 'the shell game follows the board clock: tick "Set the board clock" on the Deploy tab' });
     if (st.rotate_mac) issues.push({ level: 'err', key: 'stealth.shell_game', msg: 'the shell game sets the MAC; turn MAC rotation off' });
     if (st.rotate_name || (pl?.enabled && pl.kind !== 'static')) issues.push({ level: 'err', key: 'stealth.shell_game', msg: 'the shell game sets the name; turn name rotation / payload names off' });
     if (cfg.id.use_callsign_as_name) issues.push({ level: 'warn', key: 'stealth.shell_game', msg: 'the callsign is the name on the air, but the shell game replaces it each cycle' });
@@ -292,6 +292,7 @@ export function checks(cfg, board, { clockSet = false } = {}) {
   if (se?.enabled && !se.tags?.enabled && !se.relay?.enabled && !se.honeypot?.enabled && !se.crowd?.enabled) issues.push({ level: 'warn', key: 'sense.enabled', msg: 'sense is on but nothing is being listened for' });
   if (st?.enabled && st.start?.at && !clockSet) issues.push({ level: 'err', key: 'stealth.start.at', msg: 'a start time needs the board clock set at deploy: tick "Set the board clock" on the Deploy tab' });
   if (st?.enabled && st.start?.at && !/[Zz]|[+-]\d{2}:?\d{2}$/.test(st.start.at)) issues.push({ level: 'warn', key: 'stealth.start.at', msg: 'no time zone on the start time: it is read as the board clock\'s zone (the zone the clock was set in)' });
+  if (st?.enabled && st.ble_only && se?.enabled && (se.relay?.enabled || se.honeypot?.enabled)) issues.push({ level: 'err', key: 'sense.relay.enabled', msg: 'BLE only, but the relay / honeypot listen with the Wi-Fi radio — they would turn it back on' });
   if (st?.enabled && st.ble_only && cfg.net.kind !== 'ble') issues.push({ level: 'err', key: 'stealth.ble_only', msg: 'BLE only with a Wi-Fi template: the fox would never transmit' });
   if (st?.enabled && st.decoys?.length && cfg.net.kind !== 'wifi-ap') issues.push({ level: 'warn', key: 'stealth.decoys', msg: 'decoy names are SSIDs: they need the access-point template' });
   if (st?.enabled && st.rotate_name && !(pl?.enabled && pl.kind === 'rotate' && pl.names?.length)) issues.push({ level: 'warn', key: 'stealth.rotate_name', msg: 'names at random needs a list of names in the payload section (kind rotate)' });

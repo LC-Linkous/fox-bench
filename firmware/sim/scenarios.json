@@ -322,7 +322,8 @@
     ],
     "id_contains": [
      "W1ABC FOX DE W1ABC"
-    ]
+    ],
+    "nvm0_end": 255
    },
    "families": [
     "foxlib"
@@ -2231,6 +2232,106 @@
      "honeypot: this build has no wifi.Monitor; probe requests are not logged (joins still are)"
     ]
    }
+  },
+  {
+   "name": "honeypot-listens-on-this-wakes-channel",
+   "_doc": "with net.channels the probe listen uses the channel drawn for this wake, not the last one",
+   "cap_ms": 120000,
+   "stop_after_unkeys": 1,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "net": {
+     "channel": 6,
+     "channels": [
+      11
+     ]
+    },
+    "sense": {
+     "enabled": true,
+     "honeypot": {
+      "enabled": true,
+      "probes": true,
+      "window_s": 1
+     }
+    },
+    "schedule": {
+     "wake_s": 5,
+     "sleep_s": 5
+    }
+   },
+   "expect": {
+    "keyed_min": 1,
+    "net_contains": [
+     "ch=11"
+    ],
+    "prints_contain": [
+     "on ch 11"
+    ]
+   }
+  },
+  {
+   "name": "safemode-count-cleared",
+   "_doc": "a network fox that came back from 3 brownouts says so and clears safemode.py's count after its first wake (else 50 brownouts over its life would strand it in safe mode)",
+   "cap_ms": 60000,
+   "stop_after_unkeys": 1,
+   "nvm0": 3,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "schedule": {
+     "wake_s": 5,
+     "sleep_s": 5
+    }
+   },
+   "expect": {
+    "keyed_min": 1,
+    "prints_contain": [
+     "note: 3 safe-mode resets since the last completed wake"
+    ],
+    "nvm0_end": 0
+   }
+  },
+  {
+   "name": "near-log-rate",
+   "_doc": "a tag beside the fox for 12 wakes is on the console every wake but written to near.csv once (NEAR_EVERY_S 300)",
+   "cap_ms": 300000,
+   "stop_after_unkeys": 12,
+   "world": {
+    "advertisers": [
+     {
+      "name": "HUNT-7",
+      "mac": "C0:00:00:00:00:07",
+      "rssi": -60
+     }
+    ]
+   },
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "sense": {
+     "enabled": true,
+     "tags": {
+      "enabled": true
+     }
+    },
+    "schedule": {
+     "wake_s": 5,
+     "sleep_s": 5
+    }
+   },
+   "expect": {
+    "keyed_min": 12,
+    "prints_count_min": {
+     "sense: tag HUNT-7": 12
+    },
+    "file_lines": {
+     "near.csv": 2
+    }
+   }
   }
  ],
  "wifi-probe": [
@@ -2728,6 +2829,39 @@
     },
     "prints_not_contain": [
      "mode this cycle"
+    ]
+   }
+  },
+  {
+   "name": "variable-power-slot-ble",
+   "_doc": "BLE power re-drawn while advertising: the beacon must stop before it starts again (_bleio refuses a second start)",
+   "cap_ms": 200000,
+   "stop_after_unkeys": 1,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "stealth": {
+     "enabled": true,
+     "variable_power": {
+      "min_dbm": -12,
+      "max_dbm": 9,
+      "per": "slot",
+      "slot_s": 5
+     }
+    },
+    "schedule": {
+     "wake_s": 30,
+     "sleep_s": 2
+    }
+   },
+   "expect": {
+    "keyed_min": 1,
+    "prints_count_min": {
+     "tx power now": 4
+    },
+    "prints_not_contain": [
+     "not applied"
     ]
    }
   }

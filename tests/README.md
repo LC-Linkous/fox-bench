@@ -9,7 +9,7 @@ the live site as it was.
 |---|---|---|
 | Firmware behaviour (every template × scenario on mocked hardware), encoder parity Python↔JS | `firmware/sim/` | `python3 firmware/sim/run.py` |
 | REPL protocol and device layer against a fake CircuitPython board; the vendored esptool-js against a fake ESP32-C3 ROM | `tests/unit/` | `cd tests && npm run unit` |
-| The page itself, every tab × every template on the demo board (the seven FM templates and the four network foxes: forms, deploy, net bench), in headless Chromium; the zips it exports are unpacked and booted in the firmware simulator (`run.py --deploy-set`) | `tests/page/` | `cd tests && npm run smoke` |
+| The page itself, every tab × every template on the demo board (the seven FM templates and the network foxes: forms, deploy, net bench, finds, the event sheet, handoff), in headless Chromium; the zips it exports are unpacked and booted in the firmware simulator (`run.py --deploy-set`) | `tests/page/` | `cd tests && npm run smoke` |
 
 Setup for the Node tests (once): `cd tests && npm ci && npx playwright
 install --with-deps chromium` (`--with-deps` pulls Chromium's system
@@ -29,13 +29,26 @@ drive; the drive vanishing mid-close). Chromium can be pointed at an existing bu
 Everything CI runs, locally, from the repository root:
 
 ```
-python3 tools/check_catalog.py --since origin/main && python3 tools/check_docs.py && python3 tools/bench_queue.py --check
-python3 tools/check_ci.py && python3 tools/build_kitsune.py --selftest
+python3 -m py_compile firmware/foxlib/*.py firmware/templates/*/code.py firmware/safemode.py
+python3 tools/check_docs.py && python3 tools/bench_queue.py --check
+python3 tools/check_ci.py && python3 tools/build_kitsune.py --selftest && node tools/kitsune_bench_conf.mjs --check
 python3 tools/check_catalog.py --manifest tests/fixtures/kitsune/manifest.json
 python3 firmware/sim/run.py
+python3 firmware/sim/test_sniffer_parse.py && python3 firmware/sim/test_netpayload.py
+python3 firmware/sim/parity.py > /tmp/py.json && node firmware/sim/parity.mjs > /tmp/js.json && node firmware/sim/parity.mjs --compare /tmp/py.json /tmp/js.json
+python3 firmware/sim/schema_parity.py > /tmp/spy.json && node firmware/sim/schema_parity.mjs > /tmp/sjs.json && node firmware/sim/schema_parity.mjs --compare /tmp/spy.json /tmp/sjs.json
+for f in tests/fixtures/bench/*.json; do python3 tools/replay_check.py "$f" || break; done
 make -C firmware/foxlib-c/tests check
-cd tests && npm run unit && npm run smoke
+(cd tests && npm run unit && npm run smoke)
+python3 tools/check_catalog.py --since origin/main      # last, after everything is committed
 ```
+
+The two pty steps (`hw_smoke.py` against `firmware/sim/pty_board.py`, and
+`--sniffer` against `pty_sniffer.py`) are in `.github/workflows/ci.yml`
+as written there; they need `pyserial`. The C runner replays the shared
+scenarios too: one that tests something only CircuitPython has (the
+watchdog, `safemode.py`, re-tuning the SA868) carries
+`"families": ["foxlib"]` and is skipped there by name.
 
 (The firmware itself needs the Arm toolchain named in
 `firmware/foxlib-c/README.md`; the tests above do not. `check_ci.py` needs
@@ -118,7 +131,8 @@ covers the firmware side from the bench, and
 PicoFox runner, the real console and the real Si5351 driver for the host and
 runs four suites: `parity.py` (C encoders, scheduler and validator against
 foxlib and against the page's validator), `sim.py` (the runner through
-`firmware/sim/scenarios.json`, judged by the simulator's decoder),
+`firmware/sim/scenarios.json`, judged by the simulator's decoder; scenarios
+marked `families: ["foxlib"]` are skipped and counted as `foxlib-only`),
 `console_test.py` (`console_corpus.json` against `console.c` and against the
 page's `FakeConsoleLink`, so the fake tracks the firmware) and `si5351_ref.py`
 (the driver's register math against the datasheet formulas). The page smoke test boots a deploy set exported for the

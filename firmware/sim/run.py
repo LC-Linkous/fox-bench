@@ -179,6 +179,8 @@ def check(template, scen, rec, err):
         fails.append("%d key-up(s) while the module was on its default channel, want <= %d" % (rec.keyed_on_default, exp["keyed_on_default_max"]))
     if "module_resets_min" in exp and rec.module_resets < exp["module_resets_min"]:
         fails.append("the scripted module reset %d time(s), scenario wanted >= %d (cap_ms too short?)" % (rec.module_resets, exp["module_resets_min"]))
+    if "nvm0_end" in exp and getattr(rec, "nvm", None) is not None and rec.nvm[0] != exp["nvm0_end"]:
+        fails.append("microcontroller.nvm[0] = %d at the end, want %d (safemode.py's count not cleared?)" % (rec.nvm[0], exp["nvm0_end"]))
     if "watchdog_feeds_min" in exp and rec.watchdog_feeds < exp["watchdog_feeds_min"]:
         fails.append("watchdog fed %d times, want >= %d" % (rec.watchdog_feeds, exp["watchdog_feeds_min"]))
     for k, want in exp.get("banner", {}).items():
@@ -285,6 +287,9 @@ def check(template, scen, rec, err):
         if name not in files: fails.append("the fox did not write %s" % name); continue
         for want in needles:
             if want not in files[name]: fails.append("%s does not contain %r:\n%s" % (name, want, files[name][:400]))
+    for name, n in exp.get("file_lines", {}).items():
+        got = len([l for l in files.get(name, "").splitlines() if l.strip()])
+        if got != n: fails.append("%s has %d line(s), want %d" % (name, got, n))
     for name in exp.get("files_absent", []):
         if name in files: fails.append("%s was written but should not be" % name)
     return fails, banner, texts, sorted(kinds), keyed

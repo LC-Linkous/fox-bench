@@ -529,12 +529,15 @@ and blinks the LED `done` pattern (long and slow) until power-cycled.
 fox it is said once and ignored.
 
 Cross-section rules the validator applies: `payload.kind: rotate` with no
-names falls back to `static`; `checkpoint.portal` and `sense.honeypot`/`relay`
-need a Wi-Fi radio, `stealth.ble_only` and `sense.tags` a BLE radio;
-`sense.relay` needs `wait_for`; a portal with deep sleep turns deep sleep
-off. The page adds what only it can know: a start time with the board
-clock unset, a split clue on a one-radio board, BLE frames on a Wi-Fi
-template.
+names falls back to `static`; `checkpoint.portal` and `sense.honeypot` /
+`relay` need a Wi-Fi radio, `stealth.ble_only` and `sense.tags` / `crowd`
+a BLE radio; `sense.relay` needs `wait_for`; `stealth.modes` only kinds
+the hardware has; a portal with deep sleep turns deep sleep off. The page
+adds what only it can know: a start time, a stop time or the shell game
+with the board clock unset; a split clue on a one-radio board; BLE frames
+on a Wi-Fi template; the shell game beside MAC or name rotation; a relay
+on a BLE-only fox (the relay's Wi-Fi scan would turn the Wi-Fi radio back
+on); unresolved `{{to.*}}` placeholders.
 
 The banner's `clock=` is the board's RTC (`unset` until the page sets it
 at deploy — the Deploy tab's *Set the board clock*, from the browser or a

@@ -205,8 +205,14 @@ class BleBeacon(Base):
         self.restart()
 
     def restart(self):
-        """(Re)start advertising: after up(), and after a central disconnected (a connection stops advertising)."""
+        """(Re)start advertising: after up(), after a central disconnected (a connection stops advertising), and to apply
+        a new tx power (netvary). _bleio refuses start_advertising while already advertising, so stop first."""
         c = self.cfg
+        try:
+            if getattr(self.adapter, "advertising", False):
+                self.adapter.stop_advertising()
+        except Exception:
+            pass
         try:
             self.adapter.start_advertising(self.frame(), scan_response=self.scan_response(), connectable=self.connectable,
                                            interval=c["adv_min"] / 1000.0, tx_power=c["tx_power_dbm"])

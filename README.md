@@ -20,10 +20,19 @@ point, a Wi-Fi probing station or a BLE iBeacon on a duty cycle, with the
 callsign or a configured name as the SSID / device name and a chosen MAC —
 on bare boards with no radio module, listed by chip (ESP32-C3, -C6, -C5,
 -S3, nRF52840: the XIAO C3 / C6 / C5 / S3, the Waveshare ESP32-S3-Nano,
-the FireBeetle 2 ESP32-C5, the Arduino Nano 33 BLE); these four templates
-(three beacons and the `puzzle-beacon` contest beacon) and the five chip
-targets are **experimental** until a hardware-log row
-says a phone has found them. The
+the FireBeetle 2 ESP32-C5, the Arduino Nano 33 BLE). On top of the three
+beacons, the network foxes carry contest features configured per fox on
+the Payload tab — what the fox says (rotating names, codes, Eddystone
+frames, split clues), what it serves (a captive sign-in page with a code
+and a find log, a BLE service), what it listens for (hunter tags, another
+fox, a crowd, who joins or probes) and how hard it is to find (MAC and
+name rotation, channel and power varying per wake, mode rotation, a
+shell game across the fleet, scheduled start and stop) — plus an event
+sheet of what every fox shows on the air and a handoff from one fox to the
+next, FM or network (`docs/network-fox-payloads-plan.md`). These five
+templates (three beacons, `puzzle-beacon`, `checkpoint`) and the five chip
+targets are **experimental** until a hardware-log row says a phone has
+found them. The
 AI6YM PicoFox is supported two ways: with its **vendor firmware** (the page
 writes its settings, renders its audio and Morse-ID files, and draws the
 cycle that firmware runs — verified on air, `docs/picofox.md`), and

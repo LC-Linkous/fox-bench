@@ -98,6 +98,10 @@ function describeMissing(key) {
 export function chain(profiles) {
   const label = p => (p.cfg?.fleet?.number != null && p.cfg.fleet.number !== '' ? `#${p.cfg.fleet.number} ` : '') + p.name;
   const links = [], problems = [];
+  // two saved foxes with one number: points_to by that number reaches the first, which may not be the one meant
+  const byNum = {};
+  for (const p of profiles) { const n = p.cfg?.fleet?.number; if (n != null && n !== '') (byNum[n] ||= []).push(p.name); }
+  for (const [n, names] of Object.entries(byNum)) if (names.length > 1) problems.push(`fox number ${n} is on ${names.length} profiles (${names.join(', ')}); points_to ${n} reaches "${names[0]}"`);
   for (const p of profiles) {
     const to = p.cfg?.fleet?.points_to;
     if (to == null || to === '') continue;

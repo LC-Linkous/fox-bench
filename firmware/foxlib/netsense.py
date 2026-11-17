@@ -13,11 +13,14 @@
 #             quiet_s (LED 'armed'), so a swarm following one team gets nothing
 #
 # near.csv: fox_uid,template,cycle,ms_since_boot,kind,mac,rssi,name -- the finds.csv columns with kind/rssi/name, up to
-# MAX_NEAR lines; the Bench tab's "Who is near" reads it. A fox with nothing to scan for does no scan.
+# MAX_NEAR lines; the Bench tab's "Who is near" reads it. A tag or a prober is written at most once per NEAR_EVERY_S
+# (every sighting is still on the console); each join is written. A fox with nothing to scan for does no scan.
 import time
 from .netcheckpoint import FindLog
 
 MAX_NEAR = 500
+NEAR_EVERY_S = 300                       # a tag or prober seen again within this is on the console, not written again
+NEAR_MEMORY = 200                        # (kind, mac) pairs remembered for that; forgotten all at once past this
 NEAR_FILE = "near.csv"
 NEAR_HEADER = "fox_uid,template,cycle,ms_since_boot,kind,mac,rssi,name\n"
 PROBE_REQ = (0, 4)                       # 802.11 (type, subtype)
@@ -80,6 +83,7 @@ class NearLog(FindLog):
 
     def __init__(self, fox):
         FindLog.__init__(self, fox)
+        self.recent = {}
 
     def _count(self):
         n = 0
@@ -94,6 +98,15 @@ class NearLog(FindLog):
         return n
 
     def add_near(self, cycle, kind, mac, rssi, name):
+        # one line per (kind, mac) per NEAR_EVERY_S: a tag beside the fox for an hour would otherwise fill the file
+        now = time.monotonic_ns() // 1000000000
+        key = (kind, mac)
+        last = self.recent.get(key)
+        if last is not None and now - last < NEAR_EVERY_S and kind != "join":
+            return False
+        if len(self.recent) >= NEAR_MEMORY:
+            self.recent = {}
+        self.recent[key] = now
         if self.count is None:
             self.count = self._count()
         if self.count >= MAX_NEAR:

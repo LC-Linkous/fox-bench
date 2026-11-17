@@ -11,7 +11,7 @@
 import time
 import board
 import microcontroller
-from . import netcfg, netradio, led, netfeatures, netvary, netmodes
+from . import netcfg, netradio, led, netfeatures, netvary, netmodes, guard
 
 try:
     __version__ = open(__file__.rsplit("/", 1)[0] + "/VERSION").read().strip()
@@ -176,6 +176,9 @@ class NetFox:
             print("  note: this firmware cannot hide the SSID; it is broadcast")
         for name in self.unbuilt:
             print("  note: %s is accepted but not in foxlib %s yet; the fox runs without it" % (name, __version__))
+        n = guard.resets()
+        if n and not self.woke_from_sleep:
+            print("  note: %d safe-mode reset%s since the last completed wake (brownout; see safemode.py)" % (n, "" if n == 1 else "s"))
         if self.woke_from_sleep:
             print("woke from deep sleep")
 
@@ -208,6 +211,7 @@ class NetFox:
                 self._run_hooks("after_down", n)
                 if self.done:
                     self._finish()
+                guard.healthy()                      # a wake completed: clear safemode.py's consecutive-reset count
                 n += 1
                 sleep_s = c["schedule"]["sleep_s"] if self.override_sleep_s is None else self.override_sleep_s
                 if sleep_s <= 0:
