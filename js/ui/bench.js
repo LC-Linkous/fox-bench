@@ -50,6 +50,34 @@ async function clearFinds(btn) {
   busy = false; render();
 }
 
+/** near.csv from the fox (the sense section's log): shown and downloadable, not merged into the fleet log — it is
+ *  about the people near the fox, not about the fox. */
+let lastNear = null;
+async function whoIsNear(btn) {
+  if (busy) return;
+  busy = true; const prev = btn.textContent; btn.textContent = 'Reading…'; btn.classList.add('running');
+  note('near:start', '');
+  try {
+    await app.device.interrupt();
+    const text = await app.device.readText('near.csv');
+    const lines = (text || '').split(/\r?\n/).filter(l => l.trim());
+    const head = lines.length ? lines[0].split(',') : [];
+    const all = lines.slice(1).map(l => { const c = l.split(','); const r = {}; head.forEach((k, i) => { r[k.trim()] = (c[i] || '').trim(); }); return r; });
+    const by = {}; for (const r of all) (by[r.kind] ||= new Set()).add(r.mac);
+    lastNear = { text: text || '', rows: all, by };
+    note('near', text == null ? 'no near.csv on the fox yet' : `${all.length} line${all.length === 1 ? '' : 's'}: ` + (Object.entries(by).map(([k, v]) => `${v.size} ${k}${v.size === 1 ? '' : 's'}`).join(', ') || 'nothing'));
+  } catch (e) { note('near:error', String(e.message || e)); }
+  busy = false; btn.textContent = prev; btn.classList.remove('running');
+  render();
+}
+async function clearNear(btn) {
+  if (busy || !confirm('Delete near.csv on the fox? Download it first if you want it.')) return;
+  busy = true;
+  try { await app.device.interrupt(); await app.device.remove('near.csv'); lastNear = null; note('near:clear', 'near.csv removed'); }
+  catch (e) { note('near:error', String(e.message || e)); }
+  busy = false; render();
+}
+
 async function run(action, args, btn, label) {
   if (busy) return;
   busy = true; const prev = btn.textContent; btn.textContent = label || 'Running…'; btn.classList.add('running');
@@ -66,7 +94,8 @@ function render() {
   if (app.isCompiled) { root.replaceChildren(h('div.card', {}, h('p.hint', {}, `${app.board.name}: no bench. kitsune has no command interface; Listen only shows its boot lines and self-check result.`))); return; }
   if (app.family === 'drive') { root.replaceChildren(h('div.card', {}, h('p.hint', {}, `${app.board.name}: no bench. The firmware has no command interface and does not transmit while the drive is mounted. Use a receiver after the power cycle; Listen only shows the boot messages.`))); return; }
   const caps = new Set(app.template.capabilities);
-  if (app.isNet && app.cfg.checkpoint?.enabled) caps.add('finds');      // any net fox with the checkpoint section on keeps a find log
+  if (app.isNet && app.cfg.checkpoint?.enabled) caps.add('finds');
+  if (app.isNet && app.cfg.sense?.enabled) caps.add('near');      // any net fox with the checkpoint section on keeps a find log
   const ready = app.connected && (app.device.kind === 'demo' || app.onBoard.foxlibVersion);
   let keySecs = 3;
   const last = a => [...events].reverse().find(e => e.action === a)?.detail;
@@ -94,6 +123,13 @@ function render() {
           lastFinds?.rows.length ? h('button.btn.small', { disabled: !ready, onclick: e => clearFinds(e.currentTarget) }, 'Clear on fox') : null,
           last('finds') ? badge(last('finds'), 'info') : null),
         lastFinds?.rows.length ? h('pre.out', { style: 'margin-top:8px;max-height:160px;overflow:auto' }, lastFinds.rows.slice(-12).map(r => `${r.callsign.padEnd(12)} cycle ${r.cycle}  +${(r.ms_since_boot / 1000).toFixed(0)} s  ${r.client_mac}`).join('\n')) : null) : null,
+      caps.has('near') ? h('div.card', {}, h('h3', {}, 'Who is near'),
+        h('p.hint', {}, 'Reads ', h('code', {}, 'near.csv'), ' from the fox — hunter tags heard, stations that joined, probe requests for its names. Shown here and downloadable; it is about the people near the fox, so it is not merged into the fleet log.'),
+        h('div.tools', {}, h('button.btn.primary', { disabled: !ready, onclick: e => whoIsNear(e.currentTarget) }, 'Who is near'),
+          lastNear?.rows.length ? h('button.btn.small', { onclick: () => download(`near-${(app.info?.uid || 'fox').slice(-6)}-${Date.now()}.csv`, lastNear.text, 'text/csv') }, 'Download CSV') : null,
+          lastNear?.rows.length ? h('button.btn.small', { disabled: !ready, onclick: e => clearNear(e.currentTarget) }, 'Clear on fox') : null,
+          last('near') ? badge(last('near'), 'info') : null),
+        lastNear?.rows.length ? h('pre.out', { style: 'margin-top:8px;max-height:160px;overflow:auto' }, lastNear.rows.slice(-14).map(r => `${(r.kind || '').padEnd(6)} ${(r.mac || '').padEnd(18)} ${String(r.rssi || '').padStart(4)} dBm  ${r.name || ''}  cycle ${r.cycle}  +${Math.round((+r.ms_since_boot || 0) / 1000)} s`).join('\n')) : null) : null,
       caps.has('batt') ? h('div.card', {}, h('h3', {}, 'Battery'),
         app.cfg.pins?.batt_sense ? h('p.hint', {}, `Averaged ADC read on ${app.cfg.pins.batt_sense} through the divider, with the calibration from fox.json.`) : h('p.hint.warn', {}, 'No batt_sense pin configured; the firmware has no battery monitor.'),
         h('div.tools', {}, h('button.btn', { disabled: !ready || !app.cfg.pins?.batt_sense, onclick: e => run('batt', {}, e.currentTarget) }, 'Read voltage'), last('batt') ? h('span.big', {}, last('batt'), h('span.unit', {}, 'V')) : null)) : null),

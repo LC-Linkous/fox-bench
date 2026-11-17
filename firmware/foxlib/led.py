@@ -5,6 +5,8 @@
 #   critical       slow continuous blink while locked out
 #   unconfigured   double blink every 2 s (callsign unset or fatal config: silent on RF)
 #   keydown-limit  one long blink when a transmission was cut by limits
+#   armed          network fox silent for now (start time, relay, crowd): a short blink every 3 s
+#   done           network fox finished for the day: a long slow blink
 
 import time
 import digitalio
@@ -19,6 +21,7 @@ PATTERNS = {
     "tx": [(900, 100)],              # network fox: radio up (mostly on)
     "fatal": [(100, 100), (100, 1700)],
     "armed": [(60, 2940)],           # network fox waiting for its start time: a short blink every 3 s
+    "done": [(1500, 3500)],          # network fox finished for the day (stop_after_finds / stop_at): a long slow blink
 }
 
 

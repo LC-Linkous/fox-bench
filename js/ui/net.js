@@ -154,7 +154,7 @@ const FEATURE_TITLE = { payload: 'What the fox says', checkpoint: 'What the fox 
 const FEATURE_BLURB = {
   payload: 'Names that change each cycle, a Morse string as the name, a code in the beacon, an Eddystone URL / telemetry frame, a clue split across Wi-Fi and BLE.',
   checkpoint: 'An open network with a sign-in page that shows a code and takes a callsign (logged on the fox), or a BLE service a hunter reads the code from. Puzzle delivery and a checkpoint log — not the scored find.',
-  sense: 'The fox watches for hunter tags, for another fox on the air, or for phones probing nearby, and logs or reacts.',
+  sense: 'The fox listens before each wake — for hunter tags, another fox on the air, a crowd of phones — and for who joins or probes, and logs or reacts.',
   stealth: 'A new MAC each cycle, names drawn at random, jittered timing, a silent start until a time, decoy names, BLE only.',
 };
 const sect = (sec) => app.cfg[sec] ?? null;
@@ -274,17 +274,28 @@ export function renderPayload(root) {
         h('div.two-col', {}, chk(c.portal, 'ask_callsign', 'Ask for a callsign', 'a one-field form; what is typed goes into the find log'), chk(c.portal, 'captive_dns', 'Captive DNS', 'the phone opens the page by itself on joining; off = hunters open http://192.168.4.1')),
         chk(c.portal, 'log', 'Keep a find log on the fox', 'finds.csv — fox uid, cycle, time since boot, callsign, client MAC; Collect finds on the Bench tab reads it into the fleet log')) : null),
     h('div.card', { style: 'margin-top:8px' }, chk(c.ble, 'enabled', 'BLE service with the code', ble ? 'a connectable service beside the beacon; a scanner app reads the code from a characteristic' : 'needs a BLE radio'),
-      c.ble.enabled ? h('div.two-col', {}, fld(c.ble, 'service_uuid', 'Service UUID', { max: 36, upper: true, mono: true }), fld(c.ble, 'code', 'Code', { max: MAX_CODE, mono: true })) : null));
+      c.ble.enabled ? h('div.two-col', {}, fld(c.ble, 'service_uuid', 'Service UUID', { max: 36, upper: true, mono: true }), fld(c.ble, 'code', 'Code', { max: MAX_CODE, mono: true })) : null),
+    h('div.card', { style: 'margin-top:8px' }, h('b', {}, 'Done for the day'),
+      h('p.hint', {}, 'The fox goes off the air until it is power-cycled (LED: a long slow blink) after the N-th callsign handed in, or at a set time — whichever comes first. 0 / empty = never.'),
+      h('div.two-col', {}, num(c, 'stop_after_finds', 'After this many finds', { min: 0, max: 1000 }, 'callsigns handed in on the page or over BLE this boot'),
+        field('At', (() => { const i = h('input', { type: 'datetime-local', step: 1, value: (c.stop_at || '').slice(0, 19) }); i.addEventListener('change', () => { c.stop_at = i.value ? (i.value.length === 16 ? i.value + ':00' : i.value) : ''; app.changed('payload'); }); return i; })(), 'board clock (set at deploy); empty = no stop time'))));
   const senseBody = c => h('div', {},
-    num(c, 'slot_ms', 'Listening slot', { min: 200, max: 5000 }, 'ms of each second the radio listens instead of transmitting'),
+    num(c, 'slot_ms', 'BLE scan length', { min: 200, max: 5000 }, 'ms the fox listens for BLE advertisers before each wake (tags and crowd share one scan)'),
     h('div.card', { style: 'margin-top:8px' }, chk(c.tags, 'enabled', 'Hunter tags', ble ? '' : 'needs a BLE radio'),
       c.tags.enabled ? h('div', {}, h('p.hint.warn', {}, h('b', {}, 'Needs: '), 'one BLE tag per team, named with the prefix below (e.g. HUNT-RED). Hand them out at registration; the fox logs each one it hears.'),
         h('div.two-col', {}, fld(c.tags, 'match', 'Tag name prefix', { max: 16, upper: true, mono: true }), num(c.tags, 'rssi_min', 'Log when stronger than', { min: -100, max: 0 }, 'dBm; −80 is "within a few metres"')),
-        chk(c.tags, 'log', 'Keep a near log on the fox', 'near.csv, same columns as the find log plus kind=tag')) : null),
-    h('div.card', { style: 'margin-top:8px' }, chk(c.relay, 'enabled', 'Relay / chain', 'this fox waits for another fox on the air'),
-      c.relay.enabled ? h('div.two-col', {}, fld(c.relay, 'wait_for', 'Network to wait for', { max: MAX_NAME }, 'the other fox\'s SSID'), sel(c.relay, 'then', 'When heard', [['up', 'go on the air'], ['down', 'go quiet'], ['rotate', 'move to the next name']])) : null),
-    h('div.card', { style: 'margin-top:8px' }, chk(c.probes, 'enabled', 'Count phones probing nearby', wifi ? 'wifi.Monitor on the ESP32 family; the banner reports near=<n>' : 'needs a Wi-Fi radio'),
-      c.probes.enabled ? h('div.two-col', {}, num(c.probes, 'channel', 'Channel to listen on', { min: 1, max: 13 }), num(c.probes, 'window_s', 'Window', { min: 1, max: 10 }, 's per cycle')) : null));
+        chk(c.tags, 'log', 'Keep a near log on the fox', 'near.csv: fox uid, cycle, time since boot, kind=tag, MAC, RSSI, name — Who is near on the Bench tab reads it')) : null),
+    h('div.card', { style: 'margin-top:8px' }, chk(c.relay, 'enabled', 'Relay / chain', wifi ? 'a Wi-Fi scan before each wake for another fox\'s network' : 'needs a Wi-Fi radio'),
+      c.relay.enabled ? h('div.two-col', {}, fld(c.relay, 'wait_for', 'Network to listen for', { max: MAX_NAME }, 'the other fox\'s SSID'),
+        sel(c.relay, 'then', 'When heard', [['up', 'go on the air for good (silent until first heard)'], ['down', 'stay silent while it is on the air'], ['toggle', 'flip on / off each time it comes back']])) : null),
+    h('div.card', { style: 'margin-top:8px' }, chk(c.honeypot, 'enabled', 'Honeypot log', wifi ? 'who comes looking: stations that join the access point, and phones probing for our names' : 'needs a Wi-Fi radio'),
+      c.honeypot.enabled ? h('div', {},
+        h('div.two-col', {}, chk(c.honeypot, 'log', 'Write to near.csv', 'kind=join (and kind=probe); off = the console only'),
+          chk(c.honeypot, 'probes', 'Listen for probe requests', 'a short listen before each wake on the AP\'s channel, for any of this fox\'s names. Needs wifi.Monitor in the CircuitPython build; without it the fox says so once and logs joins only')),
+        c.honeypot.probes ? num(c.honeypot, 'window_s', 'Listen for', { min: 1, max: 10 }, 's before each wake') : null) : null),
+    h('div.card', { style: 'margin-top:8px' }, chk(c.crowd, 'enabled', 'Crowd control', ble ? 'go quiet when too many phones are near, so a swarm following one team gets nothing' : 'needs a BLE radio'),
+      c.crowd.enabled ? h('div.two-col', {}, num(c.crowd, 'max', 'More than', { min: 1, max: 100 }, 'distinct BLE advertisers (phones, watches, earbuds) in the scan'),
+        num(c.crowd, 'rssi_min', 'Counted when stronger than', { min: -100, max: 0 }, 'dBm'), num(c.crowd, 'quiet_s', 'Then quiet for', { min: 10, max: 3600 }, 's (LED: a short blink every 3 s)')) : null));
   const stealthBody = c => h('div', {},
     h('div.two-col', {},
       sel(c, 'rotate_mac', 'MAC address', [[false, 'fixed (net.mac)'], ['per-cycle', 'new one each cycle'], ['per-boot', 'new one each boot']]),

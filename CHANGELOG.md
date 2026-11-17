@@ -14,6 +14,47 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.18.0 · foxlib 1.10.0 · foxlib-c 0.1.11 — phase E′: the fox that listens, and done for the day
+
+- **`sense` built** (`netsense.py`; the Payload tab's last "arrives in
+  phase" note is gone). Before each wake: one BLE scan for **hunter tags**
+  (`tags`, near.csv kind=tag) and **crowd control** (`crowd`: more than
+  `max` advertisers → silent for `quiet_s`); a Wi-Fi scan for the
+  **relay** (`then: up | down | toggle` — `rotate` became `toggle`: each
+  return of the other fox flips this one). While an AP is up the
+  **honeypot** logs every station that joins (`stations_ap`, kind=join);
+  with `honeypot.probes` and `wifi.Monitor` in the build, a listen before
+  each wake logs probe requests for any of this fox's names (kind=probe)
+  and counts the rest. No Monitor: said once, joins still logged. The
+  Phase A placeholder `sense.probes` is replaced by `honeypot` and
+  `crowd` (both twins; corpus +4).
+- **Done for the day** — `checkpoint.stop_after_finds` and
+  `checkpoint.stop_at`: radio off until power-cycled, LED `done` (a long
+  slow blink). One state, two triggers, so later designs add a trigger.
+  `stop_at` needs the board clock (page error; on the fox, said once).
+- `NetFox` gains `skip` (a feature keeps one wake off the air; logged
+  `silent this wake (…)`, LED `armed`) and `done`.
+- **Bench → Who is near** reads `near.csv` (tags, joins, probes): shown,
+  downloadable, clearable; not merged into the fleet log. The demo fox
+  seeds three lines.
+- Fix: the bench's BLE **Scan** on real hardware read `complete_name`,
+  which `_bleio` scan entries do not have — the exception was swallowed
+  and the list came back empty. Names now come from the advertisement
+  bytes (`netsense.adv_name`), addresses from `address_bytes`.
+- Fix (CI): the foxlib-c host runner replayed the shared CircuitPython
+  recovery scenarios (watchdog, safe mode, re-tune, `soak-8h`) against
+  PicoFox firmware that has none of it; those six now carry
+  `families: ["foxlib"]` and the C runner skips them by name
+  (`foxlib-only`). Broken since 0121.
+- Simulator: world-driven mocks — `world.advertisers` (BLE scan entries
+  with advertisement bytes), `world.ssids` (Wi-Fi scan), `world.stations`
+  (`stations_ap` over time), `world.probes` (a `wifi.Monitor` with
+  `Packet` fields; `no_monitor` removes it). Scenarios `sense-tags`,
+  `relay-up / -down / -toggle`, `crowd-quiet`, `honeypot-joins /
+  -probes / -no-monitor`; checkpoint `stop-after-finds`, `stop-at`,
+  `stop-at-no-clock`. The event sheet's `on_air` lists what a fox listens
+  for and when it stops.
+
 ### Page 0.17.0 · foxlib 1.9.0 · foxlib-c 0.1.11 — phase H: mode rotation and the shell game
 
 - **Mode rotation** — `stealth.modes` (2–3 of `wifi-ap`, `wifi-probe`,

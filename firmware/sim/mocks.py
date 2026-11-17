@@ -330,14 +330,47 @@ def install(scenario):
                 raise ConnectionError("no such network")
             def stop_station(self): pass
             def start_scanning_networks(self):
-                for n in (("Neighbour", -55, 6), ("AnotherAP", -70, 11)): yield _Net(*n)
+                # scenario.world.ssids: [{ssid, rssi, ch, from_s, to_s}] -- another fox on the air (relay), and when
+                t0 = clock.ns / 1e9
+                sleep(1.5)
+                net_event("wifi_scan", "")
+                world = (scenario.get("world") or {}).get("ssids")
+                if world is None:
+                    world = [{"ssid": "Neighbour", "rssi": -55, "ch": 6}, {"ssid": "AnotherAP", "rssi": -70, "ch": 11}]
+                for n in world:
+                    if n.get("from_s", 0) <= t0 < n.get("to_s", 1e12): yield _Net(n["ssid"], n["rssi"], n.get("ch", 6))
             def stop_scanning_networks(self): pass
             class _Ip:
                 packed = bytes([192, 168, 4, 1])
                 def __str__(self): return "192.168.4.1"
             ipv4_address_ap = _Ip()
-            stations_ap = [types.SimpleNamespace(mac_address=bytes([0xDA, 0x11, 0x22, 0x33, 0x44, 0x55]), ipv4_address="192.168.4.2", rssi=-50)]
+            @property
+            def stations_ap(self):
+                # scenario.world.stations: [{mac, ip, rssi, from_s, to_s}]; default: the scripted phone, always there
+                t = clock.ns / 1e9
+                world = (scenario.get("world") or {}).get("stations")
+                if world is None:
+                    world = [{"mac": "DA:11:22:33:44:55", "ip": "192.168.4.2", "rssi": -50}]
+                return [types.SimpleNamespace(mac_address=bytes.fromhex(s["mac"].replace(":", "")), ipv4_address=s.get("ip", "192.168.4.9"), rssi=s.get("rssi", -60))
+                        for s in world if s.get("from_s", 0) <= t < s.get("to_s", 1e12)]
         wifi.radio = _Radio(); wifi.AuthMode = types.SimpleNamespace(OPEN=0, WPA2=1)
+        if not scenario.get("no_monitor"):
+            # wifi.Monitor: scenario.world.probes [{mac, ssid, rssi, at_s}] arrive as probe-request frames on any channel
+            wifi.Packet = types.SimpleNamespace(CH="CH", LEN="LEN", RAW="RAW", RSSI="RSSI")
+            class Monitor:
+                def __init__(self, channel=1, queue=128):
+                    self.channel, self.done, self.t0 = channel, set(), clock.ns / 1e9; net_event("monitor", "ch=%d" % channel)
+                def packet(self):
+                    t = clock.ns / 1e9
+                    for i, p in enumerate((scenario.get("world") or {}).get("probes", [])):
+                        if i not in self.done and self.t0 - 1 <= p["at_s"] <= t:      # heard only while listening
+                            self.done.add(i)
+                            ssid = p.get("ssid", "").encode()
+                            raw = bytes([0x40, 0, 0, 0]) + b"\xff" * 6 + bytes.fromhex(p["mac"].replace(":", "")) + b"\xff" * 6 + b"\x10\x00" + bytes([0, len(ssid)]) + ssid
+                            return {"CH": self.channel, "LEN": len(raw), "RAW": raw, "RSSI": p.get("rssi", -60)}
+                    return {}
+                def deinit(self): pass
+            wifi.Monitor = Monitor
         pre_sleep.append(wifi.radio._flush)
         sys.modules["wifi"] = wifi
         _install_socketpool(scenario, clock, rec, net_event, wifi)
@@ -348,6 +381,8 @@ def install(scenario):
         class Address:
             RANDOM_STATIC = 1
             def __init__(self, b, kind=0): self.b, self.kind = b, kind
+            @property
+            def address_bytes(self): return bytes(self.b)
             def __str__(self): return ":".join("%02x" % x for x in self.b) + " (random)"
         class UUID:
             def __init__(self, v): self.v = v
@@ -409,8 +444,20 @@ def install(scenario):
                 self.advertising = False
                 self._flush(); self._pending_stop = now_ms()
             def start_scan(self, timeout=2, minimum_rssi=-100):
+                # scenario.world.advertisers: [{name, mac, rssi, from_s, to_s}] -- who is nearby, and when; default: one
+                # neighbour beacon. Entries carry advertisement_bytes (the 0x09 name), as _bleio's ScanEntry does.
+                t0 = clock.ns / 1e9
                 sleep(timeout)
-                yield types.SimpleNamespace(rssi=-60, address=Address(bytes([0xC0, 0, 0, 0, 0, 1])), complete_name="Neighbour beacon")
+                net_event("ble_scan", "%.1f s" % timeout)
+                world = (scenario.get("world") or {}).get("advertisers")
+                if world is None:
+                    world = [{"name": "Neighbour beacon", "mac": "C0:00:00:00:00:01", "rssi": -60}]
+                for a in world:
+                    if a.get("from_s", 0) <= t0 < a.get("to_s", 1e12) and a["rssi"] >= minimum_rssi:
+                        nm = a.get("name", "").encode()
+                        adv = bytes([2, 0x01, 0x06]) + (bytes([len(nm) + 1, 0x09]) + nm if nm else b"")
+                        mac = bytes(reversed(bytes.fromhex(a["mac"].replace(":", ""))))
+                        yield types.SimpleNamespace(rssi=a["rssi"], address=Address(mac), advertisement_bytes=adv, connectable=False, scan_response=False)
             def stop_scan(self): pass
         bleio.adapter = _Adapter(); bleio.Address = Address
         bleio.UUID, bleio.Attribute, bleio.Service, bleio.Characteristic, bleio.CharacteristicBuffer = UUID, Attribute, Service, Characteristic, CharacteristicBuffer

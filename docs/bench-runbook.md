@@ -377,6 +377,37 @@ when the chip has more than one; the LED pin is the descriptor's default.
     a battery-only restart loses it). Decide whether that fox needs an
     RTC-backed board or a re-deploy.
 
+### The fox that listens, and done for the day (phase E′, foxlib 1.10)
+
+36. **Tags.** wifi-beacon with Sense → Hunter tags (prefix HUNT-). A second
+    board running ble-beacon named `HUNT-RED` (or any BLE tag) a metre
+    away: console `sense: tag HUNT-RED -NN dBm` before each wake; Bench →
+    *Who is near* shows a `tag` line. Walk the tag away until it drops
+    below the threshold.
+37. **Relay.** Two boards: fox B wifi-beacon `FOX-2`; fox A with Relay →
+    listen for `FOX-2`, *go on the air for good*. A stays `silent this wake
+    (relay: waiting for FOX-2)` until B is powered, then `relay: on the air
+    from now on`. Repeat with *stay silent while it is on the air* and
+    *flip on / off*.
+38. **Crowd.** Crowd control, *more than* 3, quiet 60 s. A room with
+    several phones / watches near the board: `crowd: N advertisers above …;
+    quiet for 60 s` and the LED's short blink every 3 s; the fox comes
+    back after a minute. Note the count in a quiet room — that is the
+    venue's baseline, and `max` must sit above it.
+39. **Honeypot joins.** checkpoint or wifi-beacon with Honeypot log: join
+    the AP from a phone → `honeypot: <MAC> joined (-NN dBm)`, a `join` line
+    in Who is near. Note whether the MAC is the phone's real one or its
+    per-network random one (both iOS and Android randomise by default).
+40. **Honeypot probes.** Tick *Listen for probe requests*. On a build with
+    `wifi.Monitor`: forget the fox's network on a phone that had joined it
+    — the phone probes for it by name (hidden-network style probes are the
+    common case), console `honeypot: 1 probe(s) for our names`. On a build
+    without: `this build has no wifi.Monitor` once.
+41. **Done for the day.** checkpoint, *After this many finds* 2: hand in
+    two callsigns → `done: 2 finds (stop_after_finds)`, the AP disappears,
+    the LED's long slow blink; a power cycle brings it back. *At* a time a
+    few minutes ahead with the board clock set at deploy: it stops then.
+
 ### Per-board notes
 
 - **XIAO ESP32C3** (`esp32c3`): the firmware path is the proven one (same

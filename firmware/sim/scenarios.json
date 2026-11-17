@@ -323,7 +323,10 @@
     "id_contains": [
      "W1ABC FOX DE W1ABC"
     ]
-   }
+   },
+   "families": [
+    "foxlib"
+   ]
   },
   {
    "name": "module-reset",
@@ -344,7 +347,10 @@
     "uart_contains": [
      "AT+DMOSETGROUP"
     ]
-   }
+   },
+   "families": [
+    "foxlib"
+   ]
   },
   {
    "name": "module-noreply-then-ok",
@@ -365,7 +371,10 @@
     "prints_contain": [
      "radio noreply -> ok"
     ]
-   }
+   },
+   "families": [
+    "foxlib"
+   ]
   },
   {
    "name": "play-raises",
@@ -387,7 +396,10 @@
      null,
      "W1ABC FOX"
     ]
-   }
+   },
+   "families": [
+    "foxlib"
+   ]
   },
   {
    "name": "watchdog-off",
@@ -406,7 +418,10 @@
     "prints_contain": [
      "watchdog off"
     ]
-   }
+   },
+   "families": [
+    "foxlib"
+   ]
   },
   {
    "name": "recovery-off",
@@ -432,7 +447,10 @@
     "prints_not_contain": [
      "play failed"
     ]
-   }
+   },
+   "families": [
+    "foxlib"
+   ]
   }
  ],
  "morse-songs": [
@@ -1797,6 +1815,422 @@
      "cfg": "partial(stealth.shell_game)"
     }
    }
+  },
+  {
+   "name": "sense-tags",
+   "_doc": "hunter tags: HUNT- prefix above rssi_min is logged to near.csv; a weak tag and another name are not",
+   "cap_ms": 120000,
+   "stop_after_unkeys": 2,
+   "world": {
+    "advertisers": [
+     {
+      "name": "HUNT-7",
+      "mac": "C0:00:00:00:00:07",
+      "rssi": -60
+     },
+     {
+      "name": "HUNT-9",
+      "mac": "C0:00:00:00:00:09",
+      "rssi": -95
+     },
+     {
+      "name": "Phone",
+      "mac": "C0:00:00:00:00:AA",
+      "rssi": -50
+     }
+    ]
+   },
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "sense": {
+     "enabled": true,
+     "tags": {
+      "enabled": true
+     }
+    },
+    "schedule": {
+     "wake_s": 5,
+     "sleep_s": 5
+    }
+   },
+   "expect": {
+    "keyed_min": 2,
+    "prints_contain": [
+     "sense: tag HUNT-7 -60 dBm"
+    ],
+    "prints_not_contain": [
+     "HUNT-9",
+     "tag Phone"
+    ],
+    "file_contains": {
+     "near.csv": [
+      "fox_uid,template,cycle,ms_since_boot,kind,mac,rssi,name",
+      "tag,C0:00:00:00:00:07,-60,HUNT-7"
+     ]
+    }
+   }
+  },
+  {
+   "name": "relay-up",
+   "_doc": "silent until FOX-2 is heard (from 40 s), then on the air for good",
+   "cap_ms": 200000,
+   "stop_after_unkeys": 3,
+   "world": {
+    "ssids": [
+     {
+      "ssid": "FOX-2",
+      "rssi": -70,
+      "ch": 6,
+      "from_s": 40
+     }
+    ]
+   },
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "sense": {
+     "enabled": true,
+     "relay": {
+      "enabled": true,
+      "wait_for": "FOX-2",
+      "then": "up"
+     }
+    },
+    "schedule": {
+     "wake_s": 5,
+     "sleep_s": 5
+    }
+   },
+   "expect": {
+    "keyed_min": 3,
+    "prints_contain": [
+     "silent this wake (relay: waiting for FOX-2)",
+     "relay: heard FOX-2 at -70 dBm",
+     "relay: on the air from now on"
+    ],
+    "first_key_after_ms": 40000
+   }
+  },
+  {
+   "name": "relay-down",
+   "_doc": "silent while FOX-2 is on the air (0-30 s), on the air after",
+   "cap_ms": 200000,
+   "stop_after_unkeys": 2,
+   "world": {
+    "ssids": [
+     {
+      "ssid": "FOX-2",
+      "rssi": -70,
+      "ch": 6,
+      "to_s": 30
+     }
+    ]
+   },
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "sense": {
+     "enabled": true,
+     "relay": {
+      "enabled": true,
+      "wait_for": "FOX-2",
+      "then": "down"
+     }
+    },
+    "schedule": {
+     "wake_s": 5,
+     "sleep_s": 5
+    }
+   },
+   "expect": {
+    "keyed_min": 2,
+    "prints_contain": [
+     "silent this wake (relay: FOX-2 is on the air)"
+    ],
+    "first_key_after_ms": 30000
+   }
+  },
+  {
+   "name": "relay-toggle",
+   "_doc": "each return of FOX-2 after an absence flips the fox: heard 0-15 s (off), gone, heard again from 45 s (on)",
+   "cap_ms": 300000,
+   "stop_after_unkeys": 4,
+   "world": {
+    "ssids": [
+     {
+      "ssid": "FOX-2",
+      "rssi": -70,
+      "ch": 6,
+      "to_s": 15
+     },
+     {
+      "ssid": "FOX-2",
+      "rssi": -70,
+      "ch": 6,
+      "from_s": 45
+     }
+    ]
+   },
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "sense": {
+     "enabled": true,
+     "relay": {
+      "enabled": true,
+      "wait_for": "FOX-2",
+      "then": "toggle"
+     }
+    },
+    "schedule": {
+     "wake_s": 5,
+     "sleep_s": 5
+    }
+   },
+   "expect": {
+    "keyed_min": 4,
+    "prints_contain": [
+     "relay: toggled off",
+     "relay: toggled on",
+     "silent this wake (relay: toggled off)"
+    ]
+   }
+  },
+  {
+   "name": "crowd-quiet",
+   "_doc": "ten advertisers nearby for the first 30 s: more than max 8, so quiet for 60 s, then back",
+   "cap_ms": 300000,
+   "stop_after_unkeys": 2,
+   "world": {
+    "advertisers": [
+     {
+      "name": "p0",
+      "mac": "C0:00:00:00:01:00",
+      "rssi": -60,
+      "to_s": 30
+     },
+     {
+      "name": "p1",
+      "mac": "C0:00:00:00:01:01",
+      "rssi": -60,
+      "to_s": 30
+     },
+     {
+      "name": "p2",
+      "mac": "C0:00:00:00:01:02",
+      "rssi": -60,
+      "to_s": 30
+     },
+     {
+      "name": "p3",
+      "mac": "C0:00:00:00:01:03",
+      "rssi": -60,
+      "to_s": 30
+     },
+     {
+      "name": "p4",
+      "mac": "C0:00:00:00:01:04",
+      "rssi": -60,
+      "to_s": 30
+     },
+     {
+      "name": "p5",
+      "mac": "C0:00:00:00:01:05",
+      "rssi": -60,
+      "to_s": 30
+     },
+     {
+      "name": "p6",
+      "mac": "C0:00:00:00:01:06",
+      "rssi": -60,
+      "to_s": 30
+     },
+     {
+      "name": "p7",
+      "mac": "C0:00:00:00:01:07",
+      "rssi": -60,
+      "to_s": 30
+     },
+     {
+      "name": "p8",
+      "mac": "C0:00:00:00:01:08",
+      "rssi": -60,
+      "to_s": 30
+     },
+     {
+      "name": "p9",
+      "mac": "C0:00:00:00:01:09",
+      "rssi": -60,
+      "to_s": 30
+     }
+    ]
+   },
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "sense": {
+     "enabled": true,
+     "crowd": {
+      "enabled": true,
+      "max": 8,
+      "quiet_s": 60,
+      "rssi_min": -75
+     }
+    },
+    "schedule": {
+     "wake_s": 5,
+     "sleep_s": 5
+    }
+   },
+   "expect": {
+    "keyed_min": 2,
+    "prints_contain": [
+     "crowd: 10 advertisers above -75 dBm (max 8); quiet for 60 s",
+     "silent this wake (crowd"
+    ],
+    "first_key_after_ms": 60000
+   }
+  },
+  {
+   "name": "honeypot-joins",
+   "cap_ms": 120000,
+   "stop_after_unkeys": 1,
+   "world": {
+    "stations": [
+     {
+      "mac": "DA:11:22:33:44:55",
+      "rssi": -50,
+      "from_s": 3,
+      "to_s": 20
+     },
+     {
+      "mac": "3E:7A:00:12:9B:C4",
+      "rssi": -66,
+      "from_s": 12
+     }
+    ]
+   },
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "sense": {
+     "enabled": true,
+     "honeypot": {
+      "enabled": true
+     }
+    },
+    "schedule": {
+     "wake_s": 30,
+     "sleep_s": 5
+    }
+   },
+   "expect": {
+    "keyed_min": 1,
+    "prints_contain": [
+     "honeypot: DA:11:22:33:44:55 joined (-50 dBm)",
+     "honeypot: 3E:7A:00:12:9B:C4 joined (-66 dBm)"
+    ],
+    "file_contains": {
+     "near.csv": [
+      "join,DA:11:22:33:44:55,-50,",
+      "join,3E:7A:00:12:9B:C4,-66,"
+     ]
+    }
+   }
+  },
+  {
+   "name": "honeypot-probes",
+   "_doc": "wifi.Monitor before each wake: a probe for our SSID is logged, one for another network only counted",
+   "cap_ms": 120000,
+   "stop_after_unkeys": 1,
+   "world": {
+    "probes": [
+     {
+      "mac": "3E:7A:00:12:9B:C4",
+      "ssid": "FOXBENCH Fox",
+      "rssi": -55,
+      "at_s": 0.5
+     },
+     {
+      "mac": "3E:7A:00:12:9B:C5",
+      "ssid": "HomeWiFi",
+      "rssi": -70,
+      "at_s": 1.0
+     }
+    ]
+   },
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "net": {
+     "ssid": "FOXBENCH Fox"
+    },
+    "sense": {
+     "enabled": true,
+     "honeypot": {
+      "enabled": true,
+      "probes": true,
+      "window_s": 2
+     }
+    },
+    "schedule": {
+     "wake_s": 5,
+     "sleep_s": 5
+    }
+   },
+   "expect": {
+    "keyed_min": 1,
+    "net_contains_event": [
+     "monitor"
+    ],
+    "prints_contain": [
+     "honeypot: 1 probe(s) for our names, 1 other probe request(s) on ch"
+    ],
+    "file_contains": {
+     "near.csv": [
+      "probe,3E:7A:00:12:9B:C4,-55,FOXBENCH Fox"
+     ]
+    }
+   }
+  },
+  {
+   "name": "honeypot-no-monitor",
+   "cap_ms": 120000,
+   "stop_after_unkeys": 2,
+   "no_monitor": true,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "sense": {
+     "enabled": true,
+     "honeypot": {
+      "enabled": true,
+      "probes": true
+     }
+    },
+    "schedule": {
+     "wake_s": 5,
+     "sleep_s": 5
+    }
+   },
+   "expect": {
+    "keyed_min": 2,
+    "prints_count_max": {
+     "has no wifi.Monitor": 1
+    },
+    "prints_contain": [
+     "honeypot: this build has no wifi.Monitor; probe requests are not logged (joins still are)"
+    ]
+   }
   }
  ],
  "wifi-probe": [
@@ -2566,6 +3000,101 @@
       "N1XYZ,ble"
      ]
     }
+   }
+  },
+  {
+   "name": "stop-after-finds",
+   "_doc": "the second callsign handed in ends the fox's day: radio down, LED done, no more wakes",
+   "cap_ms": 300000,
+   "stop_after_unkeys": 5,
+   "phone": [
+    {
+     "at_s": 5,
+     "post": "callsign=W1ABC"
+    },
+    {
+     "at_s": 9,
+     "post": "callsign=KY4ZR"
+    }
+   ],
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "checkpoint": {
+     "stop_after_finds": 2
+    },
+    "schedule": {
+     "wake_s": 30,
+     "sleep_s": 5
+    }
+   },
+   "expect": {
+    "prints_contain": [
+     "done: 2 finds (stop_after_finds); off the air until power-cycled"
+    ],
+    "net_events_max": {
+     "ap_up": 1
+    },
+    "file_contains": {
+     "finds.csv": [
+      "W1ABC",
+      "KY4ZR"
+     ]
+    }
+   }
+  },
+  {
+   "name": "stop-at",
+   "_doc": "the board clock passes stop_at during the third wake's before_up: done",
+   "cap_ms": 300000,
+   "stop_after_unkeys": 10,
+   "clock": "2026-08-08T09:00:00",
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "checkpoint": {
+     "stop_at": "2026-08-08T09:00:30"
+    },
+    "schedule": {
+     "wake_s": 10,
+     "sleep_s": 10
+    }
+   },
+   "expect": {
+    "prints_contain": [
+     "done: 2026-08-08T09:00:30 reached (stop_at)"
+    ],
+    "net_events_max": {
+     "ap_up": 2
+    }
+   }
+  },
+  {
+   "name": "stop-at-no-clock",
+   "cap_ms": 120000,
+   "stop_after_unkeys": 3,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "checkpoint": {
+     "stop_at": "2026-08-08T09:00:30"
+    },
+    "schedule": {
+     "wake_s": 5,
+     "sleep_s": 5
+    }
+   },
+   "expect": {
+    "keyed_min": 3,
+    "prints_count_max": {
+     "board clock is unset": 1
+    },
+    "prints_contain": [
+     "checkpoint: stop_at 2026-08-08T09:00:30 but the board clock is unset; not stopping on time"
+    ]
    }
   }
  ]

@@ -41,6 +41,17 @@ export function onAir(cfg, { family = 'foxlib', template = '' } = {}) {
     const cp = cfg.checkpoint?.enabled ? cfg.checkpoint : null;
     if (cp?.portal?.enabled) parts.push(`portal code ${cp.portal.code || '—'}${cp.portal.log ? ', logs finds' : ''}`);
     if (cp?.ble?.enabled) parts.push(`BLE service code ${cp.ble.code || '—'}`);
+    if (cp?.stop_after_finds) parts.push(`stops after ${cp.stop_after_finds} finds`);
+    if (cp?.stop_at) parts.push(`stops at ${cp.stop_at}`);
+    const se = cfg.sense?.enabled ? cfg.sense : null;
+    if (se) {
+      const l = [];
+      if (se.tags?.enabled) l.push(`tags ${se.tags.match}*`);
+      if (se.relay?.enabled) l.push(`relay ${se.relay.then} on "${se.relay.wait_for}"`);
+      if (se.honeypot?.enabled) l.push('honeypot' + (se.honeypot.probes ? ' + probes' : ''));
+      if (se.crowd?.enabled) l.push(`crowd > ${se.crowd.max} → quiet ${se.crowd.quiet_s} s`);
+      if (l.length) parts.push('listens: ' + l.join(', '));
+    }
     const s = cfg.schedule;
     if (s) parts.push(`${s.wake_s} s on / ${s.sleep_s} s ${s.sleep === 'deep' ? 'deep sleep' : 'off'}${st?.duty_jitter_s ? ` ±${st.duty_jitter_s}` : ''}`);
   } else if (cfg.plan) {

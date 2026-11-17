@@ -225,8 +225,9 @@ class BleBeacon(Base):
     def scan(self):
         out = []
         try:
+            from .netsense import adv_name, addr_text
             for e in self.adapter.start_scan(timeout=2, minimum_rssi=-100):
-                out.append((e.rssi, str(e.address), e.complete_name or ""))
+                out.append((e.rssi, addr_text(e.address), adv_name(e)))   # _bleio entries carry bytes, not complete_name
             self.adapter.stop_scan()
         except Exception:
             pass

@@ -42,7 +42,7 @@ class Tx:
                 self.fox.led.set(True)
                 pattern = None
             end = time.monotonic_ns() + int(s * 1e9)
-            while time.monotonic_ns() < end:
+            while time.monotonic_ns() < end and not self.fox.done:
                 self.fox.led.hold(min(tick, max(1, (end - time.monotonic_ns()) // 1000000)), pattern)
                 self.fox._run_hooks("while_up", self.cycle)
             self.fox.led.set(False)
@@ -84,6 +84,8 @@ class NetFox:
         self.name = netcfg.display_name(c)
         self.features = netcfg.enabled_features(c)
         self.hooks = {"before_up": [], "on_up": [], "while_up": [], "after_down": []}     # the contest features register here
+        self.skip = None                     # a feature (sense) may keep this wake off the air: the reason, logged
+        self.done = None                     # a feature (checkpoint stop) ends the fox's day: the reason; radio off for good
         self.override_wake_s = None          # a feature (stealth jitter) may set this cycle's timing in before_up
         self.override_sleep_s = None
         if not self.fatal:
@@ -192,9 +194,20 @@ class NetFox:
             while True:
                 self.log("cycle %d" % n)
                 self.override_wake_s = self.override_sleep_s = None
+                self.skip = None
                 self._run_hooks("before_up", n)
-                yield Tx(self, n)
+                if self.done:
+                    self._run_hooks("after_down", n)
+                    self._finish()
+                if self.skip:
+                    wake_s = self.override_wake_s or c["schedule"]["wake_s"]
+                    self.log("silent this wake (%s)" % self.skip)
+                    self.led.hold(wake_s * 1000, "armed" if c["led"]["enabled"] else None)
+                else:
+                    yield Tx(self, n)
                 self._run_hooks("after_down", n)
+                if self.done:
+                    self._finish()
                 n += 1
                 sleep_s = c["schedule"]["sleep_s"] if self.override_sleep_s is None else self.override_sleep_s
                 if sleep_s <= 0:
@@ -210,6 +223,16 @@ class NetFox:
         finally:
             if self.radio:
                 self.radio.down()
+
+    def _finish(self):
+        """The 'done' state (checkpoint.stop_after_finds / stop_at): radio off until power-cycled, LED 'done'."""
+        try:
+            self.radio.down()
+        except Exception:
+            pass
+        self.log("done: %s; off the air until power-cycled" % self.done)
+        while True:
+            self.led.hold(60000, "done" if self.cfg["led"]["enabled"] else None)
 
     def _run_hooks(self, name, cycle):
         for fn in self.hooks.get(name, ()):

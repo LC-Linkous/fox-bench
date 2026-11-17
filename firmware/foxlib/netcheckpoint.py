@@ -133,13 +133,21 @@ def _ip_bytes(wifi):
 
 
 class FindLog:
-    """finds.csv, append-only, MAX_FINDS lines; a read-only filesystem (a host holding the drive) is said once."""
+    """finds.csv, append-only, MAX_FINDS lines; a read-only filesystem (a host holding the drive) is said once.
+    handed_in() counts every callsign this boot, logged or not, for checkpoint.stop_after_finds."""
 
     def __init__(self, fox):
         self.fox = fox
+        self.boot = 0
+        self.stop_after = 0
         self.count = None
         self.said_ro = False
         self.ram = []            # what could not be written, so the Bench can still read this session's finds
+
+    def handed_in(self, call):
+        self.boot += 1
+        if self.stop_after and self.boot >= self.stop_after and not self.fox.done:
+            self.fox.done = "%d finds (stop_after_finds)" % self.boot
 
     def _count(self):
         n = 0
@@ -276,6 +284,7 @@ class Portal:
                     self.fox.log("checkpoint: find %s from %s" % (call, client))
                     if self.cfg["log"]:
                         self.finds.add(self.cycle, call, client)
+                    self.finds.handed_in(call)
             self.hits += 1
             conn.send(http_response(page_html(self.cfg, thanks)))
         except Exception as e:
@@ -359,6 +368,7 @@ class BleService:
                     self.fox.log("checkpoint: find %s over BLE" % call)
                     if self.fox.cfg["checkpoint"]["portal"]["log"]:
                         self.finds.add(self.cycle, call, "ble")
+                    self.finds.handed_in(call)
         except Exception as e:
             self.fox.log("checkpoint: BLE tick failed (%s)" % e.__class__.__name__)
 
@@ -368,9 +378,29 @@ class Checkpoint:
         self.fox = fox
         self.cfg = fox.cfg["checkpoint"]
         self.finds = FindLog(fox)
+        self.finds.stop_after = self.cfg.get("stop_after_finds") or 0
+        self.stop_at = None
+        if self.cfg.get("stop_at"):
+            from .netstealth import parse_at
+            self.stop_at = parse_at(self.cfg["stop_at"])
+        self.said_no_clock = False
         self.portal = None
         self.ble = None
         self.second = None       # a BLE beacon run beside a Wi-Fi fox for the service
+
+    def check_stop(self, fox, cycle):
+        """checkpoint.stop_at: the 'done' state at a wall-clock time (first in before_up)."""
+        if self.stop_at is None or fox.done:
+            return
+        from .netstealth import clock_tuple
+        now = clock_tuple()
+        if now is None:
+            if not self.said_no_clock:
+                self.said_no_clock = True
+                fox.log("checkpoint: stop_at %s but the board clock is unset; not stopping on time" % self.cfg["stop_at"])
+            return
+        if now >= self.stop_at:
+            fox.done = "%s reached (stop_at)" % self.cfg["stop_at"]
 
     def before_up(self, fox, cycle):
         if self.portal is not None:
@@ -424,6 +454,8 @@ def attach(fox):
             if svc.setup():
                 cp.ble = svc
                 fox.tick_ms = min(fox.tick_ms, TICK_MS)
+    if c.get("stop_at"):
+        fox.hooks["before_up"].insert(0, cp.check_stop)
     fox.hooks["before_up"].append(cp.before_up)
     fox.hooks["on_up"].append(cp.on_up)
     fox.hooks["while_up"].append(cp.while_up)

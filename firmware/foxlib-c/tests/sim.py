@@ -54,6 +54,9 @@ def deep_merge(base, over):
 
 def skip_reason(scen):
     """Why a scenario cannot run on this board, or None. Printed in the summary so a skip is never silent."""
+    fams = scen.get("families")
+    if fams is not None and "foxlib-c" not in fams:
+        return "foxlib-only"            # e.g. the CircuitPython recovery scenarios (watchdog, safe mode, re-tune)
     for k in SKIP_KEYS:
         if k in scen: return k
     fox = scen.get("fox") or {}

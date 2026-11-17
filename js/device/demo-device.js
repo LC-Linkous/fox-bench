@@ -70,7 +70,7 @@ export class DemoDevice extends Device {
       const clock = t ? `${t[0]}-${String(t[1]).padStart(2, '0')}-${String(t[2]).padStart(2, '0')}T${String(t[3]).padStart(2, '0')}:${String(t[4]).padStart(2, '0')}:${String(t[5]).padStart(2, '0')}` : 'unset';
       lines.push(`FOX template=${template}/${this._tmplVersion()} foxlib=${fl} board=${this.cpBoardId()} uid=${this.uid} cfg=${cfgStatus} radio=${radio} id=${idState(cfg)} freq=none net=${cfg.net.kind} name="${name}" mac=${cfg.net.mac}${feats.length ? ' features=' + feats.join(',') : ''} clock=${clock}`);
       if (radio.startsWith('ok(hidden')) lines.push('  note: this firmware cannot hide the SSID; it is broadcast');
-      const built = ['payload', 'checkpoint', 'stealth'];            // what this foxlib runs (firmware/index.json features)
+      const built = ['payload', 'checkpoint', 'sense', 'stealth'];            // what this foxlib runs (firmware/index.json features)
       for (const f of feats) if (!built.includes(f)) lines.push(`  note: ${f} is accepted but not in foxlib ${fl} yet; the fox runs without it`);
       if (feats.includes('checkpoint')) {
         const cp = cfg.checkpoint;
@@ -80,6 +80,10 @@ export class DemoDevice extends Device {
           if (cp.portal.log && cp.portal.ask_callsign && !this.fs.has('finds.csv')) this.fs.set('finds.csv', this.enc.encode(`fox_uid,template,cycle,ms_since_boot,callsign,client_mac\n${this.uid},${template},0,41250,W1ABC,DA:11:22:33:44:55\n${this.uid},${template},2,318900,KY4ZR/P,3E:7A:00:12:9B:C4\n`));
         }
         if (cp.ble?.enabled) lines.push(`checkpoint: BLE service ${cp.ble.service_uuid} (code ${cp.ble.code || '-'})`);
+      }
+      if (feats.includes('sense') && !this.fs.has('near.csv')) {
+        // the demo's neighbourhood: a tag, a joined phone, a probe, so Who is near on the Bench tab has something to read
+        this.fs.set('near.csv', this.enc.encode(`fox_uid,template,cycle,ms_since_boot,kind,mac,rssi,name\n${this.uid},${template},0,2100,tag,C0:00:00:00:00:07,-61,HUNT-RED\n${this.uid},${template},1,24800,join,DA:11:22:33:44:55,-50,${cfg.net?.ssid || 'fox'}\n${this.uid},${template},2,48200,probe,3E:7A:00:12:9B:C4,-67,${cfg.net?.ssid || 'fox'}\n`));
       }
       const name0 = nameForCycle(cfg, 0, MORSE);
       if (feats.includes('payload') && name0 !== name) lines.push(`payload: name this cycle "${name0}"`);

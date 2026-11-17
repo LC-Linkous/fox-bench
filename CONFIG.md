@@ -401,8 +401,8 @@ the fox runs without it`. The page says the same on each card.
 | section | keys | phase |
 |---|---|---|
 | `payload` | `enabled`; `kind` static \| rotate \| morse-name; `names` (≤ 16 × 1–32 B); `morse_of` (≤ 16); `code.major` / `.minor` 0–65535; `eddystone.url` (http(s), ≤ 64) / `.tlm` bool / `.tlm_data` `{batt_mv 0–65535, temp_c −128–127, count, uptime_s}` any subset (1.8); `split.wifi` (≤ 32 B) / `.ble` (≤ 29 B); `interleave_ms` 100–10000 | **built, foxlib 1.4.0** |
-| `checkpoint` | `enabled`; `portal.{enabled, title ≤ 40 B, body ≤ 512 B plain text, code ≤ 16, ask_callsign, captive_dns, log}`; `ble.{enabled, service_uuid, code ≤ 16}` | **built, foxlib 1.7.0** |
-| `sense` | `enabled`; `slot_ms` 200–5000; `tags.{enabled, match 1–16 B, log, rssi_min −100–0}`; `relay.{enabled, wait_for ≤ 32 B, then up \| down \| rotate}`; `probes.{enabled, channel 1–13, window_s 1–10}` | E — accepted, not built |
+| `checkpoint` | `enabled`; `stop_after_finds` 0–1000; `stop_at` `YYYY-MM-DDTHH:MM:SS` or empty (1.10); `portal.{enabled, title ≤ 40 B, body ≤ 512 B plain text, code ≤ 16, ask_callsign, captive_dns, log}`; `ble.{enabled, service_uuid, code ≤ 16}` | **built, foxlib 1.7.0** |
+| `sense` | `enabled`; `slot_ms` 200–5000 (BLE scan length); `tags.{enabled, match 1–16 B, log, rssi_min −100–0}`; `relay.{enabled, wait_for ≤ 32 B, then up \| down \| toggle}`; `honeypot.{enabled, log, probes, window_s 1–10}`; `crowd.{enabled, max 1–100, quiet_s 10–3600, rssi_min −100–0}` | **built, foxlib 1.10.0** |
 | `stealth` | `enabled`; `rotate_mac` false \| per-cycle \| per-boot; `rotate_name` bool; `duty_jitter_s` 0–300; `start.after_s` 0–86400 / `start.at` `YYYY-MM-DDTHH:MM:SS[zone]`; `decoys` (≤ 4 × 1–32 B); `ble_only` bool; `variable_power` null \| `{min_dbm, max_dbm, per wake \| slot, slot_s 2–600}`; `modes` `[]` \| 2–3 distinct kinds; `modes_random` bool; `shell_game` null \| `{identities: 2–8 × {name, mac}, period_s 60–86400, index}` | **built, foxlib 1.5.0; `variable_power` 1.8.0; `modes`, `shell_game` 1.9.0** |
 
 **`payload` (built):** `rotate` makes `names[cycle % n]` the SSID / BLE name
@@ -498,8 +498,38 @@ rotation and payload names are errors beside it. The Fleet tab's **Shell
 game** card writes the same list to several saved profiles with their
 seats and shows the rotation table.
 
+**`sense` (built, foxlib 1.10, `netsense.py`):** everything is heard
+*before* a wake, with the radio not yet up. One BLE scan of `slot_ms`
+serves `tags` (every advertiser whose name starts with `match` and is at
+least `rssi_min` strong: a console line and, with `log`, a `near.csv`
+row kind=`tag`) and `crowd` (distinct advertisers above `rssi_min`; more
+than `max` and the fox stays silent for `quiet_s`, LED `armed`). `relay`
+is a Wi-Fi scan for `wait_for`: `up` keeps the fox silent until the
+other fox has been heard once, then on for good; `down` silences any wake
+in which it is heard; `toggle` flips the fox on/off each time the other
+fox comes back after a wake without it. `honeypot` logs, while an access
+point is up, every station that joins (`wifi.radio.stations_ap`, kind
+`join`) and, with `probes` and a CircuitPython build that has
+`wifi.Monitor`, listens `window_s` before each wake on the AP's channel
+for probe requests naming any of this fox's names (SSID, payload names,
+decoys, probe list, shell-game identities: kind `probe`; other probe
+requests are counted in one line). A build without `wifi.Monitor` says so
+once and logs joins only. A silent wake is logged `silent this wake
+(<reason>)` and the other features' after-wake steps still run.
+`near.csv` columns: `fox_uid, template, cycle, ms_since_boot, kind, mac,
+rssi, name`, up to 500 lines; the Bench tab's **Who is near** reads it
+(shown and downloadable, not merged into the fleet log).
+
+**Done for the day (`checkpoint.stop_after_finds`, `checkpoint.stop_at`,
+foxlib 1.10):** after the N-th callsign handed in this boot (page or BLE,
+logged or not), or once the board clock reaches `stop_at`, the fox takes
+its radio down, says `done: <reason>; off the air until power-cycled`,
+and blinks the LED `done` pattern (long and slow) until power-cycled.
+`stop_at` without the board clock set is an error on the page; on the
+fox it is said once and ignored.
+
 Cross-section rules the validator applies: `payload.kind: rotate` with no
-names falls back to `static`; `checkpoint.portal` and `sense.probes`/`relay`
+names falls back to `static`; `checkpoint.portal` and `sense.honeypot`/`relay`
 need a Wi-Fi radio, `stealth.ble_only` and `sense.tags` a BLE radio;
 `sense.relay` needs `wait_for`; a portal with deep sleep turns deep sleep
 off. The page adds what only it can know: a start time with the board

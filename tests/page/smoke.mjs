@@ -187,7 +187,7 @@ try {
   await page.locator('#tab-payload .card', { hasText: 'What the fox says' }).locator('textarea').first().fill('ONE\nTWO'); await page.locator('#tab-payload .card', { hasText: 'What the fox says' }).locator('textarea').first().dispatchEvent('change'); await settle(300);
   check(await app(() => !window.foxbench.report.some(r => r.key.startsWith('payload')) && window.foxbench.cfg.payload.names.length === 2), 'two names: clean');
   check(/On the air: cycles 0, 1, 2 → "ONE", "TWO", "ONE"/.test(await text('#tab-payload')), 'the card previews the names per cycle');
-  check(!/arrives in phase [BCD]/.test(await text('#tab-payload')) && /arrives in phase E/.test(await text('#tab-payload')), 'payload, checkpoint and stealth are built (no phase note); sense still says phase E');
+  check(!/arrives in phase/.test(await text('#tab-payload')), 'all four sections are built (no phase note)');
   await (await enableOf('What the fox serves')).check(); await settle(300);
   await page.locator('#tab-payload .card', { hasText: 'What the fox serves' }).locator('label.check input').nth(1).check(); await settle(300);   // the portal
   check(await app(() => window.foxbench.cfg.checkpoint?.portal?.enabled === true), 'portal switched on');

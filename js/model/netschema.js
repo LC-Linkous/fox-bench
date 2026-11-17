@@ -153,13 +153,14 @@ export function validate(user, defaults, board) {
 export const FEATURES = ['payload', 'checkpoint', 'sense', 'stealth'];
 export const FEATURE_DEFAULTS = {
   payload: { enabled: false, kind: 'static', names: [], morse_of: '', code: { major: 0, minor: 0 }, eddystone: { url: '', tlm: false, tlm_data: {} }, split: { wifi: '', ble: '' }, interleave_ms: 1000 },
-  checkpoint: { enabled: false,
+  checkpoint: { enabled: false, stop_after_finds: 0, stop_at: '',
     portal: { enabled: false, title: '', body: '', code: '', ask_callsign: true, captive_dns: true, log: true },
     ble: { enabled: false, service_uuid: 'F0B0F0B0-0000-4000-8000-0000000000C0', code: '' } },
   sense: { enabled: false, slot_ms: 1000,
     tags: { enabled: false, match: 'HUNT-', log: true, rssi_min: -80 },
     relay: { enabled: false, wait_for: '', then: 'up' },
-    probes: { enabled: false, channel: 6, window_s: 2 } },
+    honeypot: { enabled: false, log: true, probes: false, window_s: 2 },
+    crowd: { enabled: false, max: 8, quiet_s: 120, rssi_min: -75 } },
   stealth: { enabled: false, rotate_mac: false, rotate_name: false, duty_jitter_s: 0, start: { after_s: 0, at: '' }, decoys: [], ble_only: false, variable_power: null, modes: [], modes_random: false, shell_game: null },
 };
 export const MAX_NAMES = 16, MAX_DECOYS = 4, MAX_BODY = 512, MAX_URL = 64, MAX_CODE = 16;
@@ -196,18 +197,22 @@ function validateFeature(sec, u, cfg, bad, radios, kind = null) {
     plain('interleave_ms', x => isInt(x) && x >= 100 && x <= 10000, '100-10000 ms');
     if (cfg.kind === 'rotate' && !cfg.names.length) { bad(sec + '.names', 'rotate needs at least one name'); cfg.kind = 'static'; }
   } else if (sec === 'checkpoint') {
-    for (const k of ['portal', 'ble']) known.add(k);
+    for (const k of ['portal', 'ble', 'stop_after_finds', 'stop_at']) known.add(k);
+    plain('stop_after_finds', x => isInt(x) && x >= 0 && x <= 1000, '0-1000');
+    plain('stop_at', isoOrEmpty, 'YYYY-MM-DDTHH:MM:SS[zone] or empty');
     sub('portal', { enabled: [isBool, 'bool'], title: [x => strMax(x, 40), '<= 40 bytes'], body: [x => strMax(x, MAX_BODY), `<= ${MAX_BODY} bytes`], code: [x => strMax(x, MAX_CODE), `<= ${MAX_CODE} chars`],
       ask_callsign: [isBool, 'bool'], captive_dns: [isBool, 'bool'], log: [isBool, 'bool'] });
     sub('ble', { enabled: [isBool, 'bool'], service_uuid: [uuidOk, '8-4-4-4-12 hex'], code: [x => strMax(x, MAX_CODE), `<= ${MAX_CODE} chars`] });
     if (cfg.portal.enabled && radios && !radios.includes('wifi24')) { bad(sec + '.portal.enabled', 'no Wi-Fi radio'); cfg.portal.enabled = false; }
   } else if (sec === 'sense') {
-    for (const k of ['slot_ms', 'tags', 'relay', 'probes']) known.add(k);
+    for (const k of ['slot_ms', 'tags', 'relay', 'honeypot', 'crowd']) known.add(k);
     plain('slot_ms', x => isInt(x) && x >= 200 && x <= 5000, '200-5000 ms');
     sub('tags', { enabled: [isBool, 'bool'], match: [x => typeof x === 'string' && blen(x) >= 1 && blen(x) <= 16, '1-16 bytes'], log: [isBool, 'bool'], rssi_min: [x => isInt(x) && x >= -100 && x <= 0, '-100-0'] });
-    sub('relay', { enabled: [isBool, 'bool'], wait_for: [x => strMax(x, MAX_NAME), '<= 32 bytes'], then: [x => ['up', 'down', 'rotate'].includes(x), 'up|down|rotate'] });
-    sub('probes', { enabled: [isBool, 'bool'], channel: [x => isInt(x) && x >= 1 && x <= 13, '1-13'], window_s: [x => isInt(x) && x >= 1 && x <= 10, '1-10 s'] });
+    sub('relay', { enabled: [isBool, 'bool'], wait_for: [x => strMax(x, MAX_NAME), '<= 32 bytes'], then: [x => ['up', 'down', 'toggle'].includes(x), 'up|down|toggle'] });
+    sub('honeypot', { enabled: [isBool, 'bool'], log: [isBool, 'bool'], probes: [isBool, 'bool'], window_s: [x => isInt(x) && x >= 1 && x <= 10, '1-10 s'] });
+    sub('crowd', { enabled: [isBool, 'bool'], max: [x => isInt(x) && x >= 1 && x <= 100, '1-100'], quiet_s: [x => isInt(x) && x >= 10 && x <= 3600, '10-3600 s'], rssi_min: [x => isInt(x) && x >= -100 && x <= 0, '-100-0'] });
     if (cfg.relay.enabled && !cfg.relay.wait_for) { bad(sec + '.relay.wait_for', 'relay needs a network name'); cfg.relay.enabled = false; }
+    if (radios) for (const [k, need] of [['tags', 'ble'], ['crowd', 'ble'], ['relay', 'wifi24'], ['honeypot', 'wifi24']]) if (cfg[k].enabled && !radios.includes(need)) { bad(`${sec}.${k}.enabled`, `no ${need === 'ble' ? 'BLE' : 'Wi-Fi'} radio`); cfg[k].enabled = false; }
   } else if (sec === 'stealth') {
     for (const k of ['rotate_mac', 'rotate_name', 'duty_jitter_s', 'start', 'decoys', 'ble_only', 'variable_power', 'modes', 'modes_random', 'shell_game']) known.add(k);
     plain('modes', x => modesOk(x, radios), '[] or 2-3 distinct kinds of wifi-ap | wifi-probe | ble this hardware has');
@@ -277,9 +282,14 @@ export function checks(cfg, board, { clockSet = false } = {}) {
   if (st?.enabled && st.variable_power && st.variable_power.per === 'slot' && cfg.net.kind === 'ble' && st.variable_power.slot_s < 5) issues.push({ level: 'warn', key: 'stealth.variable_power', msg: 'BLE restarts advertising at every power change; under 5 s a scanner may miss the beacon' });
   if (se?.enabled && se.tags?.enabled && !radios.includes('ble') && radios.length) issues.push({ level: 'err', key: 'sense.tags.enabled', msg: `${board.name} has no BLE radio to hear tags with` });
   if (se?.enabled && se.tags?.enabled) issues.push({ level: 'info', key: 'sense.tags.enabled', msg: 'needs one BLE tag per team, named ' + (se.tags.match || 'HUNT-') + '<team>' });
-  if (se?.enabled && (se.probes?.enabled || se.relay?.enabled) && !radios.includes('wifi24') && radios.length) issues.push({ level: 'err', key: 'sense.enabled', msg: `${board.name} has no Wi-Fi radio` });
+  if (se?.enabled && (se.honeypot?.enabled || se.relay?.enabled) && !radios.includes('wifi24') && radios.length) issues.push({ level: 'err', key: 'sense.enabled', msg: `${board.name} has no Wi-Fi radio` });
+  if (se?.enabled && se.honeypot?.enabled && cfg.net.kind !== 'wifi-ap' && !(st?.enabled && st.modes?.includes('wifi-ap'))) issues.push({ level: 'warn', key: 'sense.honeypot.enabled', msg: 'joins are logged on an access point only; this fox is never one' + (se.honeypot.probes ? ' (probe requests are still heard)' : '') });
+  if (se?.enabled && se.honeypot?.enabled && se.honeypot.probes) issues.push({ level: 'info', key: 'sense.honeypot.probes', msg: 'probe requests need wifi.Monitor in the CircuitPython build; a build without it says so once and logs joins only' });
+  if (se?.enabled && se.crowd?.enabled && se.tags?.enabled && se.crowd.max < 2) issues.push({ level: 'warn', key: 'sense.crowd.max', msg: 'a crowd of 1: the first tag nearby silences the fox' });
+  if (cp?.enabled && cp.stop_at && !clockSet) issues.push({ level: 'err', key: 'checkpoint.stop_at', msg: 'a stop time needs the board clock set at deploy: tick "Set the board clock" on the Deploy tab' });
+  if (cp?.enabled && cp.stop_after_finds && !(cp.portal?.enabled && cp.portal.ask_callsign) && !cp.ble?.enabled) issues.push({ level: 'warn', key: 'checkpoint.stop_after_finds', msg: 'stop after N finds counts callsigns handed in; neither the sign-in form nor the BLE service is on' });
   if (se?.enabled && cfg.schedule.sleep === 'deep') issues.push({ level: 'warn', key: 'sense.enabled', msg: 'listening happens only while awake; with deep sleep the fox hears nothing between wakes' });
-  if (se?.enabled && !se.tags?.enabled && !se.relay?.enabled && !se.probes?.enabled) issues.push({ level: 'warn', key: 'sense.enabled', msg: 'sense is on but nothing is being listened for' });
+  if (se?.enabled && !se.tags?.enabled && !se.relay?.enabled && !se.honeypot?.enabled && !se.crowd?.enabled) issues.push({ level: 'warn', key: 'sense.enabled', msg: 'sense is on but nothing is being listened for' });
   if (st?.enabled && st.start?.at && !clockSet) issues.push({ level: 'err', key: 'stealth.start.at', msg: 'a start time needs the board clock set at deploy: tick "Set the board clock" on the Deploy tab' });
   if (st?.enabled && st.start?.at && !/[Zz]|[+-]\d{2}:?\d{2}$/.test(st.start.at)) issues.push({ level: 'warn', key: 'stealth.start.at', msg: 'no time zone on the start time: it is read as the board clock\'s zone (the zone the clock was set in)' });
   if (st?.enabled && st.ble_only && cfg.net.kind !== 'ble') issues.push({ level: 'err', key: 'stealth.ble_only', msg: 'BLE only with a Wi-Fi template: the fox would never transmit' });

@@ -262,13 +262,14 @@ FEATURES = ("payload", "checkpoint", "sense", "stealth")
 FEATURE_DEFAULTS = {
     "payload": {"enabled": False, "kind": "static", "names": [], "morse_of": "", "code": {"major": 0, "minor": 0},
                 "eddystone": {"url": "", "tlm": False, "tlm_data": {}}, "split": {"wifi": "", "ble": ""}, "interleave_ms": 1000},
-    "checkpoint": {"enabled": False,
+    "checkpoint": {"enabled": False, "stop_after_finds": 0, "stop_at": "",
                    "portal": {"enabled": False, "title": "", "body": "", "code": "", "ask_callsign": True, "captive_dns": True, "log": True},
                    "ble": {"enabled": False, "service_uuid": "F0B0F0B0-0000-4000-8000-0000000000C0", "code": ""}},
     "sense": {"enabled": False, "slot_ms": 1000,
               "tags": {"enabled": False, "match": "HUNT-", "log": True, "rssi_min": -80},
               "relay": {"enabled": False, "wait_for": "", "then": "up"},
-              "probes": {"enabled": False, "channel": 6, "window_s": 2}},
+              "honeypot": {"enabled": False, "log": True, "probes": False, "window_s": 2},
+              "crowd": {"enabled": False, "max": 8, "quiet_s": 120, "rssi_min": -75}},
     "stealth": {"enabled": False, "rotate_mac": False, "rotate_name": False, "duty_jitter_s": 0,
                 "start": {"after_s": 0, "at": ""}, "decoys": [], "ble_only": False, "variable_power": None,
                 "modes": [], "modes_random": False, "shell_game": None},
@@ -393,7 +394,9 @@ def _validate_feature(sec, u, cfg, rep, radios, kind=None):
             rep.bad(sec + ".names", "rotate needs at least one name")
             cfg["kind"] = "static"
     elif sec == "checkpoint":
-        known |= {"portal", "ble"}
+        known |= {"portal", "ble", "stop_after_finds", "stop_at"}
+        plain("stop_after_finds", lambda x: _is_int(x) and 0 <= x <= 1000, "0-1000")
+        plain("stop_at", _iso_or_empty, "YYYY-MM-DDTHH:MM:SS[zone] or empty")
         sub("portal", {"enabled": (is_bool, "bool"), "title": (lambda x: _str_max(x, 40), "<= 40 bytes"),
                        "body": (lambda x: _str_max(x, MAX_BODY), "<= %d bytes" % MAX_BODY), "code": (lambda x: _str_max(x, MAX_CODE), "<= %d chars" % MAX_CODE),
                        "ask_callsign": (is_bool, "bool"), "captive_dns": (is_bool, "bool"), "log": (is_bool, "bool")})
@@ -402,15 +405,22 @@ def _validate_feature(sec, u, cfg, rep, radios, kind=None):
             rep.bad(sec + ".portal.enabled", "no Wi-Fi radio")
             cfg["portal"]["enabled"] = False
     elif sec == "sense":
-        known |= {"slot_ms", "tags", "relay", "probes"}
+        known |= {"slot_ms", "tags", "relay", "honeypot", "crowd"}
         plain("slot_ms", lambda x: _is_int(x) and 200 <= x <= 5000, "200-5000 ms")
         sub("tags", {"enabled": (is_bool, "bool"), "match": (lambda x: isinstance(x, str) and 1 <= _blen(x) <= 16, "1-16 bytes"),
                      "log": (is_bool, "bool"), "rssi_min": (lambda x: _is_int(x) and -100 <= x <= 0, "-100-0")})
-        sub("relay", {"enabled": (is_bool, "bool"), "wait_for": (lambda x: _str_max(x, MAX_NAME), "<= 32 bytes"), "then": (lambda x: x in ("up", "down", "rotate"), "up|down|rotate")})
-        sub("probes", {"enabled": (is_bool, "bool"), "channel": (lambda x: _is_int(x) and 1 <= x <= 13, "1-13"), "window_s": (lambda x: _is_int(x) and 1 <= x <= 10, "1-10 s")})
+        sub("relay", {"enabled": (is_bool, "bool"), "wait_for": (lambda x: _str_max(x, MAX_NAME), "<= 32 bytes"), "then": (lambda x: x in ("up", "down", "toggle"), "up|down|toggle")})
+        sub("honeypot", {"enabled": (is_bool, "bool"), "log": (is_bool, "bool"), "probes": (is_bool, "bool"), "window_s": (lambda x: _is_int(x) and 1 <= x <= 10, "1-10 s")})
+        sub("crowd", {"enabled": (is_bool, "bool"), "max": (lambda x: _is_int(x) and 1 <= x <= 100, "1-100"), "quiet_s": (lambda x: _is_int(x) and 10 <= x <= 3600, "10-3600 s"),
+                      "rssi_min": (lambda x: _is_int(x) and -100 <= x <= 0, "-100-0")})
         if cfg["relay"]["enabled"] and not cfg["relay"]["wait_for"]:
             rep.bad(sec + ".relay.wait_for", "relay needs a network name")
             cfg["relay"]["enabled"] = False
+        if radios is not None:
+            for k, need in (("tags", "ble"), ("crowd", "ble"), ("relay", "wifi24"), ("honeypot", "wifi24")):
+                if cfg[k]["enabled"] and need not in radios:
+                    rep.bad(sec + "." + k + ".enabled", "no %s radio" % ("BLE" if need == "ble" else "Wi-Fi"))
+                    cfg[k]["enabled"] = False
     elif sec == "stealth":
         known |= {"rotate_mac", "rotate_name", "duty_jitter_s", "start", "decoys", "ble_only", "variable_power", "modes", "modes_random", "shell_game"}
         plain("modes", lambda x: _modes_ok(x, radios), "[] or 2-3 distinct kinds of wifi-ap | wifi-probe | ble this hardware has")
