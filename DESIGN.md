@@ -421,6 +421,19 @@ verified against the CircuitPython 9.2 source not to work on a board:
 `{**dict}` displays, the match statement, keyword arguments to string
 methods, and `decode`/`encode` with an `errors` argument (ignored there,
 so invalid UTF-8 raises).
+
+Syntax is half of it; the other half is what a call requires. The
+simulator's `wifi` and `_bleio` (`firmware/sim/mocks.py`) follow the
+CircuitPython ports where foxlib depends on it: a Wi-Fi MAC setter raises
+unless its interface's mode is on, enabling the radio resets the power,
+`_bleio.Address` is little-endian and a static random address needs its
+two top bits, the adapter refuses an address while advertising, an active
+scan reports advertisement and scan response as two entries, and
+`connect()` is one bounded round of probe requests. A mock that accepts
+what a board refuses hides the bug (foxlib 1.10.3: every Wi-Fi fox silent
+on a board, with every scenario green); when a mock is added or changed,
+read the port's `common-hal` for the call's preconditions, not only its
+signature.
 A template body is therefore only what is distinctive about that fox:
 
 ```python

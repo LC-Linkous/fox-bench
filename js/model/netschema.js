@@ -44,6 +44,14 @@ const isNum = v => typeof v === 'number' && Number.isFinite(v);
 const blen = s => new TextEncoder().encode(String(s)).length;
 
 /** 'F2:AB:..' → bytes, or null (6 for Wi-Fi/BLE); first byte unicast. */
+/** The address a BLE fox is on the air with for a configured MAC: the same, with the two top bits set (a static random
+ *  address; foxlib/netradio.py does the same). */
+export function bleMac(mac) {
+  const b = parseMac(mac);
+  if (!b) return mac;
+  return [b[0] | 0xC0, ...b.slice(1)].map(x => x.toString(16).toUpperCase().padStart(2, '0')).join(':');
+}
+
 export function parseMac(s, n = 6) {
   if (typeof s !== 'string') return null;
   const parts = s.replace(/-/g, ':').split(':'); if (parts.length !== n) return null;
@@ -274,6 +282,9 @@ export function checks(cfg, board, { clockSet = false } = {}) {
     if (st.rotate_name || (pl?.enabled && pl.kind !== 'static')) issues.push({ level: 'err', key: 'stealth.shell_game', msg: 'the shell game sets the name; turn name rotation / payload names off' });
     if (cfg.id.use_callsign_as_name) issues.push({ level: 'warn', key: 'stealth.shell_game', msg: 'the callsign is the name on the air, but the shell game replaces it each cycle' });
   }
+  // a BLE address is a static random one: its two top bits are set, by the firmware when the MAC given lacks them
+  if (cfg.net.kind === 'ble' && cfg.net.mac && bleMac(cfg.net.mac) !== cfg.net.mac && !(st?.enabled && (st.rotate_mac || st.shell_game)))
+    issues.push({ level: 'warn', key: 'net.mac', msg: `a BLE address has its two top bits set (first byte C0–FF): this fox is on the air as ${bleMac(cfg.net.mac)}` });
   // what varies per wake (phase G)
   if (cfg.net.kind === 'wifi-probe' && cfg.net.probe_ssids?.length && pl?.enabled && pl.kind !== 'static') issues.push({ level: 'warn', key: 'net.probe_ssids', msg: 'the probe list and the payload names both choose the network sought; the list wins each wake' });
   if (cfg.net.kind === 'wifi-probe' && cfg.net.probe_ssids?.length && cfg.id.use_callsign_as_name) issues.push({ level: 'warn', key: 'net.probe_ssids', msg: 'the callsign is the name on the air, but the probe list replaces it each wake' });

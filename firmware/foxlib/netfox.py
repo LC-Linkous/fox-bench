@@ -29,27 +29,58 @@ class Tx:
 
     def beacon(self, seconds=None):
         """Radio up for the wake time (or `seconds`), then down."""
-        s = seconds if seconds is not None else (self.fox.override_wake_s or self.fox.cfg["schedule"]["wake_s"])
-        self.fox.radio.up()
-        self.fox.log("%s up: %s (%s) for %d s" % (self.fox.radio.kind, self.name, self.fox.radio.mac(), s))
-        pattern = "tx" if self.fox.cfg["led"]["enabled"] else None
-        self.fox._run_hooks("on_up", self.cycle)
-        if self.fox.hooks["while_up"]:
+        fox = self.fox
+        radio = fox.radio
+        s = seconds if seconds is not None else (fox.override_wake_s or fox.cfg["schedule"]["wake_s"])
+        pattern = "tx" if fox.cfg["led"]["enabled"] else None
+        end = time.monotonic_ns() + int(s * 1e9)     # the wake includes the start (a probing station's first round)
+        try:
+            radio.up()
+        except Exception as e:
+            # a radio that would not start this once (a driver hiccup, a value this chip refuses) costs the wake, not
+            # the fox: said, silent for the wake, tried again at the next one
+            fox.log("%s did not start (%s: %s); silent this wake" % (radio.kind, e.__class__.__name__, str(e)[:60]))
+            try:
+                radio.down()
+            except Exception:
+                pass
+            fox.led.hold(s * 1000, "fatal" if pattern else None)
+            return
+        fox.log("%s up: %s (%s) for %d s" % (radio.kind, self.name, radio.mac(), s))
+        fox._radio_notes(radio)
+        fox._run_hooks("on_up", self.cycle)
+        keep = getattr(radio, "keep", None)          # a probing station sends a round of probes per call (netradio)
+        if keep:
+            # round after round until the wake is over, the features ticking in between (a round takes ~2 s)
+            fox.led.set(bool(pattern))
+            while not fox.done:
+                left = (end - time.monotonic_ns()) / 1e9
+                if left < 0.5 or fox.radio is not radio or not radio.is_up:
+                    break
+                t0 = time.monotonic_ns()
+                fox._run_hooks("while_up", self.cycle)
+                keep(min(2, left))
+                if time.monotonic_ns() - t0 < 200000000:
+                    fox.led.hold(200, None)          # a round that returned at once must not spin
+            left = (end - time.monotonic_ns()) // 1000000
+            if left > 0 and not fox.done:
+                fox.led.hold(left, None)
+            fox.led.set(False)
+        elif fox.hooks["while_up"]:
             # features that work while the radio is up get a tick every fox.tick_ms (1 s; a portal asks for 50 ms, and
             # then the LED is simply on for the window: a blink pattern cannot be sliced that fine)
-            tick = self.fox.tick_ms
+            tick = fox.tick_ms
             if tick < 1000 and pattern:
-                self.fox.led.set(True)
+                fox.led.set(True)
                 pattern = None
-            end = time.monotonic_ns() + int(s * 1e9)
-            while time.monotonic_ns() < end and not self.fox.done:
-                self.fox.led.hold(min(tick, max(1, (end - time.monotonic_ns()) // 1000000)), pattern)
-                self.fox._run_hooks("while_up", self.cycle)
-            self.fox.led.set(False)
+            while time.monotonic_ns() < end and not fox.done:
+                fox.led.hold(min(tick, max(1, (end - time.monotonic_ns()) // 1000000)), pattern)
+                fox._run_hooks("while_up", self.cycle)
+            fox.led.set(False)
         else:
-            self.fox.led.hold(s * 1000, pattern)
-        self.fox.radio.down()
-        self.fox.log("%s down" % self.fox.radio.kind)
+            fox.led.hold(s * 1000, pattern)
+        radio.down()
+        fox.log("%s down" % radio.kind)
 
 
 class NetFox:
@@ -89,6 +120,7 @@ class NetFox:
         self.done = None                     # a feature (checkpoint stop) ends the fox's day: the reason; radio off for good
         self.override_wake_s = None          # a feature (stealth jitter) may set this cycle's timing in before_up
         self.override_sleep_s = None
+        self._mac_said = set()
         if not self.fatal:
             try:
                 self.radio = netradio.make(c["net"], self.name)
@@ -241,6 +273,15 @@ class NetFox:
         while True:
             self.led.hold(60000, "done" if self.cfg["led"]["enabled"] else None)
 
+    def _radio_notes(self, radio):
+        """Once each: what the radio did differently from the config, and a MAC that is not the configured one."""
+        for note in radio.take_notes():
+            self.log("  note: %s" % note)
+        want, got = radio.wanted_mac(), radio.mac()
+        if want and got != want and (radio.kind, want) not in self._mac_said:
+            self._mac_said.add((radio.kind, want))
+            self.log("  note: MAC %s was asked for, the radio reports %s%s" % (want, got, (" (%s)" % radio.mac_error) if radio.mac_error else ""))
+
     def _run_hooks(self, name, cycle):
         for fn in self.hooks.get(name, ()):
             try:
@@ -260,9 +301,10 @@ class NetFox:
         if not self.radio or not self.radio.status.startswith("ok"):
             return "err: radio %s" % (self.radio.status if self.radio else "none")
         self.radio.up()
+        mac = self.radio.mac()               # read back while up: the address this radio is on the air with
         time.sleep(seconds)
         self.radio.down()
-        return "ok %s %s for %.1f s" % (self.radio.kind, self.name, seconds)
+        return "ok %s %s (%s) for %.1f s" % (self.radio.kind, self.name, mac, seconds)
 
     def rssi(self):
         """Not a receiver's RSSI: the strongest neighbours this radio can see, as a sanity check that it is alive."""

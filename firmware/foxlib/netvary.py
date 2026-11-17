@@ -59,11 +59,7 @@ class Vary:
         if self.ssids and r.kind == "wifi-probe" and self.ssid_s > 0 and now >= self.next_ssid:
             self.next_ssid = now + self.ssid_s
             self.ssid_i = (self.ssid_i + 1) % len(self.ssids)
-            r.name = self.ssids[self.ssid_i]
-            try:
-                r.up()                      # another round of probe requests, for the next network
-            except Exception as e:
-                fox.log("probe for %s failed (%s)" % (_q(r.name), e.__class__.__name__))
+            r.name = self.ssids[self.ssid_i]          # the runner's next round of probe requests is for this one
             fox.log("probing for %s" % _q(r.name))
         if self.power and self.power["per"] == "slot" and now >= self.next_power:
             self.next_power = now + self.power["slot_s"]

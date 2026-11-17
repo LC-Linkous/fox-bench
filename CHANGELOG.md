@@ -14,6 +14,83 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.18.3 · foxlib 1.10.3 · foxlib-c 0.1.11 — the radios as CircuitPython has them
+
+The last audit checked every call's names and argument shapes. This one
+read what each call *requires and does* in the CircuitPython source
+(the espressif port's wifi Radio.c, the espressif and nordic _bleio
+Adapter.c, the shared _bleio Address.c), and made the
+simulator's `wifi` and `_bleio` behave the same way. With those mocks the
+firmware on `main` failed 186 of 227 scenario runs; none of this could
+show before, because the mocks accepted what a board refuses.
+
+- **Fix — every Wi-Fi fox was silent on a board.** `wifi.radio.mac_address_ap`
+  (and `mac_address`) raise `RuntimeError: Interface must be started`
+  unless that interface's mode is already on. The drivers set the MAC in
+  `setup()`, before any `start_ap`, so `wifi-beacon`, `checkpoint` and
+  `wifi-probe` came up `radio=wifi(RuntimeError)` and stayed silent
+  (every default has a MAC). The MAC is now applied at `up()`: radio
+  disabled, mode on (`start_ap` / `start_station` then only configure),
+  address set, radio enabled — nothing is sent under the chip's own
+  address — and re-applied whenever the address read back differs
+  (rotation per cycle, the shell game). The power is set again after,
+  since enabling resets it (`mac-set-before-anything-is-sent`).
+- **Fix — the BLE address was never the configured one.** `_bleio.Address`
+  takes its bytes little-endian; foxlib passed them as written, so
+  `F2:B0:…:07` was offered as `07:…:B0:F2`, which is not a valid static
+  random address, and the refusal was swallowed: BLE foxes advertised
+  from the chip's address, and MAC rotation and shell-game MACs did
+  nothing on BLE. The bytes are reversed now; a static random address
+  must have its two top bits set, so they are set (`02:…` goes on the air
+  as `C2:…`), which the console says once and the page warns about
+  (`net.mac`); the event sheet lists the address as it is on the air. The
+  log line read `ble up: NAME (<ADDRESS)`; it shows the address now
+  (`ble-mac-is-the-one-on-the-air`, `ble-mac-top-bits-are-set-and-said`).
+- **A MAC that did not take is said.** Every `… up:` line shows the
+  address read back from the radio; when that is not the one asked for:
+  `note: MAC F2:… was asked for, the radio reports 7C:… (reason)`, once
+  (`mac-read-only-build-is-said-once`, scenario `mac_fixed`).
+- **Fix — a probing station probed for two seconds per wake.**
+  CircuitPython's `connect()` scans until its timeout and stops; the
+  `wifi-probe` fox called it once per wake, so a 15 s wake was 2 s of
+  probe requests and 13 s of nothing while the log said `up … for 15 s`.
+  The runner now asks for round after round until the wake is over
+  (`radio.keep()`); the probe list changes the network between rounds
+  (`probes-for-the-whole-wake`, expectation `min_keyed_ms`).
+- **Fix — hunter tags named in their scan response were never matched.**
+  An active BLE scan reports a device's advertisement and its scan
+  response as two entries; the sense scan kept the first per MAC, which
+  for a fox-bench beacon (and most tags) is the one without the name.
+  Entries are merged per MAC now: strongest reading, the name from
+  whichever has one; the Bench Scan lists a device once
+  (`sense-tags`, `sense-tag-named-in-the-advertisement`; the mock world's
+  advertisers put the name in the scan response unless `name_in: "adv"`).
+- **Fix — a BLE power the nRF52840 does not have ended the fox.** The
+  SoftDevice accepts only its own steps and refuses the rest; −9, −6, −3
+  and 9 dBm of foxlib's BLE steps are not among them, and the refusal
+  was an uncaught exception in `code.py`. The nearest step is used and
+  said once (`nrf-power-step-is-the-nearest`, scenario `ble_power_steps`).
+- **A radio that will not start costs the wake, not the fox.** An
+  exception from `radio.up()` ended `code.py` (a network fox has no
+  watchdog to bring it back). It is logged — `wifi-ap did not start
+  (RuntimeError: …); silent this wake` — and tried again at the next
+  wake (`ap-that-fails-to-start-costs-one-wake`, scenario `ap_fail_at_s`).
+- **Fix — the Bench Scan on a BLE fox listed addresses without names**
+  (the 0.18 fix read the name but `rssi()` printed only the address):
+  `-60 HUNT-RED C0:…` now. **Radio up** answers with the address read
+  back while the radio was up — `ok wifi-ap NAME (MAC) for 3.0 s` — and
+  `hw_smoke.py` records it as `mac_on_air` and says when it is not the
+  one in `fox.json`.
+- Simulator: `wifi.radio` tracks its AP/station modes and enabled state,
+  has a factory MAC (`factory_mac`), and refuses what the port refuses;
+  `_bleio.Address` is little-endian and prints as `<Address …>`, the
+  adapter refuses an address that is not static random or is set while
+  advertising; stopping what never started is not an unkey.
+- Bench runbook: Q12 (is the configured MAC the one on the air, per
+  kind), Q13 (BLE power steps on the nRF52840); the watchdog step no
+  longer says foxlib disarms on Ctrl-C (CircuitPython does, since
+  1.10.2).
+
 ### Page 0.18.2 · foxlib 1.10.2 · foxlib-c 0.1.11 — a deeper audit, and ESLint
 
 The simulator runs foxlib on desktop Python. This round checked the

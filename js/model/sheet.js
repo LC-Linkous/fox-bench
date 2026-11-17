@@ -5,6 +5,8 @@
 // from the log alone, so a laptop that has the log can print it without the boards. No keyphrases or passwords: there
 // are none. (docs/network-fox-payloads-plan.md, phase G)
 
+import { bleMac } from './netschema.js';
+
 /** A compact, human-readable line of what a hunter can observe plus the code: written into the fleet row at deploy. */
 export function onAir(cfg, { family = 'foxlib', template = '' } = {}) {
   if (!cfg) return '';
@@ -23,7 +25,7 @@ export function onAir(cfg, { family = 'foxlib', template = '' } = {}) {
       parts.push(`BLE "${name(cfg)}" ${n.uuid} ${n.major}/${n.minor}`);
     }
     const st = cfg.stealth?.enabled ? cfg.stealth : null;
-    parts.push(st?.rotate_mac ? `MAC ${st.rotate_mac}` : `MAC ${n.mac || '—'}`);
+    parts.push(st?.rotate_mac ? `MAC ${st.rotate_mac}` : `MAC ${n.mac ? (n.kind === 'ble' ? bleMac(n.mac) : n.mac) : '—'}`);      // BLE: as it is on the air
     parts.push(st?.variable_power ? `${st.variable_power.min_dbm}–${st.variable_power.max_dbm} dBm per ${st.variable_power.per}` : `${n.tx_power_dbm} dBm`);
     const pl = cfg.payload?.enabled ? cfg.payload : null;
     if (pl) {

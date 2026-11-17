@@ -2355,6 +2355,129 @@
      "near.csv": 2
     }
    }
+  },
+  {
+   "name": "mac-set-before-anything-is-sent",
+   "_doc": "CircuitPython's mac_address_ap raises unless the AP mode is on; the driver sets it with the radio stopped, so no beacon ever carries the chip's own address",
+   "stop_after_unkeys": 2,
+   "cap_ms": 90000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "ok",
+     "radio": "ok"
+    },
+    "keyed_min": 2,
+    "net_contains": [
+     "mac=F2:B0:00:00:00:01"
+    ],
+    "net_not_contains": [
+     "mac=7C:DF:A1"
+    ],
+    "net_contains_event": [
+     "wifi_restart"
+    ],
+    "net_events_max": {
+     "wifi_restart": 1,
+     "wifi_disabled": 0
+    },
+    "prints_not_contain": [
+     "was asked for"
+    ]
+   }
+  },
+  {
+   "name": "mac-read-only-build-is-said-once",
+   "_doc": "a build whose MAC cannot be set: the fox runs on the chip's address and says so once",
+   "mac_fixed": true,
+   "stop_after_unkeys": 3,
+   "cap_ms": 120000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    }
+   },
+   "expect": {
+    "keyed_min": 3,
+    "prints_contain": [
+     "note: MAC F2:B0:00:00:00:01 was asked for, the radio reports 7C:DF:A1:00:00:0B (NotImplementedError)"
+    ],
+    "prints_count_max": {
+     "was asked for": 1
+    },
+    "net_contains": [
+     "mac=7C:DF:A1:00:00:0B"
+    ]
+   }
+  },
+  {
+   "name": "ap-that-fails-to-start-costs-one-wake",
+   "_doc": "start_ap raising once must not end code.py: that wake is silent, the next is on the air",
+   "ap_fail_at_s": 16,
+   "stop_after_unkeys": 2,
+   "cap_ms": 120000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    }
+   },
+   "expect": {
+    "keyed_min": 2,
+    "prints_contain": [
+     "wifi-ap did not start (RuntimeError: AP could not be started); silent this wake",
+     "cycle 2"
+    ]
+   }
+  },
+  {
+   "name": "sense-tag-named-in-the-advertisement",
+   "_doc": "a tag whose name is in the advertisement itself (not the scan response) is matched too, once",
+   "cap_ms": 120000,
+   "stop_after_unkeys": 2,
+   "world": {
+    "advertisers": [
+     {
+      "name": "HUNT-3",
+      "mac": "C0:00:00:00:00:03",
+      "rssi": -61,
+      "name_in": "adv"
+     },
+     {
+      "name": "HUNT-4",
+      "mac": "C0:00:00:00:00:04",
+      "rssi": -58
+     }
+    ]
+   },
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "sense": {
+     "enabled": true,
+     "tags": {
+      "enabled": true
+     }
+    },
+    "schedule": {
+     "wake_s": 5,
+     "sleep_s": 5
+    }
+   },
+   "expect": {
+    "keyed_min": 2,
+    "prints_contain": [
+     "sense: tag HUNT-3 -61 dBm",
+     "sense: tag HUNT-4 -58 dBm"
+    ],
+    "file_lines": {
+     "near.csv": 3
+    }
+   }
   }
  ],
  "wifi-probe": [
@@ -2441,11 +2564,34 @@
      "probing for": 5
     },
     "net_distinct_min": {
-     "probe": {
+     "probe_more": {
       "field": "",
       "n": 3
      }
     }
+   },
+   "_doc": "three networks sought in turn inside one wake: each change is a probe_more in the same burst"
+  },
+  {
+   "name": "probes-for-the-whole-wake",
+   "_doc": "connect() probes for ~2 s and stops; the runner asks again until the wake is over, so the station is on the air for the wake, under the configured MAC",
+   "stop_after_unkeys": 2,
+   "cap_ms": 90000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    }
+   },
+   "expect": {
+    "keyed_min": 2,
+    "min_keyed_ms": 14000,
+    "max_keyed_ms": 16500,
+    "net_not_contains": [
+     "mac=7C:DF:A1"
+    ],
+    "net_contains": [
+     "FOXBENCH WiFi Probe mac=F2:B0:00:00:00:05"
+    ]
    }
   }
  ],
@@ -2916,6 +3062,95 @@
     "prints_not_contain": [
      "payload is accepted but not in foxlib"
     ]
+   }
+  },
+  {
+   "name": "ble-mac-is-the-one-on-the-air",
+   "_doc": "_bleio.Address is little-endian: the configured MAC must be the advertiser's address, read back the right way round",
+   "stop_after_unkeys": 2,
+   "cap_ms": 90000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    }
+   },
+   "expect": {
+    "keyed_min": 2,
+    "net_contains": [
+     "mac=F2:B0:00:00:00:07"
+    ],
+    "net_not_contains": [
+     "mac=7C:DF:A1"
+    ],
+    "prints_contain": [
+     "ble up: FOXBENCH Beacon (F2:B0:00:00:00:07)"
+    ],
+    "prints_not_contain": [
+     "was asked for",
+     "two top bits"
+    ]
+   }
+  },
+  {
+   "name": "ble-mac-top-bits-are-set-and-said",
+   "_doc": "a static random address needs its two top bits: 02:.. goes on the air as C2:.., said once",
+   "stop_after_unkeys": 3,
+   "cap_ms": 120000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "net": {
+     "mac": "02:11:22:33:44:55"
+    }
+   },
+   "expect": {
+    "keyed_min": 3,
+    "net_contains": [
+     "mac=C2:11:22:33:44:55"
+    ],
+    "prints_contain": [
+     "note: a BLE address has its two top bits set: MAC 02:11:22:33:44:55 is on the air as C2:11:22:33:44:55"
+    ],
+    "prints_count_max": {
+     "two top bits": 1
+    },
+    "prints_not_contain": [
+     "was asked for"
+    ]
+   }
+  },
+  {
+   "name": "nrf-power-step-is-the-nearest",
+   "_doc": "the nRF SoftDevice refuses a power that is not one of its steps; the fox must advertise at the nearest, not die",
+   "ble_power_steps": "nrf",
+   "radios": [
+    "ble"
+   ],
+   "stop_after_unkeys": 3,
+   "cap_ms": 120000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "net": {
+     "tx_power_dbm": 9
+    }
+   },
+   "expect": {
+    "keyed_min": 3,
+    "net_contains": [
+     "tx=8 "
+    ],
+    "net_not_contains": [
+     "tx=9 "
+    ],
+    "prints_contain": [
+     "note: this chip has no 9 dBm BLE step; advertising at 8 dBm"
+    ],
+    "prints_count_max": {
+     "BLE step": 1
+    }
    }
   }
  ],

@@ -208,16 +208,9 @@ class Stealth:
 
 
 def _set_mac(radio, mac):
+    """The driver applies it at the next up(): each kind has its own way (netradio.py, 'The MAC address')."""
     try:
-        radio.cfg["mac"] = mac
-        b = bytes(int(p, 16) for p in mac.replace("-", ":").split(":"))
-        if radio.kind == "wifi-ap":
-            radio.wifi.radio.mac_address_ap = b
-        elif radio.kind == "wifi-probe":
-            radio.wifi.radio.mac_address = b
-        elif radio.kind == "ble":
-            radio.adapter.address = radio._bleio.Address(b, radio._bleio.Address.RANDOM_STATIC)
-        return True
+        return radio.set_mac(mac)
     except Exception:
         return False
 

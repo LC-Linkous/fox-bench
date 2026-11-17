@@ -419,6 +419,7 @@ class Checkpoint:
         if self.second is not None:
             try:
                 self.second.up()
+                fox._radio_notes(self.second)
             except Exception as e:
                 fox.log("checkpoint: second radio failed (%s)" % e.__class__.__name__)
 

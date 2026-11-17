@@ -343,10 +343,18 @@ def main():
                 pre = "import gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfrom foxlib.netfox import NetFox\nfox = NetFox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\n"
                 out = r.exec(pre + "print(gc.mem_free())\nprint(fox.radio.status)\nprint(fox.rssi())\nprint(fox.radio.mac())\n", timeout=60).strip().splitlines()
                 res["mem_free_with_fox"], res["probe"], res["rssi"], res["batt_v"] = int(out[0]), out[1], out[2], None
-                print("  import %.1fs · free %d → %d → %d B · radio %s · scan %s · mac %s" % (res["import_s"], res["mem_free_before"], res["mem_free_after_import"], res["mem_free_with_fox"], out[1], out[2][:120], out[3]))
+                print("  import %.1fs · free %d → %d → %d B · radio %s · scan %s · mac before up %s" % (res["import_s"], res["mem_free_before"], res["mem_free_after_import"], res["mem_free_with_fox"], out[1], out[2][:120], out[3]))
                 if a.key_seconds > 0:
                     res["key"] = r.exec(pre + "print(fox.key_for(%s))\n" % _num(a.key_seconds), timeout=60 + a.key_seconds).strip()
                     print("  radio up %ss: %s" % (a.key_seconds, res["key"]))
+                    want = (fox.get("net") or {}).get("mac")
+                    got = re.search(r"\(([0-9A-Fa-f:?]+)\) for [0-9.]+ s$", res["key"])
+                    if want and got:
+                        res["mac_on_air"] = got.group(1).upper()
+                        if fox["net"].get("kind") == "ble":          # a static random address: the two top bits set
+                            want = "%02X%s" % (int(want[:2], 16) | 0xC0, want[2:])
+                        if res["mac_on_air"] != want.upper():
+                            print("  NOTE: the radio reports %s, fox.json asked for %s (bench-runbook Q12)" % (res["mac_on_air"], want.upper()))
             else:
                 pre = "import foxlib, gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfox = foxlib.Fox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\n"
                 out = r.exec(pre + "print(gc.mem_free())\nprint(fox.radio.probe((146.5, 433.5)))\nprint(fox.radio.rssi())\nprint(fox.batt.read() if fox.batt else None)\n", timeout=60).strip().splitlines()

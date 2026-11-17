@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { validate, checks, cycle, displayName, parseMac, randomMac, enabledFeatures } from '../../js/model/netschema.js';
+import { validate, checks, cycle, displayName, parseMac, bleMac, randomMac, enabledFeatures } from '../../js/model/netschema.js';
 
 const defaults = t => JSON.parse(readFileSync(new URL(`../../firmware/templates/${t}/defaults/esp32c3.json`, import.meta.url)));
 const C3 = { id: 'esp32c3', name: 'ESP32-C3', radios: ['wifi24', 'ble'], pins: [{ name: 'D0' }, { name: 'D10' }] };
@@ -95,4 +95,16 @@ test('checks() with every phase G–E′ section on does not throw, and says wha
   assert.ok(withClock.includes('stealth.shell_game'));          // still: the shell game beside MAC rotation
   const bleOnly = validate({ stealth: { enabled: true, ble_only: true }, sense: { enabled: true, relay: { enabled: true, wait_for: 'X' } } }, defaults('ble-beacon'), C3);
   assert.ok(checks(bleOnly.cfg, C3, {}).some(i => i.level === 'err' && i.key === 'sense.relay.enabled'));
+});
+
+test('a BLE fox is on the air with the two top bits of its MAC set, and the page says so', () => {
+  assert.equal(bleMac('F2:B0:00:00:00:07'), 'F2:B0:00:00:00:07');
+  assert.equal(bleMac('02:11:22:33:44:55'), 'C2:11:22:33:44:55');
+  assert.equal(bleMac('nope'), 'nope');
+  const ok = validate({}, defaults('ble-beacon'), C3);
+  assert.ok(!checks(ok.cfg, C3, {}).some(i => i.key === 'net.mac'));
+  const low = validate({ net: { mac: '02:11:22:33:44:55' } }, defaults('ble-beacon'), C3);
+  assert.ok(checks(low.cfg, C3, {}).some(i => i.level === 'warn' && i.key === 'net.mac' && i.msg.includes('C2:11:22:33:44:55')));
+  const wifi = validate({ net: { mac: '02:11:22:33:44:55' } }, defaults('wifi-beacon'), C3);
+  assert.ok(!checks(wifi.cfg, C3, {}).some(i => i.key === 'net.mac'));
 });

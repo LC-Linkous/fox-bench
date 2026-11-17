@@ -40,6 +40,8 @@ decides something in code or in the catalog. Write the answers into
 | Q11 | Do the payload features run at all? | puzzle-beacon on any chip: the boot log has no `** payload failed to load` line, and nRF Connect shows the name rotating (0.18.2: they never loaded on a board before) | that phase B works on hardware |
 | Q9 | What is a room's BLE crowd? | the `crowd: N advertisers` line in a quiet room and in a busy one | the default for `sense.crowd.max` |
 | Q10 | Does a shell-game fox survive a battery swap? | battery-only power cycle: `the board clock is unset; keeping seat N's identity` | whether shell-game foxes need re-deploying after a swap, or an RTC board |
+| Q12 | Is the configured MAC the one on the air? | per kind: wifi-beacon's BSSID in the analyser, wifi-probe's source MAC in the sniffer's lines, ble-beacon's address in nRF Connect, each against the `… up: NAME (MAC)` line; and whether the console has `note: MAC … was asked for, the radio reports …`. On Wi-Fi also: does the chip's own address (the Board tab's, `7C:…`-style) ever show beside the fox's name? | the MAC sequence in `netradio.py` (radio stopped, mode on, set, start) — new in 1.10.3 and never run on a board; MAC rotation and the shell game depend on it |
+| Q13 | Which BLE powers does the nRF52840 take? | ble-beacon at 9 dBm on the Nano 33 BLE: `note: this chip has no 9 dBm BLE step; advertising at 8 dBm` and the beacon is on the air | the BLE power steps the page offers per chip |
 
 ## 1. PicoFox re-run (foxlib-c 0.1.11 / page 0.12.0)
 
@@ -116,11 +118,12 @@ Bench, one board, a real pack, the handheld on the frequency:
    then a normal boot whose banner is followed by
    `note: 1 safe-mode reset since the last completed cycle`. After the first
    full cycle the note is gone on the next reboot.
-4. **Hang.** From the REPL, `import microcontroller; microcontroller.watchdog`
-   shows the timer running while code.py is; interrupting code.py and
-   building a bench `Fox(quiet=True)` disarms it (no reset while you sit at
-   the REPL). With code.py running, `Ctrl-C` and wait 90 s: nothing happens,
-   the interrupt disarmed it in the loop's `finally`.
+4. **Hang.** With code.py running, `Ctrl-C` and wait two minutes at the
+   REPL (use the Bench tab meanwhile): nothing happens. CircuitPython
+   stops a RESET watchdog when code.py ends by Ctrl-C or a reload, and
+   leaves it running after an uncaught exception, so a fox whose code.py
+   died resets after 90 s and `safemode.py` brings it back (foxlib 1.10.2
+   stopped disarming it itself).
 5. Leave it running from a full pack overnight (a soak); the handheld or a
    recording confirms it is still on frequency in the morning. Put the hours
    in `docs/hardware-log.md`.
@@ -222,8 +225,10 @@ when the chip has more than one; the LED pin is the descriptor's default.
 2. **wifi-beacon**, defaults (SSID `FOXBENCH WiFi Beacon`, channel 1, 17 dBm,
    open; callsign on the ID tab; wake 15 / off 5, sleep **off**). Deploy.
    Banner: `cfg=ok radio=ok id=set freq=none net=wifi-ap name="FOXBENCH WiFi
-   Beacon" mac=F2:B0:00:00:00:01`; then `cycle 0`, `wifi-ap up … for 15 s`,
-   `wifi-ap down`, `sleep 5 s`. `cfg=partial(pins.led)` means the LED name in
+   Beacon" mac=F2:B0:00:00:00:01`; then `cycle 0`, `wifi-ap up: … (F2:B0:00:00:00:01)
+   for 15 s`, `wifi-ap down`, `sleep 5 s`. The address in brackets is read
+   back from the radio: anything else there, or a `note: MAC … was asked
+   for` line, is the answer to Q12. `cfg=partial(pins.led)` means the LED name in
    the descriptor is not one this build has: note what `dir(board)` lists
    (REPL: `import board; dir(board)`) — that is the fix.
 3. **Phone**: the SSID appears for ~15 s and is gone for ~5. Analyser: BSSID
@@ -242,7 +247,8 @@ when the chip has more than one; the LED pin is the descriptor's default.
    `cycle 0`. On the phone the SSID still comes and goes. A power bank with
    auto-off is what this mode fights; try the one you would hunt with.
 8. **Bench tab**: **Scan** lists your home AP with an RSSI; **Radio up 3 s**
-   → `ok wifi-ap <name> for 3.0 s`.
+   → `ok wifi-ap <name> (<MAC>) for 3.0 s`, the MAC read back from the
+   radio while it was up.
 9. **ble-beacon**, defaults (UUID `F0B0F0B0-0000-4000-8000-000000000001`,
    major 1, minor 1, name `FOXBENCH Beacon`, 100 ms, 0 dBm). Deploy; nRF
    Connect shows the iBeacon frame (Apple 0x004C, UUID / major / minor) and
@@ -252,8 +258,10 @@ when the chip has more than one; the LED pin is the descriptor's default.
     --sniffer` reports `N probe(s) from F2:B0:00:00:00:05, N with SSID
     <callsign>` during the observe window and fails the template at zero.
     By hand: the sniffer's serial output is one JSON line per probe
-    request; watch for the fox's MAC with the callsign as SSID, every
-    cycle, on channels 1/6/11. The board never joins anything.
+    request; watch for the fox's MAC with the callsign as SSID, through
+    the whole wake (a round every ~2 s; before foxlib 1.10.3 only the
+    first 2 s of each wake), on channels 1/6/11. The board never joins
+    anything.
 11. **Hardware-log row**: date · board (variant) · firmware (foxlib version,
     CircuitPython version, build id) · checked (which of 2–10) · how (phone
     apps) · result. A chip target goes `stable` once every one of its

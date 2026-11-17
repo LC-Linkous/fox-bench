@@ -313,29 +313,80 @@ def install(scenario):
         class _Net:
             def __init__(self, ssid, rssi, ch): self.ssid, self.rssi, self.channel = ssid, rssi, ch
         class _Radio:
-            _enabled = False; mac_address_ap = bytes(6); mac_address = bytes(6); tx_power = 8.5; _pending_stop = None
+            # As ports/espressif/common-hal/wifi/Radio.c has it: the radio is started at boot; a MAC setter raises
+            # unless its interface's mode is on (start_ap / start_station, also while the radio is disabled, when
+            # they only configure); enabling resets tx_power to the build's default. scenario.factory_mac: the
+            # chip's own addresses (default 7C:DF:A1:00:00:0A station, ...0B access point).
+            _enabled = True; tx_power = 20.0; _pending_stop = None; _pending_probe = None
+            _ap_mode = False; _sta_mode = False; _on_air = False
+            _mac_sta = bytes.fromhex(scenario.get("factory_mac", "7C:DF:A1:00:00:0A").replace(":", ""))
+            _mac_ap = _mac_sta[:5] + bytes([(_mac_sta[5] + 1) & 0xFF])
             @property
             def enabled(self): return self._enabled
             @enabled.setter
             def enabled(self, v):
-                if self._enabled and not v: net_event("wifi_disabled")
+                if self._enabled and not v:
+                    self._flush(); self._flush_probe(); net_event("wifi_disabled")
+                elif v and not self._enabled:
+                    self.tx_power = 20.0
+                    # off and on again with no virtual time between is a restart (the drivers' MAC change), not a radio
+                    # that was turned off
+                    if rec.net and rec.net[-1][1] == "wifi_disabled" and rec.net[-1][0] == now_ms():
+                        rec.net.pop(); net_event("wifi_restart")
                 self._enabled = v
+            def _set_mac(self, which, mode, b):
+                if scenario.get("mac_fixed"): raise NotImplementedError("mac is read-only on this build")
+                if not mode: raise RuntimeError("Interface must be started")
+                if len(b) != 6: raise ValueError("Invalid MAC address")
+                if b[0] & 1: raise RuntimeError("Invalid multicast MAC address")
+                setattr(self, which, bytes(b))
+            mac_address_ap = property(lambda self: self._mac_ap, lambda self, b: self._set_mac("_mac_ap", self._ap_mode, b))
+            mac_address = property(lambda self: self._mac_sta, lambda self, b: self._set_mac("_mac_sta", self._sta_mode, b))
+            def start_station(self): self._sta_mode = True
             # stop_ap + start_ap with no virtual time between is an SSID swap (the stealth decoys), not an unkey
             def _flush(self):
                 if self._pending_stop is not None:
                     self._pending_stop = None; net_event("ap_down")
             def start_ap(self, ssid, password="", *, channel=1, max_connections=4, authmode=None):
+                if scenario.get("ap_fail_at_s") is not None and clock.ns / 1e9 >= scenario["ap_fail_at_s"]:
+                    scenario["ap_fail_at_s"] = None; raise RuntimeError("AP could not be started")     # once
+                self._ap_mode = True
+                if not self._enabled: return          # configured; nothing on the air until the radio is enabled
+                self._on_air = True
                 detail = "%s ch=%d mac=%s psk=%s" % (ssid, channel, ":".join("%02X" % b for b in self.mac_address_ap), "open" if not password else "yes")
                 if self._pending_stop is not None and self._pending_stop == now_ms():
                     self._pending_stop = None; net_event("ap_swap", detail); return
                 self._flush(); net_event("ap_up", detail)
-            def stop_ap(self): self._flush(); self._pending_stop = now_ms()
+            def stop_ap(self):
+                self._ap_mode = False
+                if not self._on_air: return           # an access point that never started has nothing to stop
+                self._on_air = False
+                self._flush(); self._pending_stop = now_ms()
+            # connect() scans for the network until its timeout, then gives up: one round of probe requests. A round
+            # that follows the last with no virtual time between is the same burst going on (probe_more when the
+            # network sought changed); the station is off the air once a round is not followed (probe_done).
+            def _flush_probe(self):
+                if self._pending_probe is not None:
+                    t, self._pending_probe = self._pending_probe[0], None
+                    rec.net.append((t, "probe_done", "")); rec.ptt.append((t, False)); rec.unkeys += 1     # when the round ended
+                    if rec.stop_after_unkeys and rec.unkeys >= rec.stop_after_unkeys:
+                        clock.stop_requested = "unkeys"
             def connect(self, ssid, password="", *, timeout=None):
-                net_event("probe", "%s mac=%s" % (ssid, ":".join("%02X" % b for b in self.mac_address)))
-                sleep(min(timeout or 2, 2)); net_event("probe_done")
+                if not self._enabled: raise RuntimeError("wifi is not enabled")
+                self._sta_mode = True
+                detail = "%s mac=%s" % (ssid, ":".join("%02X" % b for b in self.mac_address))
+                if self._pending_probe is not None and now_ms() - self._pending_probe[0] <= 100:      # the runner's bookkeeping between rounds
+                    if self._pending_probe[1] != detail: net_event("probe_more", detail)
+                    self._pending_probe = None
+                else:
+                    self._flush_probe(); net_event("probe", detail)
+                sleep(min(timeout or 2, 2)); self._pending_probe = (now_ms(), detail)
                 raise ConnectionError("no such network")
-            def stop_station(self): pass
+            def stop_station(self):
+                self._sta_mode = False; self._flush_probe()
             def start_scanning_networks(self):
+                if not self._enabled: raise RuntimeError("wifi is not enabled")
+                self._sta_mode = True
                 # scenario.world.ssids: [{ssid, rssi, ch, from_s, to_s}] -- another fox on the air (relay), and when
                 t0 = clock.ns / 1e9
                 sleep(1.5)
@@ -377,7 +428,7 @@ def install(scenario):
                     return {}
                 def deinit(self): pass
             wifi.Monitor = Monitor
-        pre_sleep.append(wifi.radio._flush)
+        pre_sleep.append(wifi.radio._flush); pre_sleep.append(wifi.radio._flush_probe)
         sys.modules["wifi"] = wifi
         _install_socketpool(scenario, clock, rec, net_event, wifi)
     else:
@@ -385,11 +436,15 @@ def install(scenario):
     if "ble" in radios:
         bleio = types.ModuleType("_bleio")
         class Address:
-            RANDOM_STATIC = 1
-            def __init__(self, b, kind=0): self.b, self.kind = b, kind
+            # shared-bindings/_bleio/Address.c: the bytes are little-endian (the written form's last octet first)
+            PUBLIC, RANDOM_STATIC = 0, 1
+            def __init__(self, b, kind=0):
+                if len(b) != 6: raise ValueError("Address must be 6 bytes long")
+                self.b, self.type = bytes(b), kind
             @property
-            def address_bytes(self): return bytes(self.b)
-            def __str__(self): return ":".join("%02x" % x for x in self.b) + " (random)"
+            def address_bytes(self): return self.b
+            def __str__(self): return "<Address %s>" % ":".join("%02x" % x for x in reversed(self.b))
+            __repr__ = __str__
         class UUID:
             def __init__(self, v): self.v = v
             def __repr__(self): return "UUID(%s)" % self.v
@@ -422,7 +477,17 @@ def install(scenario):
                         ev["_done"] = True; self.pending += ev["write"].encode(); net_event("ble_write", ev["write"])
         rec.ble_buffers = []
         class _Adapter:
-            enabled = False; name = ""; address = Address(bytes(6)); _pending_stop = None; advertising = False
+            enabled = False; name = ""; _pending_stop = None; advertising = False
+            _address = Address(bytes(reversed(bytes.fromhex(scenario.get("factory_mac", "7C:DF:A1:00:00:0A").replace(":", "")[:10] + "0c"))))
+            @property
+            def address(self): return self._address
+            @address.setter
+            def address(self, a):
+                # espressif: ble_hs_id_set_rnd; nordic: sd_ble_gap_addr_set. Static random only, its two top bits set,
+                # and not while advertising; anything else is BluetoothError("Could not set address")
+                if scenario.get("mac_fixed") or a.type != Address.RANDOM_STATIC or (a.b[5] & 0xC0) != 0xC0 or self.advertising:
+                    raise RuntimeError("Could not set address")
+                self._address = a
             @property
             def connected(self):
                 # a scripted central is "connected" for 2 s around each of its events
@@ -435,6 +500,8 @@ def install(scenario):
             def start_advertising(self, data, *, scan_response=b"", connectable=True, interval=0.1, tx_power=0):
                 if len(data) > 31 or len(scan_response) > 31: raise ValueError("Data too large")
                 if self.advertising: raise RuntimeError("Already advertising")      # _bleio raises BluetoothError
+                if scenario.get("ble_power_steps") == "nrf" and tx_power not in (-40, -20, -16, -12, -8, -4, 0, 2, 3, 4, 5, 6, 7, 8):
+                    raise RuntimeError("Unknown system firmware error: 7")       # NRF_ERROR_INVALID_PARAM from the SoftDevice
                 # the name: the 0x09 AD structure wherever it sits in the scan response
                 name, svc, i = "", "", 0
                 while i < len(scan_response) - 1:
@@ -442,12 +509,14 @@ def install(scenario):
                     if typ == 0x09: name = scan_response[i + 2:i + 1 + ln].decode("utf-8", "replace")
                     if typ == 0x07: svc = bytes(reversed(scan_response[i + 2:i + 1 + ln])).hex()
                     i += 1 + ln
-                detail = "len=%d name=%s interval=%.3f tx=%d frame=%s%s%s" % (len(data), name, interval, tx_power, bytes(data).hex(), " connectable" if connectable else "", (" service=" + svc) if svc else "")
+                detail = "len=%d name=%s interval=%.3f tx=%d frame=%s%s%s mac=%s" % (len(data), name, interval, tx_power, bytes(data).hex(), " connectable" if connectable else "", (" service=" + svc) if svc else "",
+                                                                                   ":".join("%02X" % x for x in reversed(self._address.b)))
                 self.advertising = True
                 if self._pending_stop is not None and self._pending_stop == now_ms():
                     self._pending_stop = None; net_event("adv_swap", detail); return
                 self._flush(); net_event("adv_up", detail)
             def stop_advertising(self):
+                if not self.advertising: return       # nothing on the air: nothing to stop
                 self.advertising = False
                 self._flush(); self._pending_stop = now_ms()
             def start_scan(self, timeout=2, minimum_rssi=-100):
@@ -459,12 +528,17 @@ def install(scenario):
                 world = (scenario.get("world") or {}).get("advertisers")
                 if world is None:
                     world = [{"name": "Neighbour beacon", "mac": "C0:00:00:00:00:01", "rssi": -60}]
+                # An active scan reports the advertisement and the scan response as two entries. The name is in the
+                # scan response, as a fox-bench beacon's and most tags' is, unless the advertiser says name_in: "adv".
                 for a in world:
                     if a.get("from_s", 0) <= t0 < a.get("to_s", 1e12) and a["rssi"] >= minimum_rssi:
                         nm = a.get("name", "").encode()
-                        adv = bytes([2, 0x01, 0x06]) + (bytes([len(nm) + 1, 0x09]) + nm if nm else b"")
-                        mac = bytes(reversed(bytes.fromhex(a["mac"].replace(":", ""))))
-                        yield types.SimpleNamespace(rssi=a["rssi"], address=Address(mac), advertisement_bytes=adv, connectable=False, scan_response=False)
+                        named = (bytes([len(nm) + 1, 0x09]) + nm) if nm else b""
+                        mac = Address(bytes(reversed(bytes.fromhex(a["mac"].replace(":", "")))), Address.RANDOM_STATIC)
+                        in_adv = a.get("name_in") == "adv"
+                        yield types.SimpleNamespace(rssi=a["rssi"], address=mac, advertisement_bytes=bytes([2, 0x01, 0x06]) + (named if in_adv else b""), connectable=False, scan_response=False)
+                        if named and not in_adv:
+                            yield types.SimpleNamespace(rssi=a["rssi"] - 2, address=mac, advertisement_bytes=named, connectable=False, scan_response=True)
             def stop_scan(self): pass
         bleio.adapter = _Adapter(); bleio.Address = Address
         bleio.UUID, bleio.Attribute, bleio.Service, bleio.Characteristic, bleio.CharacteristicBuffer = UUID, Attribute, Service, Characteristic, CharacteristicBuffer

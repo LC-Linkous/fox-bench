@@ -5,7 +5,16 @@
 #
 # What the firmware cannot do, said in status rather than silently ignored: a hidden SSID (CircuitPython's start_ap
 # has no hidden flag -> status "ok(hidden_unsupported)"), a BLE radio on a board without one ("noble").
-import time
+#
+# The MAC address, as CircuitPython's ports take it (ports/espressif/common-hal/wifi/Radio.c, _bleio/Adapter.c):
+#   Wi-Fi  mac_address_ap / mac_address raise "Interface must be started" unless that interface's mode is on, and the
+#          new address is used from the interface's next start. So: radio disabled, mode on (start_ap / start_station
+#          configure it without sending anything), address set, radio enabled. Nothing goes out under the old address.
+#   BLE    _bleio.Address takes the bytes little-endian (last octet of the written form first), and a static random
+#          address must have its two top bits set: they are set here, and note() says so when that changed the MAC.
+# mac() reads the address back from the radio; a set that did not take is in mac_error and said by the runner.
+
+NRF_POWER_DBM = (-40, -20, -16, -12, -8, -4, 0, 2, 3, 4, 5, 6, 7, 8)     # what the nRF52840 SoftDevice accepts
 
 
 def _mac_bytes(s):
@@ -21,6 +30,23 @@ class Base:
         self.status = "skipped"
         self.up_count = 0
         self.is_up = False
+        self.mac_error = None   # why the configured MAC is not the one on the air (an exception name), once known
+        self.notes = []         # said once by the runner: what this radio did differently from the config
+
+    def set_mac(self, mac):
+        """A new MAC from the next up() on (stealth rotation, the shell game)."""
+        self.cfg["mac"] = mac.upper().replace("-", ":")
+        self.mac_error = None
+        return True
+
+    def wanted_mac(self):
+        """The address this radio should be on the air with (None: whatever the chip has)."""
+        m = self.cfg.get("mac")
+        return m.upper() if m else None
+
+    def take_notes(self):
+        out, self.notes = self.notes, []
+        return out
 
     def setup(self):
         return True
@@ -52,26 +78,35 @@ class WifiAp(Base):
         self.wifi = wifi
         try:
             wifi.radio.enabled = True
-            if self.cfg.get("mac"):
-                wifi.radio.mac_address_ap = _mac_bytes(self.cfg["mac"])
-            try:
-                wifi.radio.tx_power = float(self.cfg["tx_power_dbm"])
-            except Exception:
-                pass
+            _wifi_power(wifi, self.cfg)
             self.status = "ok(hidden_unsupported)" if self.cfg.get("hidden") else "ok"
             return True
         except Exception as e:
             self.status = "wifi(%s)" % e.__class__.__name__
             return False
 
-    def up(self):
-        Base.up(self)
+    def _start(self):
         c = self.cfg
         kw = {"channel": c["channel"], "max_connections": c["max_clients"]}
         if c["psk"]:
             self.wifi.radio.start_ap(self.name, c["psk"], **kw)
         else:
             self.wifi.radio.start_ap(self.name, "", authmode=[self.wifi.AuthMode.OPEN], **kw)
+
+    def up(self):
+        Base.up(self)
+        r = self.wifi.radio
+        want = self.cfg.get("mac")
+        if want and not self.mac_error and self.mac() != want.upper():
+            try:
+                r.enabled = False               # stopped: start_ap below only configures, nothing is sent
+                self._start()
+                r.mac_address_ap = _mac_bytes(want)
+            except Exception as e:
+                self.mac_error = e.__class__.__name__
+            r.enabled = True                    # the access point starts here, under the new address
+            _wifi_power(self.wifi, self.cfg)    # enabling resets the power to the build's default
+        self._start()
 
     def down(self):
         if not self.is_up:
@@ -115,12 +150,7 @@ class WifiProbe(Base):
         self.wifi = wifi
         try:
             wifi.radio.enabled = True
-            if self.cfg.get("mac"):
-                wifi.radio.mac_address = _mac_bytes(self.cfg["mac"])
-            try:
-                wifi.radio.tx_power = float(self.cfg["tx_power_dbm"])
-            except Exception:
-                pass
+            _wifi_power(wifi, self.cfg)
             self.status = "ok"
             return True
         except Exception as e:
@@ -129,8 +159,25 @@ class WifiProbe(Base):
 
     def up(self):
         Base.up(self)
+        r = self.wifi.radio
+        want = self.cfg.get("mac")
+        if want and not self.mac_error and self.mac() != want.upper():
+            try:
+                r.enabled = False               # stopped: the station mode is on but nothing is sent
+                r.start_station()
+                r.mac_address = _mac_bytes(want)
+            except Exception as e:
+                self.mac_error = e.__class__.__name__
+            r.enabled = True
+            _wifi_power(self.wifi, self.cfg)
+        self.keep()
+
+    def keep(self, seconds=2):
+        """One round of probe requests: a join attempt that cannot succeed. CircuitPython's connect() scans for the
+        network until its timeout and then stops, so a station that 'keeps looking' is this, again and again: the
+        runner calls keep() for as long as the radio is up."""
         try:
-            self.wifi.radio.connect(self.name, "fox-bench-probe-no-such-network", timeout=2)
+            self.wifi.radio.connect(self.name, "fox-bench-probe-no-such-network", timeout=seconds)
         except Exception:
             pass        # ConnectionError is the expected outcome; the probes went out
 
@@ -159,6 +206,7 @@ class BleBeacon(Base):
     the scan response carries the 128-bit service UUID before the name (the name is then cut to 11 bytes)."""
     kind = "ble"
     connectable = False
+    _mac_said = _power_said = None
     service_uuid = None     # netpayload may replace frame() per instance with a callable; restart() calls whichever is there
 
     def setup(self):
@@ -171,11 +219,7 @@ class BleBeacon(Base):
         try:
             self.adapter = _bleio.adapter
             self.adapter.enabled = True
-            if self.cfg.get("mac"):
-                try:
-                    self.adapter.address = _bleio.Address(_mac_bytes(self.cfg["mac"]), _bleio.Address.RANDOM_STATIC)
-                except Exception:
-                    pass        # not every port lets the address be set; the beacon still works
+            self._apply_mac()
             try:
                 self.adapter.name = self.name
             except Exception:
@@ -185,6 +229,31 @@ class BleBeacon(Base):
         except Exception as e:
             self.status = "ble(%s)" % e.__class__.__name__
             return False
+
+    def _apply_mac(self):
+        """The configured MAC as the adapter's static random address (not while advertising): the configured one with
+        its two top bits set, as a static random address must have."""
+        text = self.wanted_mac()
+        if not text or self.mac_error:
+            return
+        want = self.cfg["mac"].upper()
+        if text != want and self._mac_said != want:
+            self._mac_said = want
+            self.notes.append("a BLE address has its two top bits set: MAC %s is on the air as %s" % (want, text))
+        if self.mac() == text:
+            return
+        try:
+            le = bytes(reversed(_mac_bytes(text)))          # _bleio.Address: little-endian
+            self.adapter.address = self._bleio.Address(le, self._bleio.Address.RANDOM_STATIC)
+        except Exception as e:
+            self.mac_error = e.__class__.__name__      # not every port lets the address be set; the beacon still works
+
+    def wanted_mac(self):
+        m = self.cfg.get("mac")
+        if not m:
+            return None
+        b = _mac_bytes(m)
+        return ":".join("%02X" % x for x in ([b[0] | 0xC0] + list(b[1:])))
 
     def frame(self):
         c = self.cfg
@@ -213,11 +282,25 @@ class BleBeacon(Base):
                 self.adapter.stop_advertising()
         except Exception:
             pass
+        self._apply_mac()
+        kw = {"scan_response": self.scan_response(), "connectable": self.connectable, "interval": c["adv_min"] / 1000.0}
+        dbm = c["tx_power_dbm"]
         try:
-            self.adapter.start_advertising(self.frame(), scan_response=self.scan_response(), connectable=self.connectable,
-                                           interval=c["adv_min"] / 1000.0, tx_power=c["tx_power_dbm"])
+            self.adapter.start_advertising(self.frame(), tx_power=dbm, **kw)
         except TypeError:
-            self.adapter.start_advertising(self.frame(), scan_response=self.scan_response(), connectable=self.connectable, interval=c["adv_min"] / 1000.0)
+            self.adapter.start_advertising(self.frame(), **kw)
+        except Exception:
+            # the nRF SoftDevice takes only its own power steps and refuses the rest (the ESP32 takes any): the
+            # nearest one, said once per value. Anything else that failed fails again here and is the caller's.
+            near = min(NRF_POWER_DBM, key=lambda s: (abs(s - dbm), s))
+            try:
+                self.adapter.stop_advertising()
+            except Exception:
+                pass
+            self.adapter.start_advertising(self.frame(), tx_power=near, **kw)
+            if near != dbm and self._power_said != dbm:
+                self._power_said = dbm
+                self.notes.append("this chip has no %d dBm BLE step; advertising at %d dBm" % (dbm, near))
 
     def down(self):
         if not self.is_up:
@@ -232,9 +315,17 @@ class BleBeacon(Base):
         out = []
         try:
             from .netsense import adv_name, addr_text
+            seen = {}                         # a device's advertisement and its scan response are two entries
             for e in self.adapter.start_scan(timeout=2, minimum_rssi=-100):
-                out.append((e.rssi, addr_text(e.address), adv_name(e)))   # _bleio entries carry bytes, not complete_name
+                mac, name = addr_text(e.address), adv_name(e)   # _bleio entries carry bytes, not complete_name
+                old = seen.get(mac)
+                if old is None:
+                    seen[mac] = [e.rssi, mac, name]
+                else:
+                    old[0] = max(old[0], e.rssi)
+                    old[2] = old[2] or name
             self.adapter.stop_scan()
+            out = [(v[0], (v[2] + " " + v[1]) if v[2] else v[1]) for v in seen.values()]     # "-60 HUNT-RED C0:…"
         except Exception:
             pass
         out.sort(reverse=True)
@@ -242,9 +333,16 @@ class BleBeacon(Base):
 
     def mac(self):
         try:
-            return str(self.adapter.address).split(" ")[0].upper()
+            return ":".join("%02X" % x for x in reversed(self.adapter.address.address_bytes))
         except Exception:
             return "?"
+
+
+def _wifi_power(wifi, cfg):
+    try:
+        wifi.radio.tx_power = float(cfg["tx_power_dbm"])
+    except Exception:
+        pass
 
 
 DRIVERS = {WifiAp.kind: WifiAp, WifiProbe.kind: WifiProbe, BleBeacon.kind: BleBeacon}

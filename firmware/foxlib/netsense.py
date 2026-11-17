@@ -150,15 +150,23 @@ class Sense:
             ad = _bleio.adapter
             if not ad.enabled:
                 ad.enabled = True
-            out, seen = [], set()
+            # an active scan reports a device twice: its advertisement, then its scan response as another entry --
+            # and the name is often only in the second (a fox-bench beacon's is). One row per MAC: the strongest
+            # reading, and the name from whichever entry has one.
+            seen = {}
             for e in ad.start_scan(timeout=self.cfg["slot_ms"] / 1000.0, minimum_rssi=-100):
                 mac = addr_text(e.address)
-                if mac in seen:
-                    continue
-                seen.add(mac)
-                out.append((mac, e.rssi, adv_name(e)))
+                name = adv_name(e)
+                old = seen.get(mac)
+                if old is None:
+                    seen[mac] = [mac, e.rssi, name]
+                else:
+                    if e.rssi > old[1]:
+                        old[1] = e.rssi
+                    if name and not old[2]:
+                        old[2] = name
             ad.stop_scan()
-            return out
+            return [tuple(v) for v in seen.values()]
         except Exception as e:
             self.fox.log("sense: BLE scan failed (%s)" % e.__class__.__name__)
             return None

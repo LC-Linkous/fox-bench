@@ -379,7 +379,7 @@ not fit falls back to the defaults file, reported in the banner as
 | `net.signal_power_dbm` | −128–0 | `ble`: the iBeacon calibration byte (measured power at 1 m) |
 | `net.adv_min`, `net.adv_max` | 20–10240 ms | `ble`: advertising interval; `adv_min ≤ adv_max` |
 | `net.tx_power_dbm` | Wi-Fi: one of 2 5 7 8.5 11 13 15 17 18.5 19 19.5; BLE: one of −12 −9 −6 −3 0 3 6 9 | radio power |
-| `net.mac` | `XX:XX:XX:XX:XX:XX` | the address the fox uses, locally administered unicast (the defaults use `F2:B0:00:00:00:xx`); the Radio tab's **Random** draws one. Not every CircuitPython port lets the BLE address be set — the beacon still runs on the chip's own |
+| `net.mac` | `XX:XX:XX:XX:XX:XX` | the address the fox uses, locally administered unicast (the defaults use `F2:B0:00:00:00:xx`); the Radio tab's **Random** draws one. Applied each time the radio comes up, with the Wi-Fi radio stopped, so nothing is sent under the chip's own address. On `ble` it is a static random address, whose two top bits must be set: the firmware sets them (`02:…` is on the air as `C2:…`) and says so. Every `… up:` line shows the address read back from the radio; if the build would not take it, a `note: MAC … was asked for, the radio reports …` line says so once |
 | `id.callmessage` | string, 1–64 bytes | the operator's callsign — the fleet record. A network fox is a Part 15 device and need not identify: with the `N0CALL` placeholder it still runs under its configured name (banner `id=none`, the page warns); the placeholder is refused only when it would be the name on the air (`use_callsign_as_name`, banner `id=unset`) |
 | `id.use_callsign_as_name` | bool | the callsign is the SSID / BLE name on the air (a ham fox hunt); off, the configured `net.ssid`/`net.name` is (a contest) |
 | `schedule.kind` | `duty` | the only kind |
@@ -546,7 +546,9 @@ fixed time given to every fox of a fleet).
 `wifi-probe` is a station that keeps trying to join `net.ssid` with a
 password that cannot be right: the probe requests carry the SSID and the
 spoofed MAC, which is what a hunter's sniffer sees, and the fox never
-joins anything. The bench's **Radio up** is `key_for(seconds)` (radio up
+joins anything. One attempt is about two seconds of probe requests; the
+fox makes one after another for the whole wake (foxlib 1.10.3; before, one
+per wake). The bench's **Radio up** is `key_for(seconds)` (radio up
 for N s); **Scan** is `rssi()`, the strongest neighbours this radio can see
 — a liveness check, not a receiver's RSSI.
 

@@ -110,6 +110,7 @@ class Payload:
                 self.second.name = self.cfg["split"]["ble"] if self.second.kind == "ble" else self.cfg["split"]["wifi"]
                 self.second.up()
                 fox.log("payload: split clue on %s: %s" % (self.second.kind, _q(self.second.name)))
+                fox._radio_notes(self.second)
             except Exception as e:
                 fox.log("payload: second radio failed (%s)" % e.__class__.__name__)
 

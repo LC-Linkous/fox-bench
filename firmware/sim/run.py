@@ -236,6 +236,10 @@ def check(template, scen, rec, err):
         worst = max(((e - s) for s, e in keyed if e), default=0)
         if worst > exp["max_keyed_ms"]:
             fails.append("longest keydown %.0f ms > %d" % (worst, exp["max_keyed_ms"]))
+    if "min_keyed_ms" in exp:
+        short = min(((e - s) for s, e in keyed if e), default=0)
+        if short < exp["min_keyed_ms"]:
+            fails.append("shortest keydown %.0f ms < %d" % (short, exp["min_keyed_ms"]))
     if "retunes_min" in exp and len(rec.retunes) < exp["retunes_min"]:
         fails.append("retunes %d < %d" % (len(rec.retunes), exp["retunes_min"]))
     if "waits" in exp and len(keyed) >= 2:
