@@ -1,6 +1,8 @@
 // repl-device.js — Device over the raw REPL: files are read and written by
 // Python running on the board. This is the path for boards with no USB
-// drive (ESP32-C3), where the REPL is the only way to touch the filesystem.
+// drive (ESP32-C3), where the REPL is the only way to touch the filesystem,
+// and for boards with one (ESP32-S3, nRF52840) once the filesystem has been
+// given to the board's code: makeWritable() and firmware/boot.py.
 // SPDX-License-Identifier: GPL-2.0-only
 import { Device } from './device.js';
 import { ReplLink } from './repl-link.js';
@@ -54,6 +56,20 @@ export class ReplDevice extends Device {
   }
 
   async interrupt() { return this._run(() => this.repl.interrupt()); }
+
+  /** Can the board's code write its files? A board with a CIRCUITPY drive gives the filesystem to the computer
+   *  (read-only to Python, also with no computer attached) until boot.py remounts it. Returns
+   *    'rw'         writable already (no USB drive, or boot.py did it)
+   *    'remounted'  was read-only; remounted for this session (the drive was ejected on the computer): boot.py is
+   *                 still needed for the next power-up
+   *    'usb'        read-only, and CircuitPython refuses the remount while the computer has the drive. */
+  async makeWritable() { return this._run(() => this._makeWritable()); }
+  async _makeWritable() {
+    const out = (await this._exec(
+      "try:\n import storage\n ro = storage.getmount('/').readonly\nexcept Exception:\n ro = False\n" +
+      "if not ro:\n print('rw')\nelse:\n try:\n  storage.remount('/', False)\n  print('remounted')\n except Exception as e:\n  print('usb', e)\n")).trim();
+    return out.startsWith('remounted') ? 'remounted' : out.startsWith('usb') ? 'usb' : 'rw';
+  }
 
   async exec(code, opts) { return this._run(() => this._exec(code, opts)); }
   /** Set the board's RTC: t = [Y, M, D, h, m, s] (the fox reads it back as clock= in its banner). */

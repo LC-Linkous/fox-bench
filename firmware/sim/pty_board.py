@@ -190,6 +190,10 @@ class Replay:
             # template's reboot when the chunking differs -- so the use count can fall short of the total; that is fine
             self.content_writes = getattr(self, "content_writes", 0) + 1
             return b"", b""
+        if e is None and text.startswith("try:\n import storage\n ro = storage.getmount('/').readonly"):
+            # hw_smoke's "can the board write its files?" (page 0.18.4). A recording made before that asked nothing and
+            # wrote: the board it was made on would have answered 'rw', so a replay of it does
+            return b"rw\n", b""
         if e is None:
             self.misses.append(code.decode().split("\n")[0][:80])
             return b"", ("ReplayError: command not in the recording: %r\n" % code.decode().split("\n")[0][:60]).encode()

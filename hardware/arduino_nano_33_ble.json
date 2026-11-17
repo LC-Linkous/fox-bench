@@ -28,7 +28,7 @@
     "bootloader_instructions": "Double-tap the reset button: the Arduino bootloader (SAM-BA over USB) appears; flash the CircuitPython .bin with bossac from a terminal — this page cannot (no esptool, no UF2). Rev2 and the original board use the same build.",
     "note": "The one board here this page does not flash itself."
   },
-  "has_usb_drive": false,
+  "has_usb_drive": true,
   "usb": [
     {
       "vid": "0x2341",

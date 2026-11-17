@@ -20,7 +20,7 @@
     "bootloader_instructions": "Hold B (BOOT) while plugging in USB-C; release after a second. The chip's USB-JTAG-serial port (303a:1001) appears.",
     "note": "8 MB flash, 8 MB PSRAM; u.FL antenna connector (the supplied antenna must be fitted). Not yet flashed from this page."
   },
-  "has_usb_drive": false,
+  "has_usb_drive": true,
   "usb": [
     {
       "vid": "0x303a",

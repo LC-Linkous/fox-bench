@@ -18,6 +18,9 @@
 //   chunk          deliver output in slices of at most `chunk` bytes, async
 //   latency        ms before each delivery
 //   bootLog        lines code.py prints after a soft reboot (strings)
+//   usbDrive       the board has a CIRCUITPY drive: its files are read-only to its code (OSError 30 on a write)
+//                  until boot.py is on it; true = the computer has the drive (a REPL remount is refused),
+//                  'ejected' = the drive was ejected (a REPL remount works)
 //   execDelay      ms the handler takes (first foxlib import compiles ~10 s on a C3)
 import { Link } from '../../js/device/link.js';
 
@@ -153,7 +156,14 @@ export class FakeBoard extends Link {
       const b = this.fs.get(J(m[1])); if (!b) return { out: '__MISSING__\n' };
       return { out: Array.from(b, c => c.toString(16).padStart(2, '0')).join('') };
     }
-    if ((m = code.match(/^f=open\(("[^"]*"),'wb'\)$/))) { this.openFile = J(m[1]); this.fs.set(this.openFile, new Uint8Array(0)); return {}; }
+    if (code.startsWith("try:\n import storage\n ro = storage.getmount('/').readonly")) {     // repl-device.js makeWritable()
+      if (!this.o.usbDrive || this.fsWritable || this.fs.has('boot.py')) return { out: 'rw\n' };
+      if (this.o.usbDrive === 'ejected') { this.fsWritable = true; return { out: 'remounted\n' }; }
+      return { out: "usb Cannot remount '/' when visible via USB.\n" };
+    }
+    if ((m = code.match(/^f=open\(("[^"]*"),'wb'\)$/))) {
+      if (this.o.usbDrive && !this.fsWritable && !this.fs.has('boot.py')) throw new Error('OSError: [Errno 30] Read-only filesystem');
+      this.openFile = J(m[1]); this.fs.set(this.openFile, new Uint8Array(0)); return {}; }
     if ((m = code.match(/^f\.write\((b'[\s\S]*')\)$/))) {
       if (!this.openFile) throw new Error("NameError: name 'f' isn't defined");
       const cur = this.fs.get(this.openFile), add = parseBytesLiteral(m[1]); const nb = new Uint8Array(cur.length + add.length); nb.set(cur); nb.set(add, cur.length); this.fs.set(this.openFile, nb); return {};

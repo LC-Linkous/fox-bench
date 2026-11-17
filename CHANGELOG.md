@@ -14,6 +14,43 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.18.4 — boards with a CIRCUITPY drive; messages that carry their fix
+
+From the first ESP32-S3 session on hardware.
+
+- **Fix — Deploy failed with `OSError: [Errno 30] Read-only filesystem`
+  on a board with a CIRCUITPY drive** (ESP32-S3, nRF52840).
+  CircuitPython gives such a board's files to the computer: they are
+  read-only to the board's own code — which is what writes when the page
+  deploys over the serial port, and what writes `finds.csv` and
+  `near.csv` on a fox — also with no computer attached. Deploy now asks
+  first (`ReplDevice.makeWritable()`): a board without a drive, or one
+  already set up, is written as before; a board whose drive has been
+  ejected on the computer is remounted and gets `boot.py` (new,
+  `firmware/boot.py`: `storage.remount("/", readonly=False)`), so every
+  later power-up is the board's; a board whose drive the computer still
+  has is not touched, and the Deploy card says what to do: copy the
+  downloaded `boot.py` onto the drive and reset, or eject the drive and
+  deploy again. A `boot.py` that is not fox-bench's is left alone and
+  said. `tools/hw_smoke.py` does the same. The drive is then read-only
+  on the computer; removing `boot.py`, or safe mode, gives it back.
+  This also settles runbook Q7 (finds.csv with the drive mounted).
+- The catalog said `has_usb_drive: false` for the ESP32-S3 boards and
+  the Nano 33 BLE; they have one (XIAO ESP32-S3, Waveshare S3-Nano,
+  Arduino Nano ESP32, M5Stack AtomS3 Lite and StampS3, Nano 33 BLE).
+- **Checks carry their fix.** A message that sent the reader to another
+  tab now has the way there on it, wherever it is shown: the three
+  clock checks (`checkpoint.stop_at`, `stealth.start.at`,
+  `stealth.shell_game`) have a **Set the board clock at deploy** button,
+  the access-point check an **Open Board** button, and every line of
+  Deploy's Checks card an **Open <tab>** button for the tab its key is
+  edited on (`js/model/issuetab.js`, `js/ui/issues.js`).
+- Flash CircuitPython: an image built for another board id no longer
+  says only that it will not run right. Some boards share a build (a
+  maker may ship one image for two variants) and that can change
+  between releases; the message says to check that the image supports
+  the board, and that the board will then report the image's id.
+
 ### Page 0.18.3 · foxlib 1.10.3 · foxlib-c 0.1.11 — the radios as CircuitPython has them
 
 The last audit checked every call's names and argument shapes. This one

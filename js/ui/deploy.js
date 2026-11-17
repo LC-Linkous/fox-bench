@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: GPL-2.0-only
 import { h, badge, field, numInput, check, select } from './dom.js';
 import { loadTemplateCode, loadFoxlibFile, loadRootFile } from '../model/loaders.js';
+import { issueItem } from './issues.js';
+
+const BOOT_MARK = 'fox-bench boot.py';      // firmware/boot.py's first comment: a boot.py with it is ours to rewrite
 import { parseBanner } from '../device/device.js';
 import { airtime, fmtDuration } from '../model/airtime.js';
 import { packImages } from '../audio/sstv.js';
@@ -40,7 +43,7 @@ export function clockToSet() {
   return [d.getFullYear(), d.getMonth() + 1, d.getDate(), d.getHours(), d.getMinutes(), d.getSeconds()];
 }
 const setLast = r => { lastResult = r; app.lastDeploy = r ? { ...r, at: new Date().toISOString(), template: app.templateId, uid: app.info?.uid } : null; };
-export function init(a, el) { app = a; root = el; app.deployClock = loadClock(); app.deployRecovery = loadRecovery(); drive.init(a); foxlibc.init(a); compiled.init(a); app.listeners.add(render); render(); }
+export function init(a, el) { app = a; root = el; app.deployClock = loadClock(); app.deployRecovery = loadRecovery(); app.setDeployClock = patch => { Object.assign(app.deployClock, patch); saveClock(app.deployClock); app.changed('deploy'); }; drive.init(a); foxlibc.init(a); compiled.init(a); app.listeners.add(render); render(); }
 
 /** The clock control (Deploy card): on, and from where. Changing it re-runs the page checks (stealth.start.at wants it on). */
 function clockRow() {
@@ -153,6 +156,14 @@ async function deploy(btn) {
   const { files } = plan();
   try {
     await d.interrupt();                       // the fox may be running from a previous deploy or restart
+    // a board with a CIRCUITPY drive: its code cannot write until the filesystem is the board's (firmware/boot.py)
+    const fs = d.makeWritable ? await d.makeWritable() : 'rw';
+    if (fs === 'usb') throw Object.assign(new Error('the board\'s files are read-only to the board: it shows up as a CIRCUITPY drive, and the computer has it'), { usbDrive: true });
+    if (fs === 'remounted') {
+      const have = await d.readText('boot.py');
+      if (have == null || have.includes(BOOT_MARK)) { await d.writeBytes('boot.py', await loadRootFile('boot.py')); log.dim('wrote boot.py: from the next reset the board\'s files belong to the board (the CIRCUITPY drive is read-only on the computer)'); }
+      else log.err('the board has its own boot.py, left alone: add  import storage; storage.remount("/", readonly=False)  to it, or the next power-up is read-only again');
+    }
     const t = clockToSet();
     if (t && d.setClock) { await d.setClock(t); log.dim(`board clock set to ${t[0]}-${String(t[1]).padStart(2, '0')}-${String(t[2]).padStart(2, '0')} ${String(t[3]).padStart(2, '0')}:${String(t[4]).padStart(2, '0')}:${String(t[5]).padStart(2, '0')} (${app.deployClock.source === 'fixed' ? 'fixed time' : 'this browser\'s time'})`); }
     else if (t) log.dim('this device cannot set the board clock; skipped');
@@ -177,7 +188,7 @@ async function deploy(btn) {
     app.info.foxlibVersion = app.catalog.foxlibVersion;
     app.setStatus(`${d.kind === 'demo' ? 'Demo · ' : ''}${app.info.boardId} · uid ${app.info.uid.slice(-6)} · foxlib ${app.catalog.foxlibVersion} · fox running`, d.kind === 'demo' ? 'demo' : 'tx');
     fleet.append({ board_number: cfg.fleet?.number ?? '', uid: app.info.uid, board: app.info.boardId, action: 'deploy', template: `${app.templateId}/${app.template.version}`, profile: cfg.fleet?.profile || '', callsign: cfg.id.callmessage, owner: cfg.fleet?.owner || '', event: cfg.fleet?.event || '', on_air: onAir(cfg, { template: app.templateId }), freq: freqText(cfg), power: powerText(cfg), seed: cfg.schedule?.seed ?? '', result: lastResult.ok ? 'ok' : lastResult.failedFeature ? `failed to load: ${lastResult.failedFeature}` : (banner ? `${banner.cfg} ${banner.radio} ${banner.id}` : 'no banner'), notes: [app.variantId ? app.board.variantName : '', app.device.kind === 'demo' ? 'demo' : ''].filter(Boolean).join(' · ') });
-  } catch (e) { setLast({ error: String(e.message || e) + (/HTTP 404/.test(e.message || '') ? ' — a firmware file is missing from the site; the repo needs a .nojekyll marker so GitHub Pages serves foxlib/__init__.py' : '') }); log.err(lastResult.error); }
+  } catch (e) { setLast({ usbDrive: !!e.usbDrive, error: String(e.message || e) + (/HTTP 404/.test(e.message || '') ? ' — a firmware file is missing from the site; the repo needs a .nojekyll marker so GitHub Pages serves foxlib/__init__.py' : '') }); log.err(lastResult.error); }
   busy = false; gateOk = false; app.changed('deploy');
 }
 
@@ -197,7 +208,7 @@ function render() {
   root.replaceChildren(
     h('div.cols', {},
       h('div.card', {}, h('h3', {}, 'Checks ', blocking.length ? badge(`${blocking.length} blocking`, 'err') : badge('all pass', 'ok')),
-        errs.length ? h('ul', { style: 'margin:0;padding-left:1.2em' }, errs.map(e => h('li', { class: e.level === 'err' ? 'hint err' : e.level === 'warn' ? 'hint warn' : 'hint', style: 'font-size:.9rem' }, h('code', {}, e.key), ' ', e.msg))) : h('p.hint', {}, 'fox.json validates against CONFIG.md; callsign set; all frequencies in range and in band.'),
+        errs.length ? h('ul', { style: 'margin:0;padding-left:1.2em' }, errs.map(e => issueItem(app, e, 'deploy'))) : h('p.hint', {}, 'fox.json validates against CONFIG.md; callsign set; all frequencies in range and in band.'),
         h('p.hint', { style: 'margin-top:8px' }, 'Status the firmware would report: ', h('code', {}, `cfg=${app.status}`), '. Blocking: invalid config, unset callsign, missing required pins. Not blocking: frequencies outside the band table (confirmed at deploy).')),
       app.isNet ? h('div.card', {}, h('h3', {}, 'On the air'),
         h('dl.kv', {}, h('dt', {}, 'Each wake'), h('dd', {}, fmtDuration(at.typical_ms)), h('dt', {}, 'Then'), h('dd', {}, cfg.schedule.sleep_s ? `${cfg.schedule.sleep_s} s ${cfg.schedule.sleep === 'deep' ? 'deep sleep' : 'radio off'}` : 'no off time: always on')),
@@ -232,7 +243,19 @@ function render() {
       h('p.hint', {}, 'Deploy writes files through CircuitPython, so a factory-fresh board needs it first: ', h('b', {}, 'Board → Flash CircuitPython'), ' (one board), or ', h('b', {}, 'Profiles & fleet → Batch flashing'), ' (several in a row). Then come back here.')));
 }
 
+/** What to do when the board's files are the computer's (a board with a CIRCUITPY drive, before boot.py). */
+function usbDriveBox() {
+  const get = async () => { try { download('boot.py', await loadRootFile('boot.py')); } catch (e) { app.console.err(String(e.message || e)); } };
+  return h('div', {}, h('p.hint.err', {}, 'Deploy stopped before writing anything: this board shows up on the computer as a CIRCUITPY drive, and CircuitPython lets only one side write its files. Out of the box that is the computer, so neither this page (which writes through the serial port) nor the fox itself (finds.csv, near.csv) can.'),
+    h('p.hint', {}, 'Give the files to the board, once per board, either way:'),
+    h('ol', { style: 'margin:4px 0;padding-left:1.4em;font-size:.9rem' },
+      h('li', {}, h('button.btn.small', { onclick: get }, 'Download boot.py'), ' and copy it onto the CIRCUITPY drive. Press the board\'s reset button (R), click Connect again, then Deploy.'),
+      h('li', {}, 'Or eject the CIRCUITPY drive in the file manager (leave the cable in) and click Deploy again: the page writes boot.py itself. If the serial port drops when you eject, use the first way.')),
+    h('p.hint', {}, 'From then on the drive is read-only on the computer and everything goes through this page. To undo it, at the console: ', h('code', {}, 'import os; os.remove("boot.py")'), ' and reset; or start the board in safe mode, where boot.py is not run.'));
+}
+
 function resultBox(r) {
+  if (r.usbDrive) return usbDriveBox();
   if (r.error) return h('pre.out', {}, h('span.err', {}, 'deploy failed: ' + r.error));
   const b = r.banner;
   const kv = b ? ['template', 'foxlib', 'cfg', 'radio', 'id', 'freq'].map(k => h('span', { class: k === 'cfg' ? (b.cfg === 'ok' ? 'ok' : 'warn') : k === 'radio' ? (b.radio === 'ok' ? 'ok' : 'err') : k === 'id' ? (b.id === 'set' ? 'ok' : b.id === 'none' ? 'warn' : 'err') : '' }, `${k}=${b[k] ?? '?'}  `)) : [h('span.err', {}, 'no FOX banner in the boot log — the firmware did not start')];

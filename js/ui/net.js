@@ -1,6 +1,8 @@
 // net.js — the Radio, ID and Schedule tabs for network foxes (wifi-beacon, wifi-probe, ble-beacon): the SoC's own radio
 // on a duty cycle. Contract: js/model/netschema.js (firmware twin foxlib/netcfg.py).
 // SPDX-License-Identifier: GPL-2.0-only
+import { issueItem } from './issues.js';
+import { tabForKey } from '../model/issuetab.js';
 import { h, field, select, numInput, check, badge } from './dom.js';
 import { WIFI24_CHANNELS, WIFI5_CHANNELS, WIFI_POWER_DBM, BLE_POWER_DBM, WIFI24_BY_REGION, MAX_PROBE_SSIDS, TLM_FIELDS, MODE_KINDS, MAX_NAME, MAX_NAMES, MAX_DECOYS, MAX_BODY, MAX_URL, MAX_CODE, FEATURE_DEFAULTS, FEATURE_PHASE, randomMac, displayName, cycle, nameForCycle } from '../model/netschema.js';
 import { TABLE as MORSE } from '../audio/morse.js';
@@ -14,7 +16,7 @@ const text = (obj, key, { max = 64, upper = false, mono = false, placeholder = '
   return el;
 };
 const issuesFor = prefix => (app.issues || []).filter(i => i.key === prefix || i.key.startsWith(prefix + '.')).concat((app.report || []).filter(r => r.key === prefix || r.key.startsWith(prefix + '.')).map(r => ({ level: 'err', key: r.key, msg: r.reason })));
-const issueList = prefix => { const l = issuesFor(prefix); return l.length ? h('ul', { style: 'margin:6px 0 0;padding-left:1.2em' }, l.map(i => h('li', { class: i.level === 'err' ? 'hint err' : i.level === 'warn' ? 'hint warn' : 'hint', style: 'font-size:.9rem' }, h('code', {}, i.key), ' ', i.msg))) : null; };
+const issueList = prefix => { const l = issuesFor(prefix); return l.length ? h('ul', { style: 'margin:6px 0 0;padding-left:1.2em' }, l.map(i => issueItem(app, i, tabForKey(prefix, true)))) : null; };
 const blen = s => new TextEncoder().encode(String(s)).length;
 
 function macField(n) {

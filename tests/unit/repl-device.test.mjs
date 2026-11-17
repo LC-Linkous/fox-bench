@@ -160,3 +160,30 @@ test('a deploy-shaped sequence on a running fox: interrupt → write set → reb
   assert.equal(new TextDecoder().decode(b.fs.get('code.py')), 'import foxlib\n');
   await b.close();
 });
+
+test('a board with a CIRCUITPY drive: read-only until the filesystem is the board\'s (makeWritable, boot.py)', async () => {
+  const plain = new ReplDevice(new FakeBoard({})); plain.onLog = () => {};
+  await plain.connect();
+  assert.equal(await plain.makeWritable(), 'rw');                       // no USB drive: nothing to do
+
+  const held = new FakeBoard({ usbDrive: true, identity: { boardId: 'seeed_xiao_esp32s3' } });
+  const d = new ReplDevice(held); d.onLog = () => {};
+  await d.connect();
+  await assert.rejects(d.writeText('fox.json', '{}'), /Read-only filesystem/);     // what a deploy ran into
+  assert.equal(await d.makeWritable(), 'usb');                          // the computer has the drive: the remount is refused
+  await assert.rejects(d.writeText('fox.json', '{}'), /Read-only filesystem/);
+
+  const ejected = new FakeBoard({ usbDrive: 'ejected' });
+  const e = new ReplDevice(ejected); e.onLog = () => {};
+  await e.connect();
+  assert.equal(await e.makeWritable(), 'remounted');                    // drive ejected: remounted for this session
+  await e.writeText('boot.py', '# fox-bench boot.py\n');
+  assert.equal(await e.makeWritable(), 'rw');
+
+  const set = new FakeBoard({ usbDrive: true, files: { 'boot.py': '# fox-bench boot.py\nimport storage\n' } });
+  const s = new ReplDevice(set); s.onLog = () => {};
+  await s.connect();
+  assert.equal(await s.makeWritable(), 'rw');                           // boot.py already gave the files to the board
+  await s.writeText('fox.json', '{}');
+  for (const b of [held, ejected, set]) await b.close();
+});

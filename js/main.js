@@ -29,7 +29,7 @@ import * as tabBench from './ui/bench.js';
 import * as tabFleet from './ui/fleet.js';
 import * as tabAbout from './ui/about.js';
 
-const VERSION = '0.18.3';
+const VERSION = '0.18.4';
 /** Tab subtitles that read differently per device family (null = the page's original text). */
 const LEDES = { drive: {
   board: 'Which fox is on the bench, open its USB drive (or use the simulated one). The vendor firmware stays; the page writes its files.',
@@ -568,6 +568,7 @@ export const app = {
 
 function setFlag(tab, cls) { const f = $(`.rail button[data-tab="${tab}"] .flag`); if (f) f.className = 'flag ' + cls; }
 
+app.showTab = name => showTab(name);       // for a check's "Open <tab>" button (ui/issues.js)
 export function showTab(name) {
   $$('.rail button').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === name ? 'true' : 'false'));
   $$('.panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + name));

@@ -35,7 +35,7 @@ decides something in code or in the catalog. Write the answers into
 | Q4 | Does `safemode.py` run after a brownout? | a bench supply dipped (or a flat pack at high power): `fox safemode: BROWNOUT, reset 1 of 50`, then a normal boot with the `safe-mode reset` note | recovery on CircuitPython 8.1+ builds; which builds need it noted |
 | Q5 | Does the sign-in sheet pop by itself? | checkpoint fox; an iPhone and an Android join (step 21) | captive DNS as default; the fallback text |
 | Q6 | How much RAM is left on the C3? | `import gc; gc.collect(); print(gc.mem_free())` with: checkpoint + a phone connected; mode rotation with all three kinds; sense with tags, relay and honeypot | whether those features stay offered on the C3 |
-| Q7 | Can `finds.csv` be written while a computer has the drive? | S3 with the drive mounted: does the console say `cannot write finds.csv`? | a `boot.py` remount for drive-mounting boards |
+| Q7 | Can `finds.csv` be written on a board with a CIRCUITPY drive? | settled on the S3 (page 0.18.4): not without `boot.py`; the files are read-only to the board's code, also on battery. Deploy and `hw_smoke.py` now put `firmware/boot.py` on such a board ("Boards with a CIRCUITPY drive", under the tick-list). Confirm that step 21 writes `finds.csv` after that | — |
 | Q8 | Does the BLE Scan list names now? | Bench → Scan on a BLE fox (the 0.18 fix) | — (confirms the fix) |
 | Q11 | Do the payload features run at all? | puzzle-beacon on any chip: the boot log has no `** payload failed to load` line, and nRF Connect shows the name rotating (0.18.2: they never loaded on a board before) | that phase B works on hardware |
 | Q9 | What is a room's BLE crowd? | the `crowd: N advertisers` line in a quiet room and in a busy one | the default for `sense.crowd.max` |
@@ -211,6 +211,24 @@ Before the first board: `python3 tools/hw_smoke.py --port <port> --board
 does steps 2, 8 and 9 below unattended and writes a report; add
 `wifi-probe` to the list and `--sniffer <port2>` with the sniffer board
 plugged in and step 10 is covered too. The rest is the page and the phone.
+
+### Boards with a CIRCUITPY drive (ESP32-S3, nRF52840)
+
+CircuitPython gives such a board's files to the computer: read-only to the
+board's own code, which is what writes when the page or `hw_smoke.py`
+deploys over serial and what writes `finds.csv` on a fox. The first Deploy
+stops with instructions instead of `OSError: [Errno 30] Read-only
+filesystem`. Once per board, either:
+
+1. **Download boot.py** on the Deploy card (or take `firmware/boot.py`),
+   copy it onto the CIRCUITPY drive, press reset, Connect, Deploy; or
+2. eject the CIRCUITPY drive in the file manager (cable in), Deploy again:
+   the page writes `boot.py` itself. If ejecting drops the serial port
+   (some Linux desktops power the device down), use the first way.
+
+From then on the drive is read-only on the computer. Note which way you
+used and whether the board needed a second reset. To undo:
+`import os; os.remove("boot.py")` at the console and reset, or safe mode.
 
 ### The pass (every board)
 

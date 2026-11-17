@@ -20,7 +20,7 @@
     "bootloader_instructions": "Double-tap the B1 button for Arduino's DFU bootloader, or hold B1 while pressing RST for the chip's ROM download mode (USB-JTAG-serial), which is what the page's flasher needs.",
     "note": "Values from public documentation; not yet verified on a board of this kind (the target is experimental until then)."
   },
-  "has_usb_drive": false,
+  "has_usb_drive": true,
   "usb": [
     {
       "vid": "0x2341",

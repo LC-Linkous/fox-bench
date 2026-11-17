@@ -20,7 +20,7 @@
     "bootloader_instructions": "Hold BOOT while plugging in USB-C; release after a second. The chip's USB-JTAG-serial port (303a:1001) appears and esptool can write it — this board does not need Arduino's DFU route.",
     "note": "Waveshare documents it as 'select Arduino Nano ESP32' in the IDE: pinout and RGB LED pins follow the Nano ESP32, so kitsune's arduino-nano-esp32 builds are what this target flashes. Not yet flashed from this page."
   },
-  "has_usb_drive": false,
+  "has_usb_drive": true,
   "usb": [
     {
       "vid": "0x303a",

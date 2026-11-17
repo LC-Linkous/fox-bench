@@ -23,7 +23,7 @@ import os
 import sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-DEFAULT = ["firmware/foxlib/*.py", "firmware/safemode.py", "firmware/templates/*/code.py", "tools/sniffer/code.py"]
+DEFAULT = ["firmware/foxlib/*.py", "firmware/safemode.py", "firmware/boot.py", "firmware/templates/*/code.py", "tools/sniffer/code.py"]
 STR_METHODS = {"split", "rsplit", "join", "replace", "strip", "lstrip", "rstrip", "startswith", "endswith", "find",
                "rfind", "index", "rindex", "partition", "rpartition", "lower", "upper", "format", "count", "center",
                "splitlines", "decode", "encode", "hex", "isalpha", "isdigit", "isspace", "isupper", "islower"}

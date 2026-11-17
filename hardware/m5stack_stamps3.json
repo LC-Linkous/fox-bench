@@ -20,7 +20,7 @@
     "bootloader_instructions": "Hold the BOOT button (GPIO0) while plugging in USB; release after a second.",
     "note": "Values from public documentation; not yet verified on a board of this kind (the target is experimental until then)."
   },
-  "has_usb_drive": false,
+  "has_usb_drive": true,
   "usb": [
     {
       "vid": "0x303a",

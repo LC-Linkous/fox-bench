@@ -266,7 +266,7 @@ export function checks(cfg, board, { clockSet = false } = {}) {
   const radios = board?.radios || [];
   // contest features: what the firmware accepts but would not work as a fox
   const cp = cfg.checkpoint, se = cfg.sense, st = cfg.stealth, pl = cfg.payload;
-  if (cp?.enabled && cp.portal?.enabled && cfg.net.kind !== 'wifi-ap') issues.push({ level: 'err', key: 'checkpoint.portal.enabled', msg: 'a sign-in page needs the fox to be an access point (the checkpoint or wifi-beacon template)' });
+  if (cp?.enabled && cp.portal?.enabled && cfg.net.kind !== 'wifi-ap') issues.push({ level: 'err', key: 'checkpoint.portal.enabled', msg: 'a sign-in page needs the fox to be an access point (the checkpoint or wifi-beacon template)', tab: 'board' });
   if (cp?.enabled && cp.portal?.enabled && cfg.schedule.sleep === 'deep') issues.push({ level: 'err', key: 'checkpoint.portal.enabled', msg: 'deep sleep would drop a hunter mid-page: use "radio off" between wakes with a sign-in page' });
   if (cp?.enabled && cp.portal?.enabled && cfg.net.psk) issues.push({ level: 'warn', key: 'net.psk', msg: 'a sign-in page on a password-protected network: hunters would need the PSK first (open is the usual choice)' });
   if (cp?.enabled && cp.ble?.enabled && !radios.includes('ble') && radios.length) issues.push({ level: 'err', key: 'checkpoint.ble.enabled', msg: `${board.name} has no BLE radio` });
@@ -277,7 +277,7 @@ export function checks(cfg, board, { clockSet = false } = {}) {
     if (pl?.enabled && pl.split?.wifi && pl.split?.ble) issues.push({ level: 'warn', key: 'stealth.modes', msg: 'a split clue runs both radios every wake; mode rotation then only changes which one is the main fox' });
   }
   if (st?.enabled && st.shell_game) {
-    if (!clockSet) issues.push({ level: 'err', key: 'stealth.shell_game', msg: 'the shell game follows the board clock: tick "Set the board clock" on the Deploy tab' });
+    if (!clockSet) issues.push({ level: 'err', key: 'stealth.shell_game', msg: 'the shell game follows the board clock: tick "Set the board clock" on the Deploy tab', fix: 'clock' });
     if (st.rotate_mac) issues.push({ level: 'err', key: 'stealth.shell_game', msg: 'the shell game sets the MAC; turn MAC rotation off' });
     if (st.rotate_name || (pl?.enabled && pl.kind !== 'static')) issues.push({ level: 'err', key: 'stealth.shell_game', msg: 'the shell game sets the name; turn name rotation / payload names off' });
     if (cfg.id.use_callsign_as_name) issues.push({ level: 'warn', key: 'stealth.shell_game', msg: 'the callsign is the name on the air, but the shell game replaces it each cycle' });
@@ -296,11 +296,11 @@ export function checks(cfg, board, { clockSet = false } = {}) {
   if (se?.enabled && se.honeypot?.enabled && cfg.net.kind !== 'wifi-ap' && !(st?.enabled && st.modes?.includes('wifi-ap'))) issues.push({ level: 'warn', key: 'sense.honeypot.enabled', msg: 'joins are logged on an access point only; this fox is never one' + (se.honeypot.probes ? ' (probe requests are still heard)' : '') });
   if (se?.enabled && se.honeypot?.enabled && se.honeypot.probes) issues.push({ level: 'info', key: 'sense.honeypot.probes', msg: 'probe requests need wifi.Monitor in the CircuitPython build; a build without it says so once and logs joins only' });
   if (se?.enabled && se.crowd?.enabled && se.tags?.enabled && se.crowd.max < 2) issues.push({ level: 'warn', key: 'sense.crowd.max', msg: 'a crowd of 1: the first tag nearby silences the fox' });
-  if (cp?.enabled && cp.stop_at && !clockSet) issues.push({ level: 'err', key: 'checkpoint.stop_at', msg: 'a stop time needs the board clock set at deploy: tick "Set the board clock" on the Deploy tab' });
+  if (cp?.enabled && cp.stop_at && !clockSet) issues.push({ level: 'err', key: 'checkpoint.stop_at', msg: 'a stop time needs the board clock set at deploy: tick "Set the board clock" on the Deploy tab', fix: 'clock' });
   if (cp?.enabled && cp.stop_after_finds && !(cp.portal?.enabled && cp.portal.ask_callsign) && !cp.ble?.enabled) issues.push({ level: 'warn', key: 'checkpoint.stop_after_finds', msg: 'stop after N finds counts callsigns handed in; neither the sign-in form nor the BLE service is on' });
   if (se?.enabled && cfg.schedule.sleep === 'deep') issues.push({ level: 'warn', key: 'sense.enabled', msg: 'listening happens only while awake; with deep sleep the fox hears nothing between wakes' });
   if (se?.enabled && !se.tags?.enabled && !se.relay?.enabled && !se.honeypot?.enabled && !se.crowd?.enabled) issues.push({ level: 'warn', key: 'sense.enabled', msg: 'sense is on but nothing is being listened for' });
-  if (st?.enabled && st.start?.at && !clockSet) issues.push({ level: 'err', key: 'stealth.start.at', msg: 'a start time needs the board clock set at deploy: tick "Set the board clock" on the Deploy tab' });
+  if (st?.enabled && st.start?.at && !clockSet) issues.push({ level: 'err', key: 'stealth.start.at', msg: 'a start time needs the board clock set at deploy: tick "Set the board clock" on the Deploy tab', fix: 'clock' });
   if (st?.enabled && st.start?.at && !/[Zz]|[+-]\d{2}:?\d{2}$/.test(st.start.at)) issues.push({ level: 'warn', key: 'stealth.start.at', msg: 'no time zone on the start time: it is read as the board clock\'s zone (the zone the clock was set in)' });
   if (st?.enabled && st.ble_only && se?.enabled && (se.relay?.enabled || se.honeypot?.enabled)) issues.push({ level: 'err', key: 'sense.relay.enabled', msg: 'BLE only, but the relay / honeypot listen with the Wi-Fi radio — they would turn it back on' });
   if (st?.enabled && st.ble_only && cfg.net.kind !== 'ble') issues.push({ level: 'err', key: 'stealth.ble_only', msg: 'BLE only with a Wi-Fi template: the fox would never transmit' });

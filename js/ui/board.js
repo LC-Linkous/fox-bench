@@ -109,7 +109,7 @@ function render() {
       h('li', {}, 'The board soft-reboots and the page reads the ', h('code', {}, 'FOX …'), ' banner back: config status, radio status, callsign set or not.')));
 
   const facts = h('div.card', {}, h('h3', {}, 'Board facts'),
-    h('dl.kv', {}, h('dt', {}, 'CircuitPython id'), h('dd', {}, b.circuitpython.board_id), h('dt', {}, 'Flash'), h('dd', {}, `${b.flash.method} · ${b.flash.chip} @ ${b.flash.offset}`), h('dt', {}, 'USB drive'), h('dd', {}, b.has_usb_drive ? 'yes (CIRCUITPY)' : 'none — files go through the REPL'), h('dt', {}, 'Battery'), h('dd', {}, b.battery?.divider_note || '—')),
+    h('dl.kv', {}, h('dt', {}, 'CircuitPython id'), h('dd', {}, b.circuitpython.board_id), h('dt', {}, 'Flash'), h('dd', {}, `${b.flash.method} · ${b.flash.chip} @ ${b.flash.offset}`), h('dt', {}, 'USB drive'), h('dd', {}, b.has_usb_drive ? 'yes (CIRCUITPY) — files still go through the REPL; the first Deploy hands the filesystem to the board (boot.py)' : 'none — files go through the REPL'), h('dt', {}, 'Battery'), h('dd', {}, b.battery?.divider_note || '—')),
     h('p.hint', {}, 'Wiring between this board and the radio module is on the Radio & pins tab.'));
   root.replaceChildren(pickerCard(), h('div.cols', {}, deviceCard, flashCard(app)), facts, flow, diagCard());
 }

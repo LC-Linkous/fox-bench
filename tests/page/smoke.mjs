@@ -198,8 +198,14 @@ try {
   await (await enableOf('How hard it is to find')).check(); await settle(300);
   await page.locator('#tab-payload .card', { hasText: 'How hard it is to find' }).locator('input[placeholder^="2026-"]').fill('2026-08-08T09:00:00-04:00'); await page.locator('#tab-payload .card', { hasText: 'How hard it is to find' }).locator('input[placeholder^="2026-"]').dispatchEvent('change'); await settle(300);
   check(await app(() => window.foxbench.issues.some(i => i.key === 'stealth.start.at' && i.level === 'err')), 'a start time without the clock set is a blocking error');
+  check(await page.locator('#tab-payload button', { hasText: 'Set the board clock at deploy' }).count() === 1, 'the message offers the fix where it is read (no trip to the Deploy tab)');
   await tab('deploy');
   check(/Set the board clock/.test(await text('#tab-deploy')), 'Deploy card offers the clock');
+  await page.locator('#tab-deploy .card', { hasText: 'Checks' }).locator('li', { hasText: 'stealth.start.at' }).locator('button', { hasText: 'Set the board clock at deploy' }).waitFor({ timeout: 5000 });
+  await tab('payload'); await page.locator('#tab-payload button', { hasText: 'Set the board clock at deploy' }).click(); await settle(300);
+  check(!(await app(() => window.foxbench.issues.some(i => i.key === 'stealth.start.at'))) && await app(() => window.foxbench.deployClock.enabled === true), 'one click on the message turns the clock on and the error is gone');
+  await app(() => window.foxbench.setDeployClock({ enabled: false })); await settle(300);
+  await tab('deploy');
   await page.locator('#tab-deploy label.check', { hasText: 'Set the board clock' }).locator('input').check(); await settle(300);
   check(!(await app(() => window.foxbench.issues.some(i => i.key === 'stealth.start.at' && i.level === 'err'))), 'with the clock on, the start time is allowed');
   check(JSON.parse(await app(() => localStorage.getItem('fox-bench.deployClock'))).enabled === true, 'the clock choice is remembered (a fleet setting)');
@@ -208,7 +214,12 @@ try {
   await page.fill('#tab-deploy input[type="datetime-local"]', '2026-08-08T08:30:00'); await page.locator('#tab-deploy input[type="datetime-local"]').dispatchEvent('change'); await settle(200);
   await tab('deploy'); await page.check('#tab-deploy .gate input');
   check(/On the air/.test(await text('#tab-deploy')) && !/Keydown limit/.test(await text('#tab-deploy')), 'Deploy tab shows the duty card, no keydown card');
-  await app(() => { window.foxbench.lastDeploy = null; });
+  // a board with a CIRCUITPY drive whose files the computer still has: Deploy stops before writing and says what to do
+  await app(() => { window.foxbench.lastDeploy = null; window.foxbench.device.makeWritable = async () => 'usb'; });
+  await page.click('#tab-deploy button.btn.primary'); await until(() => !!window.foxbench.lastDeploy, 'the refused deploy', 20000); await settle(300);
+  check(/Download boot\.py/.test(await text('#tab-deploy')) && /CIRCUITPY drive/.test(await text('#tab-deploy')) && await app(() => window.foxbench.lastDeploy.usbDrive === true), 'a read-only board gets the boot.py instructions, not a bare OSError');
+  await app(() => { delete window.foxbench.device.makeWritable; window.foxbench.lastDeploy = null; });
+  await page.check('#tab-deploy .gate input');
   await page.click('#tab-deploy button.btn.primary'); await until(() => !!window.foxbench.lastDeploy, 'the network fox deploy', 20000); await settle(300);
   const nb = await app(() => window.foxbench.lastBanner || null);
   check(nb && nb.net === 'wifi-ap' && nb.name === 'W1ABC FOX DE W1ABC' && /^F2:/.test(nb.mac) && nb.radio === 'ok', 'the demo boots the network fox: banner net=wifi-ap, name is the callsign, mac set: ' + JSON.stringify(nb));
@@ -283,7 +294,7 @@ try {
   check(await page.isDisabled('#tab-board button:has-text("Flash CircuitPython")'), 'flash disabled until an image is loaded');
   const fakeBin = Buffer.alloc(80000); for (let i = 0; i < fakeBin.length; i++) fakeBin[i] = (i * 7) & 0xff;
   await page.setInputFiles('#tab-board input[type=file][accept=".bin"]', { name: 'adafruit-circuitpython-raspberry_pi_pico-en_US-10.2.1.bin', mimeType: 'application/octet-stream', buffer: fakeBin }); await settle(300);
-  check(/not seeed_xiao_esp32c3/.test(await text('#tab-board')), 'image for another board is flagged');
+  check(/this board's build is seeed_xiao_esp32c3/.test(await text('#tab-board')) && /supports your board before flashing/.test(await text('#tab-board')), 'image for another board is flagged, with the advice to check that the builds are shared');
   await page.setInputFiles('#tab-board input[type=file][accept=".bin"]', { name: 'adafruit-circuitpython-seeed_xiao_esp32c3-en_US-10.2.1.bin', mimeType: 'application/octet-stream', buffer: fakeBin }); await settle(300);
   check(!(await page.isDisabled('#tab-board button:has-text("Flash CircuitPython")')), 'flash enabled with the right image in demo mode');
   await page.click('#tab-board button:has-text("Flash CircuitPython")'); await settle(400);

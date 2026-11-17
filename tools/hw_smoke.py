@@ -257,6 +257,25 @@ def main():
     report = {"generated": datetime.now().isoformat(timespec="seconds"), "board_id": board_id, "uid": uid, "circuitpython": cp_release, "cp_version": cp_version,
               "foxlib": foxlib_version, "call": a.call, "freq": a.freq, "module": a.module, "sniffer": a.sniffer or "not used", "templates": {}}
 
+    # A board with a CIRCUITPY drive (ESP32-S3, nRF52840): its files are the computer's, read-only to the board's
+    # code (which is what writes here), until firmware/boot.py gives them to the board. The remount works from the
+    # REPL only once the drive is ejected on the computer.
+    fs = r.exec("try:\n import storage\n ro = storage.getmount('/').readonly\nexcept Exception:\n ro = False\n"
+                "if not ro:\n print('rw')\nelse:\n try:\n  storage.remount('/', False)\n  print('remounted')\n except Exception as e:\n  print('usb', e)\n").strip()
+    if fs.startswith("usb"):
+        sys.exit("\nThe board's files are read-only to the board: it shows up as a CIRCUITPY drive and the computer has it (%s).\n"
+                 "Once per board, either:\n"
+                 "  1. copy firmware/boot.py onto the CIRCUITPY drive, press the board's reset button, run this again; or\n"
+                 "  2. eject the CIRCUITPY drive in the file manager (leave the cable in) and run this again.\n"
+                 "After that the drive is read-only on the computer. To undo: import os; os.remove('boot.py') at the REPL, then reset." % fs[4:])
+    if fs.startswith("remounted"):
+        have = r.read_file("boot.py")
+        if have is None or b"fox-bench boot.py" in have:
+            r.write_file("boot.py", open(os.path.join(ROOT, "firmware/boot.py"), "rb").read())
+            print("wrote boot.py: from the next reset the board's files belong to the board (the CIRCUITPY drive is read-only on the computer)")
+        else:
+            print("WARNING: the board has its own boot.py, left alone; without storage.remount('/', readonly=False) in it the next power-up is read-only again")
+
     # what was there
     before = {p: r.read_file(p) for p in ("code.py", "fox.json", "defaults.json")}
     print("saved current code.py/fox.json/defaults.json (%s)" % ", ".join(k for k, v in before.items() if v is not None))
