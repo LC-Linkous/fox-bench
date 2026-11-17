@@ -16,7 +16,6 @@ export const OFFSETS_HZ = [0, 1000, 3000, 5000, 3000, 1000, 0, -1000, -3000, -50
 export const ATTEN_CYCLE = [0, 40, 20];
 export const DB_PER_STEP = 0.25, MAX_DBM = 18, EDGE_MARGIN_HZ = 2 * MAX_DEVIATION_HZ;
 export const ZONE_MAX_MHZ = { 1: 146, 2: 148, 3: 148 }, MIN_MHZ = 144;
-const KEYS = ['CALLSIGN', 'ITU_ZONE', 'FREQ_MHZ', 'DUTY_CYCLE', 'ATTENUATION', 'MORSE_WPM', 'MORSE_FARNSWORTH_WPM', 'MORSE_TONE', 'MORSE_TONE_VOL'];
 
 /** What the firmware keys of a callsign: A–Z 0–9 only, upper-cased, at most 12. Everything else is dropped silently. */
 export const firmwareCallsign = s => (s || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);

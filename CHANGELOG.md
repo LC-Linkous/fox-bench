@@ -14,6 +14,61 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.18.2 · foxlib 1.10.2 · foxlib-c 0.1.11 — a deeper audit, and ESLint
+
+The simulator runs foxlib on desktop Python. This round checked the
+firmware against what CircuitPython 9.2 itself accepts — its grammar, its
+string/bytes method tables and build flags, and the binding of every
+`wifi`, `_bleio`, `socketpool`, `microcontroller`, `watchdog`,
+`supervisor`, `alarm` and `rtc` call foxlib makes (argument names,
+enum members, return shapes) — by reading the CircuitPython source.
+
+- **Fix — no payload feature ever ran on a board.** `netpayload.py` built
+  the split clue's radio settings with `{**a, "kind": k}`; CircuitPython's
+  grammar has no `**` in a dict display, so the module was a SyntaxError
+  on every board from foxlib 1.4 to 1.10: rotating names, codes,
+  Eddystone, split clues, TLM data and the `puzzle-beacon` template all
+  ran as a plain beacon, and the banner called payload "accepted but not
+  built yet". Every simulator run passed.
+- A feature that fails to load is now said loudly: `** payload failed to
+  load on this board (SyntaxError): the fox runs without it **`; the
+  Deploy result fails and names it, and the fleet row says
+  `failed to load: …` (`feature-fails-to-load`, `break_module`).
+- **Fix — one stray BLE name lost a whole scan.** CircuitPython ignores
+  `decode`'s `errors` argument and raises on invalid UTF-8, so a nearby
+  advertiser with junk in its name made `adv_name` raise and the wake's
+  tags and crowd count were lost; a callsign written over BLE with a stray
+  byte was dropped. `netcheckpoint.text_of()` never raises.
+- **The watchdog is left to CircuitPython when `code.py` ends.**
+  CircuitPython stops a RESET watchdog after Ctrl-C or a reload and keeps
+  it running after an uncaught exception, so that the board resets. foxlib
+  disarmed it on the way out, which turned that reset off: a template body
+  that raised outside `tx` left the fox dead. Now it resets after
+  `watchdog_s` and `safemode.py` brings it back
+  (`body-raises-watchdog-stays`, `code_patch`, `watchdog_end`).
+  `guard.disarm()` uses `mode = None` (9.0+; `deinit()` is gone in 10.0,
+  which the C5 and XIAO S3 builds run).
+- `safemode.py` no longer lists `HEAP_OVERWRITTEN`, which is not a
+  `SafeModeReason` in 9.2 (it was skipped anyway).
+- **`tools/check_firmware_py.py`** (new CI step): rejects `{**dict}`
+  displays, the match statement, keyword arguments to string methods and
+  `decode`/`encode` with an `errors` argument — each verified against
+  the CircuitPython source. It found the three above and nothing else.
+- **ESLint in CI** (`tests/eslint.config.mjs`, eslint 9.15.0 and
+  `@eslint/js` / `globals` pinned in `tests/package.json`; `npm run lint`,
+  first step of the page job): the recommended rules with `no-unused-vars`
+  as an error, empty `catch {}` allowed, control characters in regexes
+  allowed (the REPL protocol). The first run cleaned up dead code
+  (unused imports and constants in `main.js`, `board.js`,
+  `deploy-compiled.js`, `net.js`, `netschema.js`, `vendor/picofox.js`,
+  `kitsune_bench_conf.mjs`), redundant regex escapes, a duplicate key in
+  the fake ESP32 ROM and dead lines in two tests.
+- Checked and fine: every API name and keyword argument; `stations_ap`'s
+  field is `mac_address` (its docstring says `mac`; the namedtuple says
+  `mac_address`); `str.partition` and `bytes.decode` exist on full builds,
+  which every board in the catalog runs.
+- Runbook Q11: confirm the payload features on a board.
+
 ### Page 0.18.1 · foxlib 1.10.1 · foxlib-c 0.1.11 — audit of 0.13–0.18
 
 A read of everything added since page 0.12 (foxlib 1.6–1.10) for what the

@@ -30,6 +30,8 @@ Everything CI runs, locally, from the repository root:
 
 ```
 python3 -m py_compile firmware/foxlib/*.py firmware/templates/*/code.py firmware/safemode.py
+python3 tools/check_firmware_py.py            # what desktop Python accepts and CircuitPython does not
+(cd tests && npm run lint)                    # ESLint: js/, flasher/, tests/, tools/*.mjs, firmware/sim/*.mjs
 python3 tools/check_docs.py && python3 tools/bench_queue.py --check
 python3 tools/check_ci.py && python3 tools/build_kitsune.py --selftest && node tools/kitsune_bench_conf.mjs --check
 python3 tools/check_catalog.py --manifest tests/fixtures/kitsune/manifest.json
@@ -56,7 +58,13 @@ PyYAML.) `--since` is the version-bump lint: give it the base of the series
 you are about to push, not `HEAD`, or a bump missing from an earlier commit
 goes unnoticed until CI.
 
-CI guards that exist because of a real slip: `check_ci.py` (a duplicate `if:`
+CI guards that exist because of a real slip: ESLint (`tests/eslint.config.mjs`;
+a page check read `opts.clockSet` where the parameter was `clockSet`, and
+every network fox in a shell game made validation throw);
+`check_firmware_py.py` (`netpayload.py` built a dict with `{**a, ...}`,
+a SyntaxError in CircuitPython, so no payload feature ever loaded on a
+board from foxlib 1.4 to 1.10 while every simulator run passed);
+`check_ci.py` (a duplicate `if:`
 made GitHub refuse the workflow, which showed up as no run at all);
 `build_info.py` reads `FOXLIBC-VERSION:` out of the built UF2 and fails when it
 differs from `firmware/foxlib-c/VERSION` (CMake had read the file once, at

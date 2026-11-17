@@ -16,7 +16,7 @@
 # MAX_NEAR lines; the Bench tab's "Who is near" reads it. A tag or a prober is written at most once per NEAR_EVERY_S
 # (every sighting is still on the console); each join is written. A fox with nothing to scan for does no scan.
 import time
-from .netcheckpoint import FindLog
+from .netcheckpoint import FindLog, text_of
 
 MAX_NEAR = 500
 NEAR_EVERY_S = 300                       # a tag or prober seen again within this is on the console, not written again
@@ -38,10 +38,7 @@ def adv_name(entry):
             if ln == 0 or i + 1 + ln > len(data):
                 break
             if data[i + 1] in (0x08, 0x09):
-                try:
-                    return bytes(data[i + 2:i + 1 + ln]).decode("utf-8")
-                except Exception:
-                    return bytes(data[i + 2:i + 1 + ln]).decode("ascii", "replace") if hasattr(bytes, "decode") else ""
+                return text_of(data[i + 2:i + 1 + ln])      # a name with stray bytes must not lose the whole scan
             i += 1 + ln
     return ""
 

@@ -53,7 +53,6 @@ export function parseMac(s, n = 6) {
 }
 
 /** Like Python's _intify: a float with an integral value is an int (JSON has one number type; the firmware sees both). */
-const intify = v => v;
 
 export function validate(user, defaults, board) {
   const cfg = structuredClone(defaults), report = [];

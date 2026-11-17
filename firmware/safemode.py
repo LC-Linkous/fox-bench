@@ -17,7 +17,9 @@ import supervisor
 RESETS_MAX = 50
 RECOVER_S = 5
 
-AUTO_RESET = ("BROWNOUT", "WATCHDOG", "HARD_FAULT", "STACK_OVERFLOW", "HEAP_OVERWRITTEN", "GC_ALLOC_OUTSIDE_VM",
+# supervisor.SafeModeReason members in CircuitPython 9.2 (shared-bindings/supervisor/SafeModeReason.c) that mean
+# "something went wrong while running"; a name a build lacks is skipped by the getattr below
+AUTO_RESET = ("BROWNOUT", "WATCHDOG", "HARD_FAULT", "STACK_OVERFLOW", "GC_ALLOC_OUTSIDE_VM",
               "NLR_JUMP_FAIL", "INTERRUPT_ERROR", "SDK_FATAL_ERROR", "NO_HEAP")
 
 

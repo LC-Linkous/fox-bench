@@ -478,6 +478,29 @@
      11000
     ]
    }
+  },
+  {
+   "name": "body-raises-watchdog-stays",
+   "families": [
+    "foxlib"
+   ],
+   "_doc": "a template body that raises outside tx ends code.py; the watchdog must still be running then, so the board resets after watchdog_s and safemode.py brings it back (foxlib used to disarm it on the way out)",
+   "cap_ms": 300000,
+   "stop_after_unkeys": 3,
+   "code_patch": [
+    "    tx.morse(tx.id_message)\n",
+    "    tx.morse(tx.id_message)\n    if tx.cycle == 1:\n        raise ValueError(\"a template bug\")\n"
+   ],
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    }
+   },
+   "expect": {
+    "keyed_min": 2,
+    "raises": "ValueError",
+    "watchdog_end": "reset"
+   }
   }
  ],
  "morse-sstv": [
@@ -2862,6 +2885,36 @@
     },
     "prints_not_contain": [
      "not applied"
+    ]
+   }
+  },
+  {
+   "name": "feature-fails-to-load",
+   "_doc": "a feature module that cannot be imported on the board (as netpayload.py could not, foxlib 1.4-1.10) is named loudly in the boot log, not as 'not built yet', and the fox still beacons",
+   "cap_ms": 60000,
+   "stop_after_unkeys": 1,
+   "break_module": "foxlib.netpayload",
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "payload": {
+     "enabled": true,
+     "kind": "rotate",
+     "names": [
+      "A",
+      "B"
+     ]
+    }
+   },
+   "expect": {
+    "keyed_min": 1,
+    "prints_contain": [
+     "** payload failed to load on this board (",
+     "): the fox runs without it **"
+    ],
+    "prints_not_contain": [
+     "payload is accepted but not in foxlib"
     ]
    }
   }

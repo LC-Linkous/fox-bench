@@ -168,13 +168,15 @@ async function deploy(btn) {
     const bootLog = await d.reboot();
     const banner = parseBanner(bootLog);
     if (banner) app.lastBanner = banner;
-    setLast({ bootLog, banner, ok: !!banner && banner.cfg === 'ok' && banner.radio === 'ok' && (banner.id === 'set' || banner.id === 'none') });   // none: a network fox with no callsign on the air
+    const failedFeature = /\*\* (\w+) failed to load on this board \(([^)]*)\)/.exec(bootLog || '');   // a contest feature the board could not import
+    setLast({ bootLog, banner, failedFeature: failedFeature ? `${failedFeature[1]} (${failedFeature[2]})` : null,
+      ok: !!banner && banner.cfg === 'ok' && banner.radio === 'ok' && (banner.id === 'set' || banner.id === 'none') && !failedFeature });   // none: a network fox with no callsign on the air
     const written = Object.fromEntries(files.filter(f => f.kind !== 'remove').map(f => [f.path.replace('/*', ''), { size: 1, dir: f.kind === 'foxlib' }]));
     const remaining = { ...app.onBoard.files, ...written }; for (const f of files) if (f.kind === 'remove') delete remaining[f.path];
     app.onBoard = { ...app.onBoard, cfg: structuredClone(cfg), raw: JSON.stringify(cfg), template: app.templateId, foxlibVersion: app.catalog.foxlibVersion, foxlibComplete: true, foxlibMissing: [], files: remaining };
     app.info.foxlibVersion = app.catalog.foxlibVersion;
     app.setStatus(`${d.kind === 'demo' ? 'Demo · ' : ''}${app.info.boardId} · uid ${app.info.uid.slice(-6)} · foxlib ${app.catalog.foxlibVersion} · fox running`, d.kind === 'demo' ? 'demo' : 'tx');
-    fleet.append({ board_number: cfg.fleet?.number ?? '', uid: app.info.uid, board: app.info.boardId, action: 'deploy', template: `${app.templateId}/${app.template.version}`, profile: cfg.fleet?.profile || '', callsign: cfg.id.callmessage, owner: cfg.fleet?.owner || '', event: cfg.fleet?.event || '', on_air: onAir(cfg, { template: app.templateId }), freq: freqText(cfg), power: powerText(cfg), seed: cfg.schedule?.seed ?? '', result: lastResult.ok ? 'ok' : (banner ? `${banner.cfg} ${banner.radio} ${banner.id}` : 'no banner'), notes: [app.variantId ? app.board.variantName : '', app.device.kind === 'demo' ? 'demo' : ''].filter(Boolean).join(' · ') });
+    fleet.append({ board_number: cfg.fleet?.number ?? '', uid: app.info.uid, board: app.info.boardId, action: 'deploy', template: `${app.templateId}/${app.template.version}`, profile: cfg.fleet?.profile || '', callsign: cfg.id.callmessage, owner: cfg.fleet?.owner || '', event: cfg.fleet?.event || '', on_air: onAir(cfg, { template: app.templateId }), freq: freqText(cfg), power: powerText(cfg), seed: cfg.schedule?.seed ?? '', result: lastResult.ok ? 'ok' : lastResult.failedFeature ? `failed to load: ${lastResult.failedFeature}` : (banner ? `${banner.cfg} ${banner.radio} ${banner.id}` : 'no banner'), notes: [app.variantId ? app.board.variantName : '', app.device.kind === 'demo' ? 'demo' : ''].filter(Boolean).join(' · ') });
   } catch (e) { setLast({ error: String(e.message || e) + (/HTTP 404/.test(e.message || '') ? ' — a firmware file is missing from the site; the repo needs a .nojekyll marker so GitHub Pages serves foxlib/__init__.py' : '') }); log.err(lastResult.error); }
   busy = false; gateOk = false; app.changed('deploy');
 }
@@ -235,6 +237,7 @@ function resultBox(r) {
   const b = r.banner;
   const kv = b ? ['template', 'foxlib', 'cfg', 'radio', 'id', 'freq'].map(k => h('span', { class: k === 'cfg' ? (b.cfg === 'ok' ? 'ok' : 'warn') : k === 'radio' ? (b.radio === 'ok' ? 'ok' : 'err') : k === 'id' ? (b.id === 'set' ? 'ok' : b.id === 'none' ? 'warn' : 'err') : '' }, `${k}=${b[k] ?? '?'}  `)) : [h('span.err', {}, 'no FOX banner in the boot log — the firmware did not start')];
   return h('div', {}, h('p', { style: 'margin:12px 0 4px' }, r.ok ? badge('fox is up', 'ok') : badge('check the banner', 'warn'), ' ', ...kv),
+    r.failedFeature ? h('p.hint.err', {}, `${r.failedFeature.split(' ')[0]} failed to load on this board ${r.failedFeature.slice(r.failedFeature.indexOf('('))}: the fox is on the air without it. A foxlib bug, not a configuration problem — see the boot log.`) : null,
     h('p.hint', {}, 'The fox is running now. Re-read board (Board tab) or a Bench action interrupts it; ', h('button.btn.small', { onclick: () => app.restartFox() }, 'Restart fox'), ' starts it again.'),
     h('details', {}, h('summary.hint', {}, 'boot log'), h('pre.out', {}, r.bootLog)));
 }

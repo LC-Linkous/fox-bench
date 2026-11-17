@@ -1,7 +1,7 @@
 // deploy-compiled.js — Deploy tab for the compiled family (RFHS kitsune): no deploy transport (Phase 2). Export the conference
 // header block kitsune's build reads, import one, record the fox in the fleet log, save as a profile.
 // SPDX-License-Identifier: GPL-2.0-only
-import { h, badge, select, field } from './dom.js';
+import { h, badge } from './dom.js';
 import { fleet, download } from '../model/profiles.js';
 
 let app, last = null;

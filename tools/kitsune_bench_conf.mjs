@@ -14,7 +14,7 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { exportHeader, TEMPLATES } from '../js/model/vendor/kitsune.js';
+import { exportHeader } from '../js/model/vendor/kitsune.js';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const defaults = (template, board) => JSON.parse(readFileSync(join(ROOT, 'firmware/templates', template, 'defaults', board + '.json'), 'utf8'));

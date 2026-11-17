@@ -84,6 +84,7 @@ class NetFox:
         self.name = netcfg.display_name(c)
         self.features = netcfg.enabled_features(c)
         self.hooks = {"before_up": [], "on_up": [], "while_up": [], "after_down": []}     # the contest features register here
+        self.failed_features = []            # [(section, exception name)]: built, but would not load or attach here
         self.skip = None                     # a feature (sense) may keep this wake off the air: the reason, logged
         self.done = None                     # a feature (checkpoint stop) ends the fox's day: the reason; radio off for good
         self.override_wake_s = None          # a feature (stealth jitter) may set this cycle's timing in before_up
@@ -176,6 +177,8 @@ class NetFox:
             print("  note: this firmware cannot hide the SSID; it is broadcast")
         for name in self.unbuilt:
             print("  note: %s is accepted but not in foxlib %s yet; the fox runs without it" % (name, __version__))
+        for name, why in self.failed_features:
+            print("** %s failed to load on this board (%s): the fox runs without it **" % (name, why))
         n = guard.resets()
         if n and not self.woke_from_sleep:
             print("  note: %d safe-mode reset%s since the last completed wake (brownout; see safemode.py)" % (n, "" if n == 1 else "s"))

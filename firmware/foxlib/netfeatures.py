@@ -21,8 +21,13 @@ def attach(fox):
             continue
         try:
             m = __import__("foxlib." + mod, None, None, ["attach"])
+        except Exception as e:
+            # built, but this board cannot load it (a SyntaxError CircuitPython has and desktop Python has not): said
+            # loudly in the banner, never as "not built yet"
+            fox.failed_features.append((sec, e.__class__.__name__))
+            continue
+        try:
             m.attach(fox)
         except Exception as e:
-            fox.log("%s: not attached (%s)" % (sec, e.__class__.__name__))
-            unbuilt.append(sec)
+            fox.failed_features.append((sec, e.__class__.__name__))
     return unbuilt

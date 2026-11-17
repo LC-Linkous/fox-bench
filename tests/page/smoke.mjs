@@ -177,7 +177,7 @@ try {
   const cardsTxt = await text('#tab-payload');
   check(/What the fox says/.test(cardsTxt) && /What the fox serves/.test(cardsTxt) && /What the fox listens for/.test(cardsTxt) && /How hard it is to find/.test(cardsTxt), 'four feature cards');
   eq(await app(() => ['payload', 'checkpoint', 'sense', 'stealth'].filter(k => k in window.foxbench.cfg).join()), '', 'no feature section in fox.json while all are off');
-  const enableOf = async title => { const card = (await page.$$('#tab-payload .card')).find(async () => true); return page.locator('#tab-payload .card', { hasText: title }).locator('label.check input').first(); };
+  const enableOf = async title => { return page.locator('#tab-payload .card', { hasText: title }).locator('label.check input').first(); };
   await (await enableOf('What the fox says')).check(); await settle(300);
   check(await app(() => window.foxbench.cfg.payload?.enabled === true && window.foxbench.cfg.payload.kind === 'static'), 'enabling a card writes its section with the defaults');
   await page.locator('#tab-payload .card', { hasText: 'What the fox says' }).locator('select').first().selectOption('rotate'); await settle(300);

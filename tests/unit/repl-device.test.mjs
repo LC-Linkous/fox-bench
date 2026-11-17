@@ -8,7 +8,6 @@ import { FakeBoard, parseBytesLiteral } from './fake-board.mjs';
 
 const FOXLIB = { 'foxlib/__init__.py': 'class Fox: pass\n', 'foxlib/VERSION': '1.0.0\n', 'foxlib/radio.py': '# radio\n' };
 const mk = async opts => { const b = new FakeBoard(opts); const d = new ReplDevice(b); d.onLog = () => {}; await b.open(); return { b, d }; };
-const enc = new TextEncoder();
 
 test('parseBytesLiteral round-trips the encoder repl-device uses', async () => {
   const { b, d } = await mk();
@@ -51,7 +50,6 @@ test('writeBytes: large binary file is chunked, verified by size and CRC, and la
 test('writeBytes: a corrupted write is detected by the CRC, not just the size', async () => {
   const b = new FakeBoard();
   const inner = b.handler;
-  b.handler = code => { const r = inner(code); if (code.startsWith('f.close()')) { const f = b.fs.get(b._last); } return r; };
   // flip one byte after the last write, before verification, keeping the size
   b.handler = code => {
     if (code.startsWith('import os, binascii')) { const p = 'fox.json'; const f = b.fs.get(p); f[3] ^= 0x01; }

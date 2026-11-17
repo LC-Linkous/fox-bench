@@ -176,7 +176,9 @@ def attach(fox):
     c = p.cfg
     if c["split"]["wifi"] and c["split"]["ble"] and "wifi24" in fox.radios and "ble" in fox.radios:
         other = "ble" if fox.radio.kind != "ble" else "wifi-ap"
-        p.second = netradio.make({**_second_defaults(other, fox.cfg["net"]), "kind": other}, "")
+        net2 = _second_defaults(other, fox.cfg["net"])
+        net2["kind"] = other                   # not {**a, ...}: CircuitPython has no dict unpacking in a display
+        p.second = netradio.make(net2, "")
         if not p.second.setup():
             fox.log("payload: split clue needs the %s radio (%s); skipped" % (other, p.second.status))
             p.second = None

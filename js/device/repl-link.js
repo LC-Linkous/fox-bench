@@ -14,7 +14,7 @@
 
 const CHUNK = 128;
 /** CircuitPython's REPL emits terminal escapes: ESC[2K ESC[0G (clear line), ESC]0;title BEL/ESC\\ (title bar). */
-export const stripAnsi = t => t.replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, '').replace(/\x1b\[[0-9;?]*[ -\/]*[@-~]/g, '').replace(/\r/g, '');
+export const stripAnsi = t => t.replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, '').replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, '').replace(/\r/g, '');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 export class ReplLink {

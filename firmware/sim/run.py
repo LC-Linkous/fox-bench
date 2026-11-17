@@ -81,9 +81,16 @@ def boot_dir(d, cap_ms=180000, stop_after_unkeys=2):
     return _exec_in(d, rec)
 
 
+def _break(rec):
+    """scenario.break_module: that foxlib module fails to import, as a SyntaxError would make it on a board."""
+    if getattr(rec, "break_module", None):
+        sys.modules[rec.break_module] = None
+
+
 def _exec_in(d, rec):
     for m in [m for m in sys.modules if m == "foxlib" or m.startswith("foxlib.")]:
         del sys.modules[m]
+    _break(rec)
     cwd = os.getcwd()
     os.chdir(d)
     sys.path.insert(0, d)
@@ -95,6 +102,9 @@ def _exec_in(d, rec):
     mocks.ACTIVE[0] = True
     try:
         code = open("code.py").read()
+        if getattr(rec, "code_patch", None):
+            assert rec.code_patch[0] in code, "code_patch: %r not in code.py" % rec.code_patch[0]
+            code = code.replace(rec.code_patch[0], rec.code_patch[1])
         for boot in range(200):               # a deep-sleeping fox reboots into code.py each wake
             try:
                 exec(compile(code, "code.py", "exec"), {"__name__": "__main__"})
@@ -102,6 +112,7 @@ def _exec_in(d, rec):
             except mocks.Reboot:
                 for m in [m for m in sys.modules if m == "foxlib" or m.startswith("foxlib.")]:
                     del sys.modules[m]
+                _break(rec)
                 continue
     except BaseException as e:
         # Disarm SimDone *before* the traceback (and with it code.py's frame and its suspended cycle generator)
@@ -179,6 +190,11 @@ def check(template, scen, rec, err):
         fails.append("%d key-up(s) while the module was on its default channel, want <= %d" % (rec.keyed_on_default, exp["keyed_on_default_max"]))
     if "module_resets_min" in exp and rec.module_resets < exp["module_resets_min"]:
         fails.append("the scripted module reset %d time(s), scenario wanted >= %d (cap_ms too short?)" % (rec.module_resets, exp["module_resets_min"]))
+    if "watchdog_end" in exp:
+        # CircuitPython at the end of code.py: Ctrl-C / reload switch a RESET watchdog off; an uncaught exception leaves it
+        mode = getattr(getattr(rec, "wdt", None), "mode", None)
+        if (mode or "off") != exp["watchdog_end"]:
+            fails.append("watchdog %s when code.py ended, want %s" % (mode or "off", exp["watchdog_end"]))
     if "nvm0_end" in exp and getattr(rec, "nvm", None) is not None and rec.nvm[0] != exp["nvm0_end"]:
         fails.append("microcontroller.nvm[0] = %d at the end, want %d (safemode.py's count not cleared?)" % (rec.nvm[0], exp["nvm0_end"]))
     if "watchdog_feeds_min" in exp and rec.watchdog_feeds < exp["watchdog_feeds_min"]:

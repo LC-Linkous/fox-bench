@@ -182,7 +182,10 @@ def run(fox):
                 cycle += 1
                 fox.led.hold(FAIL_HOLD_MS, "fatal")
     finally:
-        guard.disarm()
+        # no guard.disarm() here: CircuitPython stops the watchdog itself after Ctrl-C or a reload, and keeps it
+        # running when code.py dies of an exception -- including one the template body raised, which no code in
+        # this generator can catch -- so that fox resets after watchdog_s and comes back (see guard.disarm)
+        pass
 
 
 def _ensure_radio(fox, mhz):

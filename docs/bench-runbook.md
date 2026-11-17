@@ -31,12 +31,13 @@ decides something in code or in the catalog. Write the answers into
 |---|---|---|---|
 | Q1 | Which builds have monitor mode? | REPL on C3, C5, C6, S3: `import wifi; print(hasattr(wifi, "Monitor"))` | where the honeypot's probe logging is offered |
 | Q2 | Does `stations_ap` work? | wifi-beacon running, a phone joined, then at the REPL: `import wifi; print([(bytes(s.mac_address).hex(), s.rssi) for s in wifi.radio.stations_ap])` | honeypot joins; the find log's client MAC (else the IP) |
-| Q3 | Is the watchdog real, and quiet at the REPL? | the boot log's `watchdog 90s` (or `unavailable(...)`); interrupt `code.py`, use the Bench tab for 2 min: no reset | whether 1.6's watchdog stays on by default |
+| Q3 | Is the watchdog real, and quiet at the REPL? | the boot log's `watchdog 90s` (or `unavailable(...)`); interrupt `code.py`, use the Bench tab for 2 min: no reset (the source says CircuitPython stops it on Ctrl-C) | whether 1.6's watchdog stays on by default |
 | Q4 | Does `safemode.py` run after a brownout? | a bench supply dipped (or a flat pack at high power): `fox safemode: BROWNOUT, reset 1 of 50`, then a normal boot with the `safe-mode reset` note | recovery on CircuitPython 8.1+ builds; which builds need it noted |
 | Q5 | Does the sign-in sheet pop by itself? | checkpoint fox; an iPhone and an Android join (step 21) | captive DNS as default; the fallback text |
 | Q6 | How much RAM is left on the C3? | `import gc; gc.collect(); print(gc.mem_free())` with: checkpoint + a phone connected; mode rotation with all three kinds; sense with tags, relay and honeypot | whether those features stay offered on the C3 |
 | Q7 | Can `finds.csv` be written while a computer has the drive? | S3 with the drive mounted: does the console say `cannot write finds.csv`? | a `boot.py` remount for drive-mounting boards |
 | Q8 | Does the BLE Scan list names now? | Bench → Scan on a BLE fox (the 0.18 fix) | — (confirms the fix) |
+| Q11 | Do the payload features run at all? | puzzle-beacon on any chip: the boot log has no `** payload failed to load` line, and nRF Connect shows the name rotating (0.18.2: they never loaded on a board before) | that phase B works on hardware |
 | Q9 | What is a room's BLE crowd? | the `crowd: N advertisers` line in a quiet room and in a busy one | the default for `sense.crowd.max` |
 | Q10 | Does a shell-game fox survive a battery swap? | battery-only power cycle: `the board clock is unset; keeping seat N's identity` | whether shell-game foxes need re-deploying after a swap, or an RTC board |
 

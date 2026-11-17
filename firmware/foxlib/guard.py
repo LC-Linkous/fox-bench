@@ -45,8 +45,12 @@ def feed():
 
 
 def disarm():
-    """Stop the watchdog (bench sessions, deinit). Not every port can stop one; then it keeps being fed by nothing,
-    which is why arm() never runs for a bench Fox."""
+    """Stop the watchdog (a bench Fox, Fox.deinit). `mode = None` is the way since CircuitPython 9.0; deinit() was
+    deprecated then and is gone in 10.0, so it is only the fallback.
+
+    cycle.run() does NOT disarm when it ends: CircuitPython does it better. At the end of code.py it switches a RESET
+    watchdog off after Ctrl-C or a reload, and leaves it running after an uncaught exception, so a fox whose code.py
+    died resets after watchdog_s and safemode.py brings it back (shared-module/watchdog/__init__.c, watchdog_reset)."""
     global _wd
     w, _wd = _wd, None
     if w is None:
@@ -55,6 +59,11 @@ def disarm():
             w = microcontroller.watchdog
         except Exception:
             return
+    try:
+        w.mode = None
+        return
+    except Exception:
+        pass
     try:
         w.deinit()
     except Exception:

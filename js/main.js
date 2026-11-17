@@ -5,10 +5,10 @@ import { loadCatalog, loadDefaults } from './model/loaders.js';
 import { mergeAndValidate, pageChecks } from './model/schema.js';
 import { validate as netValidate, checks as netChecks } from './model/netschema.js';
 import { parseBanner } from './device/device.js';
-import { profiles, fleet, unpackProfileImages } from './model/profiles.js';
+import { profiles, fleet } from './model/profiles.js';
 import { resolve as resolveHandoff } from './model/handoff.js';
 import { deployBlocker } from './model/transport.js';
-import { foxlibcCompat, cmpVersion } from './model/compat.js';
+import { foxlibcCompat } from './model/compat.js';
 import { TABLE as MORSE } from './audio/morse.js';
 import { hasWebSerial, SerialLink } from './device/serial-link.js';
 import { ReplDevice } from './device/repl-device.js';
@@ -29,7 +29,7 @@ import * as tabBench from './ui/bench.js';
 import * as tabFleet from './ui/fleet.js';
 import * as tabAbout from './ui/about.js';
 
-const VERSION = '0.18.1';
+const VERSION = '0.18.2';
 /** Tab subtitles that read differently per device family (null = the page's original text). */
 const LEDES = { drive: {
   board: 'Which fox is on the bench, open its USB drive (or use the simulated one). The vendor firmware stays; the page writes its files.',

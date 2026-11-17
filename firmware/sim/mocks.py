@@ -79,6 +79,8 @@ def install(scenario):
     cap_ms, stop_after_unkeys, board_names, pin_roles (to know which pin is PTT/LED)."""
     clock = Clock(scenario.get("cap_ms", 600000))
     rec = Recorder()
+    rec.break_module = scenario.get("break_module")
+    rec.code_patch = scenario.get("code_patch")          # [old, new]: code.py edited before it runs (a body that raises)
     now_ms = lambda: clock.ns / 1e6
 
     # ---- time
@@ -135,6 +137,7 @@ def install(scenario):
             if self.mode and rec.watchdog_bite is None and clock.ns - self._fed_ns > self._timeout * 1e9:
                 rec.watchdog_bite = (self._fed_ns / 1e6, clock.ns / 1e6)
     mc.watchdog = _WDT()
+    rec.wdt = mc.watchdog
     clock.checks.append(mc.watchdog._check)
     sys.modules["watchdog"] = wdm
 

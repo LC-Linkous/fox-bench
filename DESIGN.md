@@ -129,6 +129,7 @@ firmware/
 tools/
   check_catalog.py                    lint for every descriptor, defaults file, index and version bump
   check_docs.py                       every file path named in the *.md files exists
+  check_firmware_py.py                the firmware against what CircuitPython's compiler and built-ins accept (§5)
   build_info.py                       fingerprint JSON beside the UF2, RAM budget, the image's version tag vs VERSION
   build_kitsune.py                    CI's build of kitsune images + manifest (gated; --selftest)
   check_ci.py                         strict parse of the workflow file, job graph
@@ -404,12 +405,22 @@ schedule decide the wait. Since foxlib 1.6 it also keeps the fox alive
 for a whole hunt: the hardware watchdog is armed and fed through every
 wait, a cycle that raises is logged and the loop goes on, and
 `safemode.py` brings a browned-out board back (`limits.recover: false`
-turns all of that off, for finding out what a fox dies of). The recovery
-covers what runs inside the generator and inside `Tx`; an exception a
+turns all of that off, for finding out what a fox dies of). A cycle's
+failure is caught inside the generator and inside `Tx`; an exception a
 template body raises itself, outside `tx.morse` / `tx.play`, still ends
-`code.py` — a generator cannot catch what its caller raises — so template
-bodies do their work through `tx`. `NetFox` arms no watchdog but clears
+`code.py` — a generator cannot catch what its caller raises — but the
+watchdog is left running on the way out (CircuitPython keeps a RESET
+watchdog armed when `code.py` dies of an exception and stops it after
+Ctrl-C or a reload), so that fox resets after `watchdog_s` and
+`safemode.py` brings it back. `NetFox` arms no watchdog but clears
 `safemode.py`'s count after every completed wake.
+
+The firmware is tested on desktop Python, which accepts more than
+CircuitPython does; `tools/check_firmware_py.py` (CI) rejects what was
+verified against the CircuitPython 9.2 source not to work on a board:
+`{**dict}` displays, the match statement, keyword arguments to string
+methods, and `decode`/`encode` with an `errors` argument (ignored there,
+so invalid UTF-8 raises).
 A template body is therefore only what is distinctive about that fox:
 
 ```python

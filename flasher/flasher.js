@@ -35,7 +35,7 @@ export async function loadEsptool() {
 
 /** adafruit-circuitpython-<board>-<lang>-<version>.bin → { boardId, lang, version }; null if not that shape. */
 export function parseBinName(name) {
-  const m = /^adafruit-circuitpython-(.+)-([a-z]{2}(?:_[A-Z]{2})?)-([\w.\-]+)\.bin$/.exec(name || '');
+  const m = /^adafruit-circuitpython-(.+)-([a-z]{2}(?:_[A-Z]{2})?)-([\w.-]+)\.bin$/.exec(name || '');
   return m ? { boardId: m[1], lang: m[2], version: m[3] } : null;
 }
 

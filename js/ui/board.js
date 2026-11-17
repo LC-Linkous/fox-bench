@@ -1,7 +1,7 @@
 // board.js — Board tab: which fox is on the bench, connect to it, what is on it, flash it if bare.
 // SPDX-License-Identifier: GPL-2.0-only
 import { cmpVersion } from '../model/compat.js';
-import { h, badge, field, select, check } from './dom.js';
+import { h, badge, field, check } from './dom.js';
 import { download } from '../model/profiles.js';
 import { savePacks } from '../model/loaders.js';
 import { flashCard, onChange as onFlashChange } from './flash.js';

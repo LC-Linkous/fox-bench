@@ -94,6 +94,15 @@ def _unquote(b):
         return "".join(chr(c) for c in out if c < 128)
 
 
+def text_of(b):
+    """bytes -> str that never raises: CircuitPython ignores decode's errors argument, so invalid UTF-8 would raise
+    UnicodeError there; bytes outside printable ASCII then become '?'."""
+    try:
+        return bytes(b).decode("utf-8")
+    except Exception:
+        return "".join(chr(c) if 32 <= c < 127 else "?" for c in bytes(b))
+
+
 def clean_callsign(s):
     s = "".join(c for c in s.upper() if c.isalpha() or c.isdigit() or c in "/-")
     return s[:MAX_CALLSIGN]
@@ -363,7 +372,7 @@ class BleService:
             buf = self.call_buf
             if buf is not None and buf.in_waiting:
                 data = buf.read(buf.in_waiting)
-                call = clean_callsign(data.decode("utf-8", "replace"))
+                call = clean_callsign(text_of(data))
                 if call:
                     self.fox.log("checkpoint: find %s over BLE" % call)
                     if self.fox.cfg["checkpoint"]["portal"]["log"]:
