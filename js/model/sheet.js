@@ -35,6 +35,8 @@ export function onAir(cfg, { family = 'foxlib', template = '' } = {}) {
       if (pl.split?.wifi && pl.split?.ble) parts.push(`split "${pl.split.wifi}" + "${pl.split.ble}"`);
     }
     if (st?.decoys?.length) parts.push(`decoys ${st.decoys.map(s => `"${s}"`).join(', ')}`);
+    if (st?.modes?.length) parts.push(`modes ${st.modes.join('/')}${st.modes_random ? ' at random' : ' in turn'}`);
+    if (st?.shell_game) parts.push(`shell game seat ${st.shell_game.index + 1}/${st.shell_game.identities.length} every ${st.shell_game.period_s} s: ${st.shell_game.identities.map(i => i.name).join(', ')}`);
     if (st?.start?.at) parts.push(`starts ${st.start.at}`); else if (st?.start?.after_s) parts.push(`starts after ${st.start.after_s} s`);
     const cp = cfg.checkpoint?.enabled ? cfg.checkpoint : null;
     if (cp?.portal?.enabled) parts.push(`portal code ${cp.portal.code || '—'}${cp.portal.log ? ', logs finds' : ''}`);

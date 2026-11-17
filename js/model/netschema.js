@@ -10,6 +10,21 @@ export const WIFI5_CHANNELS = [36, 40, 44, 48, 149, 153, 157, 161, 165];
 export const WIFI_POWER_DBM = [2, 5, 7, 8.5, 11, 13, 15, 17, 18.5, 19, 19.5];
 export const BLE_POWER_DBM = [-12, -9, -6, -3, 0, 3, 6, 9];
 export const MAX_PROBE_SSIDS = 8;
+export const MODE_KINDS = ['wifi-ap', 'wifi-probe', 'ble'];
+export const MAX_IDENTITIES = 8;
+const modesOk = (x, radios) => Array.isArray(x) && new Set(x).size === x.length && x.length !== 1 && x.length <= 3 && x.every(k => MODE_KINDS.includes(k))
+  && (!radios || x.every(k => k === 'ble' ? radios.includes('ble') : radios.includes('wifi24')));
+const shellGameOk = x => {
+  if (x === null) return true;
+  if (!x || typeof x !== 'object' || Object.keys(x).sort().join() !== 'identities,index,period_s') return false;
+  const ids = x.identities;
+  if (!Array.isArray(ids) || ids.length < 2 || ids.length > MAX_IDENTITIES) return false;
+  for (const i of ids) {
+    if (!i || typeof i !== 'object' || Object.keys(i).sort().join() !== 'mac,name' || typeof i.name !== 'string' || blen(i.name) < 1 || blen(i.name) > MAX_NAME) return false;
+    if (i.mac !== null && !parseMac(i.mac)) return false;
+  }
+  return isInt(x.period_s) && x.period_s >= 60 && x.period_s <= 86400 && isInt(x.index) && x.index >= 0 && x.index < ids.length;
+};
 /** The 2.4 GHz channels a region allows an access point: what `channels: "any"` means on the page (the validator's "any" is the 1–11 everyone shares). */
 export const WIFI24_BY_REGION = { US: WIFI24_CHANNELS.slice(0, 11), EU: WIFI24_CHANNELS.slice(0, 13) };
 export const TLM_FIELDS = { batt_mv: [0, 65535], temp_c: [-128, 127.99], count: [0, 4294967295], uptime_s: [0, 429496729] };
@@ -145,7 +160,7 @@ export const FEATURE_DEFAULTS = {
     tags: { enabled: false, match: 'HUNT-', log: true, rssi_min: -80 },
     relay: { enabled: false, wait_for: '', then: 'up' },
     probes: { enabled: false, channel: 6, window_s: 2 } },
-  stealth: { enabled: false, rotate_mac: false, rotate_name: false, duty_jitter_s: 0, start: { after_s: 0, at: '' }, decoys: [], ble_only: false, variable_power: null },
+  stealth: { enabled: false, rotate_mac: false, rotate_name: false, duty_jitter_s: 0, start: { after_s: 0, at: '' }, decoys: [], ble_only: false, variable_power: null, modes: [], modes_random: false, shell_game: null },
 };
 export const MAX_NAMES = 16, MAX_DECOYS = 4, MAX_BODY = 512, MAX_URL = 64, MAX_CODE = 16;
 /** Which foxlib first runs each section (the page says "accepted, not built" until then). */
@@ -194,7 +209,10 @@ function validateFeature(sec, u, cfg, bad, radios, kind = null) {
     sub('probes', { enabled: [isBool, 'bool'], channel: [x => isInt(x) && x >= 1 && x <= 13, '1-13'], window_s: [x => isInt(x) && x >= 1 && x <= 10, '1-10 s'] });
     if (cfg.relay.enabled && !cfg.relay.wait_for) { bad(sec + '.relay.wait_for', 'relay needs a network name'); cfg.relay.enabled = false; }
   } else if (sec === 'stealth') {
-    for (const k of ['rotate_mac', 'rotate_name', 'duty_jitter_s', 'start', 'decoys', 'ble_only', 'variable_power']) known.add(k);
+    for (const k of ['rotate_mac', 'rotate_name', 'duty_jitter_s', 'start', 'decoys', 'ble_only', 'variable_power', 'modes', 'modes_random', 'shell_game']) known.add(k);
+    plain('modes', x => modesOk(x, radios), '[] or 2-3 distinct kinds of wifi-ap | wifi-probe | ble this hardware has');
+    plain('modes_random', isBool, 'bool');
+    plain('shell_game', shellGameOk, 'null or {identities: 2-8 of {name 1-32 B, mac}, period_s 60-86400, index < n}');
     plain('variable_power', x => variablePowerOk(x, kind), 'null or {min_dbm, max_dbm (power steps, min < max), per: wake|slot, slot_s 2-600}');
     plain('rotate_mac', x => x === false || ['per-cycle', 'per-boot'].includes(x), 'false|per-cycle|per-boot');
     plain('rotate_name', isBool, 'bool');
@@ -241,6 +259,17 @@ export function checks(cfg, board, { clockSet = false } = {}) {
   if (cp?.enabled && cp.portal?.enabled && cfg.net.psk) issues.push({ level: 'warn', key: 'net.psk', msg: 'a sign-in page on a password-protected network: hunters would need the PSK first (open is the usual choice)' });
   if (cp?.enabled && cp.ble?.enabled && !radios.includes('ble') && radios.length) issues.push({ level: 'err', key: 'checkpoint.ble.enabled', msg: `${board.name} has no BLE radio` });
   if (cp?.enabled && !cp.portal?.enabled && !cp.ble?.enabled) issues.push({ level: 'warn', key: 'checkpoint.enabled', msg: 'checkpoint is on but neither the sign-in page nor the BLE service is' });
+  // mode rotation and the shell game (phase H)
+  if (st?.enabled && st.modes?.length) {
+    if (cp?.enabled && cp.portal?.enabled) issues.push({ level: 'warn', key: 'stealth.modes', msg: 'with mode rotation the sign-in page is served on access-point wakes only' });
+    if (pl?.enabled && pl.split?.wifi && pl.split?.ble) issues.push({ level: 'warn', key: 'stealth.modes', msg: 'a split clue runs both radios every wake; mode rotation then only changes which one is the main fox' });
+  }
+  if (st?.enabled && st.shell_game) {
+    if (!opts.clockSet) issues.push({ level: 'err', key: 'stealth.shell_game', msg: 'the shell game follows the board clock: tick "Set the board clock" on the Deploy tab' });
+    if (st.rotate_mac) issues.push({ level: 'err', key: 'stealth.shell_game', msg: 'the shell game sets the MAC; turn MAC rotation off' });
+    if (st.rotate_name || (pl?.enabled && pl.kind !== 'static')) issues.push({ level: 'err', key: 'stealth.shell_game', msg: 'the shell game sets the name; turn name rotation / payload names off' });
+    if (cfg.id.use_callsign_as_name) issues.push({ level: 'warn', key: 'stealth.shell_game', msg: 'the callsign is the name on the air, but the shell game replaces it each cycle' });
+  }
   // what varies per wake (phase G)
   if (cfg.net.kind === 'wifi-probe' && cfg.net.probe_ssids?.length && pl?.enabled && pl.kind !== 'static') issues.push({ level: 'warn', key: 'net.probe_ssids', msg: 'the probe list and the payload names both choose the network sought; the list wins each wake' });
   if (cfg.net.kind === 'wifi-probe' && cfg.net.probe_ssids?.length && cfg.id.use_callsign_as_name) issues.push({ level: 'warn', key: 'net.probe_ssids', msg: 'the callsign is the name on the air, but the probe list replaces it each wake' });

@@ -270,8 +270,37 @@ FEATURE_DEFAULTS = {
               "relay": {"enabled": False, "wait_for": "", "then": "up"},
               "probes": {"enabled": False, "channel": 6, "window_s": 2}},
     "stealth": {"enabled": False, "rotate_mac": False, "rotate_name": False, "duty_jitter_s": 0,
-                "start": {"after_s": 0, "at": ""}, "decoys": [], "ble_only": False, "variable_power": None},
+                "start": {"after_s": 0, "at": ""}, "decoys": [], "ble_only": False, "variable_power": None,
+                "modes": [], "modes_random": False, "shell_game": None},
 }
+MODE_KINDS = ("wifi-ap", "wifi-probe", "ble")
+MAX_IDENTITIES = 8
+
+
+def _modes_ok(x, radios):
+    if not isinstance(x, list) or len(set(x)) != len(x) or len(x) == 1 or len(x) > 3 or not all(k in MODE_KINDS for k in x):
+        return False
+    if radios is not None:
+        for k in x:
+            if (k == "ble" and "ble" not in radios) or (k != "ble" and "wifi24" not in radios):
+                return False
+    return True
+
+
+def _shell_game_ok(x):
+    if x is None:
+        return True
+    if not isinstance(x, dict) or set(x) != {"identities", "period_s", "index"}:
+        return False
+    ids = x["identities"]
+    if not isinstance(ids, list) or not 2 <= len(ids) <= MAX_IDENTITIES:
+        return False
+    for i in ids:
+        if not isinstance(i, dict) or set(i) != {"name", "mac"} or not isinstance(i["name"], str) or not 1 <= _blen(i["name"]) <= MAX_NAME:
+            return False
+        if i["mac"] is not None and parse_mac(i["mac"]) is None:
+            return False
+    return _is_int(x["period_s"]) and 60 <= x["period_s"] <= 86400 and _is_int(x["index"]) and 0 <= x["index"] < len(ids)
 TLM_FIELDS = {"batt_mv": (0, 65535), "temp_c": (-128, 127.99), "count": (0, 4294967295), "uptime_s": (0, 429496729)}
 
 
@@ -383,7 +412,10 @@ def _validate_feature(sec, u, cfg, rep, radios, kind=None):
             rep.bad(sec + ".relay.wait_for", "relay needs a network name")
             cfg["relay"]["enabled"] = False
     elif sec == "stealth":
-        known |= {"rotate_mac", "rotate_name", "duty_jitter_s", "start", "decoys", "ble_only", "variable_power"}
+        known |= {"rotate_mac", "rotate_name", "duty_jitter_s", "start", "decoys", "ble_only", "variable_power", "modes", "modes_random", "shell_game"}
+        plain("modes", lambda x: _modes_ok(x, radios), "[] or 2-3 distinct kinds of wifi-ap | wifi-probe | ble this hardware has")
+        plain("modes_random", is_bool, "bool")
+        plain("shell_game", _shell_game_ok, "null or {identities: 2-8 of {name 1-32 B, mac}, period_s 60-86400, index < n}")
         plain("variable_power", lambda x: _variable_power_ok(x, kind), "null or {min_dbm, max_dbm (power steps, min < max), per: wake|slot, slot_s 2-600}")
         plain("rotate_mac", lambda x: x is False or x in ("per-cycle", "per-boot"), "false|per-cycle|per-boot")
         plain("rotate_name", is_bool, "bool")

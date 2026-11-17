@@ -2250,6 +2250,121 @@
      "number": 1
     }
    }
+  },
+  {
+   "name": "modes@esp32c3",
+   "template": "ble-beacon",
+   "board": "esp32c3",
+   "user": {
+    "stealth": {
+     "enabled": true,
+     "modes": [
+      "ble",
+      "wifi-ap"
+     ],
+     "modes_random": true
+    }
+   }
+  },
+  {
+   "name": "modes-dup@esp32c3",
+   "template": "ble-beacon",
+   "board": "esp32c3",
+   "user": {
+    "stealth": {
+     "enabled": true,
+     "modes": [
+      "ble",
+      "ble"
+     ]
+    }
+   }
+  },
+  {
+   "name": "modes-no-ble@nrf52840",
+   "template": "ble-beacon",
+   "board": "nrf52840",
+   "user": {
+    "stealth": {
+     "enabled": true,
+     "modes": [
+      "ble",
+      "wifi-ap"
+     ]
+    }
+   }
+  },
+  {
+   "name": "shell-game@esp32c3",
+   "template": "wifi-beacon",
+   "board": "esp32c3",
+   "user": {
+    "stealth": {
+     "enabled": true,
+     "shell_game": {
+      "identities": [
+       {
+        "name": "A",
+        "mac": "F2:00:00:00:00:01"
+       },
+       {
+        "name": "B",
+        "mac": null
+       }
+      ],
+      "period_s": 1800,
+      "index": 1
+     }
+    }
+   }
+  },
+  {
+   "name": "shell-game-bad-index@esp32c3",
+   "template": "wifi-beacon",
+   "board": "esp32c3",
+   "user": {
+    "stealth": {
+     "enabled": true,
+     "shell_game": {
+      "identities": [
+       {
+        "name": "A",
+        "mac": null
+       },
+       {
+        "name": "B",
+        "mac": null
+       }
+      ],
+      "period_s": 1800,
+      "index": 2
+     }
+    }
+   }
+  },
+  {
+   "name": "shell-game-short-period@esp32c3",
+   "template": "wifi-beacon",
+   "board": "esp32c3",
+   "user": {
+    "stealth": {
+     "enabled": true,
+     "shell_game": {
+      "identities": [
+       {
+        "name": "A",
+        "mac": null
+       },
+       {
+        "name": "B",
+        "mac": null
+       }
+      ],
+      "period_s": 30,
+      "index": 0
+     }
+    }
+   }
   }
  ]
 }

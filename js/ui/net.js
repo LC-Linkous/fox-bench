@@ -2,7 +2,7 @@
 // on a duty cycle. Contract: js/model/netschema.js (firmware twin foxlib/netcfg.py).
 // SPDX-License-Identifier: GPL-2.0-only
 import { h, field, select, numInput, check, badge } from './dom.js';
-import { WIFI24_CHANNELS, WIFI5_CHANNELS, WIFI_POWER_DBM, BLE_POWER_DBM, WIFI24_BY_REGION, MAX_PROBE_SSIDS, TLM_FIELDS, MAX_NAME, MAX_NAMES, MAX_DECOYS, MAX_BODY, MAX_URL, MAX_CODE, FEATURES, FEATURE_DEFAULTS, FEATURE_PHASE, randomMac, displayName, cycle, nameForCycle } from '../model/netschema.js';
+import { WIFI24_CHANNELS, WIFI5_CHANNELS, WIFI_POWER_DBM, BLE_POWER_DBM, WIFI24_BY_REGION, MAX_PROBE_SSIDS, TLM_FIELDS, MODE_KINDS, MAX_NAME, MAX_NAMES, MAX_DECOYS, MAX_BODY, MAX_URL, MAX_CODE, FEATURES, FEATURE_DEFAULTS, FEATURE_PHASE, randomMac, displayName, cycle, nameForCycle } from '../model/netschema.js';
 import { TABLE as MORSE } from '../audio/morse.js';
 
 let app;
@@ -186,6 +186,30 @@ function channelChips(n, radios) {
     list.length ? `one of ${list.join(', ')} drawn each wake (seeded by this chip, so a fleet does not hop together); the fixed channel above is unused` : 'none selected: the fixed channel above, every wake. Pick channels for a fox that moves, or "any" for every channel this region allows');
 }
 
+/** stealth.modes: the radio kind per wake; the fox's own kind is always one of them. */
+function modesField(c, kind, radios) {
+  const avail = MODE_KINDS.filter(k => k === 'ble' ? radios.includes('ble') : radios.includes('wifi24'));
+  const label = { 'wifi-ap': 'access point', 'wifi-probe': 'probing client', ble: 'BLE beacon' };
+  const list = c.modes || [];
+  const on = !!list.length;
+  const toggle = v => { c.modes = v ? [kind, ...avail.filter(k => k !== kind).slice(0, 1)] : []; app.changed('payload'); };
+  const flip = (k, v) => { let m = list.filter(x => x !== k); if (v) m.push(k); m = MODE_KINDS.filter(x => m.includes(x)); if (!m.includes(kind)) m.unshift(kind); c.modes = m.length >= 2 ? m : []; app.changed('payload'); };
+  if (avail.length < 2) return h('p.hint', {}, `Mode rotation needs two radio kinds; this hardware has ${avail.map(k => label[k]).join(', ') || 'none'}.`);
+  return h('div', {},
+    check('Mode rotation', on, toggle, on ? '' : 'the fox is a different kind of fox each wake: an access point, then a probing client, then a BLE beacon — same name, same hardware'),
+    on ? h('div.two-col', {},
+      field('Kinds', h('div', {}, ...avail.map(k => check(label[k], list.includes(k), v => flip(k, v), k === kind ? 'this template\'s own kind' : ''))), 'the name on the air follows the fox; the other kinds take this fox\'s MAC and power and sensible defaults for the rest'),
+      field('Order', select([['turn', 'in turn'], ['random', 'drawn at random']], c.modes_random ? 'random' : 'turn', v => { c.modes_random = v === 'random'; app.changed('payload'); }), c.modes_random ? 'seeded by this chip and the cycle' : `${list.map(k => label[k]).join(' → ')} → …`)) : null);
+}
+
+/** stealth.shell_game is set up fleet-wide on the Fleet tab; here the fox's seat is shown, not edited. */
+function shellGameSummary(c) {
+  const sg = c.shell_game;
+  if (!sg) return h('p.hint', {}, 'Shell game: foxes trading identities on a schedule is set up for several foxes at once on the Fleet tab (saved profiles).');
+  return h('div', {}, h('p', {}, h('b', {}, 'Shell game: '), `seat ${sg.index + 1} of ${sg.identities.length}, every ${sg.period_s >= 3600 ? (sg.period_s / 3600).toFixed(1).replace(/\.0$/, '') + ' h' : (sg.period_s / 60) + ' min'} — ${sg.identities.map(i => i.name).join(', ')}`),
+    h('p.hint', {}, 'Follows the board clock (set at deploy). Edit the game on the Fleet tab; ', h('button.btn.small', { onclick: () => { c.shell_game = null; app.changed('payload'); } }, 'leave the game'), ' takes this fox out.'));
+}
+
 /** stealth.variable_power: tx power drawn from the kind's steps between min and max, per wake or per slot. */
 function variablePower(c, kind) {
   const steps = kind === 'ble' ? BLE_POWER_DBM : WIFI_POWER_DBM;
@@ -272,7 +296,9 @@ export function renderPayload(root) {
       num(c.start, 'after_s', 'Silent for', { min: 0, max: 86400 }, 's after power-on, then starts'),
       fld(c.start, 'at', 'Or silent until', { max: 32, mono: true, placeholder: '2026-08-08T09:00:00-04:00' }, 'needs the board clock set at deploy (Deploy tab)')),
     lines(c, 'decoys', 'Decoy names', MAX_DECOYS, MAX_NAME, 'Extra SSIDs the fox cycles through for a few seconds each, so the list shows several.'),
-    variablePower(c, kind));
+    variablePower(c, kind),
+    modesField(c, kind, radios),
+    shellGameSummary(c));
   root.replaceChildren(h('div', {},
     h('p.hint', {}, 'Each section is written into fox.json only while it is on. ', h('a', { href: 'docs/network-fox-payloads-plan.md', target: '_blank', rel: 'noopener' }, 'The plan'), ' says what each does and when its firmware lands.'),
     featureCard('payload', payloadBody), featureCard('checkpoint', checkpointBody), featureCard('sense', senseBody), featureCard('stealth', stealthBody)));

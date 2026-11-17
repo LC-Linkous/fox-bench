@@ -11,7 +11,7 @@
 import time
 import board
 import microcontroller
-from . import netcfg, netradio, led, netfeatures, netvary
+from . import netcfg, netradio, led, netfeatures, netvary, netmodes
 
 try:
     __version__ = open(__file__.rsplit("/", 1)[0] + "/VERSION").read().strip()
@@ -94,6 +94,9 @@ class NetFox:
                 self.fatal = "hardware(%s:%s)" % (e.__class__.__name__, str(e).replace(" ", "_")[:40])
         if not self.fatal:
             self.unbuilt = netfeatures.attach(self)          # features without firmware yet, named once in the banner
+            st = c.get("stealth") or {}
+            if st.get("enabled") and st.get("modes"):
+                netmodes.attach(self)                        # the radio kind per wake (phase H)
             if netvary.wanted(c):
                 netvary.attach(self)                         # channel / probe-list / power draws per wake (phase G)
         else:

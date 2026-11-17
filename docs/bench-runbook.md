@@ -357,6 +357,26 @@ when the chip has more than one; the LED pin is the descriptor's default.
 33. Set Points to a number with no profile: a blocking `handoff:` error on
     Deploy; `{{to.freq}}` on a fox pointing at a BLE fox: "has no freq".
 
+### Mode rotation and the shell game (phase H, foxlib 1.9)
+
+34. **Mode rotation.** ble-beacon on the C3, Payload → Stealth → Mode
+    rotation: BLE beacon + access point, in turn, wake 10 / off 5. Console:
+    `modes: ble / wifi-ap, in turn`, then `mode this cycle …` alternating;
+    nRF Connect sees the beacon on even wakes, the phone's Wi-Fi list the
+    AP (same name) on odd ones. Add the probing client and switch to *at
+    random*. Watch `gc.mem_free()` on the C3 with three radios built.
+35. **Shell game.** Save two or three wifi-beacon profiles (fox numbers 1–3).
+    Fleet tab → Shell game: pick them, identities FOX-A / FOX-B / FOX-C,
+    every 120 s (the field minimum is 60), *Apply*. Load each profile,
+    tick *Set the board clock* on Deploy, deploy each board. Within a
+    period the phone sees three different names; after the period each
+    board has moved one name along (console `shell game: identity k of
+    3`), and no two ever show the same name. Power-cycle one board without
+    USB: its clock resets, the console says `the board clock is unset;
+    keeping seat N's identity` — the known limit (the page sets the clock;
+    a battery-only restart loses it). Decide whether that fox needs an
+    RTC-backed board or a re-deploy.
+
 ### Per-board notes
 
 - **XIAO ESP32C3** (`esp32c3`): the firmware path is the proven one (same

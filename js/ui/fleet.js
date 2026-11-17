@@ -1,9 +1,10 @@
 // fleet.js — Profiles (named configs) and the fleet log.
 // SPDX-License-Identifier: GPL-2.0-only
-import { h, badge, field, select } from './dom.js';
+import { h, badge, field, select, check, numInput } from './dom.js';
 import { profiles, fleet, download, FLEET_FIELDS, unpackProfileImages } from '../model/profiles.js';
 import { sheetRows, sheetCsv, sheetHtml } from '../model/sheet.js';
 import { chain } from '../model/handoff.js';
+import { table as shellTable, collisionFree, randomMac } from '../model/shellgame.js';
 import { batchCard, onChange as onFlashChange } from './flash.js';
 import { observe, match, auditRow } from '../model/audit.js';
 
@@ -55,6 +56,43 @@ function sheetCard(log) {
       h('tbody', {}, rows.map(r => h('tr', {}, h('td.mono', {}, r.board_number || ''), h('td', {}, r.profile || ''), h('td.mono', {}, r.template || ''), h('td.mono', {}, String(r.uid || '').slice(-8)), h('td', {}, r.owner || r.callsign || ''), h('td', { style: 'font-size:12px' }, r.on_air || ''), h('td.mono', {}, String(r.timestamp || '').slice(0, 16).replace('T', ' '))))))) : h('p.hint', {}, 'No deploys in the log yet' + (ev ? ` for "${ev}"` : '') + '.'));
 }
 
+/** Phase H: the shell game — several saved network foxes share one identity list and trade names on a schedule. */
+const shell = { picked: new Set(), names: '', macs: [], period: 1800 };
+function shellGameCard(list) {
+  const net = list.filter(p => p.cfg?.net);
+  if (!net.length) return null;
+  const names = shell.names.split('\n').map(x => x.trim()).filter(Boolean);
+  while (shell.macs.length < names.length) shell.macs.push(randomMac());
+  const ids = names.map((name, i) => ({ name, mac: shell.macs[i] }));
+  const picked = net.filter(p => shell.picked.has(p.name));
+  const ok = ids.length >= 2 && ids.length <= 8 && picked.length >= 2 && picked.length <= ids.length && shell.period >= 60 && shell.period <= 86400;
+  const apply = () => {
+    picked.forEach((p, seat) => {
+      const c = p.cfg; c.stealth = { ...(c.stealth || {}), enabled: true, shell_game: { identities: ids, period_s: shell.period, index: seat } };
+      if (c.stealth.rotate_mac) c.stealth.rotate_mac = false; if (c.stealth.rotate_name) c.stealth.rotate_name = false;
+      profiles.save(p);
+      if (app.cfg.fleet?.profile === p.name) { app.cfg.stealth = structuredClone(c.stealth); }
+    });
+    app.changed('fleet'); app.console.ok(`shell game: ${picked.length} foxes, ${ids.length} identities, every ${shell.period} s`); render();
+  };
+  const leave = () => { for (const p of picked) { if (p.cfg.stealth) { p.cfg.stealth.shell_game = null; profiles.save(p); if (app.cfg.fleet?.profile === p.name) app.cfg.stealth.shell_game = null; } } app.changed('fleet'); render(); };
+  const inGame = net.filter(p => p.cfg.stealth?.shell_game);
+  const ta = h('textarea', { rows: 4, style: 'width:100%;font-family:var(--mono)', spellcheck: 'false', placeholder: 'FOX-A\nFOX-B\nFOX-C' }, shell.names);
+  ta.addEventListener('change', () => { shell.names = ta.value; render(); });
+  const seats = picked.map((_, i) => i);
+  return h('div.card', {}, h('h3', {}, 'Shell game ', inGame.length ? badge(inGame.length + ' in a game') : null),
+    h('p.hint', {}, 'The picked foxes carry the same list of identities (a name and a MAC each) and trade them every period, following the board clock: seat i shows identity (i + elapsed periods) mod n, so no two show the same name at once and every fox wears every name in turn. "I found FOX-7" means a different box an hour later. Needs "Set the board clock" ticked at deploy for every fox in the game.'),
+    h('div.two-col', {},
+      field('Foxes in the game', h('div', {}, ...net.map(p => check((p.cfg.fleet?.number != null && p.cfg.fleet.number !== '' ? `#${p.cfg.fleet.number} ` : '') + p.name, shell.picked.has(p.name), v => { if (v) shell.picked.add(p.name); else shell.picked.delete(p.name); render(); }, p.cfg.stealth?.shell_game ? `in a game: seat ${p.cfg.stealth.shell_game.index + 1}` : ''))), 'saved network-fox profiles; seats are given in this order'),
+      h('div', {}, field('Identities', ta, `one name per line (${ids.length}; 2–8, at least as many as foxes); MACs are generated: ` + (ids.length ? ids.map(i => i.mac).join(' · ') : '—')),
+        h('div.row', {}, h('button.btn.small', { onclick: () => { shell.macs = []; render(); } }, 'New MACs'),
+          field('Every', h('div.row', {}, numInput(shell.period, { min: 60, max: 86400, step: 60, width: '110px', onchange: v => { shell.period = Math.round(v); render(); } }), h('span.suffix', {}, 's')), `${shell.period >= 3600 ? (shell.period / 3600).toFixed(1).replace(/\.0$/, '') + ' h' : (shell.period / 60) + ' min'}`)))),
+    ok ? h('div.grid-wrap', {}, h('table.grid', { id: 'shell-table' }, h('thead', {}, h('tr', {}, h('th', {}, 'period'), ...picked.map((p, i) => h('th', {}, `seat ${i + 1}: ${p.name}`)))),
+      h('tbody', {}, ...shellTable(ids, shell.period, seats).map(row => h('tr', {}, h('td.mono', {}, `+${row.period}`), ...row.names.map(nm => h('td', {}, nm))))))) : null,
+    ok && !collisionFree(ids, seats) ? h('p.hint.warn', {}, 'two seats would share a name') : null,
+    h('div.tools', {}, h('button.btn.primary', { disabled: !ok, onclick: apply }, 'Apply to the picked foxes'), inGame.length ? h('button.btn.small', { disabled: !picked.length, onclick: leave }, 'Take the picked foxes out') : null));
+}
+
 /** Phase J: which saved fox leads to which. */
 function chainCard(list) {
   const c = chain(list);
@@ -94,6 +132,7 @@ function render() {
       batchCard(app)),
     auditCard(),
     chainCard(list) || h('span'),
+    shellGameCard(list) || h('span'),
     sheetCard(log),
     h('div.card', {}, h('h3', {}, 'Fleet log ', badge(log.length + ' rows')),
       h('p.hint', {}, 'Every deploy, flash, export and audit appends a row keyed on the chip UID, which survives reflashing. Same columns as the batch flasher\'s CSV so the two merge.'),

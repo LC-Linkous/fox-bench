@@ -8,7 +8,7 @@ hooks and an `rtc` mock. **Phase B built** (page 0.11.0, foxlib 1.4.0):
 preview; bench steps 12–14 in `network-fox-bench.md`. **Phase C built**
 (page 0.12.0, foxlib 1.5.0): `netstealth.py`; bench steps 15–19. **Phase D
 built** (page 0.14.0, foxlib 1.7.0); **G built** (page 0.15.0, foxlib 1.8.0);
-**J built** (page 0.16.0) — see "Status 2026-11-16" below for the second
+**J built** (page 0.16.0); **H built** (page 0.17.0, foxlib 1.9.0) — see "Status 2026-11-16" below for the second
 round of features (phases G, H, E′, J).
 Scope: the `net`-contract foxes (`wifi-beacon`, `wifi-probe`, `ble-beacon`
 on the chip targets). The FM foxes are untouched.

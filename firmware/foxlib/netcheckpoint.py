@@ -384,11 +384,11 @@ class Checkpoint:
                 fox.log("checkpoint: second radio failed (%s)" % e.__class__.__name__)
 
     def on_up(self, fox, cycle):
-        if self.portal is not None:
+        if self.portal is not None and fox.radio.kind == "wifi-ap":      # a mode-rotating fox: the page only on AP wakes
             self.portal.open(cycle)
 
     def while_up(self, fox, cycle):
-        if self.portal is not None:
+        if self.portal is not None and self.portal.http is not None:
             self.portal.serve()
         if self.ble is not None:
             self.ble.serve()

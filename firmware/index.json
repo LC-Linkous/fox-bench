@@ -13,6 +13,7 @@
     "netcheckpoint.py",
     "netfeatures.py",
     "netfox.py",
+    "netmodes.py",
     "netpayload.py",
     "netradio.py",
     "netstealth.py",

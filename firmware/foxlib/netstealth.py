@@ -9,6 +9,10 @@
 #                  the page at deploy). Across deep sleep the fox remembers it has started (alarm.sleep_memory).
 #   decoys         Wi-Fi: extra SSIDs the access point cycles through, a few seconds each, so the list shows several
 #   ble_only       the Wi-Fi radio is never enabled (a split clue's Wi-Fi half is dropped)
+#   shell_game     (phase H) a fleet trades identities on a schedule: every fox carries the same list of
+#                  {name, mac} and a period; the fox in seat i shows identities[(i + clock // period) % n]. Needs the
+#                  board clock (set by the page at deploy); without it the fox keeps its seat's identity and says so.
+#   modes          (phase H) lives in netmodes.py: the radio kind per wake
 #
 # Random choices are seeded from the chip id and the cycle, so a fleet does not move in lockstep and the simulator
 # is deterministic. No `random` module: CircuitPython's is optional on small boards; an LCG is enough here.
@@ -55,6 +59,21 @@ def parse_at(s):
         return None
 
 
+def clock_seconds():
+    """Seconds since 2000-01-01 from the board clock, or None when it is unset. No mktime: a civil-date sum."""
+    t = clock_tuple()
+    if t is None:
+        return None
+    y, m, d, hh, mm, ss = t
+    days = 0
+    for yy in range(2000, y):
+        days += 366 if (yy % 4 == 0 and (yy % 100 != 0 or yy % 400 == 0)) else 365
+    mdays = (31, 29 if (y % 4 == 0 and (y % 100 != 0 or y % 400 == 0)) else 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
+    for i in range(m - 1):
+        days += mdays[i]
+    return (days + d - 1) * 86400 + hh * 3600 + mm * 60 + ss
+
+
 def clock_tuple():
     try:
         import rtc
@@ -76,6 +95,8 @@ class Stealth:
         self.decoy_i = 0
         self.decoy_next = 0
         self.names = []           # the decoy rotation this cycle: [the name] + decoys
+        self.identity = None      # shell game: the identity index shown last cycle
+        self.said_no_clock = False
 
     # -- hooks
     def before_up(self, fox, cycle):
@@ -104,6 +125,10 @@ class Stealth:
             fox.override_wake_s = max(1, fox.cfg["schedule"]["wake_s"] + dw)
             fox.override_sleep_s = max(0, fox.cfg["schedule"]["sleep_s"] + ds)
             fox.log("stealth: this cycle wake %d s, sleep %d s" % (fox.override_wake_s, fox.override_sleep_s))
+        # the shell game: this cycle's identity from the shared list, the seat and the clock
+        sg = c.get("shell_game")
+        if sg:
+            self._shell_game(fox, sg)
         # decoys: the access point walks through [name] + decoys while up
         if c["decoys"] and fox.radio.kind == "wifi-ap":
             self.names = [fox.radio.name] + list(c["decoys"])
@@ -129,6 +154,25 @@ class Stealth:
         if self.names:
             fox.radio.name = self.names[0]      # back to the real name for the next cycle's hooks
             self.names = []
+
+    # -- the shell game
+    def _shell_game(self, fox, sg):
+        ids, n = sg["identities"], len(sg["identities"])
+        t = clock_seconds()
+        if t is None:
+            k = sg["index"] % n
+            if not self.said_no_clock:
+                self.said_no_clock = True
+                fox.log("shell game: the board clock is unset; keeping seat %d's identity" % sg["index"])
+        else:
+            k = (sg["index"] + t // sg["period_s"]) % n
+        ident = ids[k]
+        fox.radio.name = ident["name"]
+        if ident.get("mac"):
+            _set_mac(fox.radio, ident["mac"])
+        if k != self.identity:
+            self.identity = k
+            fox.log("shell game: identity %d of %d, %s %s" % (k + 1, n, _q(ident["name"]), ident.get("mac") or ""))
 
     # -- the silent start
     def _wait_for_start(self, fox):
@@ -166,7 +210,7 @@ class Stealth:
 def _set_mac(radio, mac):
     try:
         radio.cfg["mac"] = mac
-        b = bytes(int(p, 16) for p in mac.split(":"))
+        b = bytes(int(p, 16) for p in mac.replace("-", ":").split(":"))
         if radio.kind == "wifi-ap":
             radio.wifi.radio.mac_address_ap = b
         elif radio.kind == "wifi-probe":

@@ -403,7 +403,7 @@ the fox runs without it`. The page says the same on each card.
 | `payload` | `enabled`; `kind` static \| rotate \| morse-name; `names` (≤ 16 × 1–32 B); `morse_of` (≤ 16); `code.major` / `.minor` 0–65535; `eddystone.url` (http(s), ≤ 64) / `.tlm` bool / `.tlm_data` `{batt_mv 0–65535, temp_c −128–127, count, uptime_s}` any subset (1.8); `split.wifi` (≤ 32 B) / `.ble` (≤ 29 B); `interleave_ms` 100–10000 | **built, foxlib 1.4.0** |
 | `checkpoint` | `enabled`; `portal.{enabled, title ≤ 40 B, body ≤ 512 B plain text, code ≤ 16, ask_callsign, captive_dns, log}`; `ble.{enabled, service_uuid, code ≤ 16}` | **built, foxlib 1.7.0** |
 | `sense` | `enabled`; `slot_ms` 200–5000; `tags.{enabled, match 1–16 B, log, rssi_min −100–0}`; `relay.{enabled, wait_for ≤ 32 B, then up \| down \| rotate}`; `probes.{enabled, channel 1–13, window_s 1–10}` | E — accepted, not built |
-| `stealth` | `enabled`; `rotate_mac` false \| per-cycle \| per-boot; `rotate_name` bool; `duty_jitter_s` 0–300; `start.after_s` 0–86400 / `start.at` `YYYY-MM-DDTHH:MM:SS[zone]`; `decoys` (≤ 4 × 1–32 B); `ble_only` bool; `variable_power` null \| `{min_dbm, max_dbm, per wake \| slot, slot_s 2–600}` | **built, foxlib 1.5.0; `variable_power` 1.8.0** |
+| `stealth` | `enabled`; `rotate_mac` false \| per-cycle \| per-boot; `rotate_name` bool; `duty_jitter_s` 0–300; `start.after_s` 0–86400 / `start.at` `YYYY-MM-DDTHH:MM:SS[zone]`; `decoys` (≤ 4 × 1–32 B); `ble_only` bool; `variable_power` null \| `{min_dbm, max_dbm, per wake \| slot, slot_s 2–600}`; `modes` `[]` \| 2–3 distinct kinds; `modes_random` bool; `shell_game` null \| `{identities: 2–8 × {name, mac}, period_s 60–86400, index}` | **built, foxlib 1.5.0; `variable_power` 1.8.0; `modes`, `shell_game` 1.9.0** |
 
 **`payload` (built):** `rotate` makes `names[cycle % n]` the SSID / BLE name
 of each cycle (the fox logs `payload: name this cycle …`); `morse-name`
@@ -476,6 +476,27 @@ steps between `min_dbm` and `max_dbm` (Wi-Fi steps for `wifi-ap` /
 Wi-Fi changes power live, BLE restarts advertising. `eddystone.tlm_data`
 replaces any of the four measured TLM fields with a fixed number, so the
 telemetry a beacon scanner shows carries a clue.
+
+**Mode rotation and the shell game (foxlib 1.9, phase H):** `stealth.modes`
+lists the radio kinds the fox is, one per wake in turn (`modes_random`:
+drawn) — `netmodes.py` builds one radio per kind at setup from the fox's
+own `net` section (same name on the air, same MAC and power; the rest from
+sensible defaults: an iBeacon UUID for the BLE twin of an access point,
+channel 6 for the AP twin of a beacon) and swaps `fox.radio` before every
+wake, first in the hook order so the other features see the cycle's kind;
+a kind the hardware refuses is dropped with a log line, and fewer than two
+working kinds means no rotation. The sign-in page is served on access-point
+wakes only. `stealth.shell_game` is a fleet-wide list of identities
+`{name, mac}` and a period: the fox in seat `index` shows identity
+`(index + clock // period_s) % n`, so with as many identities as seats no
+two foxes show the same name at once and every fox wears every name in
+turn. It follows the board clock (`clock_seconds`, a zone-less sum of the
+RTC's components since 2000-01-01; the page computes the same from local
+time); with the clock unset the fox keeps its seat's identity and says so
+once. The shell game sets both the name and the MAC, so MAC rotation, name
+rotation and payload names are errors beside it. The Fleet tab's **Shell
+game** card writes the same list to several saved profiles with their
+seats and shows the rotation table.
 
 Cross-section rules the validator applies: `payload.kind: rotate` with no
 names falls back to `static`; `checkpoint.portal` and `sense.probes`/`relay`

@@ -1676,6 +1676,127 @@
      "tx power this cycle"
     ]
    }
+  },
+  {
+   "name": "shell-game-seat-0",
+   "_doc": "four identities, 30 s period (validator minimum is 60; the sim uses 60 with 20 s cycles), clock set: the identity advances with the clock",
+   "cap_ms": 900000,
+   "stop_after_unkeys": 8,
+   "clock": "2026-08-08T09:00:00",
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "stealth": {
+     "enabled": true,
+     "shell_game": {
+      "identities": [
+       {
+        "name": "FOX-A",
+        "mac": "F2:00:00:00:00:0A"
+       },
+       {
+        "name": "FOX-B",
+        "mac": "F2:00:00:00:00:0B"
+       },
+       {
+        "name": "FOX-C",
+        "mac": "F2:00:00:00:00:0C"
+       }
+      ],
+      "period_s": 60,
+      "index": 0
+     }
+    },
+    "schedule": {
+     "wake_s": 10,
+     "sleep_s": 10
+    }
+   },
+   "expect": {
+    "keyed_min": 8,
+    "prints_contain": [
+     "shell game: identity 1 of 3, FOX-A F2:00:00:00:00:0A",
+     "shell game: identity 2 of 3, FOX-B",
+     "shell game: identity 3 of 3, FOX-C"
+    ],
+    "net_distinct_min": {
+     "ap_up": {
+      "field": "mac=",
+      "n": 3
+     }
+    }
+   }
+  },
+  {
+   "name": "shell-game-no-clock",
+   "cap_ms": 300000,
+   "stop_after_unkeys": 3,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "stealth": {
+     "enabled": true,
+     "shell_game": {
+      "identities": [
+       {
+        "name": "FOX-A",
+        "mac": null
+       },
+       {
+        "name": "FOX-B",
+        "mac": null
+       }
+      ],
+      "period_s": 60,
+      "index": 1
+     }
+    },
+    "schedule": {
+     "wake_s": 5,
+     "sleep_s": 5
+    }
+   },
+   "expect": {
+    "keyed_min": 3,
+    "prints_contain": [
+     "shell game: the board clock is unset; keeping seat 1's identity",
+     "shell game: identity 2 of 2, FOX-B"
+    ],
+    "net_only_names": [
+     "FOX-B"
+    ]
+   }
+  },
+  {
+   "name": "shell-game-bad",
+   "cap_ms": 120000,
+   "stop_after_unkeys": 1,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "stealth": {
+     "enabled": true,
+     "shell_game": {
+      "identities": [
+       {
+        "name": "FOX-A",
+        "mac": "nope"
+       }
+      ],
+      "period_s": 60,
+      "index": 0
+     }
+    }
+   },
+   "expect": {
+    "keyed_min": 1,
+    "banner": {
+     "cfg": "partial(stealth.shell_game)"
+    }
+   }
   }
  ],
  "wifi-probe": [
@@ -2076,6 +2197,103 @@
     "keyed_min": 1,
     "net_contains": [
      "aafe20001177"
+    ]
+   }
+  },
+  {
+   "name": "modes-in-turn",
+   "_doc": "ble on even cycles, an access point on odd ones; the name follows the fox",
+   "cap_ms": 600000,
+   "stop_after_unkeys": 4,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "stealth": {
+     "enabled": true,
+     "modes": [
+      "ble",
+      "wifi-ap"
+     ]
+    },
+    "schedule": {
+     "wake_s": 5,
+     "sleep_s": 2
+    }
+   },
+   "expect": {
+    "keyed_min": 4,
+    "prints_contain": [
+     "modes: ble / wifi-ap, in turn",
+     "mode this cycle ble",
+     "mode this cycle wifi-ap"
+    ],
+    "net_contains_event": [
+     "adv_up",
+     "ap_up"
+    ],
+    "net_events_min": {
+     "adv_up": 2,
+     "ap_up": 2
+    }
+   }
+  },
+  {
+   "name": "modes-random",
+   "cap_ms": 900000,
+   "stop_after_unkeys": 10,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "stealth": {
+     "enabled": true,
+     "modes": [
+      "ble",
+      "wifi-ap",
+      "wifi-probe"
+     ],
+     "modes_random": true
+    },
+    "schedule": {
+     "wake_s": 5,
+     "sleep_s": 2
+    }
+   },
+   "expect": {
+    "keyed_min": 10,
+    "prints_contain": [
+     "at random"
+    ],
+    "net_contains_event": [
+     "adv_up",
+     "ap_up",
+     "probe"
+    ]
+   }
+  },
+  {
+   "name": "modes-one-kind-rejected",
+   "cap_ms": 120000,
+   "stop_after_unkeys": 1,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "stealth": {
+     "enabled": true,
+     "modes": [
+      "ble"
+     ]
+    }
+   },
+   "expect": {
+    "keyed_min": 1,
+    "banner": {
+     "cfg": "partial(stealth.modes)"
+    },
+    "prints_not_contain": [
+     "mode this cycle"
     ]
    }
   }

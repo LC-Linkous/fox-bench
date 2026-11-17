@@ -14,6 +14,35 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.17.0 · foxlib 1.9.0 · foxlib-c 0.1.11 — phase H: mode rotation and the shell game
+
+- **Mode rotation** — `stealth.modes` (2–3 of `wifi-ap`, `wifi-probe`,
+  `ble`; `modes_random`): the fox is a different kind of fox each wake,
+  same name on the air. `netmodes.py` builds one radio per kind from the
+  fox's own `net` section plus defaults for what it lacks, and swaps
+  `fox.radio` first in the `before_up` hooks. Kinds the hardware refuses
+  are dropped (`modes: ble not available`); the portal is served on AP
+  wakes only. Stealth card: kind checkboxes and *in turn / at random*.
+- **Shell game** — `stealth.shell_game {identities: [{name, mac}],
+  period_s, index}`: a fleet trades identities on a schedule following the
+  board clock, seat i showing identity (i + elapsed periods) mod n
+  (`netstealth._shell_game`, `clock_seconds`). With the clock unset the fox
+  keeps its seat's identity and says so once. Fleet tab **Shell game**
+  card: pick saved network foxes, name the identities (MACs generated,
+  locally administered), set the period, see the rotation table, apply
+  to all at once (each gets its seat; MAC/name rotation turned off);
+  the Stealth card shows the fox's seat and can leave the game.
+  `js/model/shellgame.js` + unit tests prove no two seats share a name.
+- Page checks: shell game without the clock set at deploy (err), beside
+  MAC rotation / name rotation / payload names (err), with the callsign as
+  the name (warn); mode rotation with a portal (warn) or a split clue
+  (warn).
+- Stealth RNG users unchanged; `_set_mac` accepts `-`-separated MACs.
+- Simulator: ble-beacon `modes-in-turn`, `modes-random`,
+  `modes-one-kind-rejected`; wifi-beacon `shell-game-seat-0` (clock set:
+  three identities in turn), `shell-game-no-clock`, `shell-game-bad`.
+  Schema corpus +6. The event sheet's `on_air` names modes and the seat.
+
 ### Page 0.16.0 · foxlib 1.8.1 · foxlib-c 0.1.11 — phase J: one fox leads to another
 
 - `fleet.points_to` — the fox this one leads to, by fox number or profile
