@@ -6,6 +6,7 @@ import { mergeAndValidate, pageChecks } from './model/schema.js';
 import { validate as netValidate, checks as netChecks } from './model/netschema.js';
 import { parseBanner } from './device/device.js';
 import { profiles, fleet, unpackProfileImages } from './model/profiles.js';
+import { resolve as resolveHandoff } from './model/handoff.js';
 import { deployBlocker } from './model/transport.js';
 import { foxlibcCompat, cmpVersion } from './model/compat.js';
 import { TABLE as MORSE } from './audio/morse.js';
@@ -28,7 +29,7 @@ import * as tabBench from './ui/bench.js';
 import * as tabFleet from './ui/fleet.js';
 import * as tabAbout from './ui/about.js';
 
-const VERSION = '0.15.0';
+const VERSION = '0.16.0';
 /** Tab subtitles that read differently per device family (null = the page's original text). */
 const LEDES = { drive: {
   board: 'Which fox is on the bench, open its USB drive (or use the simulated one). The vendor firmware stays; the page writes its files.',
@@ -141,6 +142,19 @@ export const app = {
     try { this._changed(source); } finally { this._notifying = false; }
     if (this._pending) { const p = this._pending; this._pending = null; this.changed(p); }
   },
+  /** Phase J: the configuration with {{to.*}} placeholders filled from the fox this one points to (fleet.points_to).
+   *  The editor keeps the placeholders; what is validated and written is the filled text. */
+  _handoff() {
+    this.handoff = resolveHandoff(this.cfg, profiles.all());
+    return this.handoff.cfg;
+  },
+  _handoffIssues() {
+    const h = this.handoff;
+    if (!h) return [];
+    const out = h.unresolved.map(u => ({ level: 'err', key: u.path || 'fleet.points_to', msg: `handoff: ${u.why}` }));
+    if (h.target && !h.used.length && !h.unresolved.length) out.push({ level: 'info', key: 'fleet.points_to', msg: `points to "${h.target.name}" but no text uses it yet ({{to.freq}}, {{to.name}}, {{to.code}}, {{to.number}}, {{to.callsign}})` });
+    return out;
+  },
   _changed(source) {
     if (this.family === 'drive') {
       const r = this.vendor.validate(this.cfg, this.defaults, this.board);
@@ -149,13 +163,17 @@ export const app = {
       const r = this.vendor.validate(this.cfg, this.defaults, this.board);
       this.report = r.report; this.status = r.status; this.validCfg = r.cfg; this.issues = this.vendor.checks(r.cfg, this.hardware);
     } else if (this.isNet) {
-      const r = netValidate(this.cfg, this.defaults, { ...this.board, radios: this.hardware?.radios });
+      const src = this._handoff();
+      const r = netValidate(src, this.defaults, { ...this.board, radios: this.hardware?.radios });
       this.report = r.report; this.status = r.status; this.validCfg = r.cfg; this.issues = netChecks(r.cfg, { ...this.board, radios: this.hardware?.radios || [] }, { clockSet: this.deployClock?.enabled });
+      this.issues.push(...this._handoffIssues());
     } else {
-      const r = mergeAndValidate(this.cfg, this.defaults, this.board);
+      const src = this._handoff();
+      const r = mergeAndValidate(src, this.defaults, this.board);
       this.report = r.report; this.status = r.status;
       this.issues = pageChecks(r.cfg, { bands: this.catalog.bands, region: this.region, morseTable: MORSE, templateManifest: this.template, module: this.module, pinless: this.family === 'foxlib-c' });
       if (this.family === 'foxlib-c') this.issues.push(...foxlibcCompat(r.cfg, { foxVersion: this.device ? this.onBoard?.foxlibVersion : '', hostedVersion: this.catalog.foxlibcVersion }));
+      this.issues.push(...this._handoffIssues());
       this.validCfg = r.cfg;
     }
     if (document.body.dataset.family !== this.family) {

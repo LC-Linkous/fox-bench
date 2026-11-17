@@ -3,6 +3,7 @@
 import { h, badge, field, select } from './dom.js';
 import { profiles, fleet, download, FLEET_FIELDS, unpackProfileImages } from '../model/profiles.js';
 import { sheetRows, sheetCsv, sheetHtml } from '../model/sheet.js';
+import { chain } from '../model/handoff.js';
 import { batchCard, onChange as onFlashChange } from './flash.js';
 import { observe, match, auditRow } from '../model/audit.js';
 
@@ -54,6 +55,16 @@ function sheetCard(log) {
       h('tbody', {}, rows.map(r => h('tr', {}, h('td.mono', {}, r.board_number || ''), h('td', {}, r.profile || ''), h('td.mono', {}, r.template || ''), h('td.mono', {}, String(r.uid || '').slice(-8)), h('td', {}, r.owner || r.callsign || ''), h('td', { style: 'font-size:12px' }, r.on_air || ''), h('td.mono', {}, String(r.timestamp || '').slice(0, 16).replace('T', ' '))))))) : h('p.hint', {}, 'No deploys in the log yet' + (ev ? ` for "${ev}"` : '') + '.'));
 }
 
+/** Phase J: which saved fox leads to which. */
+function chainCard(list) {
+  const c = chain(list);
+  if (!c.links.length && !c.problems.length) return null;
+  return h('div.card', {}, h('h3', {}, 'Handoff chain ', badge(c.links.length + (c.links.length === 1 ? ' link' : ' links'))),
+    h('p.hint', {}, 'From each profile\'s Fleet record → Points to. The text that names the next fox is filled in at deploy ({{to.freq}}, {{to.name}}, …).'),
+    h('ul.list', {}, ...c.links.map(l => h('li', {}, l.text, l.unresolved ? badge(`${l.unresolved} placeholder${l.unresolved === 1 ? '' : 's'} unresolved`, 'warn') : null))),
+    c.problems.length ? h('ul.list', {}, ...c.problems.map(p => h('li', {}, badge('check', 'warn'), ' ', p))) : null);
+}
+
 function render() {
   const list = profiles.all(), log = fleet.all();
   const nameIn = h('input', { type: 'text', value: app.cfg.fleet?.profile || '', placeholder: 'Fox 3 — 146.565 — W1ABC/3', style: 'width:100%' });
@@ -82,6 +93,7 @@ function render() {
         h('div.tools', {}, h('button.btn.small', { disabled: !list.length, onclick: () => download('fox-bench-profiles.json', profiles.exportJson(), 'application/json') }, 'Export all'), h('button.btn.small', { onclick: () => fileIn.click() }, 'Import'), fileIn)),
       batchCard(app)),
     auditCard(),
+    chainCard(list) || h('span'),
     sheetCard(log),
     h('div.card', {}, h('h3', {}, 'Fleet log ', badge(log.length + ' rows')),
       h('p.hint', {}, 'Every deploy, flash, export and audit appends a row keyed on the chip UID, which survives reflashing. Same columns as the batch flasher\'s CSV so the two merge.'),

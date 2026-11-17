@@ -129,7 +129,7 @@ export function validate(user, defaults, board) {
 
   const l = u.led && typeof u.led === 'object' ? u.led : {};
   if ('enabled' in l) { if (typeof l.enabled === 'boolean') cfg.led.enabled = l.enabled; else bad('led.enabled', 'bool'); }
-  if (u.fleet && typeof u.fleet === 'object') for (const [k, v] of Object.entries(u.fleet)) if ((k in cfg.fleet || k === 'owner') && (v === null || typeof v === 'string' || typeof v === 'number')) cfg.fleet[k] = v;
+  if (u.fleet && typeof u.fleet === 'object') for (const [k, v] of Object.entries(u.fleet)) if ((k in cfg.fleet || k === 'owner' || k === 'points_to') && (v === null || typeof v === 'string' || typeof v === 'number')) cfg.fleet[k] = v;
 
   const status = report.length ? `partial(${report.map(x => x.key).join(',')})` : 'ok';
   return { cfg, report, fatal: null, status };

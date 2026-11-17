@@ -14,6 +14,26 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.16.0 · foxlib 1.8.1 · foxlib-c 0.1.11 — phase J: one fox leads to another
+
+- `fleet.points_to` — the fox this one leads to, by fox number or profile
+  name; a **Points to** select on the Deploy tab's Fleet record card that
+  shows what the target offers. Text anywhere in the configuration may use
+  `{{to.freq}}`, `{{to.name}}`, `{{to.code}}`, `{{to.number}}`,
+  `{{to.callsign}}`; filled from the target profile before validation, so
+  the filled text is what is checked and written, while the editor keeps
+  the placeholders (`js/model/handoff.js`). Unresolved placeholders, an
+  unknown key, or a `points_to` that is not a saved profile are blocking
+  checks; a target nothing uses yet is an info line.
+- Fleet tab: **Handoff chain** — the links across saved profiles, with
+  loops, self-references and missing targets flagged; the event sheet's
+  `on_air` already ends with `→ N`.
+- Both fleets: an FM fox's Morse message can name a network fox, a portal
+  body can name a frequency. No firmware behaviour changes; `netcfg` and
+  its twin accept `fleet.points_to` (corpus `fleet-points-to`).
+- Unit tests: `tests/unit/handoff.test.mjs` (resolution, missing values,
+  chain problems).
+
 ### Page 0.15.0 · foxlib 1.8.0 · foxlib-c 0.1.11 — phase G: what varies per wake, and the event sheet
 
 Second round of contest features (plan, "Second round"); kitsune is a

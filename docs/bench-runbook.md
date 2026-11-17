@@ -344,6 +344,19 @@ when the chip has more than one; the LED pin is the descriptor's default.
     *Print view* opens the one-page table. Re-deploy fox 1 with another
     channel list: still two lines, fox 1's updated.
 
+### Handoff (phase J, page 0.16)
+
+32. Save an FM fox as a profile with Fox number 2 (morse-songs, 146.565).
+    On a checkpoint fox: Fleet record → Fox number 3, Points to *#2*; portal
+    body "Next: listen on {{to.freq}} MHz". The Deploy checks are clean and
+    the hint shows `{{to.freq}} → 146.565`; after deploy the phone's sign-in
+    page reads "146.565 MHz" while the Payload tab still shows the
+    placeholder. Point the FM fox back at #3 with `QSY {{to.name}}` in its
+    Morse message: the Fleet tab's Handoff chain shows both links and a
+    `loop:` line — intended here, a warning not a block.
+33. Set Points to a number with no profile: a blocking `handoff:` error on
+    Deploy; `{{to.freq}}` on a fox pointing at a BLE fox: "has no freq".
+
 ### Per-board notes
 
 - **XIAO ESP32C3** (`esp32c3`): the firmware path is the proven one (same

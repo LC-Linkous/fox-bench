@@ -266,8 +266,21 @@ warns when the worst-case transmission exceeds it.
 ## `fleet`
 
 ```json
-"fleet": { "profile": "Fox 3 — 146.565", "number": 3, "event": "", "notes": "", "owner": "KY4ZR" }
+"fleet": { "profile": "Fox 3 — 146.565", "number": 3, "event": "", "notes": "", "owner": "KY4ZR", "points_to": 2 }
 ```
+
+`points_to` (page 0.16) names the fox this one leads to — a saved
+profile's fox number, or its name. Text anywhere else in the file may then
+carry `{{to.freq}}` (an FM fox's first frequency, "146.565"),
+`{{to.name}}` (a network fox's name on the air), `{{to.code}}` (its portal,
+BLE-service or beacon code), `{{to.number}}`, `{{to.callsign}}`; the page
+fills them from that profile at deploy and validates the filled text, so
+a portal body "Next: listen on {{to.freq}} MHz" or a Morse message "QSY
+{{to.name}}" is checked at its real length. The editor keeps the
+placeholders; an unresolved one blocks the deploy. The firmware never sees
+a placeholder. The Fleet tab's **Handoff chain** lists who points to whom
+and flags loops, self-references and missing targets; the event sheet
+prints `→ N`.
 
 The Deploy tab's **Fleet record** card edits `number`, `event`, `owner` and
 `notes`. Every fleet-log row a deploy makes carries them, plus an

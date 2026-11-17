@@ -251,7 +251,7 @@ def validate(user, defaults, board_id=None, radios=None, board_names=None):
             rep.bad("led.enabled", "bool")
     if isinstance(u.get("fleet"), dict):
         for k, v in u["fleet"].items():
-            if (k in cfg["fleet"] or k == "owner") and (v is None or isinstance(v, (str, int))):
+            if (k in cfg["fleet"] or k in ("owner", "points_to")) and (v is None or isinstance(v, (str, int))):
                 cfg["fleet"][k] = v
     if rep.items and rep.mode == "ok":
         rep.mode = "partial"

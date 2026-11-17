@@ -368,6 +368,12 @@ try {
   await tab('fleet');
   check(/smoke profile/.test(await text('#tab-fleet ul.list')), 'profile saved from Deploy appears in Fleet');
   check(/FM |AP "|BLE "|probes for/.test(await text('#tab-fleet table#event-sheet')), 'event sheet lists the deploys so far with an on-the-air summary');
+  // handoff: point this fox at the saved profile by name; an FM profile offers {{to.freq}}
+  await app(() => { window.foxbench.cfg.fleet.points_to = 'smoke profile'; window.foxbench.changed('deploy'); }); await settle(200);
+  check(await app(() => window.foxbench.handoff?.target?.name === 'smoke profile' && 'freq' in window.foxbench.handoff.values), 'points_to resolves to the saved profile, which offers a frequency');
+  await app(() => { window.foxbench.cfg.fleet.points_to = 'no such fox'; window.foxbench.changed('deploy'); }); await settle(200);
+  check(await app(() => window.foxbench.issues.some(i => i.level === 'err' && /handoff: no saved profile/.test(i.msg))), 'a points_to with no profile is a blocking handoff error');
+  await app(() => { delete window.foxbench.cfg.fleet.points_to; window.foxbench.changed('deploy'); }); await settle(200);
   await page.click('#tab-fleet ul.list li:has-text("smoke profile") button:has-text("Load")'); await settle(300);
   eq(await app(() => window.foxbench.cfg.fleet.profile), 'smoke profile', 'profile loads back');
   // audit: the demo board was deployed earlier in this run; its UID is in the log, and what is on it matches

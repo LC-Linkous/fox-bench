@@ -1,12 +1,14 @@
 // deploy.js — Deploy tab: diff, keydown limit, antenna gate, write set, reboot, banner.
 // SPDX-License-Identifier: GPL-2.0-only
-import { h, badge, field, numInput, check } from './dom.js';
+import { h, badge, field, numInput, check, select } from './dom.js';
 import { loadTemplateCode, loadFoxlibFile, loadRootFile } from '../model/loaders.js';
 import { parseBanner } from '../device/device.js';
 import { airtime, fmtDuration } from '../model/airtime.js';
 import { packImages } from '../audio/sstv.js';
 import { fleet, download } from '../model/profiles.js';
 import { onAir } from '../model/sheet.js';
+import { profiles } from '../model/profiles.js';
+import { PLACEHOLDERS } from '../model/handoff.js';
 import { makeZip } from '../model/zip.js';
 import * as drive from './deploy-drive.js';
 import * as foxlibc from './deploy-foxlibc.js';
@@ -64,7 +66,22 @@ function fleetRecordCard() {
       field('Event', txt('event', { placeholder: 'Spring hunt 2027', maxlength: 64 }), 'filters the Event sheet; one name for the whole fleet')),
     h('div.two-col', {},
       field('Operator', txt('owner', { placeholder: 'KY4ZR', maxlength: 32, style: 'width:100%;text-transform:uppercase' }), 'whose fox this is when the callsign is not theirs; never on the air'),
-      field('Notes', txt('notes', { maxlength: 120 }), 'free text for the sheet')));
+      field('Notes', txt('notes', { maxlength: 120 }), 'free text for the sheet')),
+    pointsToField(f));
+}
+
+/** Phase J: the fox this one leads to, and what its placeholders will say. */
+function pointsToField(f) {
+  const others = profiles.all().filter(p => p.cfg && (p.cfg.fleet?.number != null && p.cfg.fleet.number !== '' || p.name) && p.name !== app.cfg.fleet?.profile);
+  const opt = p => { const n = p.cfg.fleet?.number; return [n != null && n !== '' ? String(n) : p.name, (n != null && n !== '' ? `#${n} ` : '') + p.name]; };
+  const cur = f.points_to == null ? '' : String(f.points_to);
+  const known = others.some(p => opt(p)[0] === cur);
+  const h2 = app.handoff;
+  const vals = h2?.target ? Object.entries(h2.values).map(([k, v]) => `{{to.${k}}} → ${v}`).join(' · ') : '';
+  return field('Points to', h('div', {},
+    select([['', 'nothing'], ...others.map(opt), ...(cur && !known ? [[cur, `${cur} (not a saved profile)`]] : [])], cur, v => { if (v === '') delete f.points_to; else f.points_to = /^\d+$/.test(v) ? Number(v) : v; app.changed('deploy'); }),
+    h('p.hint', {}, cur ? (h2?.target ? `Text anywhere in this fox may use ${vals || 'its placeholders'}; filled in at deploy, the editor keeps the placeholders.` : 'No saved profile has that number or name: save the other fox as a profile first.')
+      : `The fox this one leads to (a saved profile, by fox number). Then any text — portal body, a beacon name, the Morse message — may say ${PLACEHOLDERS.map(k => '{{to.' + k + '}}').join(', ')}; the sheet prints the chain.`)));
 }
 
 /** The fleet-log 'freq' and 'power' columns: the FM plan, or for a network fox its kind (and channel) and radio power. */

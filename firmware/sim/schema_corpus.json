@@ -2239,6 +2239,17 @@
      }
     }
    }
+  },
+  {
+   "name": "fleet-points-to@esp32c3",
+   "template": "wifi-beacon",
+   "board": "esp32c3",
+   "user": {
+    "fleet": {
+     "points_to": 3,
+     "number": 1
+    }
+   }
   }
  ]
 }
