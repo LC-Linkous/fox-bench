@@ -238,8 +238,11 @@ when the chip has more than one; the LED pin is the descriptor's default.
 
 1. **Flash CircuitPython** (Board tab → Flash CircuitPython card, the `.bin`
    from the linked circuitpython.org page; the nRF52840 by `bossac` by hand).
-   Connect: the Board tab's *Board id* shows what the board reports; for a
-   sibling build it says "the … runs this build". Record the id.
+   On a board with a CIRCUITPY drive the card has a second step: download
+   `boot.py`, copy it onto the drive that just appeared, eject, press R
+   ("Boards with a CIRCUITPY drive", above). Connect: the Board tab's
+   *Board id* shows what the board reports; for a sibling build it says
+   "the … runs this build". Record the id.
 2. **wifi-beacon**, defaults (SSID `FOXBENCH WiFi Beacon`, channel 1, 17 dBm,
    open; callsign on the ID tab; wake 15 / off 5, sleep **off**). Deploy.
    Banner: `cfg=ok radio=ok id=set freq=none net=wifi-ap name="FOXBENCH WiFi
@@ -272,6 +275,27 @@ when the chip has more than one; the LED pin is the descriptor's default.
    Connect shows the iBeacon frame (Apple 0x004C, UUID / major / minor) and
    the name in the scan response, coming and going on the duty cycle.
    Callsign as name, `tx_power_dbm` −12 vs 9 against the app's RSSI.
+   The phone's own Bluetooth settings never list a beacon (only
+   connectable devices); use the scanner app. On an iPhone, iOS keeps
+   iBeacon frames from apps, so the scanner shows a device with the name
+   and no beacon data; the Eddystone frames do show. **Scanner shows
+   nothing at all** (XIAO ESP32S3, 2026-11-17, nRF Connect): first the
+   antenna (the XIAO S3's u.FL antenna must be fitted; without it a phone
+   on the bench may hear nothing), then the app's RSSI filter, then this
+   at the REPL (Ctrl-C first) — a plain connectable advertisement that
+   every scanner lists, for 30 s:
+
+   ```
+   import _bleio, time
+   a = _bleio.adapter; a.enabled = True
+   a.start_advertising(b"\x02\x01\x06", scan_response=b"\x08\x09FOXTEST", connectable=True, interval=0.1)
+   print("FOXTEST advertising from", a.address); time.sleep(30); a.stop_advertising(); print("stopped")
+   ```
+
+   Seen → the radio is fine and the fault is in the fox's frames or the
+   scanner's handling of them (send me the scanner's screenshot of the
+   fox when it does appear, and whether the phone is iOS or Android).
+   Not seen → antenna or board; try a second phone before anything else.
 10. **wifi-probe** (with the sniffer board on a second port): `hw_smoke.py
     --sniffer` reports `N probe(s) from F2:B0:00:00:00:05, N with SSID
     <callsign>` during the observe window and fails the template at zero.
@@ -528,6 +552,9 @@ receiver.
 - [ ] Bootloader entry works as the Board tab describes it (hold B, plug in).
 - [ ] Flash the CircuitPython `.bin` for this board id; the board re-enumerates
       as a serial port (no CIRCUITPY drive on the C3; one on most others).
+- [ ] A board with a CIRCUITPY drive: `boot.py` copied onto it from the
+      flash card's step 2, ejected, reset. The drive comes back read-only
+      on the computer; Deploy's check passes without instructions.
 - [ ] **Connect** finds a prompt without a reset. If it needs the R button
       first, say so in the hardware report; that is a timing difference
       worth knowing per board.

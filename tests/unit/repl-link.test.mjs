@@ -113,6 +113,26 @@ test('unsolicited output reaches onUnsolicited stripped; bare prompts are suppre
   assert.deepEqual(got, ['tx 146.565 song=2\n']);
 });
 
+test('fox output in chunks that end mid-line reaches the console as whole lines; a prompt without a newline follows after TAIL_MS', async () => {
+  const { ReplLink } = await import('../../js/device/repl-link.js');
+  ReplLink.TAIL_MS = 50;
+  const { b, r } = await mk({ ansi: true });
+  const got = [];
+  r.onUnsolicited = t => got.push(t);
+  await b._emit('c'); await b._emit('ycle 1\r\npayload: Eddyston'); await b._emit('e URL\r\nb');
+  await new Promise(res => setTimeout(res, 10));
+  assert.deepEqual(got, ['cycle 1\n', 'payload: Eddystone URL\n']);          // "b" waits for the rest of its line
+  await b._emit('le up\r\n\x1b]0;Wi-Fi: No IP | BLE:Off\x1b\\>>> ');          // the title-bar sequence is stripped; the prompt waits
+  await new Promise(res => setTimeout(res, 10));
+  assert.deepEqual(got.slice(2), ['ble up\n']);
+  await new Promise(res => setTimeout(res, 80));
+  assert.deepEqual(got.slice(3), []);                                          // a bare prompt is still suppressed
+  await b._emit('no newline here');
+  await new Promise(res => setTimeout(res, 80));
+  assert.deepEqual(got.slice(3), ['no newline here']);
+  ReplLink.TAIL_MS = 400;
+});
+
 test('SerialLink: a read stream that ends cleanly (no error) is reported as a drop', async () => {
   const { SerialLink } = await import('../../js/device/serial-link.js');
   let ctl; const port = { readable: new ReadableStream({ start: c => { ctl = c; } }), writable: new WritableStream({ write() {} }), open: async () => {}, close: async () => {} };

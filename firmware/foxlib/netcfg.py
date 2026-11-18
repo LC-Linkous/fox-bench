@@ -385,7 +385,7 @@ def _validate_feature(sec, u, cfg, rep, radios, kind=None):
         plain("names", lambda x: _names(x, MAX_NAMES, MAX_NAME), "up to %d names of 1-%d bytes" % (MAX_NAMES, MAX_NAME))
         plain("morse_of", lambda x: _str_max(x, 16), "<= 16 chars")
         sub("code", {"major": (lambda x: _is_int(x) and 0 <= x <= 65535, "0-65535"), "minor": (lambda x: _is_int(x) and 0 <= x <= 65535, "0-65535")})
-        sub("eddystone", {"url": (lambda x: _str_max(x, MAX_URL) and (x == "" or x.startswith("http://") or x.startswith("https://")), "http(s) URL <= %d chars" % MAX_URL),
+        sub("eddystone", {"url": (lambda x: _str_max(x, MAX_URL) and (x == "" or x.startswith("http://") or x.startswith("https://")), "must start with http:// or https:// (a missing ':' or '/' is the usual slip), <= %d chars" % MAX_URL),
                           "tlm": (is_bool, "bool"),
                           "tlm_data": (_tlm_data_ok, "batt_mv 0-65535, temp_c -128-127, count / uptime_s unsigned 32-bit")})
         sub("split", {"wifi": (lambda x: _str_max(x, MAX_NAME), "<= 32 bytes"), "ble": (lambda x: _str_max(x, 29), "<= 29 bytes")})

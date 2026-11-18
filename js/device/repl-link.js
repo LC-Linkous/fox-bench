@@ -18,6 +18,7 @@ export const stripAnsi = t => t.replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, ''
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 export class ReplLink {
+  static TAIL_MS = 400;
   constructor(link, log, { timeouts = {} } = {}) {
     this.link = link; this.log = log || (() => {});
     this.T = { ctrlC: 2500, enter: 2000, exitRaw: 2000, retryGap: 500, ...timeouts };   // ms; tests shrink them
@@ -38,10 +39,19 @@ export class ReplLink {
     else if (!this.busy) this._flushUnsolicited();
     // else: an operation is between two waits; the next _waitFor picks the bytes up
   }
-  _flushUnsolicited() {
+  /** Fox output arrives in USB-sized chunks that end anywhere ("c" / "ycle 1"). Only whole lines go to the console;
+   *  a partial line waits for its newline, or TAIL_MS for a line that will never get one (a prompt). */
+  _flushUnsolicited(all = false) {
+    clearTimeout(this._tail); this._tail = null;
     if (!this.buf) return;
-    const t = stripAnsi(this.buf); this.buf = '';
+    if (/^[\s>]*$/.test(stripAnsi(this.buf))) { this.buf = ''; return; }     // a bare prompt: dropped at once, never a line's prefix
+    let t;
+    const i = all ? this.buf.length - 1 : this.buf.lastIndexOf('\n');
+    if (i < 0) t = '';
+    else { t = this.buf.slice(0, i + 1); this.buf = this.buf.slice(i + 1); }
+    t = stripAnsi(t);
     if (this.onUnsolicited && t.replace(/[\s>]/g, '')) this.onUnsolicited(t);
+    if (this.buf) this._tail = setTimeout(() => { if (!this.waiters.length && !this.capture && !this.busy) this._flushUnsolicited(true); }, ReplLink.TAIL_MS);
   }
   /** Mark an operation in progress: bytes arriving between its waits are kept for the next wait, not treated as fox output. */
   async _op(fn) { this.busy++; try { return await fn(); } finally { if (--this.busy === 0) this._flushUnsolicited(); } }

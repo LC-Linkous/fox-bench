@@ -4,7 +4,8 @@
 import { checkImage, foxlibcVersionIn } from '../model/uf2.js';
 import { cmpVersion } from '../model/compat.js';
 import { h, badge, field, select, check } from './dom.js';
-import { fleet } from '../model/profiles.js';
+import { fleet, download } from '../model/profiles.js';
+import { loadRootFile } from '../model/loaders.js';
 import * as flasher from '../../flasher/flasher.js';   // separate component, Apache-2.0 (flasher/LICENSE)
 
 const KEY_N = 'fox-bench.batchNumber';
@@ -136,7 +137,22 @@ export function flashCard(app) {
       h('button.btn.primary', { disabled: !!why, title: why, onclick: () => disconnectAndFlash(app).catch(() => {}) }, state.busy ? 'Flashing…' : canDisconnectFirst(app) ? 'Disconnect and flash CircuitPython' : 'Flash CircuitPython'),
       why && !state.busy ? h('span.hint.warn', {}, why) : canDisconnectFirst(app) ? h('span.hint', {}, 'the page is connected to a board; flashing closes that session first and asks for the port to flash') : null),
     ...statusBlock(),
+    bootPyStep(app),
     h('p.hint', {}, 'The flasher is a separate component of fox-bench (', h('code', {}, 'flasher/'), ', Apache-2.0) built on ', h('a', { href: 'https://github.com/espressif/esptool-js', target: '_blank', rel: 'noopener' }, 'esptool-js'), ` ${flasher.ESPTOOL_VERSION}. Works offline. From a terminal, `, h('code', {}, 'tools/batch_flash.py'), ' does the same with the same log columns.'));
+}
+
+/** Boards that show up as a CIRCUITPY drive (ESP32-S3, nRF52840): CircuitPython gives their files to the computer,
+ *  read-only to the board's own code, which is what writes when this page deploys and what writes finds.csv on a fox.
+ *  firmware/boot.py gives them to the board; the moment to copy it is right after a flash, while the fresh drive is
+ *  on the screen. Deploy checks again and stops with the same instructions when it was skipped. */
+function bootPyStep(app) {
+  const b = app.board;
+  if (!b.has_usb_drive) return null;
+  const get = async () => { try { download('boot.py', await loadRootFile('boot.py')); } catch (e) { app.console.err(String(e.message || e)); } };
+  const fresh = state.last?.ok;
+  return h('div', { class: fresh ? 'hint ok' : 'hint', style: 'margin-top:8px;padding:8px;border:1px solid var(--line, #ccc);border-radius:6px' },
+    h('b', {}, fresh ? 'Step 2, now: ' : 'After flashing, once per board: '), `the ${b.name} shows up on the computer as a CIRCUITPY drive, and CircuitPython then lets only the computer write its files — not this page, not the fox. `,
+    h('button.btn.small', { onclick: get }, 'Download boot.py'), ' and copy it onto the CIRCUITPY drive next to code.py; eject the drive; press the board\'s reset button (R). From then on the board owns its files (the drive is read-only on the computer) and Deploy works. Deploy checks for this and says so if it was skipped.');
 }
 
 /** Compiled family (kitsune): a merged image per board × challenge, from the site's manifest (built in CI from a pinned

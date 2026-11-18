@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { validate, checks, cycle, displayName, parseMac, bleMac, randomMac, enabledFeatures } from '../../js/model/netschema.js';
+import { validate, checks, cycle, displayName, parseMac, bleMac, randomMac, enabledFeatures, eddystoneUrlBytes } from '../../js/model/netschema.js';
 
 const defaults = t => JSON.parse(readFileSync(new URL(`../../firmware/templates/${t}/defaults/esp32c3.json`, import.meta.url)));
 const C3 = { id: 'esp32c3', name: 'ESP32-C3', radios: ['wifi24', 'ble'], pins: [{ name: 'D0' }, { name: 'D10' }] };
@@ -107,4 +107,19 @@ test('a BLE fox is on the air with the two top bits of its MAC set, and the page
   assert.ok(checks(low.cfg, C3, {}).some(i => i.level === 'warn' && i.key === 'net.mac' && i.msg.includes('C2:11:22:33:44:55')));
   const wifi = validate({ net: { mac: '02:11:22:33:44:55' } }, defaults('wifi-beacon'), C3);
   assert.ok(!checks(wifi.cfg, C3, {}).some(i => i.key === 'net.mac'));
+});
+
+test('the Eddystone URL is measured as the frame encodes it, and a URL that does not fit is an error the page can say', () => {
+  assert.equal(eddystoneUrlBytes('https://lc-linkous.github.io'), 20);          // what the first S3 session tried: not sent
+  assert.equal(eddystoneUrlBytes('https://www.example.com/'), 8);               // "example" 7 + ".com/" 1
+  assert.equal(eddystoneUrlBytes('http://ab.github.io'), 12);
+  assert.equal(eddystoneUrlBytes('ftp://x'), null);
+  const C3 = { id: 'esp32c3', radios: ['wifi', 'ble'] };
+  const long = validate({ payload: { enabled: true, eddystone: { url: 'https://lc-linkous.github.io' } } }, defaults('puzzle-beacon'), C3);
+  const i = checks(long.cfg, C3, {}).find(x => x.key === 'payload.eddystone.url');
+  assert.ok(i && i.level === 'err' && i.msg.startsWith('20 bytes encoded'));
+  const fits = validate({ payload: { enabled: true, eddystone: { url: 'https://example.com/' } } }, defaults('puzzle-beacon'), C3);
+  assert.ok(!checks(fits.cfg, C3, {}).some(x => x.key === 'payload.eddystone.url'));
+  const noColon = validate({ payload: { enabled: true, eddystone: { url: 'https//lc-linkous.github.io' } } }, defaults('puzzle-beacon'), C3);
+  assert.ok(noColon.report.some(r => r.key === 'payload.eddystone.url' && /must start with http/.test(r.reason)));
 });

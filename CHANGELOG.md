@@ -14,6 +14,28 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.18.6 · foxlib 1.10.4 — from the first ESP32-S3 session
+
+- **Flash card, step 2 for boards with a CIRCUITPY drive.** The moment to
+  put `boot.py` on such a board is right after flashing, while the fresh
+  drive is on the screen: the card now says so, with a Download button,
+  and marks the step "now" after a flash. Deploy's check stays as the net.
+- **The Eddystone URL is checked on the page.** The frame holds 17 bytes
+  of encoded URL and only `.com/ .org/ .edu/ .net/ .info/ .biz/ .gov/`
+  (and the same without the slash) compress to one byte; the firmware
+  said `does not fit in 17 bytes; not sent` only on the board. The page
+  now encodes the URL the same way (`eddystoneUrlBytes`) and says the
+  byte count and the rule. A URL without `http://` or `https://` says
+  that (a missing `:` was read as the 64-character rule).
+- **Fix — the console broke fox output mid-word** (`c` / `ycle 1`): each
+  USB chunk was rendered as a line. Whole lines only now; a partial line
+  waits for its newline, or 400 ms for one that never gets one (a
+  prompt). CircuitPython's title-bar sequence no longer shows as
+  `]0;🐍Wi-Fi: …`.
+- Runbook: the scanner note under step 9 (a phone's Bluetooth settings
+  never list a beacon; iOS hides iBeacon frames from apps; what to try
+  when the scanner shows nothing, with a plain-advertisement REPL test).
+
 ### Page 0.18.5 — the XIAO ESP32S3's CircuitPython build
 
 - **Fix — the catalog named a CircuitPython build that does not exist.**

@@ -44,6 +44,21 @@ const isNum = v => typeof v === 'number' && Number.isFinite(v);
 const blen = s => new TextEncoder().encode(String(s)).length;
 
 /** 'F2:AB:..' → bytes, or null (6 for Wi-Fi/BLE); first byte unicast. */
+const URL_SCHEMES = [['http://www.', 0], ['https://www.', 1], ['http://', 2], ['https://', 3]];
+const URL_CODES = ['.com/', '.org/', '.edu/', '.net/', '.info/', '.biz/', '.gov/', '.com', '.org', '.edu', '.net', '.info', '.biz', '.gov'];
+/** Bytes the URL takes in an Eddystone-URL frame after its scheme byte (foxlib/netpayload.py encode_url, which sends
+ *  nothing over 17), or null when no scheme matches. */
+export function eddystoneUrlBytes(url) {
+  const sch = URL_SCHEMES.find(([p]) => url.startsWith(p));
+  if (!sch) return null;
+  let rest = url.slice(sch[0].length), n = 0;
+  while (rest.length) {
+    const c = URL_CODES.find(c => rest.startsWith(c));
+    if (c) { n += 1; rest = rest.slice(c.length); } else { n += blen(rest[0]); rest = rest.slice(1); }
+  }
+  return n;
+}
+
 /** The address a BLE fox is on the air with for a configured MAC: the same, with the two top bits set (a static random
  *  address; foxlib/netradio.py does the same). */
 export function bleMac(mac) {
@@ -198,7 +213,7 @@ function validateFeature(sec, u, cfg, bad, radios, kind = null) {
     plain('names', x => namesOk(x, MAX_NAMES, MAX_NAME), `up to ${MAX_NAMES} names of 1-${MAX_NAME} bytes`);
     plain('morse_of', x => strMax(x, 16), '<= 16 chars');
     sub('code', { major: [x => isInt(x) && x >= 0 && x <= 65535, '0-65535'], minor: [x => isInt(x) && x >= 0 && x <= 65535, '0-65535'] });
-    sub('eddystone', { url: [x => strMax(x, MAX_URL) && (x === '' || x.startsWith('http://') || x.startsWith('https://')), `http(s) URL <= ${MAX_URL} chars`], tlm: [isBool, 'bool'],
+    sub('eddystone', { url: [x => strMax(x, MAX_URL) && (x === '' || x.startsWith('http://') || x.startsWith('https://')), `must start with http:// or https:// (a missing ':' or '/' is the usual slip), <= ${MAX_URL} chars`], tlm: [isBool, 'bool'],
       tlm_data: [tlmDataOk, 'batt_mv 0-65535, temp_c -128-127, count / uptime_s unsigned 32-bit'] });
     sub('split', { wifi: [x => strMax(x, MAX_NAME), '<= 32 bytes'], ble: [x => strMax(x, 29), '<= 29 bytes'] });
     plain('interleave_ms', x => isInt(x) && x >= 100 && x <= 10000, '100-10000 ms');
@@ -307,6 +322,10 @@ export function checks(cfg, board, { clockSet = false } = {}) {
   if (st?.enabled && st.decoys?.length && cfg.net.kind !== 'wifi-ap') issues.push({ level: 'warn', key: 'stealth.decoys', msg: 'decoy names are SSIDs: they need the access-point template' });
   if (st?.enabled && st.rotate_name && !(pl?.enabled && pl.kind === 'rotate' && pl.names?.length)) issues.push({ level: 'warn', key: 'stealth.rotate_name', msg: 'names at random needs a list of names in the payload section (kind rotate)' });
   if (pl?.enabled && pl.kind === 'morse-name' && !pl.morse_of) issues.push({ level: 'err', key: 'payload.morse_of', msg: 'morse-name needs a word' });
+  if (pl?.enabled && pl.eddystone?.url) {
+    const n = eddystoneUrlBytes(pl.eddystone.url);
+    if (n == null || n > 17) issues.push({ level: 'err', key: 'payload.eddystone.url', msg: n == null ? 'the Eddystone-URL frame takes http:// or https:// only' : `${n} bytes encoded; the Eddystone-URL frame holds 17, so the fox will not send it. Only .com/ .org/ .edu/ .net/ .info/ .biz/ .gov/ (and the same without the slash) compress to one byte; www. is free. A short domain or a link shortener fits` });
+  }
   if (pl?.enabled && (pl.eddystone?.url || pl.eddystone?.tlm || pl.code?.major || pl.code?.minor) && cfg.net.kind !== 'ble') issues.push({ level: 'warn', key: 'payload.eddystone', msg: 'beacon code, Eddystone URL and telemetry are BLE frames: they need the ble-beacon template' });
   if (pl?.enabled && (pl.split?.wifi || pl.split?.ble) && !(radios.includes('wifi24') && radios.includes('ble'))) issues.push({ level: 'err', key: 'payload.split', msg: 'a split clue needs both radios' });
   if (cfg.net.kind === 'wifi-ap' && cfg.net.hidden) issues.push({ level: 'warn', key: 'net.hidden', msg: 'this firmware cannot hide the SSID (CircuitPython has no hidden-AP option): it will be broadcast; the fox says so in its banner' });
