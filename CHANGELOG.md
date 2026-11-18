@@ -14,6 +14,23 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.18.5 — the XIAO ESP32S3's CircuitPython build
+
+- **Fix — the catalog named a CircuitPython build that does not exist.**
+  CircuitPython has one build for the Seeed XIAO ESP32S3 and the Sense
+  variant, `seeed_xiao_esp32_s3_sense`; both report that id. The catalog
+  said `seeed_xiao_esp32s3`, so the only image there is was flagged as
+  "for another board" and the connected board did not match its catalog
+  entry. Corrected, with the download link; the catalog also lists the
+  board's CircuitPython USB identity (2886:8056).
+- **Flash: a port that is the board's running CircuitPython is said as
+  such.** esptool needs the chip's download mode and cannot reset a
+  native-USB ESP32-S3 into it from the REPL port, so picking that port
+  ended in "Failed to connect with the device" after a timeout. The
+  flasher now checks the port's USB identity first and says: nothing to
+  flash if CircuitPython is already on the board (Connect and Deploy);
+  to reflash, hold B while plugging in and pick the new port.
+
 ### Page 0.18.4 — boards with a CIRCUITPY drive; messages that carry their fix
 
 From the first ESP32-S3 session on hardware.

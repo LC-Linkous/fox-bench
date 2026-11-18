@@ -56,7 +56,20 @@ export async function runFlash(app, { boardNumber = '' } = {}) {
   if (state.simulate) log.err('SIMULATED flash (test mode): no port is opened and nothing is written to any board');
   let facts = null, error = null;
   try {
+    // which port: esptool needs the chip's download mode (an ESP32-S3's 303a:1001 with B held). A port that is the
+    // board's own CircuitPython (a REPL) cannot be reset into it from here, so that is said instead of a timeout
+    let port = null;
+    if (!demo && 'serial' in navigator) {
+      state.phase = 'choose the board\'s port'; notify();
+      port = await navigator.serial.requestPort();
+      const info = port.getInfo?.() || {};
+      const u = (b.usb || []).find(u => parseInt(u.vid, 16) === info.usbVendorId && parseInt(u.pid, 16) === info.usbProductId);
+      if (u && /CircuitPython running|REPL/.test(u.when || '')) {
+        throw Object.assign(new Error(`the port picked is the board running CircuitPython (USB ${info.usbVendorId.toString(16)}:${info.usbProductId.toString(16)}), not its bootloader. Nothing to flash if CircuitPython is already on it: Connect and Deploy. To reflash, unplug, hold B while plugging in, and pick the new port`), { notBootloader: true });
+      }
+    }
     facts = await flasher.flash({
+      port,
       // A merged image (compiled family: esptool merge_bin's output, the site's or the user's) is a whole-flash image padded
       // from address 0 and goes at 0x0 whatever the chip's bootloader offset; hardware flash.offset is where a bare
       // CircuitPython image goes (foxlib family).
@@ -69,6 +82,7 @@ export async function runFlash(app, { boardNumber = '' } = {}) {
   } catch (e) {
     error = String(e.message || e); facts = e.facts || null;
     log.err('flash failed: ' + error);
+    state.notBootloader = !!e.notBootloader;
   }
   state.busy = false; state.phase = ''; state.last = { ok: !error, facts, error, when: new Date().toISOString(), kind: app.isCompiled ? 'compiled' : 'circuitpython' };
   fleet.append({
@@ -90,7 +104,7 @@ export function statusBlock() {
   if (l && !state.busy) {
     out.push(l.ok
       ? h('p.hint.ok', {}, `Flashed in ${l.facts.seconds} s — ${l.facts.chip}, MAC ${l.facts.mac}${l.facts.flash_size ? ', ' + l.facts.flash_size + ' flash' : ''}. `, l.kind === 'compiled' ? 'The board is rebooting into the kitsune firmware: the LED goes violet, then the challenge colour; Listen only shows its boot lines.' : ['The board is rebooting into CircuitPython; first boot takes ~10 s and it may come back on a different port. Then ', h('b', {}, 'Connect'), '.'])
-      : h('p.hint.err', {}, 'Flash failed: ', l.error, l.facts?.chip ? ` (reached the chip: ${l.facts.chip})` : ' (never reached the bootloader — hold B while plugging in, pick the port that appears, and check nothing else holds it)'));
+      : h('p.hint.err', {}, 'Flash failed: ', l.error, l.facts?.chip ? ` (reached the chip: ${l.facts.chip})` : state.notBootloader ? '' : ' (never reached the bootloader — hold B while plugging in, pick the port that appears, and check nothing else holds it)'));
   }
   return out;
 }

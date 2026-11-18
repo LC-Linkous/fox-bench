@@ -58,7 +58,7 @@ each time.
   | `esp32c6` | Seeed XIAO ESP32C6 (×2) | its own (`seeed_xiao_esp32c6`) | yellow LED `board.LED`; two boards: one radio-off, one deep-sleep side by side |
   | `esp32c5` | Seeed XIAO ESP32C5 | ESP32-C5-DevKitC-1-N8R8 (`espressif_esp32c5_devkitc_1_n8r8`), no build of its own | LED `IO27`; also the real kitsune C5 target |
   | `esp32c5` | DFRobot FireBeetle 2 ESP32-C5 | the same DevKitC-1 build (shared) | LED `IO15`; the two C5s report the same id — the page keeps the one selected |
-  | `esp32s3` | Seeed XIAO ESP32S3 | its own (`seeed_xiao_esp32s3`) | LED `board.LED` (GPIO21) |
+  | `esp32s3` | Seeed XIAO ESP32S3 | shared with the Sense (`seeed_xiao_esp32_s3_sense`; CircuitPython has no plain-S3 build) | LED `board.LED` (GPIO21) |
   | `esp32s3` | Waveshare ESP32-S3-Nano | Arduino Nano ESP32 (`arduino_nano_esp32s3`), no build of its own | `board.LED` to verify; RGB `LED_RED/GREEN/BLUE` |
   | `nrf52840` | Arduino Nano 33 BLE Rev2 | `arduino_nano_33_ble_rev2` (Rev1: `arduino_nano_33_ble`) | BLE only; CircuitPython by `bossac`, not from the page |
 

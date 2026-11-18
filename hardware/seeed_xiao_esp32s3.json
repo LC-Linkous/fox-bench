@@ -26,6 +26,11 @@
       "vid": "0x303a",
       "pid": "0x1001",
       "when": "ESP32-S3 USB-JTAG-serial (download mode and, with CDC on boot, the running firmware)"
+    },
+    {
+      "vid": "0x2886",
+      "pid": "0x8056",
+      "when": "CircuitPython running (Seeed's USB identity): a REPL port, not the bootloader"
     }
   ],
   "pins": [
@@ -129,13 +134,14 @@
     "divider_note": "charger on board (BAT pads); no divider to an ADC pin by default — as the XIAO C3"
   },
   "circuitpython": {
-    "board_id": "seeed_xiao_esp32s3",
+    "board_id": "seeed_xiao_esp32_s3_sense",
     "board_ids": [
+      "seeed_xiao_esp32_s3_sense",
       "seeed_xiao_esp32s3"
     ],
-    "download": "https://circuitpython.org/board/seeed_xiao_esp32s3/",
-    "latest_known": "10.3.1",
-    "note": "its own build; board.LED is the yellow LED. The Sense variant (camera, mic) reports the same id."
+    "download": "https://circuitpython.org/board/seeed_xiao_esp32_s3_sense/",
+    "latest_known": "10.3.2",
+    "note": "CircuitPython has one build for the XIAO ESP32S3 and the Sense (camera, mic): seeed_xiao_esp32_s3_sense. Both report that id. board.LED is the yellow LED. Flashed from this page 2026-11-17 (10.3.2)."
   },
   "notes": [
     "Network fox today (no module). The D-pins are the XIAO footprint's, so a XIAO ESP32S3 + SA868 combination would wire like the XIAO ESP32C3 + SA868 — a future target of its own."
