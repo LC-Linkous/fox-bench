@@ -116,7 +116,7 @@ export function renderId(root) {
     h('div.card', {}, h('h3', {}, 'Callsign / operator'),
       field('callmessage', callInput, 'Who is responsible for this fox. A network fox sends no Morse; this is the fleet record and, if ticked below, the name on the air. With the placeholder the fox still runs under its own name (a Part 15 device need not identify); it is refused only when the placeholder would be the name on the air.'),
       check('Use the callsign as the SSID / BLE name', d.use_callsign_as_name, v => { d.use_callsign_as_name = v; app.changed('id'); }, `on the air as "${name}". Untick to use the name on the Radio tab (a contest will usually want its own name).`),
-      field('Operator (recorded only)', (() => { const f = app.cfg.fleet || (app.cfg.fleet = {}); const i = h('input', { type: 'text', value: f.owner || '', maxlength: 32, spellcheck: 'false', placeholder: 'KY4ZR', style: 'width:100%;text-transform:uppercase' }); i.addEventListener('change', () => { f.owner = i.value.toUpperCase().trim(); app.changed('id'); }); return i; })(),
+      field('Operator (recorded only)', (() => { const f = app.cfg.fleet || (app.cfg.fleet = {}); const i = h('input', { type: 'text', value: f.owner || '', maxlength: 32, spellcheck: 'false', placeholder: 'W1ABC', style: 'width:100%;text-transform:uppercase' }); i.addEventListener('change', () => { f.owner = i.value.toUpperCase().trim(); app.changed('id'); }); return i; })(),
         'Whose fox this is, when the callsign above is left at the placeholder or is not yours: written to fox.json (fleet.owner) and to the fleet log\'s owner column, never on the air. The fleet log keys every fox by its chip uid either way.'),
       issueList('id')),
     h('div.card', {}, h('h3', {}, 'On the air'),

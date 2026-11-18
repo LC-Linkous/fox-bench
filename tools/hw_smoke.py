@@ -33,7 +33,7 @@ load, and pass --yes-antenna to say you did.
 
 SPDX-License-Identifier: GPL-2.0-only
 """
-import argparse, json, os, re, sys, time, zlib
+import argparse, glob, json, os, re, sys, time, zlib
 from datetime import datetime
 
 try:
@@ -252,7 +252,19 @@ def main():
     ident = r.exec("import board, microcontroller, os, sys\nprint(board.board_id)\nprint(''.join('%02x' % b for b in microcontroller.cpu.uid))\nprint(os.uname().release)\nprint(os.uname().version)\n").strip().splitlines()
     board_id, uid, cp_release, cp_version = (ident + ["", "", "", ""])[:4]
     print("board %s  uid %s  CircuitPython %s" % (board_id, uid, cp_release))
-    if board_id != a.board:
+    # the ids a catalog entry answers to: its own, its CircuitPython build's, and the builds it shares (board_ids)
+    known = {a.board}
+    for hw in glob.glob(os.path.join(ROOT, "hardware", "*.json")):
+        try:
+            h = json.load(open(hw))
+        except Exception:
+            continue
+        if not isinstance(h, dict):
+            continue
+        if h.get("id") in (a.board, a.variant) or h.get("target") == a.board:
+            cp = h.get("circuitpython") or {}
+            known.add(cp.get("board_id")); known.update(cp.get("board_ids") or [])
+    if board_id not in known:
         print("WARNING: board reports %s, deploying defaults for %s" % (board_id, a.board))
     report = {"generated": datetime.now().isoformat(timespec="seconds"), "board_id": board_id, "uid": uid, "circuitpython": cp_release, "cp_version": cp_version,
               "foxlib": foxlib_version, "call": a.call, "freq": a.freq, "module": a.module, "sniffer": a.sniffer or "not used", "templates": {}}

@@ -259,7 +259,7 @@ export function nameForCycle(cfg, n, morseTable = null) {
   if (p?.enabled && p.kind === 'morse-name' && p.morse_of && morseTable) return morseName(p.morse_of, morseTable);
   return displayName(cfg);
 }
-/** 'KY4ZR' → '-.- -.-- ....- --.. .-.' cut to 32 bytes at a space (netpayload.morse_name). */
+/** 'W1ABC' → '.-- .---- .- -... -.-.' cut to 32 bytes at a space (netpayload.morse_name). */
 export function morseName(word, table) {
   const words = word.toLowerCase().split(' ').map(w => [...w].filter(c => table[c]).map(c => table[c])).filter(w => w.length);
   let s = words.map(w => w.join(' ')).join(' / ');

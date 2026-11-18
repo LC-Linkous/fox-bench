@@ -68,7 +68,7 @@ function fleetRecordCard() {
       field('Fox number', numInput(f.number ?? '', { min: 1, max: 999, step: 1, width: '100px', onchange: v => { f.number = Math.round(v); app.changed('deploy'); } }), 'the # on the sheet and the fleet log'),
       field('Event', txt('event', { placeholder: 'Spring hunt 2027', maxlength: 64 }), 'filters the Event sheet; one name for the whole fleet')),
     h('div.two-col', {},
-      field('Operator', txt('owner', { placeholder: 'KY4ZR', maxlength: 32, style: 'width:100%;text-transform:uppercase' }), 'whose fox this is when the callsign is not theirs; never on the air'),
+      field('Operator', txt('owner', { placeholder: 'W1ABC', maxlength: 32, style: 'width:100%;text-transform:uppercase' }), 'whose fox this is when the callsign is not theirs; never on the air'),
       field('Notes', txt('notes', { maxlength: 120 }), 'free text for the sheet')),
     pointsToField(f));
 }

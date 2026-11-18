@@ -1393,7 +1393,7 @@
    "board": "seeed_xiao_esp32c3",
    "user": {
     "id": {
-     "callmessage": "KY4ZR FOX"
+     "callmessage": "W1ABC FOX"
     },
     "payload": {
      "kind": "sstv",
@@ -1407,7 +1407,7 @@
    "board": "seeed_xiao_esp32c3",
    "user": {
     "id": {
-     "callmessage": "KY4ZR FOX"
+     "callmessage": "W1ABC FOX"
     },
     "payload": {
      "kind": "sstv",
@@ -1421,7 +1421,7 @@
    "board": "seeed_xiao_esp32c3",
    "user": {
     "id": {
-     "callmessage": "KY4ZR FOX"
+     "callmessage": "W1ABC FOX"
     },
     "payload": {
      "kind": "sstv",
@@ -1435,7 +1435,7 @@
    "board": "seeed_xiao_esp32c3",
    "user": {
     "id": {
-     "callmessage": "KY4ZR FOX"
+     "callmessage": "W1ABC FOX"
     },
     "payload": {
      "kind": "sstv",
@@ -1495,7 +1495,7 @@
    "board": "esp32c3",
    "user": {
     "net": {
-     "ssid": "KY4ZR FOX 1",
+     "ssid": "W1ABC FOX 1",
      "psk": "foxhunt2026",
      "mac": "f2:b0:00:00:00:11",
      "channel": 6,
@@ -1503,7 +1503,7 @@
      "max_clients": 2
     },
     "id": {
-     "callmessage": "KY4ZR",
+     "callmessage": "W1ABC",
      "use_callsign_as_name": true
     },
     "schedule": {
@@ -1591,7 +1591,7 @@
    "board": "esp32c3",
    "user": {
     "net": {
-     "name": "KY4ZR beacon",
+     "name": "W1ABC beacon",
      "uuid": "e2c56db5-dffb-48d2-b060-d0f5a71096e0",
      "major": 7,
      "minor": 65535,
@@ -2060,7 +2060,7 @@
    "board": "esp32c3",
    "user": {
     "fleet": {
-     "owner": "KY4ZR",
+     "owner": "W1ABC",
      "bogus": "x"
     }
    }

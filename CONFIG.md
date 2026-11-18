@@ -266,7 +266,7 @@ warns when the worst-case transmission exceeds it.
 ## `fleet`
 
 ```json
-"fleet": { "profile": "Fox 3 — 146.565", "number": 3, "event": "", "notes": "", "owner": "KY4ZR", "points_to": 2 }
+"fleet": { "profile": "Fox 3 — 146.565", "number": 3, "event": "", "notes": "", "owner": "W1ABC", "points_to": 2 }
 ```
 
 `points_to` (page 0.16) names the fox this one leads to — a saved
@@ -407,7 +407,7 @@ the fox runs without it`. The page says the same on each card.
 
 **`payload` (built):** `rotate` makes `names[cycle % n]` the SSID / BLE name
 of each cycle (the fox logs `payload: name this cycle …`); `morse-name`
-puts the Morse of `morse_of` on the air (`-.- -.-- ....- --.. .-.`, words
+puts the Morse of `morse_of` on the air (`.-- .---- .- -... -.-.`, words
 joined by ` / `, cut to 32 bytes at a space); `static` is the configured
 name or callsign. `id.use_callsign_as_name` still wins when set. On a BLE
 fox, `code` replaces the iBeacon major/minor when either is non-zero, and
@@ -574,7 +574,7 @@ the name on the air). `radio`: `ok` · `ok(hidden_unsupported)` · `nowifi` · `
 count has restarted.
 
 ```
-FOX template=wifi-beacon/1.0.0 foxlib=1.1.0 board=seeed_xiao_esp32c3 uid=… cfg=ok radio=ok id=set freq=none net=wifi-ap name="KY4ZR FOX" mac=F2:B0:00:00:00:01
+FOX template=wifi-beacon/1.0.0 foxlib=1.1.0 board=seeed_xiao_esp32c3 uid=… cfg=ok radio=ok id=set freq=none net=wifi-ap name="W1ABC FOX" mac=F2:B0:00:00:00:01
 ```
 
 ## Migrations

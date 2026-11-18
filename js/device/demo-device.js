@@ -77,7 +77,7 @@ export class DemoDevice extends Device {
         if (cp.portal?.enabled && cfg.net.kind === 'wifi-ap') {
           lines.push(`checkpoint: portal at http://192.168.4.1/${cp.portal.captive_dns ? ' with captive DNS' : ''}`);
           // the demo's hunters: two finds on the fox, so Collect finds on the Bench tab has something to read
-          if (cp.portal.log && cp.portal.ask_callsign && !this.fs.has('finds.csv')) this.fs.set('finds.csv', this.enc.encode(`fox_uid,template,cycle,ms_since_boot,callsign,client_mac\n${this.uid},${template},0,41250,W1ABC,DA:11:22:33:44:55\n${this.uid},${template},2,318900,KY4ZR/P,3E:7A:00:12:9B:C4\n`));
+          if (cp.portal.log && cp.portal.ask_callsign && !this.fs.has('finds.csv')) this.fs.set('finds.csv', this.enc.encode(`fox_uid,template,cycle,ms_since_boot,callsign,client_mac\n${this.uid},${template},0,41250,W1ABC,DA:11:22:33:44:55\n${this.uid},${template},2,318900,W1ABC/P,3E:7A:00:12:9B:C4\n`));
         }
         if (cp.ble?.enabled) lines.push(`checkpoint: BLE service ${cp.ble.service_uuid} (code ${cp.ble.code || '-'})`);
       }

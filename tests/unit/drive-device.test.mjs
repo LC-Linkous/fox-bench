@@ -26,8 +26,8 @@ test('write → read back identical; text and bytes; remove; missing file reads 
   const bytes = Uint8Array.from({ length: 5000 }, (_, i) => (i * 31) & 255);
   await d.writeBytes('audio.wav', bytes);
   assert.deepEqual(Array.from(await d.readBytes('audio.wav')), Array.from(bytes));
-  await d.writeText('settings.txt', 'CALLSIGN=KY4ZR\n');
-  assert.equal(await d.readText('settings.txt'), 'CALLSIGN=KY4ZR\n');
+  await d.writeText('settings.txt', 'CALLSIGN=W1ABC\n');
+  assert.equal(await d.readText('settings.txt'), 'CALLSIGN=W1ABC\n');
   assert.equal(await d.readText('nope'), null);
   await d.remove('settings.txt'); assert.equal(await d.readText('settings.txt'), null);
   await d.remove('nope');   // no throw
@@ -51,7 +51,7 @@ test('no REPL: exec and bench refuse, reboot is a no-op with advice', async () =
 test('a full PicoFox deploy onto the demo drive: four files, marker matches, settings parse back', async () => {
   const d = await demoDrive(board, { MemDirectoryHandle }); d.onLog = () => {};
   assert.equal(d.kind, 'demo'); assert.equal(d.transport, 'drive');
-  const cfg = pf.validate({ id: { callmessage: 'KY4ZR FOX DE KY4ZR' }, schedule: { kind: 'duty', duty_percent: 50 } }, defaults, board).cfg;
+  const cfg = pf.validate({ id: { callmessage: 'W1ABC FOX DE W1ABC' }, schedule: { kind: 'duty', duty_percent: 50 } }, defaults, board).cfg;
   for (const f of pf.files(cfg)) await d.writeBytes(f.path, typeof f.data === 'string' ? new TextEncoder().encode(f.data) : f.data);
   const files = await d.list('');
   assert.deepEqual(Object.keys(files).sort(), ['.callsign.wav', '.settings_crc.bin', 'audio.wav', 'settings.txt']);

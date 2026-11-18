@@ -1116,7 +1116,7 @@
     "payload": {
      "enabled": true,
      "kind": "morse-name",
-     "morse_of": "KY4ZR"
+     "morse_of": "W1ABC"
     }
    },
    "expect": {
@@ -1125,7 +1125,7 @@
     },
     "keyed_min": 1,
     "net_contains": [
-     "-.- -.-- ....- --.. .-. ch=1"
+     ".-- .---- .- -... -.-. ch=1"
     ]
    }
   },
@@ -3151,6 +3151,127 @@
     "prints_count_max": {
      "BLE step": 1
     }
+   },
+   "platform": "nRF52840"
+  },
+  {
+   "name": "esp32-refuses-to-advertise-after-a-scan-reset",
+   "_doc": "XIAO ESP32S3 2026-11-18: after a BLE scan the stack refused start_advertising (error 530) until the adapter was turned off and on; a sense fox scans before every wake, so it must recover and say so once",
+   "ble_refuse_after_scan": true,
+   "radios": [
+    "ble"
+   ],
+   "cap_ms": 120000,
+   "stop_after_unkeys": 3,
+   "world": {
+    "advertisers": [
+     {
+      "name": "HUNT-7",
+      "mac": "C0:00:00:00:00:07",
+      "rssi": -60
+     }
+    ]
+   },
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "sense": {
+     "enabled": true,
+     "tags": {
+      "enabled": true
+     }
+    },
+    "schedule": {
+     "wake_s": 5,
+     "sleep_s": 5
+    }
+   },
+   "expect": {
+    "keyed_min": 3,
+    "prints_contain": [
+     "sense: tag HUNT-7 -60 dBm",
+     "note: BLE start refused (RuntimeError: Unknown system firmware error: 530); adapter reset and started"
+    ],
+    "prints_count_max": {
+     "BLE start refused": 1
+    },
+    "net_contains": [
+     "mac=F2:B0:00:00:00:07"
+    ],
+    "net_events_min": {
+     "adv_refused": 2
+    }
+   }
+  },
+  {
+   "name": "esp32-refuses-to-advertise-after-a-scan-restart",
+   "_doc": "the same refusal cleared by a plain stop and start: said once, no adapter reset",
+   "ble_refuse_after_scan": "restart",
+   "radios": [
+    "ble"
+   ],
+   "cap_ms": 120000,
+   "stop_after_unkeys": 3,
+   "world": {
+    "advertisers": [
+     {
+      "name": "HUNT-7",
+      "mac": "C0:00:00:00:00:07",
+      "rssi": -60
+     }
+    ]
+   },
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "sense": {
+     "enabled": true,
+     "tags": {
+      "enabled": true
+     }
+    },
+    "schedule": {
+     "wake_s": 5,
+     "sleep_s": 5
+    }
+   },
+   "expect": {
+    "keyed_min": 3,
+    "prints_contain": [
+     "note: BLE start refused (RuntimeError: Unknown system firmware error: 530); started on the second try"
+    ],
+    "prints_count_max": {
+     "BLE start refused": 1
+    }
+   }
+  },
+  {
+   "name": "esp32-power-value-refused-is-the-callers-error",
+   "_doc": "on the ESP32 a power the stack refuses is not an nRF step problem: the original error reaches the caller, and the wake is silent, not the fox dead",
+   "ble_power_steps": "nrf",
+   "radios": [
+    "ble"
+   ],
+   "cap_ms": 120000,
+   "stop_after_unkeys": 2,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "net": {
+     "tx_power_dbm": 9
+    }
+   },
+   "expect": {
+    "prints_contain": [
+     "ble did not start (RuntimeError: Unknown system firmware error: 7); silent this wake"
+    ],
+    "prints_not_contain": [
+     "BLE step"
+    ],
+    "keyed_min": 0
    }
   }
  ],
@@ -3286,7 +3407,7 @@
     },
     {
      "at_s": 30,
-     "post": "callsign=KY4ZR",
+     "post": "callsign=W1XYZ",
      "split": true
     }
    ],
@@ -3307,7 +3428,7 @@
     "http_body_contains": [
      "<div class=code>4471</div>",
      "Logged: <b>W1ABC/P</b>",
-     "Logged: <b>KY4ZR</b>",
+     "Logged: <b>W1XYZ</b>",
      "<form method=post action=/find>"
     ],
     "prints_contain": [
@@ -3319,7 +3440,7 @@
       "fox_uid,template,cycle,ms_since_boot,callsign,client_mac",
       "checkpoint,0,",
       "W1ABC/P,DA:11:22:33:44:55",
-      "KY4ZR,DA:11:22:33:44:55"
+      "W1XYZ,DA:11:22:33:44:55"
      ]
     }
    }
@@ -3436,7 +3557,7 @@
     },
     {
      "at_s": 9,
-     "post": "callsign=KY4ZR"
+     "post": "callsign=W1XYZ"
     }
    ],
    "fox": {
@@ -3461,7 +3582,7 @@
     "file_contains": {
      "finds.csv": [
       "W1ABC",
-      "KY4ZR"
+      "W1XYZ"
      ]
     }
    }

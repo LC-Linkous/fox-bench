@@ -3,6 +3,14 @@
 import { h, badge, field, select, check } from './dom.js';
 
 let app, root;
+/** What a hunter (or a tester) needs to see this fox at all; the first thing to know on a first session. */
+function seenWith(kind) {
+  return kind === 'wifi-ap' ? 'any phone or laptop: the network name in its Wi-Fi list, on and off with the duty cycle; a Wi-Fi analyser app shows the BSSID'
+    : kind === 'wifi-probe' ? 'a sniffer only (tools/sniffer/code.py on a second board, or Wireshark in monitor mode): the fox asks for a network and answers to nobody, so it is in no Wi-Fi list and has no BLE side'
+    : kind === 'ble' ? 'a BLE scanner app (nRF Connect, LightBlue): the name and the beacon frames. A phone\'s Bluetooth settings never list a beacon, and iOS hides iBeacon frames from apps'
+    : '—';
+}
+
 export function init(a, el) { app = a; root = el; app.listeners.add(render); render(); }
 
 function render() {
@@ -37,7 +45,8 @@ function render() {
       h('dt', {}, 'Status'), h('dd', {}, badge(t.status, t.status === 'stable' ? 'ok' : 'warn')),
       h('dt', {}, 'Tested on'), h('dd', {}, t.boards_tested.join(', ') || 'nothing yet'),
       h('dt', {}, 'Payload files'), h('dd', {}, t.payloads.map(p => p.file).join(', ') || 'none'),
-      h('dt', {}, 'Bench'), h('dd', {}, t.capabilities.join(', '))),
+      h('dt', {}, 'Bench'), h('dd', {}, t.capabilities.join(', ')),
+      ...(app.isNet ? [h('dt', {}, 'Seen with'), h('dd', {}, seenWith(app.cfg.net?.kind))] : [])),
     t.status === 'experimental' ? h('p.hint.warn', {}, 'Experimental: any payload × schedule × plan. Combinations outside the six discrete templates have not been run on hardware yet.') : null);
 
   const others = app.templatesFor(app.family).filter(x => x.id !== t.id);

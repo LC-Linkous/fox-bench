@@ -71,9 +71,9 @@ def main():
     b = a.bin
 
     print("morse")
-    cases = [("KY4ZR FOX DE KY4ZR", 12, 800, 0), ("n0call decoy decoy n0call", 20, 600, 0), ("e", 12, 800, 0),
-             ("QSY 147.420", 15, 700, 0), ("  double  spaces  ", 12, 800, 0), ("KY4ZR/P BAT 3V7", 12, 800, 0),
-             ("hello? #$% world", 12, 800, 0), ("KY4ZR", 12, 800, 3000), ("", 12, 800, 0), ("   ", 12, 800, 0), ("abc@=+-,.", 25, 1000, 0)]
+    cases = [("W1ABC FOX DE W1ABC", 12, 800, 0), ("n0call decoy decoy n0call", 20, 600, 0), ("e", 12, 800, 0),
+             ("QSY 147.420", 15, 700, 0), ("  double  spaces  ", 12, 800, 0), ("W1ABC/P BAT 3V7", 12, 800, 0),
+             ("hello? #$% world", 12, 800, 0), ("W1ABC", 12, 800, 3000), ("", 12, 800, 0), ("   ", 12, 800, 0), ("abc@=+-,.", 25, 1000, 0)]
     for text, wpm, tone, dit in cases:
         py = [(float(h), float(ms)) for h, ms in morse.events(text, wpm=wpm, tone_hz=tone, dit_ms=dit or None)]
         c = parse_events(run(b, "morse", wpm, tone, dit, *text.split(" ")) if text.strip() else run(b, "morse", wpm, tone, dit, text))
@@ -181,7 +181,7 @@ def main():
                 scenarios.append((t + "/" + f, os.path.join(ddir, f), os.path.join(ddir, f)))
     bad = {
         "schema2": {"schema": 2}, "wrong-template": {"template": "nope"}, "wrong-board": {"board": "other"},
-        "bad-wpm": {"id": {"wpm": 99, "callmessage": "KY4ZR FOX"}}, "bad-freq": {"plan": {"frequencies_mhz": [430.0]}},
+        "bad-wpm": {"id": {"wpm": 99, "callmessage": "W1ABC FOX"}}, "bad-freq": {"plan": {"frequencies_mhz": [430.0]}},
         "mixed": {"plan": {"frequencies_mhz": [146.565, 500]}, "schedule": {"kind": "popcorn", "seed": 3, "cluster": 99}, "payload": {"kind": "songs", "playlist": []}, "zzz": 1},
         "null-payload": {"payload": None, "limits": {"max_keydown_s": 60}}, "int-float": {"id": {"wpm": 15.0, "tone_hz": 700.0}, "schedule": {"kind": "fixed", "delay_ms": 20000.0}},
         "battery": {"battery": {"low_v": 3.0, "critical_v": 3.4, "recovery_v": 3.5}},
@@ -236,11 +236,11 @@ def main():
         bad_c = dict(bad)
         bad_c.update({
             "si5351-bad": {"radio": {"attenuation": 200, "tone_shape": "square", "sample_rate": 100, "preemphasis": "yes", "itu_zone": 9, "id_deviation_hz": 20000, "correction_ppm": 1000, "tx_while_mounted": 1}},
-            "si5351-ok": {"radio": {"attenuation": 40, "tone_shape": "sine", "sample_rate": 5000, "preemphasis": False, "itu_zone": 1, "id_deviation_hz": 2500, "audio_deviation_hz": 7000, "correction_ppm": -1.5, "tx_while_mounted": False}, "id": {"callmessage": "KY4ZR FOX"}},
-            "pins-ignored": {"pins": {"ptt": "GP99"}, "id": {"callmessage": "KY4ZR FOX"}},
-            "images-file-code.py": {"payload": {"kind": "sstv", "images_file": "code.py"}, "id": {"callmessage": "KY4ZR FOX"}},
-            "images-file-path": {"payload": {"kind": "sstv", "images_file": "../x.bin"}, "id": {"callmessage": "KY4ZR FOX"}},
-            "images-file-ok": {"payload": {"kind": "sstv", "images_file": "pics.bin"}, "id": {"callmessage": "KY4ZR FOX"}},
+            "si5351-ok": {"radio": {"attenuation": 40, "tone_shape": "sine", "sample_rate": 5000, "preemphasis": False, "itu_zone": 1, "id_deviation_hz": 2500, "audio_deviation_hz": 7000, "correction_ppm": -1.5, "tx_while_mounted": False}, "id": {"callmessage": "W1ABC FOX"}},
+            "pins-ignored": {"pins": {"ptt": "GP99"}, "id": {"callmessage": "W1ABC FOX"}},
+            "images-file-code.py": {"payload": {"kind": "sstv", "images_file": "code.py"}, "id": {"callmessage": "W1ABC FOX"}},
+            "images-file-path": {"payload": {"kind": "sstv", "images_file": "../x.bin"}, "id": {"callmessage": "W1ABC FOX"}},
+            "images-file-ok": {"payload": {"kind": "sstv", "images_file": "pics.bin"}, "id": {"callmessage": "W1ABC FOX"}},
             "rotator": {"plan": {"frequencies_mhz": [146.565, 147.42, 147.445], "announce_qsy": True}, "schedule": {"kind": "resurrection", "seed": 5, "id_every": 2, "alive_min_ms": 5, "alive_max_ms": 1}},
         })
         tmp2 = []
@@ -300,7 +300,7 @@ console.log(JSON.stringify({ status: r.status, keys: r.report.map(x => x.key) })
 
     print("synth")
     for sr, shape, pre, level, tone in ((8000, "bright", 1, 0.5, 800), (8000, "sine", 0, 0.5, 800), (5000, "bright", 1, 0.7, 600), (8000, "bright", 1, 1.0, 2400), (8000, "sine", 1, 0.3, 300)):
-        out = run(b, "synth", sr, shape, pre, level, 12, tone, "KY4ZR", "FOX", "DE", "KY4ZR").split()
+        out = run(b, "synth", sr, shape, pre, level, 12, tone, "W1ABC", "FOX", "DE", "W1ABC").split()
         kv = dict(x.split("=") for x in out)
         n, exp, peak = int(kv["samples"]), int(kv["expected"]), float(kv["peak"])
         check("sr=%d %s pre=%d level=%.1f tone=%d: %d samples peak %.3f" % (sr, shape, pre, level, tone, n, peak), n == exp and level * 0.85 <= peak <= level * 1.001, kv)

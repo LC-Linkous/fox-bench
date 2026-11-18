@@ -41,6 +41,7 @@ decides something in code or in the catalog. Write the answers into
 | Q9 | What is a room's BLE crowd? | the `crowd: N advertisers` line in a quiet room and in a busy one | the default for `sense.crowd.max` |
 | Q10 | Does a shell-game fox survive a battery swap? | battery-only power cycle: `the board clock is unset; keeping seat N's identity` | whether shell-game foxes need re-deploying after a swap, or an RTC board |
 | Q12 | Is the configured MAC the one on the air? | per kind: wifi-beacon's BSSID in the analyser, wifi-probe's source MAC in the sniffer's lines, ble-beacon's address in nRF Connect, each against the `… up: NAME (MAC)` line; and whether the console has `note: MAC … was asked for, the radio reports …`. On Wi-Fi also: does the chip's own address (the Board tab's, `7C:…`-style) ever show beside the fox's name? | the MAC sequence in `netradio.py` (radio stopped, mode on, set, start) — new in 1.10.3 and never run on a board; MAC rotation and the shell game depend on it |
+| Q14 | Does the ESP32 still refuse to advertise after a scan, and which retry clears it? | ble-beacon with `sense.tags` on (a scan before every wake), or Bench → Scan then Radio up: with foxlib 1.10.5 the console says `note: BLE start refused (…530); started on the second try` or `… adapter reset and started`, once, and the beacon is on the air. 2026-11-18, XIAO ESP32S3, CircuitPython 10.3.2: reproduced on the page — Radio up ok, Scan ok, Radio up → `Unknown system firmware error: 530` | which retry stays in `netradio.py`; whether sense costs an adapter reset per wake |
 | Q13 | Which BLE powers does the nRF52840 take? | ble-beacon at 9 dBm on the Nano 33 BLE: `note: this chip has no 9 dBm BLE step; advertising at 8 dBm` and the beacon is on the air | the BLE power steps the page offers per chip |
 
 ## 1. PicoFox re-run (foxlib-c 0.1.11 / page 0.12.0)
@@ -279,23 +280,21 @@ when the chip has more than one; the LED pin is the descriptor's default.
    connectable devices); use the scanner app. On an iPhone, iOS keeps
    iBeacon frames from apps, so the scanner shows a device with the name
    and no beacon data; the Eddystone frames do show. **Scanner shows
-   nothing at all** (XIAO ESP32S3, 2026-11-17, nRF Connect): first the
-   antenna (the XIAO S3's u.FL antenna must be fitted; without it a phone
-   on the bench may hear nothing), then the app's RSSI filter, then this
-   at the REPL (Ctrl-C first) — a plain connectable advertisement that
-   every scanner lists, for 30 s:
+   nothing at all** (XIAO ESP32S3, 2026-11-17, nRF Connect on a Galaxy): if
+   the scanner lists no devices whatsoever, not even the laptop, it is the
+   phone — restart it (that was the answer on 2026-11-17); then the
+   antenna (the XIAO S3's u.FL antenna must be fitted and seated; a loose
+   connector was the first board's fault), then the app's RSSI filter, then
+   this at the page console (Ctrl-C first), one line — a plain connectable
+   advertisement that every scanner lists:
 
    ```
-   import _bleio, time
-   a = _bleio.adapter; a.enabled = True
-   a.start_advertising(b"\x02\x01\x06", scan_response=b"\x08\x09FOXTEST", connectable=True, interval=0.1)
-   print("FOXTEST advertising from", a.address); time.sleep(30); a.stop_advertising(); print("stopped")
+   import _bleio, time; a = _bleio.adapter; a.enabled = True; a.start_advertising(b"\x02\x01\x06", scan_response=b"\x08\x09FOXTEST", connectable=True, interval=0.1); print("FOXTEST from", a.address)
    ```
 
-   Seen → the radio is fine and the fault is in the fox's frames or the
-   scanner's handling of them (send me the scanner's screenshot of the
-   fox when it does appear, and whether the phone is iOS or Android).
-   Not seen → antenna or board; try a second phone before anything else.
+   (`a.stop_advertising()` stops it.) Seen → the radio is fine and the
+   fault is in the fox's frames or the scanner's handling of them. Not
+   seen on a phone that lists other devices → antenna or board.
 10. **wifi-probe** (with the sniffer board on a second port): `hw_smoke.py
     --sniffer` reports `N probe(s) from F2:B0:00:00:00:05, N with SSID
     <callsign>` during the observe window and fails the template at zero.

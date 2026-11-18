@@ -15,10 +15,10 @@ const { profiles, fleet, FLEET_FIELDS, StorageError, packProfileImages, unpackPr
 
 test('fleet CSV: every field, quoting of commas, quotes and newlines', () => {
   fleet.clear();
-  fleet.append({ action: 'deploy', callsign: 'KY4ZR "FOX", DE KY4ZR', notes: 'line one\nline two', result: 'ok' });
+  fleet.append({ action: 'deploy', callsign: 'W1ABC "FOX", DE W1ABC', notes: 'line one\nline two', result: 'ok' });
   const csv = fleet.toCsv(), lines = csv.trim().split('\n');
   assert.equal(lines[0], FLEET_FIELDS.join(','));
-  assert.ok(csv.includes('"KY4ZR ""FOX"", DE KY4ZR"')); assert.ok(csv.includes('"line one\nline two"'));
+  assert.ok(csv.includes('"W1ABC ""FOX"", DE W1ABC"')); assert.ok(csv.includes('"line one\nline two"'));
   assert.ok(FLEET_FIELDS.includes('challenge') && FLEET_FIELDS.includes('keyphrase'));
 });
 
@@ -60,7 +60,7 @@ const norm = r => Object.fromEntries(FLEET_FIELDS.map(f => [f, r[f] == null ? ''
 
 test('fleet CSV round trip: every value kind the log stores comes back equal (as strings)', () => {
   fleet.clear();
-  fleet.append({ board_number: 1, uid: 'abc', action: 'deploy', callsign: 'KY4ZR "FOX", DE KY4ZR', notes: 'line one\nline two\r\nthree', freq: 146.565, power: -7, seed: 0, result: true, challenge: '' });
+  fleet.append({ board_number: 1, uid: 'abc', action: 'deploy', callsign: 'W1ABC "FOX", DE W1ABC', notes: 'line one\nline two\r\nthree', freq: 146.565, power: -7, seed: 0, result: true, challenge: '' });
   fleet.append({ board_number: 2, uid: 'def', action: 'flash', callsign: '=HYPERLINK("x")', notes: '@sum', result: '+ok', profile: '-dash', template: "'already quoted", crystal: '\tTab' });
   const before = fleet.all().map(norm);
   const { rows, rejected } = fromCsv(fleet.toCsv());

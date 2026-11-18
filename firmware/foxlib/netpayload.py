@@ -66,7 +66,7 @@ def eddystone_tlm_frame(batt_mv, temp_c, adv_count, uptime_s):
 
 
 def morse_name(word):
-    """'KY4ZR' -> '-.- -.-- ....- --.. .-.' cut to 32 bytes at a space."""
+    """'W1ABC' -> '.-- .---- .- -... -.-.' cut to 32 bytes at a space."""
     words = morse.encode(word)
     s = " / ".join(" ".join(chars) for chars in words)
     if len(s) > 32:

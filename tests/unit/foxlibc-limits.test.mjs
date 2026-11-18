@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { LIMITS, countNodes, stringifyFoxJson, foxlibcLimitIssues } from '../../js/model/foxlibc-limits.js';
 
 const song = (name, n) => ({ name, tempo: 120, notes: Array.from({ length: n }, (_, i) => [60 + (i % 12), 4]) });
-const base = () => ({ schema: 1, template: 'morse-songs', board: 'picofox-foxlibc', radio: { ranges_mhz: [[144, 148]], itu_zone: 2 }, plan: { frequencies_mhz: [146.565] }, id: { callmessage: 'KY4ZR FOX', placeholder: 'N0CALL' }, payload: { kind: 'songs', playlist: [song('A', 20)] }, schedule: { kind: 'fixed' }, limits: {} });
+const base = () => ({ schema: 1, template: 'morse-songs', board: 'picofox-foxlibc', radio: { ranges_mhz: [[144, 148]], itu_zone: 2 }, plan: { frequencies_mhz: [146.565] }, id: { callmessage: 'W1ABC FOX', placeholder: 'N0CALL' }, payload: { kind: 'songs', playlist: [song('A', 20)] }, schedule: { kind: 'fixed' }, limits: {} });
 
 test('a small config has no limit issues', () => { assert.deepEqual(foxlibcLimitIssues(base()), []); });
 
@@ -33,7 +33,7 @@ test('17 frequencies, 5 ranges and a 70-byte callsign are reported', () => {
 });
 
 test('stringifyFoxJson keeps scalar arrays on one line and parses back identically', () => {
-  const c = base(); c.id.callmessage = 'KY4ZR "FOX" [1, 2]';
+  const c = base(); c.id.callmessage = 'W1ABC "FOX" [1, 2]';
   const s = stringifyFoxJson(c);
   assert.deepEqual(JSON.parse(s), c);
   assert.match(s, /\[60, 4\]/); assert.ok(!/\[\n\s+60,/.test(s));

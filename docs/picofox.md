@@ -199,7 +199,7 @@ README says unexpected files are removed; the published `flashCleanup()`
 only recreates missing ones, so stray files are left alone.
 
 Because the firmware keeps `.callsign.wav` when the byte-sum matches,
-the page can write **its own ID audio** (full "KY4ZR FOX DE KY4ZR",
+the page can write **its own ID audio** (full "W1ABC FOX DE W1ABC",
 proper word spacing, chosen tone and level) together with a matching
 `.settings_crc.bin`, and the firmware will play it unchanged. Writing a
 stale/absent CRC file instead makes the firmware regenerate its own

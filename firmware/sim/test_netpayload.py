@@ -22,7 +22,7 @@ check("url frame header", f[:6].hex(), "0303aafe" + ("%02x" % (len(f) - 5)) + "1
 check("url frame body", f[6:].hex(), "aafe10f9" + np.encode_url("https://fox.example/3").hex())
 t = np.eddystone_tlm_frame(3700, None, 12, 61.5)
 check("tlm frame", t.hex(), "0303aafe" + "1116" + "aafe2000" + "0e74" + "8000" + "0000000c" + "00000267")
-check("morse name", np.morse_name("KY4ZR"), "-.- -.-- ....- --.. .-.")
+check("morse name", np.morse_name("W1ABC"), ".-- .---- .- -... -.-.")
 check("morse name two words", np.morse_name("DE W1"), "-.. . / .-- .----")
 check("morse name cut at 32", len(np.morse_name("FOXHUNTING")) <= 32, True)
 # the drivers against the mocked radios (which follow the CircuitPython ports: see mocks.py)

@@ -9,7 +9,7 @@ import { parseBanner } from '../../js/device/device.js';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 test('banner arrives unsolicited and parses; every line is logged as fox output', async () => {
-  const link = new FakeConsoleLink({ callsign: 'KY4ZR FOX DE KY4ZR' });
+  const link = new FakeConsoleLink({ callsign: 'W1ABC FOX DE W1ABC' });
   const d = new ConsoleDevice(link); const logs = []; d.onLog = (t, c) => logs.push([c, t]);
   await d.listen(); await link.open(); await sleep(30);
   const banner = logs.map(([, t]) => parseBanner(t)).find(Boolean);

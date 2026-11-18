@@ -25,42 +25,42 @@ test('byte-sum marker matches an independent computation (Python: sum(open(f,"rb
 
 test('firmwareCallsign keeps only A–Z 0–9, upper-cased, 12 max; dropped() names what went', () => {
   assert.equal(pf.firmwareCallsign('N0CALL/LOCK'), 'N0CALLLOCK');
-  assert.equal(pf.firmwareCallsign('ky4zr/3'), 'KY4ZR3');
+  assert.equal(pf.firmwareCallsign('w1abc/3'), 'W1ABC3');
   assert.equal(pf.firmwareCallsign('ABCDEFGHIJKLMNOP'), 'ABCDEFGHIJKL');
   assert.deepEqual(pf.dropped('N0CALL/LOCK-1'), ['/', '-']);
 });
 
 test('settingsFromCfg: first word of the ID becomes CALLSIGN; deviation → MORSE_TONE_VOL; duty from schedule', () => {
   const cfg = structuredClone(defaults);
-  cfg.id.callmessage = 'KY4ZR FOX DE KY4ZR'; cfg.radio.id_deviation_hz = 5000; cfg.schedule = { kind: 'duty', duty_percent: 60, pad_ms: 2000 }; cfg.plan.frequencies_mhz = [146.565];
+  cfg.id.callmessage = 'W1ABC FOX DE W1ABC'; cfg.radio.id_deviation_hz = 5000; cfg.schedule = { kind: 'duty', duty_percent: 60, pad_ms: 2000 }; cfg.plan.frequencies_mhz = [146.565];
   const s = pf.settingsFromCfg(cfg);
-  assert.equal(s.CALLSIGN, 'KY4ZR'); assert.equal(s.MORSE_TONE_VOL, 50); assert.equal(s.DUTY_CYCLE, 60); assert.equal(s.FREQ_MHZ, 146.565);
-  assert.match(pf.serializeSettings(s), /^CALLSIGN=KY4ZR\nITU_ZONE=2\nFREQ_MHZ=146.565000\nDUTY_CYCLE=60\n/);
+  assert.equal(s.CALLSIGN, 'W1ABC'); assert.equal(s.MORSE_TONE_VOL, 50); assert.equal(s.DUTY_CYCLE, 60); assert.equal(s.FREQ_MHZ, 146.565);
+  assert.match(pf.serializeSettings(s), /^CALLSIGN=W1ABC\nITU_ZONE=2\nFREQ_MHZ=146.565000\nDUTY_CYCLE=60\n/);
   const back = pf.cfgFromSettings(pf.parseSettings(pf.serializeSettings(s)), defaults);
   assert.equal(back.schedule.duty_percent, 60); assert.equal(back.radio.id_deviation_hz, 5000); assert.equal(back.plan.frequencies_mhz[0], 146.565);
 });
 
 test('validate: band edges per zone, silent-fox conditions, dropped characters, deviation warnings', () => {
-  const v = pf.validate({ id: { callmessage: 'KY4ZR FOX DE KY4ZR' }, plan: { frequencies_mhz: [146.565] } }, defaults, board);
+  const v = pf.validate({ id: { callmessage: 'W1ABC FOX DE W1ABC' }, plan: { frequencies_mhz: [146.565] } }, defaults, board);
   assert.equal(v.status, 'ok'); assert.deepEqual(v.issues.filter(i => i.level === 'err'), []);
-  const edge = pf.validate({ id: { callmessage: 'KY4ZR' }, plan: { frequencies_mhz: [147.99] } }, defaults, board);
+  const edge = pf.validate({ id: { callmessage: 'W1ABC' }, plan: { frequencies_mhz: [147.99] } }, defaults, board);
   assert.ok(edge.issues.some(i => i.level === 'err' && /20 kHz inside/.test(i.msg)), 'band-edge margin enforced');
-  const z1 = pf.validate({ id: { callmessage: 'KY4ZR' }, radio: { itu_zone: 1 }, plan: { frequencies_mhz: [147.0] } }, defaults, board);
+  const z1 = pf.validate({ id: { callmessage: 'W1ABC' }, radio: { itu_zone: 1 }, plan: { frequencies_mhz: [147.0] } }, defaults, board);
   assert.ok(z1.issues.some(i => i.level === 'err' && /zone 1/.test(i.msg)), 'zone 1 tops out at 146');
-  const duty0 = pf.validate({ id: { callmessage: 'KY4ZR' }, schedule: { kind: 'duty', duty_percent: 0 } }, defaults, board);
+  const duty0 = pf.validate({ id: { callmessage: 'W1ABC' }, schedule: { kind: 'duty', duty_percent: 0 } }, defaults, board);
   assert.ok(duty0.issues.some(i => i.level === 'err' && /never transmits/.test(i.msg)));
-  const slash = pf.validate({ id: { callmessage: 'KY4ZR/3 FOX' } }, defaults, board);
-  assert.ok(slash.issues.some(i => /becomes "KY4ZR3"/.test(i.msg)), 'dropped slash explained');
-  const wide = pf.validate({ id: { callmessage: 'KY4ZR' }, radio: { id_deviation_hz: 7000 } }, defaults, board);
+  const slash = pf.validate({ id: { callmessage: 'W1ABC/3 FOX' } }, defaults, board);
+  assert.ok(slash.issues.some(i => /becomes "W1ABC3"/.test(i.msg)), 'dropped slash explained');
+  const wide = pf.validate({ id: { callmessage: 'W1ABC' }, radio: { id_deviation_hz: 7000 } }, defaults, board);
   assert.ok(wide.issues.some(i => /wider than/.test(i.msg)));
-  const bad = pf.validate({ id: { callmessage: 'KY4ZR' }, radio: { itu_zone: 4, attenuation: 200 }, schedule: { kind: 'popcorn' }, payload: { kind: 'sstv' }, plan: { frequencies_mhz: [146.5, 146.6] } }, defaults, board);
+  const bad = pf.validate({ id: { callmessage: 'W1ABC' }, radio: { itu_zone: 4, attenuation: 200 }, schedule: { kind: 'popcorn' }, payload: { kind: 'sstv' }, plan: { frequencies_mhz: [146.5, 146.6] } }, defaults, board);
   assert.equal(bad.status, 'partial(radio.itu_zone,radio.attenuation,payload.kind,schedule.kind)');
   assert.deepEqual(bad.cfg.plan.frequencies_mhz, [146.5]);
   assert.ok(bad.issues.some(i => /only the first entry/.test(i.msg)));
 });
 
 test('cycle: audio then ID, carrier offsets step per segment, duty gap and power steps', () => {
-  const cfg = pf.validate({ id: { callmessage: 'KY4ZR' }, schedule: { kind: 'duty', duty_percent: 50 }, radio: { attenuation: 8 } }, defaults, board).cfg;
+  const cfg = pf.validate({ id: { callmessage: 'W1ABC' }, schedule: { kind: 'duty', duty_percent: 50 }, radio: { attenuation: 8 } }, defaults, board).cfg;
   const c = pf.cycle(cfg, 10 * 60 * 1000);
   assert.ok(c.audioMs > 10000 && c.idMs > 2000, `audio ${c.audioMs} id ${c.idMs}`);
   assert.equal(c.offMs, Math.round(c.onMs * 0.5));
@@ -76,10 +76,10 @@ test('cycle: audio then ID, carrier offsets step per segment, duty gap and power
 });
 
 test('files: four files, valid WAVs at 5 kHz s16 mono, levels = deviation / 10 kHz, marker = sum of settings', () => {
-  const cfg = pf.validate({ id: { callmessage: 'KY4ZR FOX DE KY4ZR' }, radio: { id_deviation_hz: 5000, audio_deviation_hz: 4000 } }, defaults, board).cfg;
+  const cfg = pf.validate({ id: { callmessage: 'W1ABC FOX DE W1ABC' }, radio: { id_deviation_hz: 5000, audio_deviation_hz: 4000 } }, defaults, board).cfg;
   const fs = pf.files(cfg);
   assert.deepEqual(fs.map(f => f.path), ['settings.txt', 'audio.wav', '.callsign.wav', '.settings_crc.bin']);
-  const settings = fs[0].data; assert.match(settings, /^CALLSIGN=KY4ZR\n/);
+  const settings = fs[0].data; assert.match(settings, /^CALLSIGN=W1ABC\n/);
   assert.equal(pf.readMarker(fs[3].data), pf.byteSum(settings));
   const id = parseWav(fs[2].data), au = parseWav(fs[1].data);
   assert.equal(id.sampleRate, 5000); assert.equal(id.channels, 1); assert.equal(id.bits, 16);
@@ -112,7 +112,7 @@ test('renderPcm: bright shape keeps the requested peak; pre-emphasis lowers tone
   assert.ok(top > 0.9, `2 kHz (top) near full level (${top.toFixed(3)}; a tone sampled at 5 kHz rarely lands on its crest)`);
   assert.ok(Math.abs(seg(200, 400) / top - 0.5) < 0.06, '1 kHz one octave down = −6 dB relative to the top tone');
   assert.ok(Math.abs(seg(400, 600) / top - 0.4) < 0.06, '250 Hz floored at 0.4 of the top tone');
-  const cfg = pf.validate({ id: { callmessage: 'KY4ZR' }, radio: { tone_shape: 'sine', preemphasis: false } }, defaults, board).cfg;
+  const cfg = pf.validate({ id: { callmessage: 'W1ABC' }, radio: { tone_shape: 'sine', preemphasis: false } }, defaults, board).cfg;
   assert.equal(cfg.radio.tone_shape, 'sine'); assert.equal(cfg.radio.preemphasis, false);
-  assert.match(pf.files(pf.validate({ id: { callmessage: 'KY4ZR' } }, defaults, board).cfg)[1].why, /bright \+ pre-emphasis/);
+  assert.match(pf.files(pf.validate({ id: { callmessage: 'W1ABC' } }, defaults, board).cfg)[1].why, /bright \+ pre-emphasis/);
 });

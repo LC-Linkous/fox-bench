@@ -1,7 +1,7 @@
 {
  "_": "What the foxlib-c console answers, as regexes over the bytes written back (PROTOCOL.md 'foxlib-c console'). console_test.py runs each command through the real console.c on the host (build/console_sim) AND through the page's FakeConsoleLink (js/device/console-device.js), so the fake cannot drift from the firmware. `advance_ms` is how long the virtual clock runs after the command; `c_only` marks replies the fake does not model (a bench action's late `ok`, the cycle log).",
  "drive": {
-  "callsign": "KY4ZR TEST"
+  "callsign": "W1ABC TEST"
  },
  "cases": [
   {
@@ -120,7 +120,7 @@
    "cmd": "id",
    "advance_ms": 20000,
    "expect": [
-    "^morse: KY4ZR TEST\\r\\n",
+    "^morse: W1ABC TEST\\r\\n",
     "\\r\\nok\\r\\n"
    ],
    "c_only": [

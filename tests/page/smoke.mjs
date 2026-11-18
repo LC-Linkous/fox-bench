@@ -233,7 +233,7 @@ try {
   check(/board clock set to 2026-08-08 08:30:00 \(fixed time\)/.test(await text('#log')) && !/is accepted but not in foxlib/.test(await text('#log')) && /checkpoint: portal at http:\/\/192\.168\.4\.1\/ with captive DNS/.test(await text('#log')), 'console: clock set line, no not-built note, the portal announced');
   // Collect finds: the demo fox seeded two finds on its drive; they land in the fleet log once
   await tab('bench'); await page.locator('#tab-bench button', { hasText: 'Collect finds' }).click(); await until(() => window.foxbench.benchEvents.some(e => e.action === 'finds'), 'collect finds', 15000); await settle(200);
-  eq(await app(() => JSON.parse(localStorage.getItem('fox-bench.fleet') || '[]').filter(r => r.action === 'find').map(r => r.callsign).join()), 'W1ABC,KY4ZR/P', 'two find rows in the fleet log, keyed by the fox');
+  eq(await app(() => JSON.parse(localStorage.getItem('fox-bench.fleet') || '[]').filter(r => r.action === 'find').map(r => r.callsign).join()), 'W1ABC,W1ABC/P', 'two find rows in the fleet log, keyed by the fox');
   await page.locator('#tab-bench button', { hasText: 'Collect finds' }).click(); await until(() => window.foxbench.benchEvents.filter(e => e.action === 'finds').length >= 2, 'collect again', 15000); await settle(200);
   check(/2 finds on the fox: 0 new in the fleet log, 2 already there/.test(await text('#tab-bench')), 'collecting again adds nothing');
   await tab('payload');
@@ -432,9 +432,9 @@ try {
   const fIn = await page.$('#tab-plan input[type=number]'); await fIn.fill('147.99'); await fIn.dispatchEvent('change'); await settle(200);
   check(/would stay silent/.test(await text('#tab-plan')), 'band-edge rule explained on the Frequency tab');
   const fIn2 = await page.$('#tab-plan input[type=number]'); await fIn2.fill('146.565'); await fIn2.dispatchEvent('change'); await settle(200);   // the tab re-rendered
-  await tab('id'); await page.fill('#tab-id input[type=text]', 'KY4ZR/3 FOX'); await settle(300);
-  check(/KY4ZR3/.test(await text('#tab-id')), 'ID tab shows the firmware-reduced CALLSIGN');
-  await page.fill('#tab-id input[type=text]', 'KY4ZR FOX DE KY4ZR'); await settle(300);
+  await tab('id'); await page.fill('#tab-id input[type=text]', 'W1ABC/3 FOX'); await settle(300);
+  check(/W1ABC3/.test(await text('#tab-id')), 'ID tab shows the firmware-reduced CALLSIGN');
+  await page.fill('#tab-id input[type=text]', 'W1ABC FOX DE W1ABC'); await settle(300);
   await tab('radio');
   check(/±5 kHz is standard/.test(await text('#tab-radio')), 'ID deviation defaults to ±5 kHz with the firmware\'s 7 kHz noted');
   eq(await app(() => window.foxbench.cfg.radio.id_deviation_hz), 5000, 'id deviation default 5000');
@@ -450,7 +450,7 @@ try {
   await page.check('#tab-deploy .gate input'); await page.click('#tab-deploy button.btn.primary'); await untilTextArgs('#tab-deploy', /files written and read back|deploy failed/);
   check(/files written and read back/.test(await text('#tab-deploy')), 'files written to the demo drive');
   const onDrive = await app(async () => { const d = window.foxbench.device; const l = await d.list(''); const s = await d.readText('settings.txt'); return { names: Object.keys(l).sort(), s, markerOk: window.foxbench.onBoard.markerOk }; });
-  check(onDrive.names.join() === '.callsign.wav,.settings_crc.bin,audio.wav,settings.txt' && /CALLSIGN=KY4ZR\n/.test(onDrive.s) && /DUTY_CYCLE=50\n/.test(onDrive.s) && onDrive.markerOk === true, 'drive holds the four files, settings as configured, marker matching');
+  check(onDrive.names.join() === '.callsign.wav,.settings_crc.bin,audio.wav,settings.txt' && /CALLSIGN=W1ABC\n/.test(onDrive.s) && /DUTY_CYCLE=50\n/.test(onDrive.s) && onDrive.markerOk === true, 'drive holds the four files, settings as configured, marker matching');
   page.removeAllListeners('dialog'); page.once('dialog', d => d.accept());
   const [dlp] = await Promise.all([page.waitForEvent('download', { timeout: 10000 }), page.click('#tab-deploy button:has-text("Export files")')]);
   const pfNames = zipEntries(new Uint8Array(await (await import('node:fs/promises')).readFile(await dlp.path()))).map(e => e.name);
@@ -503,7 +503,7 @@ try {
   await page.selectOption('#tab-board select', 'picofox-foxlibc'); await settle(400);
   eq(await app(() => window.foxbench.family), 'foxlib-c', 'family switches to foxlib-c');
   eq(await app(() => window.foxbench.templateId), 'morse-songs', 'template switched to the first template of the family (keeps morse-songs)');
-  eq(await app(() => window.foxbench.cfg.id.callmessage), 'KY4ZR FOX DE KY4ZR', 'callsign carried across the board switch');
+  eq(await app(() => window.foxbench.cfg.id.callmessage), 'W1ABC FOX DE W1ABC', 'callsign carried across the board switch');
   check(/does not run CircuitPython/.test(await text('#tab-board')) && /Get fox-bench firmware/.test(await text('#tab-board')), 'Board tab offers the hosted fox-bench firmware');
   await settle(300);
   check(/Hosted build:.*no build info on this site/.test(await text('#tab-board')), 'without CI\'s fingerprint file the card says the image is checked as a UF2 only');
@@ -543,7 +543,7 @@ try {
   await page.check('#tab-deploy .gate input'); await page.click('#tab-deploy button.btn.primary'); await untilTextArgs('#tab-deploy', /files written and read back|deploy failed/);
   check(/files written and read back/.test(await text('#tab-deploy')), 'files written to the demo FOXBENCH drive');
   const onDriveC = await app(async () => { const d = window.foxbench.device; const l = await d.list(''); const f = JSON.parse(await d.readText('fox.json')); return { names: Object.keys(l).sort(), f }; });
-  check(onDriveC.names.join() === 'README.txt,board.json,defaults.json,fox.json' && onDriveC.f.template === 'morse-songs' && onDriveC.f.board === 'picofox-foxlibc' && onDriveC.f.id.callmessage === 'KY4ZR FOX DE KY4ZR' && !('ptt' in (onDriveC.f.pins || {})), 'drive holds fox.json for this board and template');
+  check(onDriveC.names.join() === 'README.txt,board.json,defaults.json,fox.json' && onDriveC.f.template === 'morse-songs' && onDriveC.f.board === 'picofox-foxlibc' && onDriveC.f.id.callmessage === 'W1ABC FOX DE W1ABC' && !('ptt' in (onDriveC.f.pins || {})), 'drive holds fox.json for this board and template');
   // the deploy row carries the UID the firmware wrote to board.json, and an audit over the drive matches it by uid
   const rowCu = await app(() => JSON.parse(localStorage.getItem('fox-bench.fleet') || '[]').filter(r => r.action === 'deploy' && r.board === 'picofox-foxlibc').pop());
   check(rowCu && rowCu.uid === 'e66138935f0a1b2c', 'foxlib-c deploy row stamped with the UID from board.json');
@@ -718,7 +718,7 @@ try {
   eq(await app(() => window.foxbench.connected), false, 'unplugging the port disconnects the page');
   check(/serial port dropped/.test(await text('#log')), 'the console says the port dropped');
   // 2. Listen only with a fox-bench PicoFox on the port while the XIAO is selected: the banner is followed, the device swapped.
-  await app(() => window.__fakeSerial.install('console', { uid: 'e4654c16431b2321', callsign: 'KY4ZR TEST', vid: 0x2e8a, pid: 0x000a }));
+  await app(() => window.__fakeSerial.install('console', { uid: 'e4654c16431b2321', callsign: 'W1ABC TEST', vid: 0x2e8a, pid: 0x000a }));
   await page.click('#listenBtn'); await until(() => window.foxbench.boardId === 'picofox-foxlibc' && window.foxbench.device?.kind === 'console', 'the banner to be followed and the device swapped', 15000);
   eq(await app(() => window.foxbench.family), 'foxlib-c', 'family followed the banner');
   check(/banner says picofox-foxlibc: selecting that board/.test(await text('#log')), 'console explains the switch');
@@ -898,22 +898,22 @@ try {
   await page2.click('.rail button[data-tab="id"]'); await page2.fill('#tab-id input[type=text]', 'W9XYZ OTHER TAB'); await page2.waitForTimeout(300);
   check(await untilTextArgs('#log', /another fox-bench tab just saved its form/, 5000), 'this tab noticed the other tab\'s save');
   eq(await app(() => window.foxbench._yieldSave), true, 'and yields the saved form');
-  await tab('id'); await page.fill('#tab-id input[type=text]', 'KY4ZR BACK'); await settle(300);
+  await tab('id'); await page.fill('#tab-id input[type=text]', 'W1ABC BACK'); await settle(300);
   eq(await app(() => window.foxbench._yieldSave), false, 'an edit here takes the saved form back');
-  eq(await app(() => JSON.parse(localStorage.getItem('fox-bench.working')).cfg.id.callmessage), 'KY4ZR BACK', 'and the saved form is this tab\'s again');
+  eq(await app(() => JSON.parse(localStorage.getItem('fox-bench.working')).cfg.id.callmessage), 'W1ABC BACK', 'and the saved form is this tab\'s again');
   await page2.close();
   // W6: following a banner keeps the form that was there; undoFollow() restores it
   await app(() => window.foxbench.disconnect()); await settle(200);
   await tab('board'); await page.selectOption('#tab-board select', 'seeed_xiao_esp32c3'); await settle(300);
   if (!(await app(() => !!window.__fakeSerial))) await page.addScriptTag({ type: 'module', url: url + 'tests/page/fake-serial.mjs' });   // the page was reloaded since the fixture was loaded
   await page.waitForFunction(() => !!window.__fakeSerial);
-  await app(() => window.__fakeSerial.install('console', { uid: 'e4654c16431b2321', callsign: 'KY4ZR TEST', vid: 0x2e8a, pid: 0x000a }));
+  await app(() => window.__fakeSerial.install('console', { uid: 'e4654c16431b2321', callsign: 'W1ABC TEST', vid: 0x2e8a, pid: 0x000a }));
   await page.click('#listenBtn'); await until(() => window.foxbench.boardId === 'picofox-foxlibc', 'banner follow', 10000);
   check(/the form you had is kept: window\.foxbench\.undoFollow\(\)/.test(await text('#log')), 'the follow says how to get the form back');
   await app(() => window.foxbench.disconnect()); await settle(200);
   await app(() => window.foxbench.undoFollow()); await settle(400);
   eq(await app(() => window.foxbench.boardId), 'seeed_xiao_esp32c3', 'undoFollow restores the board');
-  eq(await app(() => window.foxbench.cfg.id.callmessage), 'KY4ZR BACK', 'and the config');
+  eq(await app(() => window.foxbench.cfg.id.callmessage), 'W1ABC BACK', 'and the config');
   await page.click('#demoBtn'); await settle(600);   // the last section expects the demo to be connected
 
   section('fleet CSV import: round trip, merge by uid+timestamp, rejects named');

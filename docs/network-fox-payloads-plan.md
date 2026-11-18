@@ -84,7 +84,7 @@ the FM-style *playlist* preview area (no) — it shows the four cards only.
 payload:
   kind:        "static" | "rotate" | "morse-name"
   names:       ["WORD1", "WORD2", ...]      rotate: one per cycle (SSID or BLE name), ≤ 32 B each
-  morse_of:    "KY4ZR"                       morse-name: the name on the air is the Morse string ("-.- -.-- ....")
+  morse_of:    "W1ABC"                       morse-name: the name on the air is the Morse string ("-.- -.-- ....")
   code:        { "major": 1234, "minor": 5678 }        BLE: iBeacon fields as a checkpoint / grid code
   eddystone:   { "url": "https://…", "tlm": true }     BLE: Eddystone-URL frame (phone offers to open it),
                                                        Eddystone-TLM (battery mV, temperature, uptime, adv count)

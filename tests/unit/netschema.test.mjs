@@ -13,7 +13,7 @@ test('defaults validate clean for all three templates', () => {
 });
 
 test('wifi-ap: fields in range are taken, out of range fall back to defaults with the key in the status', () => {
-  const r = validate({ net: { ssid: 'KY4ZR FOX', psk: 'foxhunt2026', channel: 6, tx_power_dbm: 8.5, max_clients: 2, mac: 'f2:b0:00:00:00:11' }, schedule: { wake_s: 20, sleep_s: 40, sleep: 'deep' } }, defaults('wifi-beacon'), C3);
+  const r = validate({ net: { ssid: 'W1ABC FOX', psk: 'foxhunt2026', channel: 6, tx_power_dbm: 8.5, max_clients: 2, mac: 'f2:b0:00:00:00:11' }, schedule: { wake_s: 20, sleep_s: 40, sleep: 'deep' } }, defaults('wifi-beacon'), C3);
   assert.equal(r.status, 'ok'); assert.equal(r.cfg.net.mac, 'F2:B0:00:00:00:11'); assert.equal(r.cfg.schedule.sleep, 'deep');
   const b = validate({ net: { ssid: '', psk: 'short', channel: 36, mac: '01:02:03:04:05:06', tx_power_dbm: 12 } }, defaults('wifi-beacon'), C3);
   assert.equal(b.status, 'partial(net.ssid,net.tx_power_dbm,net.psk,net.channel,net.mac)');
@@ -26,8 +26,8 @@ test('5 GHz channels are accepted only on a board with the wifi5 radio', () => {
 });
 
 test('the callsign can be the name on the air; too long for a name turns the option off', () => {
-  const r = validate({ id: { callmessage: 'KY4ZR FOX 3', use_callsign_as_name: true } }, defaults('wifi-beacon'), C3);
-  assert.equal(displayName(r.cfg), 'KY4ZR FOX 3');
+  const r = validate({ id: { callmessage: 'W1ABC FOX 3', use_callsign_as_name: true } }, defaults('wifi-beacon'), C3);
+  assert.equal(displayName(r.cfg), 'W1ABC FOX 3');
   const l = validate({ id: { callmessage: 'K'.repeat(40), use_callsign_as_name: true } }, defaults('wifi-beacon'), C3);
   assert.equal(l.status, 'partial(id.callmessage)'); assert.equal(l.cfg.id.use_callsign_as_name, false); assert.equal(displayName(l.cfg), 'FOXBENCH WiFi Beacon');
 });
@@ -41,7 +41,7 @@ test('ble: uuid shape, major/minor range, adv_min <= adv_max, power steps', () =
 
 test('page checks: hidden SSID is a warning, a missing radio an error, deep sleep an info, the placeholder callsign a warning (an error only as the name on the air)', () => {
   const d = defaults('wifi-beacon');
-  const hid = checks(validate({ net: { hidden: true }, id: { callmessage: 'KY4ZR' }, schedule: { sleep: 'deep' } }, d, C3).cfg, C3).map(i => `${i.level}:${i.key}`);
+  const hid = checks(validate({ net: { hidden: true }, id: { callmessage: 'W1ABC' }, schedule: { sleep: 'deep' } }, d, C3).cfg, C3).map(i => `${i.level}:${i.key}`);
   assert.deepEqual(hid, ['warn:net.hidden', 'info:net.psk', 'info:schedule.sleep']);
   assert.ok(checks(validate({}, d, C3).cfg, C3).some(i => i.level === 'warn' && i.key === 'id.callmessage'), 'placeholder not on the air: a warning');
   assert.ok(checks(validate({ id: { use_callsign_as_name: true } }, d, C3).cfg, C3).some(i => i.level === 'err' && i.key === 'id.callmessage'), 'placeholder as the name on the air: an error');

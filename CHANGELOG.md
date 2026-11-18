@@ -14,6 +14,37 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.18.8 · foxlib 1.10.5 — from the second ESP32-S3 session
+
+- **Fix — BLE advertising refused after a scan on the ESP32** (XIAO
+  ESP32S3, CircuitPython 10.3.2: `_bleio.BluetoothError: Unknown system
+  firmware error: 530`, HCI invalid parameters). Reproduced on the page:
+  Radio up ok, Scan ok, Radio up refused; the plain fox never scans and
+  never saw it, but a sense fox scans before every wake. `BleBeacon.restart()`
+  now tries again after a stop, then with the adapter turned off and on
+  (address and name put back), and says once which one worked; only when
+  both fail is the first refusal the caller's error, which costs that
+  wake and not the fox (`esp32-refuses-to-advertise-after-a-scan-*`,
+  scenario `ble_refuse_after_scan`). Which retry clears it on hardware is
+  runbook Q14.
+- The nRF52840 power-step fallback applies on the nordic port only
+  (`sys.platform`); on the ESP32 it hid the first error behind a second
+  attempt's (`esp32-power-value-refused-is-the-callers-error`; scenarios
+  carry `platform`).
+- **Behavior card: "Seen with"** for a network fox — a phone's Wi-Fi list
+  (wifi-ap), a sniffer only (wifi-probe: the fox asks for a network and
+  answers to nobody), a BLE scanner app (ble; a phone's Bluetooth settings
+  never list a beacon, iOS hides iBeacon frames). The first session spent
+  an hour on a wifi-probe fox that nothing could see.
+- `hw_smoke.py` accepts the catalog's alias build ids
+  (`seeed_xiao_esp32_s3_sense` for the XIAO ESP32S3) without the "board
+  reports …" warning.
+- The author's callsign is out of the code, tests, docs and placeholders:
+  the examples use `W1ABC` (and `W1XYZ` for a second hunter), the
+  placeholder stays `N0CALL`.
+- Runbook: the scanner note under step 9 (restart the phone first; the
+  FOXTEST line as one line for the page console), Q14.
+
 ### Page 0.18.7 — the rail in working order
 
 - **Tabs reordered:** Board → Callsign & ID → Behavior → Radio & pins →

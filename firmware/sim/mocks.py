@@ -79,6 +79,8 @@ def install(scenario):
     cap_ms, stop_after_unkeys, board_names, pin_roles (to know which pin is PTT/LED)."""
     clock = Clock(scenario.get("cap_ms", 600000))
     rec = Recorder()
+    import sys as _sys
+    _sys.platform = scenario.get("platform", "Espressif ESP32-S3")       # what CircuitPython's sys.platform says on the board
     rec.break_module = scenario.get("break_module")
     rec.code_patch = scenario.get("code_patch")          # [old, new]: code.py edited before it runs (a body that raises)
     now_ms = lambda: clock.ns / 1e6
@@ -477,7 +479,15 @@ def install(scenario):
                         ev["_done"] = True; self.pending += ev["write"].encode(); net_event("ble_write", ev["write"])
         rec.ble_buffers = []
         class _Adapter:
-            enabled = False; name = ""; _pending_stop = None; advertising = False
+            name = ""; _pending_stop = None; advertising = False
+            _scanned = False       # scenario ble_refuse_after_scan: start_advertising raises until the adapter is toggled
+            _en = False
+            @property
+            def enabled(self): return self._en
+            @enabled.setter
+            def enabled(self, v):
+                if not v: self._scanned = False; self.advertising = False
+                self._en = v
             _address = Address(bytes(reversed(bytes.fromhex(scenario.get("factory_mac", "7C:DF:A1:00:00:0A").replace(":", "")[:10] + "0c"))))
             @property
             def address(self): return self._address
@@ -500,6 +510,11 @@ def install(scenario):
             def start_advertising(self, data, *, scan_response=b"", connectable=True, interval=0.1, tx_power=0):
                 if len(data) > 31 or len(scan_response) > 31: raise ValueError("Data too large")
                 if self.advertising: raise RuntimeError("Already advertising")      # _bleio raises BluetoothError
+                if self._scanned and scenario.get("ble_refuse_after_scan"):
+                    # the XIAO ESP32S3 (CircuitPython 10.3.2) after a scan from the same adapter: HCI invalid parameters,
+                    # until the adapter is turned off and on (netradio's second try); "restart" = a plain retry clears it
+                    if scenario["ble_refuse_after_scan"] == "restart": self._scanned = False
+                    net_event("adv_refused"); raise RuntimeError("Unknown system firmware error: 530")
                 if scenario.get("ble_power_steps") == "nrf" and tx_power not in (-40, -20, -16, -12, -8, -4, 0, 2, 3, 4, 5, 6, 7, 8):
                     raise RuntimeError("Unknown system firmware error: 7")       # NRF_ERROR_INVALID_PARAM from the SoftDevice
                 # the name: the 0x09 AD structure wherever it sits in the scan response
@@ -520,6 +535,7 @@ def install(scenario):
                 self.advertising = False
                 self._flush(); self._pending_stop = now_ms()
             def start_scan(self, timeout=2, minimum_rssi=-100):
+                self._scanned = True
                 # scenario.world.advertisers: [{name, mac, rssi, from_s, to_s}] -- who is nearby, and when; default: one
                 # neighbour beacon. Entries carry advertisement_bytes (the 0x09 name), as _bleio's ScanEntry does.
                 t0 = clock.ns / 1e9

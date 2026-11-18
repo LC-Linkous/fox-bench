@@ -206,7 +206,7 @@ class BleBeacon(Base):
     the scan response carries the 128-bit service UUID before the name (the name is then cut to 11 bytes)."""
     kind = "ble"
     connectable = False
-    _mac_said = _power_said = None
+    _mac_said = _power_said = _refused_said = None
     service_uuid = None     # netpayload may replace frame() per instance with a callable; restart() calls whichever is there
 
     def setup(self):
@@ -287,9 +287,13 @@ class BleBeacon(Base):
         dbm = c["tx_power_dbm"]
         try:
             self.adapter.start_advertising(self.frame(), tx_power=dbm, **kw)
+            return
         except TypeError:
             self.adapter.start_advertising(self.frame(), **kw)
-        except Exception:
+            return
+        except Exception as e:
+            first = e
+        if _nordic():
             # the nRF SoftDevice takes only its own power steps and refuses the rest (the ESP32 takes any): the
             # nearest one, said once per value. Anything else that failed fails again here and is the caller's.
             near = min(NRF_POWER_DBM, key=lambda s: (abs(s - dbm), s))
@@ -301,6 +305,39 @@ class BleBeacon(Base):
             if near != dbm and self._power_said != dbm:
                 self._power_said = dbm
                 self.notes.append("this chip has no %d dBm BLE step; advertising at %d dBm" % (dbm, near))
+            return
+        # The ESP32 stack refused to start (XIAO ESP32S3, CircuitPython 10.3.2: "Unknown system firmware error: 530",
+        # HCI invalid parameters, after a scan from the same adapter). Two tries: stopped and started again, then the
+        # adapter off and on with the address and name put back. The one that worked is said once; neither = the
+        # caller's error, with the first refusal's text.
+        for step in ("restart", "reset"):
+            try:
+                self.adapter.stop_advertising()
+            except Exception:
+                pass
+            if step == "reset":
+                try:
+                    self.adapter.enabled = False
+                    self.adapter.enabled = True
+                except Exception:
+                    pass
+                self.mac_error = None
+                self._apply_mac()
+                try:
+                    self.adapter.name = self.name
+                except Exception:
+                    pass
+            try:
+                self.adapter.start_advertising(self.frame(), tx_power=dbm, **kw)
+            except Exception as e:
+                last = e
+                continue
+            if self._refused_said != step:
+                self._refused_said = step
+                self.notes.append("BLE start refused (%s: %s); %s" % (first.__class__.__name__, str(first)[:50],
+                                                                      "started on the second try" if step == "restart" else "adapter reset and started"))
+            return
+        raise first
 
     def down(self):
         if not self.is_up:
@@ -336,6 +373,15 @@ class BleBeacon(Base):
             return ":".join("%02X" % x for x in reversed(self.adapter.address.address_bytes))
         except Exception:
             return "?"
+
+
+def _nordic():
+    """The nRF52840 port: its SoftDevice is the one with fixed power steps (sys.platform 'nRF52840')."""
+    try:
+        import sys
+        return "nrf" in sys.platform.lower()
+    except Exception:
+        return False
 
 
 def _wifi_power(wifi, cfg):
