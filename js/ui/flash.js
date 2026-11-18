@@ -53,6 +53,9 @@ export async function runFlash(app, { boardNumber = '' } = {}) {
   if (demo) flasher.demoEsptool.chipName = state.simulateChip || (b.flash.chip === 'esp32c3' ? 'ESP32-C3 (QFN32) (revision v0.4)' : b.flash.chip.toUpperCase().replace(/^ESP32(.)/, 'ESP32-$1'));
   state.busy = true; state.phase = 'starting'; state.progress = 0; state.last = null; notify();
   const log = app.console;
+  // a Listen session whose port went away polls the granted ports and opens the first that matches by USB ids: a board
+  // plugged in with B held matches an ESP32-S3's, and the waiter then held the port esptool was about to open
+  if (app._waiting) { app._stopWaiting(); app.setStatus('Not connected'); log.dim('stopped waiting for the listened board: the flasher needs the port'); }
   log.dim(`flash ${flasher.image.name} → ${b.name}${demo ? ' (demo)' : ''}`);
   if (state.simulate) log.err('SIMULATED flash (test mode): no port is opened and nothing is written to any board');
   let facts = null, error = null;

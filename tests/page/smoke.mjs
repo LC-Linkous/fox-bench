@@ -14,7 +14,7 @@ import { serve } from './serve.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const SHOTS = process.env.SHOTS; if (SHOTS) mkdirSync(SHOTS, { recursive: true });
-const TABS = ['board', 'radio', 'behavior', 'plan', 'id', 'payload', 'schedule', 'deploy', 'bench', 'fleet', 'about'];
+const TABS = ['board', 'id', 'behavior', 'radio', 'plan', 'payload', 'schedule', 'deploy', 'bench', 'fleet', 'about'];   // the rail's order
 
 let failures = 0, sectionName = 'start', sectionStart = Date.now();
 const sections = [];   // {name, failures, ms} — the summary at the end says which areas broke, not just how many checks

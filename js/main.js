@@ -28,8 +28,9 @@ import * as tabDeploy from './ui/deploy.js';
 import * as tabBench from './ui/bench.js';
 import * as tabFleet from './ui/fleet.js';
 import * as tabAbout from './ui/about.js';
+import { state as flashState } from './ui/flash.js';
 
-const VERSION = '0.18.6';
+const VERSION = '0.18.7';
 /** Tab subtitles that read differently per device family (null = the page's original text). */
 const LEDES = { drive: {
   board: 'Which fox is on the bench, open its USB drive (or use the simulated one). The vendor firmware stays; the page writes its files.',
@@ -545,7 +546,7 @@ export const app = {
     this.setStatus(`Listening paused — port gone, waiting for the ${this.board.name} to come back (Disconnect stops)`, 'warn');
     $('#connectBtn').textContent = 'Stop waiting'; $('#listenBtn').hidden = true;
     const tick = async () => {
-      if (this._waiting !== w || w.busy) return;
+      if (this._waiting !== w || w.busy || this.flashBusy?.()) return;
       if (Date.now() - started > LIMIT_MS) { this._stopWaiting(); this.console.dim('stopped waiting for the port after 10 minutes'); this.setStatus('Not connected'); this.changed('disconnect'); return; }
       w.tries++;
       const back = (await SerialLink.granted()).find(p => SerialLink.same(p, port));
@@ -568,7 +569,8 @@ export const app = {
 
 function setFlag(tab, cls) { const f = $(`.rail button[data-tab="${tab}"] .flag`); if (f) f.className = 'flag ' + cls; }
 
-app.showTab = name => showTab(name);       // for a check's "Open <tab>" button (ui/issues.js)
+app.showTab = name => showTab(name);
+app.flashBusy = () => flashState.busy;      // the listen-waiter leaves the ports alone while esptool has one       // for a check's "Open <tab>" button (ui/issues.js)
 export function showTab(name) {
   $$('.rail button').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === name ? 'true' : 'false'));
   $$('.panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + name));

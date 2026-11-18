@@ -121,7 +121,7 @@ export function renderId(root) {
       issueList('id')),
     h('div.card', {}, h('h3', {}, 'On the air'),
       h('dl.kv', {}, h('dt', {}, 'Name'), h('dd.mono', {}, name || '—'), h('dt', {}, 'MAC'), h('dd.mono', {}, app.cfg.net.mac || '—'), h('dt', {}, 'Cycle'), h('dd', {}, `${app.cfg.schedule.wake_s} s on, ${app.cfg.schedule.sleep_s} s ${app.cfg.schedule.sleep === 'deep' ? 'deep sleep' : 'off'}`)),
-      h('p.hint', {}, 'Part 15 devices do not identify in Morse; amateur-radio hunt organisers still like a callsign in the name. Both are one tick away.'))));
+      h('p.hint', {}, 'Part 15 devices do not identify in Morse; amateur-radio hunt organisers still like a callsign in the name. Both are one tick away: the box above puts the callsign on the air; unticked, the name is set on Radio & pins. ', h('button.btn.small', { onclick: () => app.showTab('radio') }, 'Open Radio & pins')))));
 }
 
 /** Schedule tab: the duty cycle and how the fox spends the off time. */

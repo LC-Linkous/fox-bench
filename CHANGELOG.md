@@ -14,6 +14,21 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.18.7 — the rail in working order
+
+- **Tabs reordered:** Board → Callsign & ID → Behavior → Radio & pins →
+  Frequency plan → Payload → Schedule → Deploy. The callsign is the one
+  thing every fox needs before anything else, and on a network fox the
+  template decides what Radio & pins shows, so it comes first now.
+- The Callsign & ID card says where the name is set when the callsign is
+  not used, with an Open Radio & pins button.
+- **Fix — "Failed to execute 'open' on 'SerialPort': The port is already
+  open" when flashing after a Listen session.** A Listen whose board went
+  away keeps polling the granted ports and opens the first one with the
+  same USB ids; a board plugged in with B held matched, and the waiter
+  took the port a second before esptool. Starting a flash stops the
+  waiter, and the waiter leaves the ports alone while a flash runs.
+
 ### Page 0.18.6 · foxlib 1.10.4 — from the first ESP32-S3 session
 
 - **Flash card, step 2 for boards with a CIRCUITPY drive.** The moment to
