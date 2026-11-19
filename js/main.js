@@ -30,7 +30,7 @@ import * as tabFleet from './ui/fleet.js';
 import * as tabAbout from './ui/about.js';
 import { state as flashState } from './ui/flash.js';
 
-const VERSION = '0.18.13';
+const VERSION = '0.18.14';
 /** Tab subtitles that read differently per device family (null = the page's original text). */
 const LEDES = { drive: {
   board: 'Which fox is on the bench, open its USB drive (or use the simulated one). The vendor firmware stays; the page writes its files.',
@@ -100,6 +100,14 @@ export const app = {
   /** The foxlib-c console to send bench commands to: the Listen-only device, or the demo's side console. */
   consoleDevice() { if (this.family !== 'foxlib-c') return null; if (this.device?.kind === 'console') return this.device; return this.sideConsole || null; },
   get vendor() { return this.board.vendor ? this.catalog.vendors[this.board.vendor] : null; },
+  /** A module that only exists on one board (the PicoFox's SI5351, fixed_to_board) cannot follow the form to another
+   *  board: that board's default module instead (ui/radio.js offers only what the board can carry). */
+  _moduleFollowsBoard() {
+    const fixedTo = this.module?.fixed_to_board;
+    if (!fixedTo || fixedTo === this.boardId || this.board.module_fixed || !this.cfg?.radio) return;
+    const def = this.catalog.modules[this.defaults?.module] ? this.defaults.module : Object.keys(this.catalog.modules).find(k => !this.catalog.modules[k].fixed_to_board);
+    if (def) { this.setModule(def); this.console.dim(`board ${this.board.name}: module set to ${this.module.name} (the previous one is part of the ${this.catalog.boards[fixedTo]?.name || fixedTo})`); }
+  },
   /** The foxlib files a template needs on the board (firmware/index.json's sets, from the import graph); every file
    *  for a template the index does not know. A pack template without an entry gets everything too. */
   foxlibFilesFor(templateId, mpy = false) {
@@ -294,6 +302,7 @@ export const app = {
       this.cfg = structuredClone(this.defaults);
       if (prev) { if (this.cfg.id && prev.id) this.cfg.id.callmessage = prev.id.callmessage; if (prev.fleet) this.cfg.fleet = structuredClone(prev.fleet); if (this.family === prevFamily && this.cfg.plan && prev.plan) this.cfg.plan = structuredClone(prev.plan); }
       this.console.dim(`board ${this.board.name}: template switched to ${this.template.name}`);
+      this._moduleFollowsBoard();
       this.changed('board'); await this._rereadIfSwitched(); return;
     }
     this.defaults = await loadDefaults(this.templateId, id);
@@ -309,12 +318,7 @@ export const app = {
       this.cfg.board = id; if (this.defaults.pins) this.cfg.pins = structuredClone(this.defaults.pins);
       if (this.board.module_fixed) { this.cfg.module = this.moduleId; this.cfg.radio = { ...this.cfg.radio, ...structuredClone(this.defaults.radio) }; }
     }
-    const fixedTo = this.module?.fixed_to_board;
-    if (fixedTo && fixedTo !== id && !this.board.module_fixed && this.cfg.radio) {
-      // a module that only exists on one board (the PicoFox's SI5351) cannot follow the form to another: this board's default
-      const def = this.catalog.modules[this.defaults.module] ? this.defaults.module : Object.keys(this.catalog.modules).find(k => !this.catalog.modules[k].fixed_to_board);
-      if (def) { this.setModule(def); this.console.dim(`board ${this.board.name}: module set to ${this.module.name} (the previous one is part of the ${this.catalog.boards[fixedTo]?.name || fixedTo})`); }
-    }
+    this._moduleFollowsBoard();
     this._applyVariant();
     this.changed('board'); await this._rereadIfSwitched();
   },

@@ -14,6 +14,19 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.18.14 · foxlib 1.10.10 — an audit of 0138–0141
+
+- **foxlib: the watchdog timeout covers a deep sleep.** A nordic watchdog
+  in RESET mode cannot be stopped and keeps counting through System ON
+  sleep, so a network fox with `schedule.sleep = deep` and a sleep longer
+  than 90 s would have been reset mid-sleep (espressif's task watchdog does
+  stop; `guard.disarm()` before the sleep is for it). With a deep sleep the
+  timeout is the sleep plus stealth's jitter plus 60 s; the banner's
+  `watchdog Ns` says which.
+- **Page: a module that belongs to one board follows the form correctly**
+  on the path where switching boards also switches the template (PicoFox →
+  a bare board); it fell back only on the other path.
+
 ### Page 0.18.13 · foxlib 1.10.9 — foxlib precompiled (.mpy), a Deploy checkbox
 
 The lever for the C3's `MemoryError`: a board compiles each `.py` on

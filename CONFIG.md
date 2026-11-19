@@ -410,7 +410,9 @@ connected to. It keeps the last reason in `microcontroller.nvm[1]`; Re-read
 board shows it.
 
 A network fox has no `limits` section: the hardware watchdog is always armed
-at 90 s when the cycle loop starts (foxlib 1.10.6; `netfox.WATCHDOG_S`) so a
+at 90 s when the cycle loop starts (foxlib 1.10.6; `netfox.WATCHDOG_S`; with
+`schedule.sleep = deep`, long enough to sleep through, since a nordic watchdog
+cannot be stopped once armed) so a
 fox that hangs in the field — the SoC's radio stack, a console write with
 nobody reading — resets instead of staying silent until someone power-cycles
 it; `safemode.py` brings it back as for an FM fox. It is switched off before

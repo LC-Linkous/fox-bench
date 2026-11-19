@@ -783,6 +783,7 @@
      "deep_sleep": 1
     },
     "prints_contain": [
+     "watchdog 90s",
      "deep sleep 20 s",
      "woke from deep sleep"
     ]
@@ -2546,6 +2547,36 @@
     ]
    },
    "cp_board_id": "seeed_xiao_esp32c3"
+  },
+  {
+   "name": "deep-sleep-longer-than-the-watchdog",
+   "_doc": "a deep sleep longer than WATCHDOG_S: the timeout covers the sleep plus the jitter and a margin, since a nordic watchdog in RESET mode cannot be stopped and keeps counting through the sleep",
+   "stop_after_unkeys": 1,
+   "cap_ms": 400000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "schedule": {
+     "sleep": "deep",
+     "wake_s": 10,
+     "sleep_s": 200
+    },
+    "stealth": {
+     "enabled": true,
+     "duty_jitter_s": 15
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "ok"
+    },
+    "keyed_min": 1,
+    "prints_contain": [
+     "watchdog 275s",
+     "deep sleep"
+    ]
+   }
   }
  ],
  "wifi-probe": [

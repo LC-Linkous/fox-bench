@@ -28,6 +28,19 @@ except Exception:
 
 WATCHDOG_S = 90           # the hardware watchdog while the fox runs: a hang (the SoC's radio stack, a stuck console)
                           # resets the board instead of ending the hunt; safemode.py brings it back (guard.py)
+DEEP_SLEEP_MARGIN_S = 60  # with schedule.sleep = deep the timeout covers the sleep too: a nordic watchdog in RESET mode
+                          # cannot be stopped and keeps counting through System ON sleep (espressif's task watchdog
+                          # does stop; guard.disarm() before the sleep is for it)
+
+
+def watchdog_s(cfg):
+    """The watchdog timeout for this schedule: WATCHDOG_S, or long enough to sleep through where the sleep is deep
+    (the sleep, stealth's jitter on it, and a margin)."""
+    s = cfg["schedule"]
+    if s.get("sleep") != "deep":
+        return WATCHDOG_S
+    st = cfg.get("stealth") or {}
+    return max(WATCHDOG_S, int(s["sleep_s"]) + int(st.get("duty_jitter_s") or 0) + DEEP_SLEEP_MARGIN_S)
 
 
 def trace_on():
@@ -299,7 +312,7 @@ class NetFox:
                 self.led.hold(20000, "fatal")
             return
         n = 0
-        self.log("watchdog %s" % guard.arm(WATCHDOG_S))
+        self.log("watchdog %s" % guard.arm(watchdog_s(self.cfg)))
         try:
             while True:
                 guard.feed()
