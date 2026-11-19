@@ -14,6 +14,34 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.18.11 · foxlib 1.10.7 — the C3 crash found: the radio stack starved of RAM
+
+The boot trace from 0.18.10 answered Q15 on the first try. The last line
+before the board reset was `init: ble workflow switched off (free 46704)`:
+the next step is `import wifi`, and 46 kB free at the *start* of `NetFox`
+is the tell. CircuitPython's Python heap on the espressif ports grows into
+the same RAM the Wi-Fi driver takes at `esp_wifi_init` (which `import
+wifi` runs) and the BLE stack already holds; by then foxlib's imports had
+grown the heap from 121 kB free to 46 kB, the init failed, and
+`ESP_ERROR_CHECK` rebooted the chip — then `safemode.py` reset it back into
+the same crash, fifty times, five seconds apart, with no way to connect.
+
+- **foxlib: `foxlib/__init__.py` no longer imports the FM stack** (radio,
+  tones, SSTV, melody, battery, schedule, cycle — some 40 kB of source
+  compiled on the board) when the package is imported; the first `Fox`
+  built imports it. A network fox, which reaches `netfox` through that
+  file, no longer pays for it. `foxlib.Fox(...)` and every FM template are
+  unchanged.
+- **foxlib: `netfox` imports `wifi` and `_bleio` first**, before any of its
+  own modules, so the radio stacks take their RAM while the heap is small;
+  `gc.collect()` before init.
+- **safemode.py: a crash in CircuitPython itself** (HARD_FAULT, NO_HEAP,
+  STACK_OVERFLOW …) is reset at most 3 times in a row before the board is
+  left in safe mode, where the bench can connect; brownouts and watchdog
+  bites keep the 50. The last reason is kept in `nvm[1]`, and **Re-read
+  board shows it** ("Safe mode: 3 resets in a row — last reason
+  HARD_FAULT") with what to do. Host test `firmware/sim/test_safemode.py`.
+
 ### Page 0.18.10 · foxlib 1.10.6 — the network fox audited after the C3 hang
 
 The bare XIAO ESP32-C3 (two boards, CircuitPython 10.2.1/10.3.1/10.3.2)

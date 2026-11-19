@@ -13,7 +13,18 @@
 
 import board
 import microcontroller
-from . import cfg as _cfg, radio as _radio, tones, melody, sstv, battery, schedule, led, cycle, guard
+from . import guard
+
+# The FM stack (radio, tones, SSTV, melody, battery, schedule, cycle) is imported when the first Fox is built, not when
+# the package is: a network fox imports `foxlib.netfox` through this file and must not pay for modules it never uses
+# (foxlib 1.10.7 -- on the ESP32-C3 those imports grew the Python heap until the Wi-Fi driver could not get its RAM).
+# No placeholders here: a package attribute that already exists would satisfy `from . import led` without importing.
+
+
+def _fm():
+    global _cfg, _radio, tones, melody, sstv, battery, schedule, led, cycle
+    if "_cfg" not in globals():
+        from . import cfg as _cfg, radio as _radio, tones, melody, sstv, battery, schedule, led, cycle
 
 try:
     __version__ = open(__file__.rsplit("/", 1)[0] + "/VERSION").read().strip()
@@ -23,6 +34,7 @@ except Exception:
 
 class Fox:
     def __init__(self, path="fox.json", defaults="defaults.json", version="?", quiet=False):
+        _fm()
         self.quiet = quiet
         if quiet:
             guard.disarm()        # a bench session: never under a watchdog a previous code.py may have armed

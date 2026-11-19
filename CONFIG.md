@@ -389,6 +389,13 @@ not fit falls back to the defaults file, reported in the banner as
 | `led.enabled` | bool | status LED: 900/100 ms blink while the radio is up, a double flash every 2 s when unconfigured |
 | `fleet.*` | | as the FM contract |
 
+`safemode.py` resets the board back into a normal boot after a brownout or
+a watchdog bite, up to 50 times in a row, but after a crash inside
+CircuitPython itself (`HARD_FAULT`, `NO_HEAP`, `STACK_OVERFLOW` …) only 3
+times: a crash repeats, and a board resetting every five seconds cannot be
+connected to. It keeps the last reason in `microcontroller.nvm[1]`; Re-read
+board shows it.
+
 A network fox has no `limits` section: the hardware watchdog is always armed
 at 90 s when the cycle loop starts (foxlib 1.10.6; `netfox.WATCHDOG_S`) so a
 fox that hangs in the field — the SoC's radio stack, a console write with

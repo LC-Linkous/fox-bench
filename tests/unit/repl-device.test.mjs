@@ -187,3 +187,12 @@ test('a board with a CIRCUITPY drive: read-only until the filesystem is the boar
   await s.writeText('fox.json', '{}');
   for (const b of [held, ejected, set]) await b.close();
 });
+
+test('identify reads safemode.py\'s count and last reason from nvm (erased flash = nothing to show)', async () => {
+  let { d } = await mk({ nvm: '255 255' });
+  let info = await d.identify(); assert.equal(info.safeResets, 0); assert.equal(info.safeReason, null);
+  ({ d } = await mk({ nvm: '3 3' }));
+  info = await d.identify(); assert.equal(info.safeResets, 3); assert.equal(info.safeReason, 'HARD_FAULT');
+  ({ d } = await mk({ nvm: '0 1' }));
+  info = await d.identify(); assert.equal(info.safeResets, 0); assert.equal(info.safeReason, 'BROWNOUT');
+});

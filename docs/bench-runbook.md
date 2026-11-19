@@ -42,7 +42,7 @@ decides something in code or in the catalog. Write the answers into
 | Q10 | Does a shell-game fox survive a battery swap? | battery-only power cycle: `the board clock is unset; keeping seat N's identity` | whether shell-game foxes need re-deploying after a swap, or an RTC board |
 | Q12 | Is the configured MAC the one on the air? | per kind: wifi-beacon's BSSID in the analyser, wifi-probe's source MAC in the sniffer's lines, ble-beacon's address in nRF Connect, each against the `… up: NAME (MAC)` line; and whether the console has `note: MAC … was asked for, the radio reports …`. On Wi-Fi also: does the chip's own address (the Board tab's, `7C:…`-style) ever show beside the fox's name? | the MAC sequence in `netradio.py` (radio stopped, mode on, set, start) — new in 1.10.3 and never run on a board; MAC rotation and the shell game depend on it |
 | Q14 | Does the ESP32 still refuse to advertise after a scan, and which retry clears it? | ble-beacon with `sense.tags` on (a scan before every wake), or Bench → Scan then Radio up: with foxlib 1.10.5 the console says `note: BLE start refused (…530); started on the second try` or `… adapter reset and started`, once, and the beacon is on the air. 2026-11-18, XIAO ESP32S3, CircuitPython 10.3.2: reproduced on the page — Radio up ok, Scan ok, Radio up → `Unknown system firmware error: 530` | which retry stays in `netradio.py`; whether sense costs an adapter reset per wake |
-| Q15 | Where does the bare ESP32-C3 hang when a network template starts? | Deploy with *Trace the boot* on (page 0.18.10, foxlib 1.10.6): the console shows `init: …` lines before the banner; the last one is the step that hangs. 2026-11-18/19, two XIAO ESP32-C3s, CircuitPython 10.2.1/10.3.1/10.3.2: every network template hangs hard before the banner (no Ctrl-C, miniterm freezes), morse-songs runs, and at the REPL `import wifi`, `wifi.radio.enabled`, `start_ap("FOXTEST", "")` and `tx_power` all work. See *3a* below | which of the init steps (BLE workflow off, `import _bleio` beside `wifi`, `alarm`, `netcfg.load`, `wifi.radio.enabled = True`) the C3 cannot do, and whether 1.10.6's changes (workflow off, power after start, watchdog) are enough |
+| Q15 | Where does the bare ESP32-C3 hang when a network template starts? | **Answered 2026-11-19** with the boot trace: `init: ble workflow switched off (free 46704)` was the last line, then the port dropped (a reset). The next step is `import wifi` → `esp_wifi_init`, which could not get its RAM: the Python heap had grown into it (121 kB free at the prompt, 46 kB when `NetFox` started, because `foxlib/__init__.py` imported the whole FM stack on the way to `netfox`). Fixed in foxlib 1.10.7 (FM imports lazy, `wifi`/`_bleio` imported first). The hang was a reboot loop: the crash → safe mode → `safemode.py` reset → crash again, 50 × 5 s; safemode.py now stops after 3 crashes | re-test wifi-beacon on the C3 with 1.10.7 (trace on): the banner, then the four templates |
 | Q13 | Which BLE powers does the nRF52840 take? | ble-beacon at 9 dBm on the Nano 33 BLE: `note: this chip has no 9 dBm BLE step; advertising at 8 dBm` and the beacon is on the air | the BLE power steps the page offers per chip |
 
 ## 1. PicoFox re-run (foxlib-c 0.1.11 / page 0.12.0)
@@ -226,10 +226,22 @@ What two bare XIAO ESP32-C3s did, so the next session does not repeat it:
   other was bare with the u.FL antenna; one is known to carry 2.4 GHz
   packets for another project.
 
-Next attempt, in this order: deploy wifi-beacon from page 0.18.10 with
-*Trace the boot* ticked and read the last `init:` line; if the banner now
-appears, run the four templates and close the row; if it still hangs, the
-last trace line is the answer to Q15 and goes into `docs/hardware-log.md`.
+**2026-11-19, with the trace (page 0.18.10):** `init: start seeed_xiao_esp32c3
+(free 46832)`, `init: ble workflow switched off (free 46704)`, then
+`serial port dropped` — the chip reset at `import wifi`. 46 kB free at the
+start of `NetFox` against 121 kB at a bare prompt is the whole story: on the
+espressif ports the Python heap grows into the RAM the Wi-Fi driver needs at
+`esp_wifi_init`, and foxlib's imports (the FM stack through
+`foxlib/__init__.py`, then the net modules, all compiled from source on the
+board) had taken it. `esp_wifi_init` failed under `ESP_ERROR_CHECK` → panic →
+reboot → safe mode → `safemode.py` reset it → the same crash, every 5 s, 50
+times. That loop is why nothing could connect afterwards: the USB port came
+and went with every reset. foxlib 1.10.7 imports the radios first and the FM
+stack only for an FM fox; safemode.py gives up after 3 crashes.
+
+If the C3 still fails with 1.10.7, the trace's `free` numbers say how much
+room is left; the next lever is shipping foxlib as `.mpy` (no on-board
+compile), which is a build-tool change, not a firmware one.
 
 ## The network-fox tick-list (every bare board)
 

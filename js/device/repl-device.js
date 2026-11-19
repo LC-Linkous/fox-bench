@@ -24,6 +24,9 @@ const VERIFY_SNIPPET = "import os, binascii\nc=0\nf=open(PATH,'rb')\nwhile True:
 
 function hexToBytes(hex) { const out = new Uint8Array(hex.length / 2); for (let i = 0; i < out.length; i++) out[i] = parseInt(hex.substr(i * 2, 2), 16); return out; }
 
+// firmware/safemode.py's AUTO_RESET, in order: nvm[1] holds 1 + the index of the last safe mode it reset from
+export const SAFE_REASONS = ['BROWNOUT', 'WATCHDOG', 'HARD_FAULT', 'STACK_OVERFLOW', 'GC_ALLOC_OUTSIDE_VM', 'NLR_JUMP_FAIL', 'INTERRUPT_ERROR', 'SDK_FATAL_ERROR', 'NO_HEAP'];
+
 export class ReplDevice extends Device {
   constructor(link) {
     super(); this.kind = 'repl'; this.transport = 'repl'; this.link = link;
@@ -49,10 +52,15 @@ export class ReplDevice extends Device {
       "print(board.board_id)\n" +
       "print(''.join('%02x' % b for b in microcontroller.cpu.uid))\n" +
       "try:\n print(open('foxlib/VERSION').read().strip())\nexcept Exception:\n print('')\n" +
-      "print(os.uname().release)\n");
-    const [boardId, uid, foxlibVersion, cpVersion] = out.trim().split('\n').map(s => s.trim());
+      "print(os.uname().release)\n" +
+      "try:\n print(microcontroller.nvm[0], microcontroller.nvm[1])\nexcept Exception:\n print('')\n");
+    const [boardId, uid, foxlibVersion, cpVersion, nvm] = out.trim().split('\n').map(s => s.trim());
     const files = await this._list('');
-    return { boardId, uid, foxlibVersion, cpVersion, files };
+    // safemode.py's count of consecutive safe-mode resets (nvm[0]; 255 = never written) and the last reason (nvm[1])
+    const [n0, n1] = (nvm || '').split(/\s+/).map(Number);
+    const safeResets = Number.isFinite(n0) && n0 !== 255 ? n0 : 0;
+    const safeReason = Number.isFinite(n1) && n1 >= 1 && n1 <= SAFE_REASONS.length ? SAFE_REASONS[n1 - 1] : null;
+    return { boardId, uid, foxlibVersion, cpVersion, files, safeResets, safeReason };
   }
 
   async interrupt() { return this._run(() => this.repl.interrupt()); }

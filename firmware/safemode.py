@@ -14,13 +14,19 @@ import time
 import microcontroller
 import supervisor
 
-RESETS_MAX = 50
+RESETS_MAX = 50          # a supply or a hang: keep trying (the field case this file is for)
+CRASH_RESETS_MAX = 3     # a crash in CircuitPython itself: it will crash again; stop early so the bench can get in
 RECOVER_S = 5
 
 # supervisor.SafeModeReason members in CircuitPython 9.2 (shared-bindings/supervisor/SafeModeReason.c) that mean
-# "something went wrong while running"; a name a build lacks is skipped by the getattr below
+# "something went wrong while running"; a name a build lacks is skipped by the getattr below. The first two are
+# the field cases; the rest are crashes, which a reset does not cure -- the ESP32-C3 crashing in esp_wifi_init on
+# every boot (foxlib 1.10.6) looped here fifty times, five seconds apart, with no way to connect in between.
 AUTO_RESET = ("BROWNOUT", "WATCHDOG", "HARD_FAULT", "STACK_OVERFLOW", "GC_ALLOC_OUTSIDE_VM",
               "NLR_JUMP_FAIL", "INTERRUPT_ERROR", "SDK_FATAL_ERROR", "NO_HEAP")
+FIELD = ("BROWNOUT", "WATCHDOG")
+NVM_REASON = 1           # microcontroller.nvm[1]: 1 + index into AUTO_RESET of the last safe mode this file saw
+                         # (the page's Re-read board shows it; guard.healthy() leaves it, nvm[0] is the count)
 
 
 def recovery_enabled():
@@ -41,12 +47,17 @@ elif names:
     n = microcontroller.nvm[0]
     if n == 0xFF:            # erased flash: never written
         n = 0
-    if n < RESETS_MAX:
+    try:
+        microcontroller.nvm[NVM_REASON] = 1 + AUTO_RESET.index(names[0])
+    except Exception:
+        pass
+    limit = RESETS_MAX if names[0] in FIELD else CRASH_RESETS_MAX
+    if n < limit:
         microcontroller.nvm[0] = n + 1
-        print("fox safemode: %s, reset %d of %d in %d s" % (names[0], n + 1, RESETS_MAX, RECOVER_S))
+        print("fox safemode: %s, reset %d of %d in %d s" % (names[0], n + 1, limit, RECOVER_S))
         time.sleep(RECOVER_S)
         microcontroller.reset()
     else:
-        print("fox safemode: %s, %d consecutive resets; staying in safe mode" % (names[0], n))
+        print("fox safemode: %s, %d consecutive resets; staying in safe mode (the board can be connected to now)" % (names[0], n))
 else:
     print("fox safemode: %r; staying in safe mode" % (reason,))

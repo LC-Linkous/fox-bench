@@ -11,6 +11,14 @@
 import time
 import board
 import microcontroller
+# The radio stacks first, before anything else is compiled: on the ESP32-C3 the Python heap grows into the same RAM
+# the Wi-Fi driver (esp_wifi_init, run by `import wifi`) and the BLE stack need, and foxlib's own modules fill it.
+# Imported here they take their share while the heap is small; _radios() below finds them already loaded.
+for _m in ("wifi", "_bleio"):
+    try:
+        __import__(_m)
+    except Exception:
+        pass
 from . import netcfg, netradio, led, netfeatures, netvary, netmodes, guard
 
 try:
@@ -113,6 +121,11 @@ class NetFox:
         self.uid = "".join("%02x" % b for b in microcontroller.cpu.uid)
         self.trace = trace_on() and not quiet
         t = _trace if self.trace else (lambda step: None)
+        try:
+            import gc
+            gc.collect()                   # the import garbage goes before the radio takes the heap it needs
+        except Exception:
+            pass
         t("start %s" % self.board_id)
         self.workflow_note = self._quiet_workflow()      # CircuitPython's own BLE advertising off while the fox runs
         t("ble workflow %s" % ("switched off" if self.workflow_note else "already off"))

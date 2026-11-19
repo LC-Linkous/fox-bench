@@ -141,7 +141,7 @@ export class FakeBoard extends Link {
     const J = s => JSON.parse(s);
     let m;
     if (code.startsWith('import board, microcontroller, os')) {
-      const v = this.fs.get('foxlib/VERSION'); return { out: `${this.identity.boardId}\n${this.identity.uid}\n${v ? dec.decode(v).trim() : ''}\n${this.identity.release}\n` };
+      const v = this.fs.get('foxlib/VERSION'); return { out: `${this.identity.boardId}\n${this.identity.uid}\n${v ? dec.decode(v).trim() : ''}\n${this.identity.release}\n${this.o.nvm || '255 255'}\n` };
     }
     if ((m = code.match(/^import os\nfor n in os\.listdir\(("[^"]*")\)/))) {
       const dir = J(m[1]).replace(/^\//, ''); const prefix = dir ? dir + '/' : '';
