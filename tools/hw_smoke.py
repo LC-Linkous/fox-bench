@@ -143,6 +143,9 @@ class Repl:
 
     def write_file(self, path, data):
         if isinstance(data, str): data = data.encode()
+        # a Windows checkout (core.autocrlf) hands over CRLF source: the board gets LF, as the page deploys it, so a
+        # recording made there replays against a Linux checkout (and the files on the board are the same bytes either way)
+        if path.endswith((".py", ".json", ".txt")) and b"\r\n" in data: data = data.replace(b"\r\n", b"\n")
         self.exec("f=open(%r,'wb')" % path)
         for i in range(0, len(data), 384):
             self.exec("f.write(%r)" % data[i:i + 384])
@@ -418,6 +421,8 @@ def main():
                "exchanges": recording}
         json.dump(rec, open(a.record, "w"), indent=0)
         print("recorded %d exchanges to %s" % (len(recording), a.record))
+        if any(x.get("ok") is False for x in report["templates"].values()):
+            print("  (a template failed in this run: a recording replays its failure, so commit this file only from a run where every template passed)")
     print("\n%-14s %-5s %6s %7s %8s %6s %-8s" % ("template", "ok", "boot s", "import", "free B", "rssi", "key"))
     for tid, res in report["templates"].items():
         print("%-14s %-5s %6s %7s %8s %6s %-8s" % (tid, "skip" if res.get("ok") is None else "ok" if res.get("ok") else "FAIL", res.get("boot_s", ""), res.get("import_s", ""), res.get("mem_free_with_fox", ""), str(res.get("rssi", ""))[:6], res.get("key", res.get("error", "")[:30] if not res.get("ok") else "")))

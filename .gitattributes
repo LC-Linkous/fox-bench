@@ -1,0 +1,10 @@
+# Every text file is LF in the repository and in the working tree, on every platform: the firmware goes onto boards
+# byte for byte, hw_smoke.py recordings replay across checkouts, and the page is served as committed. A Windows clone
+# made before this file exists is renormalized with: git add --renormalize . && git commit
+* text=auto eol=lf
+*.uf2 binary
+*.bin binary
+*.png binary
+*.jpg binary
+*.wav binary
+*.woff2 binary

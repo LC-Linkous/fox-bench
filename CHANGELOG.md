@@ -14,6 +14,20 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.18.9 — recordings from a Windows checkout
+
+- **Fix — CI's replay of the S3 recording failed with the code green.**
+  The recording was made on a Windows checkout, where git had turned the
+  firmware's line endings to CRLF: the replay could not match those
+  writes, found the LF copy that `hw_smoke.py` wrote back at the end of
+  the run, and jumped three templates ahead, so ble-beacon was judged by
+  the wrong boot. The replay no longer searches past the next recorded
+  reboot; `hw_smoke.py` writes LF to the board whatever the checkout; and
+  `.gitattributes` keeps every text file LF on every platform (a Windows
+  clone made before it: `git add --renormalize . && git commit`).
+- `hw_smoke.py` says, when it writes a recording from a run with a failed
+  template, that the file is not one to commit.
+
 ### Page 0.18.8 · foxlib 1.10.5 — from the second ESP32-S3 session
 
 - **Fix — BLE advertising refused after a scan on the ESP32** (XIAO

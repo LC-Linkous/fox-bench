@@ -139,6 +139,11 @@ class Replay:
         dbg = os.environ.get("REPLAY_DEBUG")
         for i in range(self.cursor, len(self.ex)):
             e = self.ex[i]
+            # a command issued before a reboot cannot be the recording's exchange after the next recorded reboot: the
+            # forward search stops there (a file written with CRLF on a Windows checkout and restored with LF at the
+            # end of the run matched the restore's write and skipped three templates' boots, 2026-11-18)
+            if kind != "reboot" and e["kind"] == "reboot" and not self.used[i]:
+                break
             if not self.used[i] and match(e):
                 if dbg: sys.stderr.write("take %d %s %s\n" % (i, kind, (cmd or "")[:50].replace("\n", "|")))
                 self.used[i] = True; self.cursor = i + 1; return e
