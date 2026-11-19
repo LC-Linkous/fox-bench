@@ -239,9 +239,13 @@ times. That loop is why nothing could connect afterwards: the USB port came
 and went with every reset. foxlib 1.10.7 imports the radios first and the FM
 stack only for an FM fox; safemode.py gives up after 3 crashes.
 
-If the C3 still fails with 1.10.7, the trace's `free` numbers say how much
-room is left; the next lever is shipping foxlib as `.mpy` (no on-board
-compile), which is a build-tool change, not a firmware one.
+**With 1.10.7** the crash is gone and the failure is honest: `MemoryError:
+memory allocation failed, allocating 3645 bytes` compiling `netcfg.py` —
+the radio stacks are up, the heap left cannot compile a 24 kB module. That
+is what `.mpy` is for: page 0.18.13's Deploy → *Precompiled (.mpy)* (after
+`python3 tools/build_mpy.py` has built the 10.x set). Next C3 attempt:
+trace on, precompiled on, wifi-beacon; the `free` numbers in the `init:`
+lines against the source run's are the measurement either way.
 
 ## The network-fox tick-list (every bare board)
 

@@ -30,7 +30,7 @@ import * as tabFleet from './ui/fleet.js';
 import * as tabAbout from './ui/about.js';
 import { state as flashState } from './ui/flash.js';
 
-const VERSION = '0.18.12';
+const VERSION = '0.18.13';
 /** Tab subtitles that read differently per device family (null = the page's original text). */
 const LEDES = { drive: {
   board: 'Which fox is on the bench, open its USB drive (or use the simulated one). The vendor firmware stays; the page writes its files.',
@@ -102,18 +102,29 @@ export const app = {
   get vendor() { return this.board.vendor ? this.catalog.vendors[this.board.vendor] : null; },
   /** The foxlib files a template needs on the board (firmware/index.json's sets, from the import graph); every file
    *  for a template the index does not know. A pack template without an entry gets everything too. */
-  foxlibFilesFor(templateId) {
-    const set = this.catalog.foxlibSets[this.catalog.templateSets[templateId]];
-    return set || this.catalog.foxlibFiles;
+  foxlibFilesFor(templateId, mpy = false) {
+    const set = this.catalog.foxlibSets[this.catalog.templateSets[templateId]] || this.catalog.foxlibFiles;
+    return mpy ? set.map(n => n.replace(/\.py$/, '.mpy')) : set;
   },
   /** foxlib files a template needs that the board does not have (from the last read). */
-  foxlibMissingFor(templateId, lib = this.onBoard.libFiles || {}) {
-    return this.foxlibFilesFor(templateId).filter(n => !lib[n] || lib[n].size <= 0);
+  foxlibMissingFor(templateId, lib = this.onBoard.libFiles || {}, mpy = false) {
+    return this.foxlibFilesFor(templateId, mpy).filter(n => !lib[n] || lib[n].size <= 0);
   },
-  /** foxlib files on the board that a template does not need: Deploy removes them (a board looks like what it is). */
-  foxlibStaleFor(templateId, lib = this.onBoard.libFiles || {}) {
-    const need = new Set(this.foxlibFilesFor(templateId));
+  /** foxlib files on the board that a template does not need: Deploy removes them (a board looks like what it is). A
+   *  .py beside the .mpy of a precompiled deploy is stale too — CircuitPython would import the .py first. */
+  foxlibStaleFor(templateId, lib = this.onBoard.libFiles || {}, mpy = false) {
+    const need = new Set(this.foxlibFilesFor(templateId, mpy));
     return Object.keys(lib).filter(n => !need.has(n)).sort();
+  },
+  /** The precompiled set for the connected board's CircuitPython major, with why there is none: Deploy's checkbox. */
+  mpySetFor(cpVersion) {
+    const majors = Object.keys(this.catalog.mpySets);
+    if (!majors.length) return { set: null, why: 'no precompiled set on this site (python3 tools/build_mpy.py)' };
+    const major = (cpVersion || '').split('.')[0];
+    const set = this.catalog.mpySets[major] || (!cpVersion && majors.length === 1 ? this.catalog.mpySets[majors[0]] : null);
+    if (!set) return { set: null, major, why: cpVersion ? `no precompiled set for CircuitPython ${major}.x (sets: ${majors.join(', ')})` : 'connect a board to know its CircuitPython major' };
+    if (set.foxlib !== this.catalog.foxlibVersion) return { set: null, major, why: `the ${major}.x set is foxlib ${set.foxlib}, this page has ${this.catalog.foxlibVersion}: rebuild it (python3 tools/build_mpy.py)` };
+    return { set, major: major || majors[0] };
   },
   /** Templates that apply to a family. */
   /** The target a CircuitPython board_id belongs to: its own target when one has that id, otherwise the foxlib target whose
@@ -508,8 +519,9 @@ export const app = {
     const template = code?.match(/fox-bench template: ([\w-]+)/)?.[1] || (code ? 'other' : null);
     // complete = every file the board's own template needs (or the selected one's, when the board runs none)
     const judge = template && this.catalog.templates[template] ? template : this.templateId;
-    const foxlibMissing = this.foxlibMissingFor(judge, libFiles);
-    this.onBoard = { cfg: null, raw: null, foxlibVersion: fv, foxlibMissing, foxlibComplete: !!fv && foxlibMissing.length === 0, files, libFiles, template };
+    const mpy = Object.keys(libFiles).some(n => n.endsWith('.mpy'));        // a precompiled install (tools/build_mpy.py)
+    const foxlibMissing = this.foxlibMissingFor(judge, libFiles, mpy);
+    this.onBoard = { cfg: null, raw: null, foxlibVersion: fv, foxlibMissing, foxlibComplete: !!fv && foxlibMissing.length === 0, files, libFiles, template, mpy };
     if (fv && foxlibMissing.length) this.console.err(`foxlib on the board is incomplete for ${judge} (missing ${foxlibMissing.join(', ')}); Deploy will reinstall it`);
     this.setStatus(`${d.kind === 'demo' ? 'Demo · ' : ''}${this.info.boardId} · uid ${this.info.uid.slice(-6)}${fv ? ' · foxlib ' + fv : ' · no fox firmware'}`, d.kind === 'demo' ? 'demo' : 'ok');
     const raw = await d.readText('fox.json');

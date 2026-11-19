@@ -237,6 +237,7 @@ def main():
     ap.add_argument("--no-restore", action="store_true", help="leave the last template on the board instead of restoring what was there")
     ap.add_argument("--report", help="JSON report path (default: hw_smoke-<uid>-<time>.json in the current directory)")
     ap.add_argument("--sniffer", help="port of a second board running tools/sniffer/code.py; verifies wifi-probe by what went over the air")
+    ap.add_argument("--mpy", action="store_true", help="write foxlib precompiled (.mpy, firmware/mpy/<CircuitPython major>/, tools/build_mpy.py) instead of the sources; the sources on the board are removed as stale")
     ap.add_argument("--trace", action="store_true", help="network foxes: write settings.toml with FOX_TRACE = 1 so every init step is printed before the banner (a board that hangs on the way up shows where); removed again at the end unless --no-restore")
     ap.add_argument("--record", help="write every REPL exchange of this run to FILE (JSON) for firmware/sim/pty_board.py --replay")
     ap.add_argument("-v", "--verbose", action="store_true")
@@ -303,10 +304,22 @@ def main():
     # graph; tools/foxlib_deps.py), the rest of foxlib on the board removed as stale -- as the page's Deploy does
     sets, tsets = idx.get("foxlib_sets") or {}, idx.get("template_sets") or {}
     need = sorted({f for t in templates for f in sets.get(tsets.get(t, ""), idx["foxlib"])})
-    print("writing foxlib %s (%d of %d files: %s) …" % (foxlib_version, len(need), len(idx["foxlib"]), "+".join(sorted({tsets.get(t, "all") for t in templates}))), end="", flush=True)
+    lib_dir = os.path.join(ROOT, "firmware/foxlib")
+    if a.mpy:
+        # the precompiled set for the board's CircuitPython major (tools/build_mpy.py); VERSION stays a source file
+        major = cp_release.split(".")[0]
+        mdir = os.path.join(ROOT, "firmware/mpy", major)
+        if not os.path.exists(os.path.join(mdir, "manifest.json")):
+            raise SystemExit("--mpy: no precompiled set for CircuitPython %s.x (python3 tools/build_mpy.py)" % major)
+        man = json.load(open(os.path.join(mdir, "manifest.json")))
+        if man["foxlib"] != foxlib_version:
+            raise SystemExit("--mpy: firmware/mpy/%s is foxlib %s, the repo has %s (rebuild it)" % (major, man["foxlib"], foxlib_version))
+        need = [n[:-3] + ".mpy" if n.endswith(".py") else n for n in need]
+    print("writing foxlib %s (%d of %d files: %s%s) …" % (foxlib_version, len(need), len(idx["foxlib"]), "+".join(sorted({tsets.get(t, "all") for t in templates})), ", precompiled .mpy" if a.mpy else ""), end="", flush=True)
     r.mkdir("foxlib")
     for name in need:
-        r.write_file("foxlib/" + name, open(os.path.join(ROOT, "firmware/foxlib", name), "rb").read())
+        src = os.path.join(mdir, "foxlib", name) if a.mpy and name.endswith(".mpy") else os.path.join(lib_dir, name)
+        r.write_file("foxlib/" + name, open(src, "rb").read())
     for name in idx.get("root", []):           # safemode.py, beside code.py
         r.write_file(name, open(os.path.join(ROOT, "firmware", name), "rb").read())
         print(".", end="", flush=True)

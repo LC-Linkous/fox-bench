@@ -1,0 +1,4 @@
+{
+ "10": "10.3.2",
+ "_": "CircuitPython tag whose mpy-cross builds each major's set (tools/build_mpy.py); a .mpy loads on any build of the same major"
+}

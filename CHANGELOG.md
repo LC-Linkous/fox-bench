@@ -14,6 +14,34 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.18.13 · foxlib 1.10.9 — foxlib precompiled (.mpy), a Deploy checkbox
+
+The lever for the C3's `MemoryError`: a board compiles each `.py` on
+import, and the compiler's peak heap is several times the source — more
+than the C3 has left beside its Wi-Fi and BLE stacks. A `.mpy` is the
+bytecode: no compile, about a third of the size on flash (70 kB for all of
+foxlib against 180 kB of source).
+
+- **Deploy: "Precompiled (.mpy)"** writes `foxlib/*.mpy` (the template's
+  set, `VERSION` as it is) instead of the sources, and removes any `.py`
+  beside them — CircuitPython imports the `.py` first when both exist.
+  Unticked writes the sources and removes the `.mpy`, so a board can go
+  back and forth and the boot trace's `free` numbers compared. The box is
+  disabled, with the reason, when the site has no set for the board's
+  CircuitPython major or the set is another foxlib version. Re-read board
+  says "(precompiled .mpy)"; the export zip follows the box.
+- **`tools/build_mpy.py`** builds `firmware/mpy/<major>/foxlib/*.mpy` with
+  CircuitPython's own `mpy-cross` (MicroPython's on PyPI is another
+  dialect), fetched for the tag pinned in `firmware/mpy/pins.json` from
+  Adafruit's S3 as the library bundle is; `--check` (offline) fails CI when
+  a pinned set is missing or older than the sources, `--verify` (online)
+  rebuilds and compares bytes, since `mpy-cross` output is deterministic.
+  **The set is not in this patch** — the sandbox cannot reach S3 — so
+  `python3 tools/build_mpy.py` once after applying, and commit
+  `firmware/mpy/`; CI is red until then.
+- `hw_smoke.py --mpy` writes the precompiled set for the board's major.
+- The simulator keeps running sources; the demo board boots from either.
+
 ### Page 0.18.12 · foxlib 1.10.8 — a board carries the files its template needs
 
 With 1.10.7 the C3 stopped crashing and failed honestly instead:

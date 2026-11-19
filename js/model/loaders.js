@@ -35,6 +35,8 @@ export function savePacks(urls) { try { localStorage.setItem('fox-bench.packs', 
 
 export async function loadCatalog() {
   const [boardIds, hwIds, moduleIds, bands, fw] = await Promise.all([get('boards/index.json'), get('hardware/index.json'), get('modules/index.json'), get('bands.json'), get('firmware/index.json')]);
+  // precompiled foxlib sets by CircuitPython major (tools/build_mpy.py writes firmware/mpy/index.json; empty sets until built)
+  const mpy = await get('firmware/mpy/index.json').catch(() => ({ sets: {} }));
   const hardware = Object.fromEntries(await Promise.all(hwIds.map(async id => [id, await get(`hardware/${id}.json`)])));
   const targets = Object.fromEntries(await Promise.all(boardIds.map(async id => [id, await get(`boards/${id}.json`)])));
   const modules = Object.fromEntries(await Promise.all(moduleIds.map(async id => [id, await get(`modules/${id}.json`)])));
@@ -97,7 +99,7 @@ export async function loadCatalog() {
   }
   // foxlibSets / templateSets: the files each entry point needs, from the import graph (tools/foxlib_deps.py). Deploy
   // writes a template's set and removes the rest of foxlib from the board; an index without them writes everything.
-  return { boards, hardware, modules, bands, templates, foxlibFiles: fw.foxlib, foxlibSets: fw.foxlib_sets || {}, templateSets: fw.template_sets || {}, rootFiles: fw.root || [], foxlibVersion, foxlibFeatures: fw.features || [], foxlibcVersion, songLibraries, vendors, packs };
+  return { boards, hardware, modules, bands, templates, foxlibFiles: fw.foxlib, foxlibSets: fw.foxlib_sets || {}, templateSets: fw.template_sets || {}, mpySets: mpy.sets || {}, rootFiles: fw.root || [], foxlibVersion, foxlibFeatures: fw.features || [], foxlibcVersion, songLibraries, vendors, packs };
 }
 
 export async function loadDefaults(templateId, boardId) {
@@ -109,5 +111,7 @@ export async function loadDefaults(templateId, boardId) {
 }
 export const loadTemplateCode = templateId => fetchFrom(templateBase[templateId] || base, `firmware/templates/${templateId}/code.py`, 'text');
 export const loadFoxlibFile = name => get(`firmware/foxlib/${name}`, 'bytes');
+/** A precompiled module (firmware/mpy/<major>/foxlib/<name>.mpy); VERSION comes from the sources. */
+export const loadMpyFile = (major, name) => name === 'VERSION' ? loadFoxlibFile(name) : get(`firmware/mpy/${major}/foxlib/${name}`, 'bytes');
 /** A file that lives beside code.py (firmware/index.json `root`: safemode.py), written with every foxlib install. */
 export const loadRootFile = name => get(`firmware/${name}`, 'bytes');

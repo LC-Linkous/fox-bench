@@ -389,6 +389,13 @@ not fit falls back to the defaults file, reported in the banner as
 | `led.enabled` | bool | status LED: 900/100 ms blink while the radio is up, a double flash every 2 s when unconfigured |
 | `fleet.*` | | as the FM contract |
 
+Deploy's **Precompiled (.mpy)** writes the template's set as bytecode
+(`firmware/mpy/<CircuitPython major>/`, built by `tools/build_mpy.py` with
+that major's `mpy-cross`) instead of the sources: the board skips the
+compile, whose peak heap is several times the source and was more than the
+ESP32-C3 had beside its radio stacks. A `.py` beside a `.mpy` would be
+imported instead, so Deploy removes the other form as stale either way.
+
 What Deploy writes to `foxlib/` is the set of modules the template imports
 (`firmware/index.json` → `foxlib_sets`, derived by `tools/foxlib_deps.py`
 from the import graph); files from another family already on the board are

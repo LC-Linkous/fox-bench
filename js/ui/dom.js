@@ -43,8 +43,8 @@ export function select(options, value, onchange) {
   el.addEventListener('change', () => onchange(el.value));
   return el;
 }
-export function check(label, value, onchange, hint) {
-  const inp = h('input', { type: 'checkbox', checked: value }); inp.addEventListener('change', () => onchange(inp.checked));
+export function check(label, value, onchange, hint, { disabled = false } = {}) {
+  const inp = h('input', { type: 'checkbox', checked: value, disabled }); inp.addEventListener('change', () => onchange(inp.checked));
   return h('label.row.check', {}, inp, h('span', {}, label, hint ? h('span.hint', {}, ' ' + hint) : null));
 }
 export const badge = (text, cls) => h('span.badge' + (cls ? '.' + cls : ''), {}, text);

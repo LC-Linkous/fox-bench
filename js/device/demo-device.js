@@ -47,7 +47,8 @@ export class DemoDevice extends Device {
   _boot() {
     const lines = ['soft reboot', '', 'Auto-reload is off.', 'code.py output:'];
     if (!this.fs.has('code.py')) { lines.push('Code done running.', '', 'Press any key to enter the REPL.'); return lines.join('\n'); }
-    if (!this.fs.has('foxlib/__init__.py')) { lines.push('Traceback (most recent call last):', '  File "code.py", line 8, in <module>', "ImportError: no module named 'foxlib'", '', 'Code done running.'); return lines.join('\n'); }
+    // a .py or the precompiled .mpy, as CircuitPython imports
+    if (!this.fs.has('foxlib/__init__.py') && !this.fs.has('foxlib/__init__.mpy')) { lines.push('Traceback (most recent call last):', '  File "code.py", line 8, in <module>', "ImportError: no module named 'foxlib'", '', 'Code done running.'); return lines.join('\n'); }
     let defaults = null, user = null, cfgStatus;
     try { defaults = JSON.parse(this.dec.decode(this.fs.get('defaults.json'))); } catch { cfgStatus = 'fatal(defaults.json)'; }
     if (defaults) {

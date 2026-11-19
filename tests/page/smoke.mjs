@@ -348,6 +348,33 @@ try {
   check(/freq=146\.565,150/.test(await text('#tab-deploy')), 'board banner carries both frequencies');
   page.on('dialog', d => d.dismiss());
 
+  section('precompiled foxlib (.mpy) on Deploy');
+  {
+    const sets = await app(() => Object.keys(window.foxbench.catalog.mpySets));
+    const box = page.locator('#tab-deploy label.check:has-text("Precompiled (.mpy)") input');
+    page.removeAllListeners('dialog'); page.on('dialog', d => d.accept());      // the override section left a "Deploy anyway?" to confirm
+    await tab('deploy');
+    eq(await box.count(), 1, 'Deploy has the Precompiled (.mpy) checkbox');
+    if (!sets.length) { check(await box.isDisabled(), 'no set on this site: the checkbox is disabled and says so (python3 tools/build_mpy.py builds one)'); }
+    else {
+      check(!(await box.isDisabled()), `a set for CircuitPython ${sets.join(', ')}: the checkbox is enabled on the demo (10.0.0-demo)`);
+      await box.check(); await settle(300);
+      const plan = await app(() => document.querySelector('#tab-deploy').textContent);
+      check(/precompiled \.mpy/.test(plan), 'the plan says the foxlib write is the precompiled set');
+      await page.check('#tab-deploy .gate input'); await app(() => { window.foxbench.lastDeploy = null; });
+      await page.click('#tab-deploy button.btn.primary'); await until(() => !!window.foxbench.lastDeploy, 'the .mpy deploy to finish'); await settle(200);
+      const files = await app(() => Object.keys(window.foxbench.onBoard.libFiles || {}));
+      check(files.includes('__init__.mpy') && files.includes('VERSION') && !files.some(f => f.endsWith('.py')), `the board carries .mpy modules and VERSION, no .py (${files.length} files)`);
+      check(await app(() => !!window.foxbench.lastDeploy?.ok), 'the demo boots from the .mpy set');
+      await box.uncheck(); await settle(300);
+      const plan2 = await app(() => document.querySelector('#tab-deploy').textContent);
+      check(/removed: the precompiled \.mpy/.test(plan2), 'unticked: the plan removes the .mpy and writes the sources');
+      await page.check('#tab-deploy .gate input'); await app(() => { window.foxbench.lastDeploy = null; });
+      await page.click('#tab-deploy button.btn.primary'); await until(() => !!window.foxbench.lastDeploy, 'the source deploy to finish'); await settle(200);
+      check(await app(() => !Object.keys(window.foxbench.onBoard.libFiles || {}).some(f => f.endsWith('.mpy'))), 'back to sources: no .mpy left on the board');
+    }
+  }
+
   section('export deploy set');
   await tab('deploy');
   page.removeAllListeners('dialog'); page.once('dialog', d => d.accept());
