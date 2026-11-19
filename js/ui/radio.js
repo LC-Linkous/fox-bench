@@ -50,6 +50,14 @@ async function probe(btn) {
   render();
 }
 
+/** The modules this board can carry: a module fixed to one board (the PicoFox's SI5351, fixed_to_board) is offered on
+ * that board only; a board with its module built in (module_fixed) offers just that one. */
+export function offeredModules(app) {
+  const all = Object.values(app.catalog.modules);
+  if (app.board.module_fixed) return all.filter(x => x.id === app.board.module_fixed);
+  return all.filter(x => !x.fixed_to_board || x.fixed_to_board === app.boardId);
+}
+
 function render() {
   if (app.isCompiled) return kitsune.renderRadio(root);
   if (app.isNet) return net.renderRadio(root);
@@ -60,7 +68,7 @@ function render() {
   root.replaceChildren(
     h('div.cols', {},
       h('div.card', {}, h('h3', {}, 'Module'),
-        field('Radio module', select(Object.values(app.catalog.modules).map(x => [x.id, x.name]), app.moduleId, id => app.setModule(id)), 'The board doesn\'t know which module is soldered next to it. Ranges below are copied into fox.json so the firmware can refuse out-of-range frequencies.'),
+        field('Radio module', select(offeredModules(app).map(x => [x.id, x.name]), app.moduleId, id => app.setModule(id)), app.board.module_fixed ? 'This board\'s module is part of the board; it cannot be changed.' : 'The board doesn\'t know which module is soldered next to it. Ranges below are copied into fox.json so the firmware can refuse out-of-range frequencies.'),
         h('dl.kv', {}, h('dt', {}, 'Ranges'), h('dd', {}, m.ranges_mhz.map(([a, b]) => `${a}–${b} MHz`).join(' and ')), h('dt', {}, 'Power'), h('dd', {}, `low ${m.power_dbm.low} dBm · high ${m.power_dbm.high} dBm`), h('dt', {}, 'Channel widths'), h('dd', {}, (m.bandwidths_khz || []).join(' / ') + ' kHz')),
         h('div.tools', { style: 'margin-top:12px' },
           h('button.btn', { disabled: !canProbe, onclick: e => probe(e.currentTarget) }, 'Probe fitted band'),

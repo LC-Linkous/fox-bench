@@ -56,6 +56,8 @@ export class ReplDevice extends Device {
   }
 
   async interrupt() { return this._run(() => this.repl.interrupt()); }
+  /** Ctrl-C to the board, outside the queue (a queued operation may be the one waiting on a hung board). */
+  async poke(s = '\r\x03\x03') { return this.repl.poke(s); }
 
   /** Can the board's code write its files? A board with a CIRCUITPY drive gives the filesystem to the computer
    *  (read-only to Python, also with no computer attached) until boot.py remounts it. Returns

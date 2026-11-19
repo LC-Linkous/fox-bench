@@ -18,6 +18,27 @@ try:
 except Exception:
     __version__ = "0"
 
+WATCHDOG_S = 90           # the hardware watchdog while the fox runs: a hang (the SoC's radio stack, a stuck console)
+                          # resets the board instead of ending the hunt; safemode.py brings it back (guard.py)
+
+
+def trace_on():
+    """FOX_TRACE in settings.toml (the Deploy tab's 'Trace the boot', or hw_smoke --trace): every init step is printed
+    before the banner, so a board that hangs on the way up says where. Off by default: nothing before the banner."""
+    try:
+        import os
+        return bool(os.getenv("FOX_TRACE"))
+    except Exception:
+        return False
+
+
+def _trace(step):
+    try:
+        import gc
+        print("init: %s (free %d)" % (step, gc.mem_free()))
+    except Exception:
+        print("init: %s" % step)
+
 
 class Tx:
     """What a template body gets per cycle."""
@@ -60,6 +81,7 @@ class Tx:
                 t0 = time.monotonic_ns()
                 fox._run_hooks("while_up", self.cycle)
                 keep(min(2, left))
+                guard.feed()
                 if time.monotonic_ns() - t0 < 200000000:
                     fox.led.hold(200, None)          # a round that returned at once must not spin
             left = (end - time.monotonic_ns()) // 1000000
@@ -89,13 +111,21 @@ class NetFox:
         self.template_version = version
         self.board_id = getattr(board, "board_id", "unknown")
         self.uid = "".join("%02x" % b for b in microcontroller.cpu.uid)
+        self.trace = trace_on() and not quiet
+        t = _trace if self.trace else (lambda step: None)
+        t("start %s" % self.board_id)
+        self.workflow_note = self._quiet_workflow()      # CircuitPython's own BLE advertising off while the fox runs
+        t("ble workflow %s" % ("switched off" if self.workflow_note else "already off"))
         self.radios = self._radios()
+        t("radios %s" % ",".join(self.radios))
         self.cfg, self.report = netcfg.load(path, defaults, self.board_id, self.radios, dir(board))
+        t("config %s" % (self.report.fatal or "ok"))
         self.fatal = self.report.fatal
         self.radio = None
         self.led = led.Status(None)
         self.name = ""
         self.woke_from_sleep = self._woke()
+        t("alarm %s" % ("woke" if self.woke_from_sleep else "cold"))
         self.features = []
         self.unbuilt = []
         self.hooks = {"before_up": [], "on_up": [], "while_up": [], "after_down": []}
@@ -121,22 +151,48 @@ class NetFox:
         self.override_wake_s = None          # a feature (stealth jitter) may set this cycle's timing in before_up
         self.override_sleep_s = None
         self._mac_said = set()
+        t("led %s" % ("on" if self.led.pin is not None else "none"))
         if not self.fatal:
             try:
+                t("radio %s setup" % c["net"]["kind"])
                 self.radio = netradio.make(c["net"], self.name)
                 self.radio.setup()
+                t("radio %s" % self.radio.status)
             except Exception as e:
                 self.fatal = "hardware(%s:%s)" % (e.__class__.__name__, str(e).replace(" ", "_")[:40])
         if not self.fatal:
+            t("features %s" % ",".join(self.features))
             self.unbuilt = netfeatures.attach(self)          # features without firmware yet, named once in the banner
             st = c.get("stealth") or {}
             if st.get("enabled") and st.get("modes"):
                 netmodes.attach(self)                        # the radio kind per wake (phase H)
             if netvary.wanted(c):
                 netvary.attach(self)                         # channel / probe-list / power draws per wake (phase G)
+            t("features attached")
         else:
             self.unbuilt = []
         self._banner()
+
+    @staticmethod
+    def _quiet_workflow():
+        """CircuitPython's BLE workflow advertises the board as CIRCUITPYxxxx: always on builds without native USB
+        (espressif: CIRCUITPY_USB_DEVICE = 0, so the board boots in discovery mode), and on the others after a
+        double-tap reset. It keeps the BLE stack busy beside the fox's own radio and gives the board away to any
+        scanner. Switched off for this run (supervisor.runtime.ble_workflow; back at the next reset) and any
+        advertising already running is stopped. Returns a note for the banner when it was on, None otherwise."""
+        try:
+            import supervisor
+            if not supervisor.runtime.ble_workflow:
+                return None
+            supervisor.runtime.ble_workflow = False
+        except Exception:
+            return None
+        try:
+            import _bleio
+            _bleio.adapter.stop_advertising()
+        except Exception:
+            pass
+        return "CircuitPython's own BLE advertising (CIRCUITPYxxxx) is off while the fox runs"
 
     @staticmethod
     def _radios():
@@ -209,6 +265,8 @@ class NetFox:
             print("  note: this firmware cannot hide the SSID; it is broadcast")
         for name in self.unbuilt:
             print("  note: %s is accepted but not in foxlib %s yet; the fox runs without it" % (name, __version__))
+        if self.workflow_note:
+            print("  note: %s" % self.workflow_note)
         for name, why in self.failed_features:
             print("** %s failed to load on this board (%s): the fox runs without it **" % (name, why))
         n = guard.resets()
@@ -228,8 +286,10 @@ class NetFox:
                 self.led.hold(20000, "fatal")
             return
         n = 0
+        self.log("watchdog %s" % guard.arm(WATCHDOG_S))
         try:
             while True:
+                guard.feed()
                 self.log("cycle %d" % n)
                 self.override_wake_s = self.override_sleep_s = None
                 self.skip = None
@@ -291,6 +351,7 @@ class NetFox:
 
     def _deep_sleep(self, seconds):
         import alarm
+        guard.disarm()                       # a RESET watchdog must not fire into the sleep
         self.deinit()
         a = alarm.time.TimeAlarm(monotonic_time=time.monotonic() + seconds)
         alarm.exit_and_deep_sleep_until_alarms(a)

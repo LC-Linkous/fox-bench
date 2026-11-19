@@ -5,6 +5,8 @@ import { loadTemplateCode, loadFoxlibFile, loadRootFile } from '../model/loaders
 import { issueItem } from './issues.js';
 
 const BOOT_MARK = 'fox-bench boot.py';      // firmware/boot.py's first comment: a boot.py with it is ours to rewrite
+const TRACE_MARK = '# fox-bench: trace the boot';   // the settings.toml Deploy writes for a boot trace (network foxes); ours to remove
+const TRACE_TOML = TRACE_MARK + ' (foxlib/netfox.py prints every init step before the banner). Remove this file, or untick "Trace the boot" on Deploy, to stop it.\nFOX_TRACE = 1\n';
 import { parseBanner } from '../device/device.js';
 import { airtime, fmtDuration } from '../model/airtime.js';
 import { packImages } from '../audio/sstv.js';
@@ -31,7 +33,9 @@ function recoveryRow() {
   const r = app.deployRecovery, fmOff = app.cfg.limits && app.cfg.limits.recover === false;
   return h('div.row', { style: 'flex-wrap:wrap;gap:6px 12px;align-items:center;margin:6px 0' },
     check('Write safemode.py', r.safemode, v => { Object.assign(r, { safemode: v }); saveRecovery(r); app.changed('deploy'); }, 'the recovery file beside code.py (~2 KB): resets the board out of safe mode after a brownout or a watchdog reset'),
-    fmOff ? h('span.hint', {}, 'not written: recovery is off on the Behavior tab') : !r.safemode ? h('span.hint.warn', {}, 'off: a browned-out board stays in safe mode, silent, until it is power-cycled') : null);
+    fmOff ? h('span.hint', {}, 'not written: recovery is off on the Behavior tab') : !r.safemode ? h('span.hint.warn', {}, 'off: a browned-out board stays in safe mode, silent, until it is power-cycled') : null,
+    app.isNet ? check('Trace the boot', !!r.trace, v => { Object.assign(r, { trace: v }); saveRecovery(r); app.changed('deploy'); }, 'writes settings.toml with FOX_TRACE = 1: the fox prints every step of its start (with the free memory) before the banner, so a board that hangs on the way up shows where. Untick to remove the file again.') : null,
+    app.isNet && r.trace ? h('span.hint', {}, 'on: "init: …" lines before the banner; the fox runs as usual') : null);
 }
 function loadClock() { try { return { enabled: false, source: 'browser', fixed: '', ...JSON.parse(localStorage.getItem(CLOCK_KEY) || '{}') }; } catch { return { enabled: false, source: 'browser', fixed: '' }; } }
 function saveClock(c) { try { localStorage.setItem(CLOCK_KEY, JSON.stringify(c)); } catch {} }
@@ -101,6 +105,8 @@ function plan() {
     if (wantSafemode()) { if (fwNeeded || (app.connected && !ob.files?.[name])) files.push({ path: name, why: 'with foxlib: resets the board out of safe mode after a brownout or watchdog reset', kind: 'root' }); }
     else if (app.connected && ob.files?.[name]) files.push({ path: name, why: 'removed: the recovery file is switched off', kind: 'remove' });
   }
+  if (app.isNet && app.deployRecovery.trace) files.push({ path: 'settings.toml', why: 'trace the boot: FOX_TRACE = 1', kind: 'trace' });
+  else if (app.isNet && app.connected && ob.files?.['settings.toml']) files.push({ path: 'settings.toml', why: 'removed if it is the boot trace Deploy wrote (any other settings.toml is left alone)', kind: 'trace-off' });
   if (!app.connected || ob.template !== app.templateId || fwNeeded) files.push({ path: 'code.py', why: ob.template && ob.template !== app.templateId ? `${ob.template} → ${app.templateId}` : `${app.templateId} ${app.template.version}`, kind: 'code' });
   files.push({ path: 'defaults.json', why: `${app.templateId} defaults for ${app.boardId}`, kind: 'defaults' });
   files.push({ path: 'fox.json', why: 'configuration', kind: 'cfg' });
@@ -121,6 +127,7 @@ async function _exportZip() {
   const cfg = app.validCfg, files = [];
   for (const name of app.catalog.foxlibFiles) files.push({ path: 'foxlib/' + name, data: await loadFoxlibFile(name) });
   if (wantSafemode()) for (const name of app.catalog.rootFiles) files.push({ path: name, data: await loadRootFile(name) });
+  if (app.isNet && app.deployRecovery.trace) files.push({ path: 'settings.toml', data: TRACE_TOML });
   files.push({ path: 'code.py', data: await loadTemplateCode(app.templateId) });
   files.push({ path: 'defaults.json', data: JSON.stringify(app.defaults) });
   files.push({ path: 'fox.json', data: JSON.stringify(cfg, null, 1) });
@@ -171,6 +178,8 @@ async function deploy(btn) {
       if (f.kind === 'foxlib') { await d.mkdir('foxlib'); for (const name of app.catalog.foxlibFiles) await d.writeBytes('foxlib/' + name, await loadFoxlibFile(name)); }
       else if (f.kind === 'root') await d.writeBytes(f.path, await loadRootFile(f.path));
       else if (f.kind === 'remove') await d.remove(f.path);
+      else if (f.kind === 'trace') { const have = await d.readText('settings.toml'); if (have && !have.includes(TRACE_MARK)) log.err('the board has its own settings.toml, left alone: add  FOX_TRACE = 1  to it for the boot trace'); else await d.writeText('settings.toml', TRACE_TOML); }
+      else if (f.kind === 'trace-off') { const have = await d.readText('settings.toml'); if (have && have.includes(TRACE_MARK)) { await d.remove('settings.toml'); log.dim('removed the boot trace (settings.toml)'); } }
       else if (f.kind === 'code') await d.writeText('code.py', await loadTemplateCode(app.templateId));
       else if (f.kind === 'defaults') await d.writeText('defaults.json', JSON.stringify(app.defaults));
       else if (f.kind === 'cfg') await d.writeText('fox.json', JSON.stringify(cfg, null, 1));
@@ -182,8 +191,8 @@ async function deploy(btn) {
     const failedFeature = /\*\* (\w+) failed to load on this board \(([^)]*)\)/.exec(bootLog || '');   // a contest feature the board could not import
     setLast({ bootLog, banner, failedFeature: failedFeature ? `${failedFeature[1]} (${failedFeature[2]})` : null,
       ok: !!banner && banner.cfg === 'ok' && banner.radio === 'ok' && (banner.id === 'set' || banner.id === 'none') && !failedFeature });   // none: a network fox with no callsign on the air
-    const written = Object.fromEntries(files.filter(f => f.kind !== 'remove').map(f => [f.path.replace('/*', ''), { size: 1, dir: f.kind === 'foxlib' }]));
-    const remaining = { ...app.onBoard.files, ...written }; for (const f of files) if (f.kind === 'remove') delete remaining[f.path];
+    const written = Object.fromEntries(files.filter(f => f.kind !== 'remove' && f.kind !== 'trace-off').map(f => [f.path.replace('/*', ''), { size: 1, dir: f.kind === 'foxlib' }]));
+    const remaining = { ...app.onBoard.files, ...written }; for (const f of files) if (f.kind === 'remove' || f.kind === 'trace-off') delete remaining[f.path];
     app.onBoard = { ...app.onBoard, cfg: structuredClone(cfg), raw: JSON.stringify(cfg), template: app.templateId, foxlibVersion: app.catalog.foxlibVersion, foxlibComplete: true, foxlibMissing: [], files: remaining };
     app.info.foxlibVersion = app.catalog.foxlibVersion;
     app.setStatus(`${d.kind === 'demo' ? 'Demo · ' : ''}${app.info.boardId} · uid ${app.info.uid.slice(-6)} · foxlib ${app.catalog.foxlibVersion} · fox running`, d.kind === 'demo' ? 'demo' : 'tx');

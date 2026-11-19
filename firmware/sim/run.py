@@ -61,8 +61,24 @@ def stage(template, board_id, fox_cfg, raw_fox=None):
     return d
 
 
+def settings_toml(d):
+    """What CircuitPython's os.getenv would see from the deploy set's settings.toml: `KEY = value` lines, values
+    unquoted; comments and anything else ignored (enough for FOX_TRACE = 1 and the CIRCUITPY_* keys)."""
+    env = {}
+    try:
+        for line in open(os.path.join(d, "settings.toml")):
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, v = line.split("=", 1)
+            env[k.strip()] = v.strip().strip('"')
+    except OSError:
+        pass
+    return env
+
+
 def boot_dir(d, cap_ms=180000, stop_after_unkeys=2):
-    """Boot an existing deploy set (code.py, defaults.json, fox.json, foxlib/, images) under the mocks.
+    """Boot an existing deploy set (code.py, defaults.json, fox.json, foxlib/, images, settings.toml) under the mocks.
     Returns (rec, err). Used to prove an exported zip is a bootable set."""
     defaults = json.load(open(os.path.join(d, "defaults.json")))
     try:
@@ -70,13 +86,14 @@ def boot_dir(d, cap_ms=180000, stop_after_unkeys=2):
     except Exception:
         fox = {}
     board_id = defaults.get("board")
+    env = settings_toml(d)
     if "net" in defaults:                       # a network fox's deploy set (netcfg contract)
         eff, _ = fwnetcfg.validate(fox, defaults, board_id, ["wifi24", "ble"], NET_BOARD_NAMES)
-        rec = mocks.install({"cap_ms": cap_ms, "stop_after_unkeys": stop_after_unkeys, "pin_roles": {}, "board_id": board_id, "board_names": NET_BOARD_NAMES})
+        rec = mocks.install({"cap_ms": cap_ms, "stop_after_unkeys": stop_after_unkeys, "pin_roles": {}, "board_id": board_id, "board_names": NET_BOARD_NAMES, "env": env})
     else:
         eff, _ = fwcfg.validate(fox, defaults, BOARD_NAMES, board_id)
         rec = mocks.install({"cap_ms": cap_ms, "stop_after_unkeys": stop_after_unkeys, "module_ranges": eff["radio"]["ranges_mhz"],
-                             "pin_roles": eff["pins"], "board_id": board_id, "divider_ratio": eff["battery"]["divider_ratio"], "board_names": BOARD_NAMES})
+                             "pin_roles": eff["pins"], "board_id": board_id, "divider_ratio": eff["battery"]["divider_ratio"], "board_names": BOARD_NAMES, "env": env})
     rec.effective_cfg = eff
     return _exec_in(d, rec)
 
@@ -195,6 +212,11 @@ def check(template, scen, rec, err):
         mode = getattr(getattr(rec, "wdt", None), "mode", None)
         if (mode or "off") != exp["watchdog_end"]:
             fails.append("watchdog %s when code.py ended, want %s" % (mode or "off", exp["watchdog_end"]))
+    if "ble_workflow_end" in exp and getattr(rec, "ble_workflow", None) and rec.ble_workflow() != exp["ble_workflow_end"]:
+        fails.append("supervisor.runtime.ble_workflow is %s at the end, want %s" % (rec.ble_workflow(), exp["ble_workflow_end"]))
+    for needle in exp.get("prints_before_banner", []):      # a trace line must come out before "initializing system"
+        first = next((i for i, p in enumerate(rec.prints) if "initializing system" in p), len(rec.prints))
+        if not any(needle in p for p in rec.prints[:first]): fails.append("%r not printed before the banner" % needle)
     if "nvm0_end" in exp and getattr(rec, "nvm", None) is not None and rec.nvm[0] != exp["nvm0_end"]:
         fails.append("microcontroller.nvm[0] = %d at the end, want %d (safemode.py's count not cleared?)" % (rec.nvm[0], exp["nvm0_end"]))
     if "watchdog_feeds_min" in exp and rec.watchdog_feeds < exp["watchdog_feeds_min"]:

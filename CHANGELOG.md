@@ -14,6 +14,48 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.18.10 · foxlib 1.10.6 — the network fox audited after the C3 hang
+
+The bare XIAO ESP32-C3 (two boards, CircuitPython 10.2.1/10.3.1/10.3.2)
+hangs hard before the banner on every network template, while morse-songs
+on the same board runs, and `import wifi` / `start_ap` work at its REPL.
+Nothing on the bench could say where; this release is what an audit of
+`netfox.py`/`netradio.py` found and what the next attempt needs.
+
+- **foxlib: a network fox arms the hardware watchdog** (90 s, the FM fox's
+  field default) when its cycle loop starts, off before deep sleep. Until
+  now only the FM fox had one: a network fox that hung stayed hung until
+  someone power-cycled it.
+- **foxlib: CircuitPython's own BLE advertising is switched off** while a
+  network fox runs. Builds without native USB (every ESP32-C3/C6/C5 build)
+  boot with the BLE workflow on and advertise `CIRCUITPYxxxx` — seen in
+  nRF Connect beside the C3 — which gives the board away to any hunter's
+  scanner and keeps the BLE stack up beside the fox's Wi-Fi. The banner
+  notes it; it is back at the next reset.
+- **foxlib: Wi-Fi power is set after the interface is started**, not at
+  setup: ESP-IDF's `esp_wifi_set_max_tx_power` wants a started Wi-Fi, and
+  CircuitPython passes the call through without checking.
+- **foxlib: a boot trace.** `FOX_TRACE = 1` in `settings.toml` prints every
+  init step with the free heap before the banner. Deploy has *Trace the
+  boot* (writes and removes that file; another `settings.toml` is left
+  alone) and `hw_smoke.py` has `--trace`. The next C3 deploy with it on
+  shows the last step before the hang.
+- **Console: an Interrupt button**, and Ctrl-C in the empty input box,
+  send Ctrl-C straight to the board, outside the operation queue (Ctrl-D
+  soft-reboots). A running fox stops at its prompt; a hung board shows
+  nothing, and the console says what to do. Re-read board and Restart fox
+  on a board that does not answer now say so ("the board is not answering
+  Ctrl-C … press its reset button") instead of asking whether it runs
+  CircuitPython.
+- **Radio & pins: the module dropdown offers only the modules this board
+  can carry.** The PicoFox's SI5351 (`fixed_to_board`) is no longer offered
+  on the XIAO ESP32-C3 + SA868; a saved form carrying it to another board
+  falls back to that board's default module.
+- Simulator: `supervisor.runtime.ble_workflow`, `settings.toml` values
+  (`env`), `gc.mem_free`; scenarios for the workflow switch, the trace and
+  a build where the workflow is already off. CONFIG.md and the runbook
+  (Q15, the C3 session) say what changed.
+
 ### Page 0.18.9 — recordings from a Windows checkout
 
 - **Fix — CI's replay of the S3 recording failed with the code green.**

@@ -77,8 +77,7 @@ class WifiAp(Base):
             return False
         self.wifi = wifi
         try:
-            wifi.radio.enabled = True
-            _wifi_power(wifi, self.cfg)
+            wifi.radio.enabled = True       # the power is set at up(), once the access point is started (below)
             self.status = "ok(hidden_unsupported)" if self.cfg.get("hidden") else "ok"
             return True
         except Exception as e:
@@ -105,8 +104,9 @@ class WifiAp(Base):
             except Exception as e:
                 self.mac_error = e.__class__.__name__
             r.enabled = True                    # the access point starts here, under the new address
-            _wifi_power(self.wifi, self.cfg)    # enabling resets the power to the build's default
         self._start()
+        _wifi_power(self.wifi, self.cfg)        # after the start: the ESP-IDF call needs a started interface, and
+                                                # enabling the radio resets the power to the build's default
 
     def down(self):
         if not self.is_up:
@@ -149,8 +149,7 @@ class WifiProbe(Base):
             return False
         self.wifi = wifi
         try:
-            wifi.radio.enabled = True
-            _wifi_power(wifi, self.cfg)
+            wifi.radio.enabled = True       # the power is set at up(), once the station is started (below)
             self.status = "ok"
             return True
         except Exception as e:
@@ -169,7 +168,11 @@ class WifiProbe(Base):
             except Exception as e:
                 self.mac_error = e.__class__.__name__
             r.enabled = True
-            _wifi_power(self.wifi, self.cfg)
+        try:
+            r.start_station()               # idempotent; connect() below would start it too, but the power setter
+        except Exception:                   # wants a started interface first
+            pass
+        _wifi_power(self.wifi, self.cfg)
         self.keep()
 
     def keep(self, seconds=2):

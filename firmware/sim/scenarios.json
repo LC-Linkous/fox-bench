@@ -2478,6 +2478,74 @@
      "near.csv": 3
     }
    }
+  },
+  {
+   "name": "ble-workflow-is-switched-off",
+   "_doc": "CircuitPython advertises CIRCUITPYxxxx on its own (the BLE workflow; always on builds without native USB such as the ESP32-C3's): the fox switches it off for the run and says so in the banner, and arms the watchdog so a hang resets the board instead of ending the hunt",
+   "platform": "Espressif ESP32-C3",
+   "board_id": "esp32c3",
+   "cap_ms": 60000,
+   "stop_after_unkeys": 1,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "schedule": {
+     "wake_s": 5,
+     "sleep_s": 5
+    }
+   },
+   "expect": {
+    "keyed_min": 1,
+    "prints_contain": [
+     "note: CircuitPython's own BLE advertising (CIRCUITPYxxxx) is off while the fox runs",
+     "watchdog 90s"
+    ],
+    "prints_not_contain": [
+     "init: "
+    ],
+    "net_contains_event": [
+     "ble_workflow"
+    ],
+    "ble_workflow_end": false
+   },
+   "cp_board_id": "seeed_xiao_esp32c3"
+  },
+  {
+   "name": "trace-the-boot",
+   "_doc": "FOX_TRACE in settings.toml: every init step is printed before the banner (with the free heap), so a board that hangs on the way up shows where",
+   "platform": "Espressif ESP32-C3",
+   "board_id": "esp32c3",
+   "env": {
+    "FOX_TRACE": "1"
+   },
+   "cap_ms": 60000,
+   "stop_after_unkeys": 1,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "schedule": {
+     "wake_s": 5,
+     "sleep_s": 5
+    }
+   },
+   "expect": {
+    "keyed_min": 1,
+    "prints_contain": [
+     "init: start seeed_xiao_esp32c3 (free ",
+     "init: ble workflow switched off",
+     "init: radios wifi24,ble",
+     "init: config ok",
+     "init: radio wifi-ap setup",
+     "init: radio ok",
+     "init: features attached"
+    ],
+    "prints_before_banner": [
+     "init: features attached"
+    ]
+   },
+   "cp_board_id": "seeed_xiao_esp32c3"
   }
  ],
  "wifi-probe": [
@@ -3273,6 +3341,34 @@
     ],
     "keyed_min": 0
    }
+  },
+  {
+   "name": "ble-workflow-already-off-is-not-mentioned",
+   "_doc": "a build with native USB (nRF52840, ESP32-S3 with USB) advertises only after a double-tap reset: nothing to switch off, nothing said",
+   "platform": "nRF52840",
+   "board_id": "nrf52840",
+   "ble_workflow": false,
+   "cap_ms": 60000,
+   "stop_after_unkeys": 1,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    },
+    "schedule": {
+     "wake_s": 5,
+     "sleep_s": 5
+    }
+   },
+   "expect": {
+    "keyed_min": 1,
+    "prints_not_contain": [
+     "CIRCUITPYxxxx"
+    ],
+    "net_events_max": {
+     "ble_workflow": 0
+    }
+   },
+   "cp_board_id": "arduino_nano_33_ble"
   }
  ],
  "puzzle-beacon": [

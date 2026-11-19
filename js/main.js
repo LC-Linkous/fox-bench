@@ -30,7 +30,7 @@ import * as tabFleet from './ui/fleet.js';
 import * as tabAbout from './ui/about.js';
 import { state as flashState } from './ui/flash.js';
 
-const VERSION = '0.18.9';
+const VERSION = '0.18.10';
 /** Tab subtitles that read differently per device family (null = the page's original text). */
 const LEDES = { drive: {
   board: 'Which fox is on the bench, open its USB drive (or use the simulated one). The vendor firmware stays; the page writes its files.',
@@ -282,6 +282,12 @@ export const app = {
     } else {
       this.cfg.board = id; if (this.defaults.pins) this.cfg.pins = structuredClone(this.defaults.pins);
       if (this.board.module_fixed) { this.cfg.module = this.moduleId; this.cfg.radio = { ...this.cfg.radio, ...structuredClone(this.defaults.radio) }; }
+    }
+    const fixedTo = this.module?.fixed_to_board;
+    if (fixedTo && fixedTo !== id && !this.board.module_fixed && this.cfg.radio) {
+      // a module that only exists on one board (the PicoFox's SI5351) cannot follow the form to another: this board's default
+      const def = this.catalog.modules[this.defaults.module] ? this.defaults.module : Object.keys(this.catalog.modules).find(k => !this.catalog.modules[k].fixed_to_board);
+      if (def) { this.setModule(def); this.console.dim(`board ${this.board.name}: module set to ${this.module.name} (the previous one is part of the ${this.catalog.boards[fixedTo]?.name || fixedTo})`); }
     }
     this._applyVariant();
     this.changed('board'); await this._rereadIfSwitched();
@@ -582,12 +588,20 @@ async function boot() {
   $('#ver').textContent = 'v' + VERSION;
   const theme = localStorage.getItem('fox-bench.theme'); if (theme) document.documentElement.dataset.theme = theme;
   $('#themeBtn').addEventListener('click', () => { const t = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light'; document.documentElement.dataset.theme = t; localStorage.setItem('fox-bench.theme', t); app.changed('theme'); });
-  app.console = initConsole({ log: $('#log'), form: $('#sendForm'), input: $('#sendInput'), handle: $('#consoleHandle'), drawer: $('#console'), toggle: $('#consoleToggle'), clearBtn: $('#clearLog'), copyBtn: $('#copyLog'), dlBtn: $('#dlLog'), dlMode: $('#dlMode') },
+  app.console = initConsole({ log: $('#log'), form: $('#sendForm'), input: $('#sendInput'), handle: $('#consoleHandle'), drawer: $('#console'), toggle: $('#consoleToggle'), clearBtn: $('#clearLog'), copyBtn: $('#copyLog'), dlBtn: $('#dlLog'), dlMode: $('#dlMode'), interruptBtn: $('#sendInterrupt') },
     async code => { if (!app.device) return;
       try {
         const con = app.consoleDevice(); if (con) { await con.send(code); return; }   // the foxlib-c console: text commands, replies arrive as fox output
         const out = await app.device.exec(code, { soft: true }); if (out) app.console.reply(out.replace(/\r/g, ''));
-      } catch (e) { app.console.err(String(e.message || e)); } });
+      } catch (e) { app.console.err(String(e.message || e)); } },
+    async key => {
+      // Ctrl-C / Ctrl-D straight to the board, outside the operation queue: a fox that is running (Listen) stops and
+      // shows its REPL prompt; a board that is hung shows nothing, and only its reset button helps
+      if (!app.device?.poke) { app.console.dim('no CircuitPython board connected'); return; }
+      try { await app.device.poke(key === '\x04' ? '\r\x04' : '\r\x03\x03'); }
+      catch (e) { app.console.err(String(e.message || e)); return; }
+      app.console.dim(key === '\x04' ? 'Ctrl-D sent: a soft reboot, if the board is listening' : 'Ctrl-C sent: a running fox stops at its REPL prompt (>>>). Nothing within a few seconds means the board is not answering: press its reset button, or unplug and replug it, then Connect.');
+    });
   if (!hasWebSerial()) { $('#noSerial').hidden = false; }
 
   fleet.onError = msg => app.console.err(msg);
@@ -605,6 +619,8 @@ async function boot() {
       if (restored.region && Object.hasOwn(app.catalog.bands || {}, restored.region)) app.region = restored.region;
       if (app.board.module_fixed) app.moduleId = app.board.module_fixed;
       app.defaults = await loadDefaults(app.templateId, app.boardId);
+      const fixedTo = app.module?.fixed_to_board;      // a saved form with another board's built-in module: this board's default
+      if (fixedTo && fixedTo !== app.boardId && !app.board.module_fixed) app.moduleId = app.catalog.modules[app.defaults.module] ? app.defaults.module : app.moduleId;
       const r = app.family === 'drive' || app.isCompiled ? app.vendor.validate(restored.cfg, app.defaults, app.board) : app.isNet ? netValidate(restored.cfg, app.defaults, { ...app.board, radios: app.hardware?.radios }) : mergeAndValidate(restored.cfg, app.defaults, app.board);
       app.cfg = r.cfg; restoredOk = true;
       if (r.report?.length && restored.version !== VERSION) app.console.dim(`saved form from page ${restored.version || '< 0.6.1'}: ${r.report.length} value(s) reset to defaults (${r.report.map(x => x.key).join(', ')})`);

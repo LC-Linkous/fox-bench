@@ -562,6 +562,35 @@ def install(scenario):
         sys.modules["_bleio"] = bleio
     else:
         sys.modules.pop("_bleio", None)
+    # supervisor.runtime.ble_workflow: CircuitPython's own BLE advertising (CIRCUITPYxxxx). On builds without native
+    # USB (espressif) it is on from boot; the fox switches it off (netfox._quiet_workflow). The mock starts it on
+    # where the scenario says (default: a BLE-capable Espressif board) and records the switch (rec.ble_workflow).
+    sup = types.ModuleType("supervisor")
+    has_ble = "ble" in scenario.get("radios", ["wifi24", "ble"])
+    workflow_on = scenario.get("ble_workflow", has_ble and _sys.platform.startswith("Espressif"))
+    class _Runtime:
+        _wf = workflow_on
+        @property
+        def ble_workflow(self):
+            return self._wf
+        @ble_workflow.setter
+        def ble_workflow(self, v):
+            if not has_ble:
+                raise NotImplementedError()
+            self._wf = bool(v)
+            net_event("ble_workflow", "on" if v else "off")
+    sup.runtime = _Runtime()
+    rec.ble_workflow = lambda: sup.runtime.ble_workflow
+    sys.modules["supervisor"] = sup
+    import gc as _gc
+    if not hasattr(_gc, "mem_free"):
+        _gc.mem_free = lambda: 100000       # CircuitPython's free-heap count, for the boot trace
+    # settings.toml: os.getenv on the board reads it; the scenario's `env` stands in for the file
+    import os as _os
+    for k in ("FOX_TRACE",):
+        _os.environ.pop(k, None)
+    for k, v in (scenario.get("env") or {}).items():
+        _os.environ[k] = str(v)
     alarm = types.ModuleType("alarm")
     class TimeAlarm:
         def __init__(self, *, monotonic_time): self.when = monotonic_time

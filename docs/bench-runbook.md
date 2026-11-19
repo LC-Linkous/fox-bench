@@ -42,6 +42,7 @@ decides something in code or in the catalog. Write the answers into
 | Q10 | Does a shell-game fox survive a battery swap? | battery-only power cycle: `the board clock is unset; keeping seat N's identity` | whether shell-game foxes need re-deploying after a swap, or an RTC board |
 | Q12 | Is the configured MAC the one on the air? | per kind: wifi-beacon's BSSID in the analyser, wifi-probe's source MAC in the sniffer's lines, ble-beacon's address in nRF Connect, each against the `… up: NAME (MAC)` line; and whether the console has `note: MAC … was asked for, the radio reports …`. On Wi-Fi also: does the chip's own address (the Board tab's, `7C:…`-style) ever show beside the fox's name? | the MAC sequence in `netradio.py` (radio stopped, mode on, set, start) — new in 1.10.3 and never run on a board; MAC rotation and the shell game depend on it |
 | Q14 | Does the ESP32 still refuse to advertise after a scan, and which retry clears it? | ble-beacon with `sense.tags` on (a scan before every wake), or Bench → Scan then Radio up: with foxlib 1.10.5 the console says `note: BLE start refused (…530); started on the second try` or `… adapter reset and started`, once, and the beacon is on the air. 2026-11-18, XIAO ESP32S3, CircuitPython 10.3.2: reproduced on the page — Radio up ok, Scan ok, Radio up → `Unknown system firmware error: 530` | which retry stays in `netradio.py`; whether sense costs an adapter reset per wake |
+| Q15 | Where does the bare ESP32-C3 hang when a network template starts? | Deploy with *Trace the boot* on (page 0.18.10, foxlib 1.10.6): the console shows `init: …` lines before the banner; the last one is the step that hangs. 2026-11-18/19, two XIAO ESP32-C3s, CircuitPython 10.2.1/10.3.1/10.3.2: every network template hangs hard before the banner (no Ctrl-C, miniterm freezes), morse-songs runs, and at the REPL `import wifi`, `wifi.radio.enabled`, `start_ap("FOXTEST", "")` and `tx_power` all work. See *3a* below | which of the init steps (BLE workflow off, `import _bleio` beside `wifi`, `alarm`, `netcfg.load`, `wifi.radio.enabled = True`) the C3 cannot do, and whether 1.10.6's changes (workflow off, power after start, watchdog) are enough |
 | Q13 | Which BLE powers does the nRF52840 take? | ble-beacon at 9 dBm on the Nano 33 BLE: `note: this chip has no 9 dBm BLE step; advertising at 8 dBm` and the beacon is on the air | the BLE power steps the page offers per chip |
 
 ## 1. PicoFox re-run (foxlib-c 0.1.11 / page 0.12.0)
@@ -195,6 +196,40 @@ the network-fox tick-list below is a clean row for every variant, and the C3 has
 one, so if all four passed, flip it in `boards/esp32c3.json` and add a
 CHANGELOG line. Then `wifi-probe` needs a note in the Recordings section below:
 replaying a sniffer run needs `firmware/sim/pty_sniffer.py` on the second pty.
+
+## 3a. The C3 hang (2026-11-18/19, before foxlib 1.10.6)
+
+What two bare XIAO ESP32-C3s did, so the next session does not repeat it:
+
+- **Every network template hangs before the banner.** The deploy writes,
+  the soft reboot prints `code.py output:` and nothing more; Ctrl-C from
+  the page and from miniterm gets nothing; miniterm itself freezes on the
+  dead port. Only the reset button or a replug brings the board back. The
+  same on CircuitPython 10.2.1, 10.3.1 and 10.3.2, under the page and under
+  miniterm after a hard reset. After a power cycle `reset_reason` is
+  `POWER_ON` and `nvm[0]` is 0 — no safe-mode entry was recorded, so this is
+  not a brownout and not a watchdog (a network fox had none before 1.10.6).
+- **morse-songs on the same board runs** (foxlib 1.10.5, watchdog 90 s): the
+  board, the build and the deploy path are fine; it is the network path.
+- **At the REPL, step by step, nothing hangs** (code.py renamed away):
+  `import wifi` ok, `wifi.radio.enabled` True, `wifi.radio.start_ap("FOXTEST", "")`
+  puts FOXTEST on a phone's Wi-Fi list, `wifi.radio.tx_power` reads and sets
+  (the getter prints nothing on this build). Free heap: 121664 at the
+  prompt → 75024 after `import foxlib.netcfg` → 68592 after `netradio` →
+  48304 after `netfox`. `NetFox(...)` itself was never constructed at the
+  REPL: that is the next thing to try if the trace does not settle it.
+- **The board advertises itself.** nRF Connect shows `CIRCUITPY8c32` at
+  `98:3D:AE:AC:8C:32` (the chip's MAC + 2) whenever the C3 is powered:
+  CircuitPython's BLE workflow, on from boot on every build without native
+  USB. The fox never asked for it; foxlib 1.10.6 switches it off at start.
+- Not the antenna, not the module: one board had the SA868 wired, the
+  other was bare with the u.FL antenna; one is known to carry 2.4 GHz
+  packets for another project.
+
+Next attempt, in this order: deploy wifi-beacon from page 0.18.10 with
+*Trace the boot* ticked and read the last `init:` line; if the banner now
+appears, run the four templates and close the row; if it still hangs, the
+last trace line is the answer to Q15 and goes into `docs/hardware-log.md`.
 
 ## The network-fox tick-list (every bare board)
 

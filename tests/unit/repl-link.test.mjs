@@ -142,3 +142,17 @@ test('SerialLink: a read stream that ends cleanly (no error) is reported as a dr
   ctl.close();   // the bridge ended the stream without an error
   assert.match(await dropped, /closed its read stream/);
 });
+
+test('a board that never answers Ctrl-C: the error says it is not answering and what to press (a hung ESP32-C3, 0.18.10)', async () => {
+  const { b, r } = await mk({ running: true, ctrlCIgnores: 99 });
+  await assert.rejects(r.interrupt(), /not answering Ctrl-C.*reset button/);
+  assert.equal(b.state, 'running');
+  await b.close();
+});
+
+test('poke writes the bytes and waits for nothing (the console\'s Interrupt button)', async () => {
+  const { b, r } = await mk({ running: true, ctrlCIgnores: 99 });
+  await r.poke('\r\x03\x03');
+  assert.equal(b.tx[b.tx.length - 1], '\r\x03\x03');
+  await b.close();
+});

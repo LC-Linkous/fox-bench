@@ -75,6 +75,8 @@ export class ReplLink {
   }
 
   async _send(s) { await this.link.write(s); }
+  /** Bytes straight to the board, waiting for nothing: the console's Interrupt (Ctrl-C) while a fox runs or hangs. */
+  async poke(s) { await this.link.write(s); }
 
   /** Stop whatever is running and get a prompt. Tolerates a board mid-boot or already at a prompt. */
   async interrupt() { return this._op(() => this._interrupt()); }
@@ -90,7 +92,7 @@ export class ReplLink {
       try { await this._sendAndWait('\r\x02', '>>> ', this.T.exitRaw); this.inRaw = false; return; } catch {}
       await sleep(this.T.retryGap);
     }
-    throw new Error('no REPL prompt — is this a CircuitPython board? (Try: unplug, replug without holding B, then Connect.)');
+    throw new Error('no REPL prompt: the board is not answering Ctrl-C (hung, or not running CircuitPython). Press its reset button, or unplug and replug it without holding B, then Connect.');
   }
 
   async enterRaw() { return this._op(() => this._enterRaw()); }

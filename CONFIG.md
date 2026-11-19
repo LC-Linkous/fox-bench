@@ -389,6 +389,26 @@ not fit falls back to the defaults file, reported in the banner as
 | `led.enabled` | bool | status LED: 900/100 ms blink while the radio is up, a double flash every 2 s when unconfigured |
 | `fleet.*` | | as the FM contract |
 
+A network fox has no `limits` section: the hardware watchdog is always armed
+at 90 s when the cycle loop starts (foxlib 1.10.6; `netfox.WATCHDOG_S`) so a
+fox that hangs in the field — the SoC's radio stack, a console write with
+nobody reading — resets instead of staying silent until someone power-cycles
+it; `safemode.py` brings it back as for an FM fox. It is switched off before
+deep sleep and, by CircuitPython, after Ctrl-C. Two things outside `fox.json`
+also change what a network fox does at boot:
+
+- **CircuitPython's BLE workflow** (the board advertising itself as
+  `CIRCUITPYxxxx`, on from boot on builds without native USB such as the
+  ESP32-C3's) is switched off for the run — it gives the board away to any
+  scanner and keeps the BLE stack busy beside the fox's own radio. The banner
+  says so (`note: CircuitPython's own BLE advertising … is off while the fox
+  runs`); it is back at the next reset.
+- **`FOX_TRACE = 1` in `settings.toml`** (Deploy → *Trace the boot*, or
+  `hw_smoke.py --trace`) makes the fox print every step of its start
+  (`init: radios wifi24,ble (free 70000)` …) before the banner, so a board
+  that hangs on the way up shows where. Off by default: nothing before the
+  banner.
+
 ### Contest features (optional sections)
 
 Four more sections, each **absent unless switched on** in the Payload tab

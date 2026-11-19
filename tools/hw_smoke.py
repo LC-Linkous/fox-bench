@@ -42,6 +42,9 @@ except ImportError:
     sys.exit("pip install pyserial")
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+TRACE_MARK = "# fox-bench: trace the boot"        # the settings.toml the page's Deploy writes too (js/ui/deploy.js)
+TRACE_TOML = TRACE_MARK + " (foxlib/netfox.py prints every init step before the banner). Remove this file, or untick \"Trace the boot\" on Deploy, to stop it.\nFOX_TRACE = 1\n"
+
 ANSI = re.compile(rb"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b\[[0-9;?]*[ -/]*[@-~]")
 
 
@@ -234,6 +237,7 @@ def main():
     ap.add_argument("--no-restore", action="store_true", help="leave the last template on the board instead of restoring what was there")
     ap.add_argument("--report", help="JSON report path (default: hw_smoke-<uid>-<time>.json in the current directory)")
     ap.add_argument("--sniffer", help="port of a second board running tools/sniffer/code.py; verifies wifi-probe by what went over the air")
+    ap.add_argument("--trace", action="store_true", help="network foxes: write settings.toml with FOX_TRACE = 1 so every init step is printed before the banner (a board that hangs on the way up shows where); removed again at the end unless --no-restore")
     ap.add_argument("--record", help="write every REPL exchange of this run to FILE (JSON) for firmware/sim/pty_board.py --replay")
     ap.add_argument("-v", "--verbose", action="store_true")
     a = ap.parse_args()
@@ -307,6 +311,13 @@ def main():
     for n in stale:
         r.exec("import os\nos.remove('foxlib/%s')" % n)
     print(" ok" + (" (removed stale: %s)" % ", ".join(stale) if stale else ""))
+    if a.trace:
+        have = r.read_file("settings.toml")
+        if have and TRACE_MARK.encode() not in have:
+            print("WARNING: the board has its own settings.toml, left alone; add  FOX_TRACE = 1  to it for the boot trace")
+        else:
+            r.write_file("settings.toml", TRACE_TOML.encode())
+            print("wrote settings.toml: FOX_TRACE = 1 (the boot trace; removed at the end unless --no-restore)")
 
     for tid in templates:
         print("\n== %s" % tid)
@@ -348,6 +359,9 @@ def main():
             b = parse_banner(boot)
             res["banner"] = b["_raw"] if b else None
             res["boot_log"] = boot[-2000:]
+            if a.trace:
+                for l in boot.splitlines():
+                    if l.startswith("init: "): print("  " + l)
             if not b:
                 res["ok"] = False; print("  no FOX banner within 20 s:\n" + "\n".join("    " + l for l in boot.strip().splitlines()[-8:])); continue
             print("  %s (%.1f s to banner)" % (b["_raw"], res["boot_s"]))
@@ -403,6 +417,9 @@ def main():
     # restore
     if not a.no_restore:
         r.interrupt()
+        if a.trace:
+            have = r.read_file("settings.toml")
+            if have and TRACE_MARK.encode() in have: r.exec("import os\nos.remove('settings.toml')")
         for p, data in before.items():
             if data is not None: r.write_file(p, data)
             else: r.exec("import os\ntry:\n os.remove(%r)\nexcept OSError:\n pass\n" % p)

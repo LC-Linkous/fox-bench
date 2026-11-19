@@ -4,7 +4,7 @@
 
 const COLLAPSE_AFTER = 12, MAX_ENTRIES = 800, MAX_KEPT = 5000;   // MAX_KEPT: the download buffer — a long soak's log, not unbounded
 
-export function initConsole({ log, form, input, handle, drawer, toggle, clearBtn, copyBtn, dlBtn, dlMode }, onSend) {
+export function initConsole({ log, form, input, handle, drawer, toggle, clearBtn, copyBtn, dlBtn, dlMode, interruptBtn }, onSend, onInterrupt) {
   const history = []; let hIdx = -1; const entries = [];
   const stamp = () => new Date().toISOString().slice(11, 23);
   const scroll = () => { log.scrollTop = log.scrollHeight; };
@@ -24,7 +24,12 @@ export function initConsole({ log, form, input, handle, drawer, toggle, clearBtn
     log.appendChild(wrap); entries.push({ t: stamp(), type: 'rx', text: body }); trim(); scroll();
   }
   form.addEventListener('submit', e => { e.preventDefault(); const cmd = input.value.trim(); if (!cmd) return; history.unshift(cmd); if (history.length > 50) history.pop(); hIdx = -1; input.value = ''; line('> ' + cmd, 'tx'); onSend(cmd); });
+  // Ctrl-C with nothing typed or selected is the interrupt (with a selection it stays the copy); Ctrl-D is the soft reboot
+  const interrupt = what => { if (!onInterrupt) return; line('> ' + (what === '\x04' ? '^D' : '^C'), 'tx'); onInterrupt(what); };
+  if (interruptBtn) interruptBtn.addEventListener('click', () => interrupt('\x03'));
   input.addEventListener('keydown', e => {
+    if (e.ctrlKey && !e.altKey && !e.metaKey && e.key.toLowerCase() === 'c' && !input.value && !(document.getSelection() || '').toString()) { e.preventDefault(); interrupt('\x03'); return; }
+    if (e.ctrlKey && !e.altKey && !e.metaKey && e.key.toLowerCase() === 'd' && !input.value) { e.preventDefault(); interrupt('\x04'); return; }
     if (e.key === 'ArrowUp') { e.preventDefault(); if (hIdx < history.length - 1) { hIdx++; input.value = history[hIdx]; } }
     else if (e.key === 'ArrowDown') { e.preventDefault(); if (hIdx > 0) { hIdx--; input.value = history[hIdx]; } else { hIdx = -1; input.value = ''; } }
   });
