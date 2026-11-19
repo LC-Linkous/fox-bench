@@ -609,7 +609,7 @@ receiver.
 
 ### First deploy (morse-songs, default frequency, real callsign)
 
-- [ ] Deploy writes foxlib and the three files; every write logs a CRC.
+- [ ] Deploy writes foxlib (the template's set: 14 files for an FM fox, 16 for a network fox; the rest of `foxlib/` removed as stale) and the three files; every write logs a CRC.
 - [ ] Banner: `cfg=ok radio=ok id=set`, and `freq=` is what the plan said.
       `radio=noreply` means the module did not answer on the UART: check
       PD is high, TX/RX not swapped, 9600 baud, module powered.

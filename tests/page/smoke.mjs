@@ -355,8 +355,12 @@ try {
   const buf = new Uint8Array(await (await import('node:fs/promises')).readFile(await dl.path()));
   const entries = zipEntries(buf), names = entries.map(e => e.name);
   for (const need of ['code.py', 'fox.json', 'defaults.json', 'foxlib/__init__.py', 'foxlib/VERSION', 'README.txt']) check(names.includes(need), `zip contains ${need}`);
-  const foxlib = await app(() => window.foxbench.catalog.foxlibFiles || null);
-  if (foxlib) check(foxlib.every(f => names.includes('foxlib/' + f)), 'zip contains every foxlib file');
+  // the template's set (firmware/index.json foxlib_sets, from the import graph), not every foxlib file: an FM export
+  // carries no net* module, and no foxlib file outside the set
+  const foxlib = await app(() => window.foxbench.foxlibFilesFor(window.foxbench.templateId) || null);
+  const all = await app(() => window.foxbench.catalog.foxlibFiles || null);
+  if (foxlib) check(foxlib.every(f => names.includes('foxlib/' + f)), `zip contains every foxlib file of the ${await app(() => window.foxbench.catalog.templateSets[window.foxbench.templateId])} set (${foxlib.length})`);
+  if (foxlib && all) check(all.filter(f => !foxlib.includes(f)).every(f => !names.includes('foxlib/' + f)) && foxlib.length < all.length, `zip carries none of the other ${all.length - foxlib.length} foxlib files`);
   const onDisk = foxlib ? await Promise.all(foxlib.map(async f => (await import('node:fs/promises')).readFile(join(ROOT, 'firmware/foxlib', f)))) : [];
   check(foxlib && foxlib.every((f, i) => Buffer.compare(Buffer.from(entries.find(e => e.name === 'foxlib/' + f).data), onDisk[i]) === 0), 'zip foxlib bytes identical to the repo');
   try { const sim = await bootInSimulator(entries, 'morse-songs export'); check(/deploy set boots/.test(sim), 'exported set boots in the simulator: ' + (sim.match(/banner: (.*)/)?.[1] || '').slice(0, 90)); check(/keyed [1-9]/.test(sim), 'exported set keys the transmitter'); }

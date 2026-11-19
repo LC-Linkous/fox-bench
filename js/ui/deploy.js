@@ -99,8 +99,13 @@ function flat(o, pre = '', out = {}) { for (const [k, v] of Object.entries(o || 
 function plan() {
   const files = [];
   const ob = app.onBoard, cfg = app.validCfg || app.cfg;
-  const fwNeeded = !app.connected || ob.foxlibVersion !== app.catalog.foxlibVersion || !ob.foxlibComplete;
-  if (fwNeeded) files.push({ path: 'foxlib/*', why: ob.foxlibVersion && !ob.foxlibComplete ? `foxlib ${ob.foxlibVersion} is incomplete on the board (${ob.foxlibMissing.length} file${ob.foxlibMissing.length === 1 ? '' : 's'} missing) → reinstall ${app.catalog.foxlibVersion}` : ob.foxlibVersion ? `foxlib ${ob.foxlibVersion} → ${app.catalog.foxlibVersion}` : 'install foxlib ' + app.catalog.foxlibVersion, kind: 'foxlib' });
+  // foxlib: the files this template needs (firmware/index.json's sets, from the import graph); judged against the
+  // selected template, not the board's — switching families on a board means the other family's modules
+  const need = app.foxlibFilesFor(app.templateId), missing = app.connected ? app.foxlibMissingFor(app.templateId) : need, stale = app.connected ? app.foxlibStaleFor(app.templateId) : [];
+  const fwNeeded = !app.connected || ob.foxlibVersion !== app.catalog.foxlibVersion || missing.length > 0;
+  const setName = app.catalog.templateSets[app.templateId] ? ` (${app.catalog.templateSets[app.templateId]} set, ${need.length} files)` : '';
+  if (fwNeeded) files.push({ path: 'foxlib/*', why: ob.foxlibVersion && ob.foxlibVersion === app.catalog.foxlibVersion ? `foxlib ${ob.foxlibVersion} on the board lacks ${missing.length} file${missing.length === 1 ? '' : 's'} ${app.templateId} needs (${missing.join(', ')})${setName}` : ob.foxlibVersion ? `foxlib ${ob.foxlibVersion} → ${app.catalog.foxlibVersion}${setName}` : `install foxlib ${app.catalog.foxlibVersion}${setName}`, kind: 'foxlib' });
+  if (stale.length) files.push({ path: 'foxlib/' + (stale.length === 1 ? stale[0] : `{${stale.join(',')}}`), why: `removed: ${app.templateId} does not use ${stale.length === 1 ? 'it' : 'them'} (${app.catalog.templateSets[app.templateId] || 'all'} set)`, kind: 'stale', names: stale });
   for (const name of app.catalog.rootFiles) {
     if (wantSafemode()) { if (fwNeeded || (app.connected && !ob.files?.[name])) files.push({ path: name, why: 'with foxlib: resets the board out of safe mode after a brownout or watchdog reset', kind: 'root' }); }
     else if (app.connected && ob.files?.[name]) files.push({ path: name, why: 'removed: the recovery file is switched off', kind: 'remove' });
@@ -125,7 +130,7 @@ async function _exportZip() {
   const overrides = app.issues.filter(e => e.level === 'err' && e.blocking === false);
   if (overrides.length && !confirm(`Export anyway?\n\n${overrides.map(o => '• ' + o.msg.replace(/ — .*$/, '')).join('\n')}`)) return;
   const cfg = app.validCfg, files = [];
-  for (const name of app.catalog.foxlibFiles) files.push({ path: 'foxlib/' + name, data: await loadFoxlibFile(name) });
+  for (const name of app.foxlibFilesFor(app.templateId)) files.push({ path: 'foxlib/' + name, data: await loadFoxlibFile(name) });
   if (wantSafemode()) for (const name of app.catalog.rootFiles) files.push({ path: name, data: await loadRootFile(name) });
   if (app.isNet && app.deployRecovery.trace) files.push({ path: 'settings.toml', data: TRACE_TOML });
   files.push({ path: 'code.py', data: await loadTemplateCode(app.templateId) });
@@ -175,7 +180,8 @@ async function deploy(btn) {
     if (t && d.setClock) { await d.setClock(t); log.dim(`board clock set to ${t[0]}-${String(t[1]).padStart(2, '0')}-${String(t[2]).padStart(2, '0')} ${String(t[3]).padStart(2, '0')}:${String(t[4]).padStart(2, '0')}:${String(t[5]).padStart(2, '0')} (${app.deployClock.source === 'fixed' ? 'fixed time' : 'this browser\'s time'})`); }
     else if (t) log.dim('this device cannot set the board clock; skipped');
     for (const f of files) {
-      if (f.kind === 'foxlib') { await d.mkdir('foxlib'); for (const name of app.catalog.foxlibFiles) await d.writeBytes('foxlib/' + name, await loadFoxlibFile(name)); }
+      if (f.kind === 'foxlib') { await d.mkdir('foxlib'); for (const name of app.foxlibFilesFor(app.templateId)) await d.writeBytes('foxlib/' + name, await loadFoxlibFile(name)); }
+      else if (f.kind === 'stale') { for (const name of f.names) await d.remove('foxlib/' + name); log.dim(`removed stale: ${f.names.join(', ')}`); }
       else if (f.kind === 'root') await d.writeBytes(f.path, await loadRootFile(f.path));
       else if (f.kind === 'remove') await d.remove(f.path);
       else if (f.kind === 'trace') { const have = await d.readText('settings.toml'); if (have && !have.includes(TRACE_MARK)) log.err('the board has its own settings.toml, left alone: add  FOX_TRACE = 1  to it for the boot trace'); else await d.writeText('settings.toml', TRACE_TOML); }
@@ -191,9 +197,10 @@ async function deploy(btn) {
     const failedFeature = /\*\* (\w+) failed to load on this board \(([^)]*)\)/.exec(bootLog || '');   // a contest feature the board could not import
     setLast({ bootLog, banner, failedFeature: failedFeature ? `${failedFeature[1]} (${failedFeature[2]})` : null,
       ok: !!banner && banner.cfg === 'ok' && banner.radio === 'ok' && (banner.id === 'set' || banner.id === 'none') && !failedFeature });   // none: a network fox with no callsign on the air
-    const written = Object.fromEntries(files.filter(f => f.kind !== 'remove' && f.kind !== 'trace-off').map(f => [f.path.replace('/*', ''), { size: 1, dir: f.kind === 'foxlib' }]));
+    const written = Object.fromEntries(files.filter(f => !['remove', 'trace-off', 'stale'].includes(f.kind)).map(f => [f.path.replace('/*', ''), { size: 1, dir: f.kind === 'foxlib' }]));
     const remaining = { ...app.onBoard.files, ...written }; for (const f of files) if (f.kind === 'remove' || f.kind === 'trace-off') delete remaining[f.path];
-    app.onBoard = { ...app.onBoard, cfg: structuredClone(cfg), raw: JSON.stringify(cfg), template: app.templateId, foxlibVersion: app.catalog.foxlibVersion, foxlibComplete: true, foxlibMissing: [], files: remaining };
+    const libFiles = Object.fromEntries(app.foxlibFilesFor(app.templateId).map(n => [n, { size: 1 }]));    // what foxlib/ holds now: the set, nothing else
+    app.onBoard = { ...app.onBoard, cfg: structuredClone(cfg), raw: JSON.stringify(cfg), template: app.templateId, foxlibVersion: app.catalog.foxlibVersion, foxlibComplete: true, foxlibMissing: [], files: remaining, libFiles };
     app.info.foxlibVersion = app.catalog.foxlibVersion;
     app.setStatus(`${d.kind === 'demo' ? 'Demo · ' : ''}${app.info.boardId} · uid ${app.info.uid.slice(-6)} · foxlib ${app.catalog.foxlibVersion} · fox running`, d.kind === 'demo' ? 'demo' : 'tx');
     fleet.append({ board_number: cfg.fleet?.number ?? '', uid: app.info.uid, board: app.info.boardId, action: 'deploy', template: `${app.templateId}/${app.template.version}`, profile: cfg.fleet?.profile || '', callsign: cfg.id.callmessage, owner: cfg.fleet?.owner || '', event: cfg.fleet?.event || '', on_air: onAir(cfg, { template: app.templateId }), freq: freqText(cfg), power: powerText(cfg), seed: cfg.schedule?.seed ?? '', result: lastResult.ok ? 'ok' : lastResult.failedFeature ? `failed to load: ${lastResult.failedFeature}` : (banner ? `${banner.cfg} ${banner.radio} ${banner.id}` : 'no banner'), notes: [app.variantId ? app.board.variantName : '', app.device.kind === 'demo' ? 'demo' : ''].filter(Boolean).join(' · ') });

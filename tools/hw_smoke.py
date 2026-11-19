@@ -299,15 +299,18 @@ def main():
     before = {p: r.read_file(p) for p in ("code.py", "fox.json", "defaults.json")}
     print("saved current code.py/fox.json/defaults.json (%s)" % ", ".join(k for k, v in before.items() if v is not None))
 
-    # foxlib once, verified
-    print("writing foxlib %s …" % foxlib_version, end="", flush=True)
+    # foxlib once, verified: the files the templates of this run need (firmware/index.json's sets, from the import
+    # graph; tools/foxlib_deps.py), the rest of foxlib on the board removed as stale -- as the page's Deploy does
+    sets, tsets = idx.get("foxlib_sets") or {}, idx.get("template_sets") or {}
+    need = sorted({f for t in templates for f in sets.get(tsets.get(t, ""), idx["foxlib"])})
+    print("writing foxlib %s (%d of %d files: %s) …" % (foxlib_version, len(need), len(idx["foxlib"]), "+".join(sorted({tsets.get(t, "all") for t in templates}))), end="", flush=True)
     r.mkdir("foxlib")
-    for name in idx["foxlib"]:
+    for name in need:
         r.write_file("foxlib/" + name, open(os.path.join(ROOT, "firmware/foxlib", name), "rb").read())
     for name in idx.get("root", []):           # safemode.py, beside code.py
         r.write_file(name, open(os.path.join(ROOT, "firmware", name), "rb").read())
         print(".", end="", flush=True)
-    stale = [n for n in r.listdir("foxlib") if n not in idx["foxlib"]]
+    stale = [n for n in r.listdir("foxlib") if n not in need]
     for n in stale:
         r.exec("import os\nos.remove('foxlib/%s')" % n)
     print(" ok" + (" (removed stale: %s)" % ", ".join(stale) if stale else ""))

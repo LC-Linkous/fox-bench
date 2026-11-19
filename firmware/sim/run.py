@@ -17,11 +17,13 @@ FW = os.path.abspath(os.path.join(HERE, ".."))
 sys.path.insert(0, HERE)
 import mocks, decode  # noqa: E402
 import importlib.util
-_spec = importlib.util.spec_from_file_location("_fwcfg", os.path.join(FW, "foxlib", "cfg.py"))
-fwcfg = importlib.util.module_from_spec(_spec); _spec.loader.exec_module(_spec and fwcfg)
-# netcfg imports from .cfg: give it a package to live in on the host (the mocks are not installed yet here)
+# cfg and netcfg import from .report: give them a package to live in on the host (the mocks are not installed yet here)
 import types as _types
-_pkg = _types.ModuleType("_fwpkg"); _pkg.__path__ = [os.path.join(FW, "foxlib")]; sys.modules["_fwpkg"] = _pkg; sys.modules["_fwpkg.cfg"] = fwcfg
+_pkg = _types.ModuleType("_fwpkg"); _pkg.__path__ = [os.path.join(FW, "foxlib")]; sys.modules["_fwpkg"] = _pkg
+for _n in ("report", "cfg"):
+    _s = importlib.util.spec_from_file_location("_fwpkg." + _n, os.path.join(FW, "foxlib", _n + ".py"))
+    _m = importlib.util.module_from_spec(_s); sys.modules["_fwpkg." + _n] = _m; _s.loader.exec_module(_m)
+fwcfg = sys.modules["_fwpkg.cfg"]
 _nspec = importlib.util.spec_from_file_location("_fwpkg.netcfg", os.path.join(FW, "foxlib", "netcfg.py"))
 fwnetcfg = importlib.util.module_from_spec(_nspec); _nspec.loader.exec_module(fwnetcfg)
 sys.modules["_fwpkg.netcfg"] = fwnetcfg

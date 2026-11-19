@@ -14,6 +14,34 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.18.12 · foxlib 1.10.8 — a board carries the files its template needs
+
+With 1.10.7 the C3 stopped crashing and failed honestly instead:
+`MemoryError` compiling `netcfg.py`. Fewer files on the board do not change
+that (flash is not RAM; the `.mpy` set in the next release is what does),
+but a board should look like what it is, and a deploy should not spend a
+minute writing modules the fox never imports.
+
+- **Deploy writes the foxlib files the selected template needs and removes
+  the rest** of `foxlib/` from the board as stale ("removed stale: …", as a
+  previous template's images are). An FM fox gets 14 files, a network fox
+  16, instead of all 24. "foxlib on board" is complete when the board's own
+  template has what it needs. Switching families on a board writes the
+  other family's modules and removes this one's.
+- **The sets come from the import graph, never from a list:**
+  `tools/foxlib_deps.py --write` walks `from . import` in `foxlib/` from each
+  template's `code.py` (the lazy FM imports in `__init__._fm()` count only
+  for `foxlib.Fox`; `netfeatures.MODULES` names the feature modules) and
+  writes `foxlib_sets` / `template_sets` into `firmware/index.json`;
+  `check_catalog` fails when they are stale. A per-feature layer later is
+  the same walk from `fox.json`'s enabled sections.
+- **foxlib: `report.py`** holds what `cfg.py` and `netcfg.py` share (the
+  validation report, the value helpers), so a network fox no longer carries
+  `cfg.py`'s 17 kB for one class.
+- `hw_smoke.py` writes the union of its templates' sets and removes the
+  rest; a replay of an older recording treats those removals as
+  housekeeping.
+
 ### Page 0.18.11 · foxlib 1.10.7 — the C3 crash found: the radio stack starved of RAM
 
 The boot trace from 0.18.10 answered Q15 on the first try. The last line

@@ -20,6 +20,7 @@
     "netstealth.py",
     "netvary.py",
     "radio.py",
+    "report.py",
     "schedule.py",
     "sstv.py",
     "tones.py"
@@ -54,5 +55,56 @@
     "sense",
     "stealth"
   ],
-  "_features": "contest feature sections (payload, checkpoint, sense, stealth) this foxlib runs; the page marks the rest 'accepted, not built'"
+  "_features": "contest feature sections (payload, checkpoint, sense, stealth) this foxlib runs; the page marks the rest 'accepted, not built'",
+  "foxlib_sets": {
+    "fm": [
+      "VERSION",
+      "__init__.py",
+      "battery.py",
+      "cfg.py",
+      "cycle.py",
+      "guard.py",
+      "led.py",
+      "melody.py",
+      "morse.py",
+      "radio.py",
+      "report.py",
+      "schedule.py",
+      "sstv.py",
+      "tones.py"
+    ],
+    "net": [
+      "VERSION",
+      "__init__.py",
+      "guard.py",
+      "led.py",
+      "morse.py",
+      "netcfg.py",
+      "netcheckpoint.py",
+      "netfeatures.py",
+      "netfox.py",
+      "netmodes.py",
+      "netpayload.py",
+      "netradio.py",
+      "netsense.py",
+      "netstealth.py",
+      "netvary.py",
+      "report.py"
+    ]
+  },
+  "_foxlib_sets": "the foxlib files each entry point needs, from the import graph (tools/foxlib_deps.py --write; never by hand). Deploy writes a template's set and removes the rest of foxlib from the board",
+  "template_sets": {
+    "ble-beacon": "net",
+    "checkpoint": "net",
+    "composite": "fm",
+    "freq-rotator": "fm",
+    "morse-qrss": "fm",
+    "morse-songs": "fm",
+    "morse-sstv": "fm",
+    "popcorn": "fm",
+    "puzzle-beacon": "net",
+    "resurrection": "fm",
+    "wifi-beacon": "net",
+    "wifi-probe": "net"
+  }
 }

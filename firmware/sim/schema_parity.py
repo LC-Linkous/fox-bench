@@ -6,8 +6,12 @@
 #   node firmware/sim/schema_parity.mjs --compare py.json js.json
 import json, os, sys, importlib.util
 HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(os.path.dirname(HERE))
-spec = importlib.util.spec_from_file_location("foxcfg", os.path.join(ROOT, "firmware/foxlib/cfg.py"))
-cfg = importlib.util.module_from_spec(spec); spec.loader.exec_module(cfg)
+import types as _types
+_pkg = _types.ModuleType("_fwpkg"); _pkg.__path__ = [os.path.join(ROOT, "firmware/foxlib")]; sys.modules["_fwpkg"] = _pkg
+for _n in ("report", "cfg"):       # cfg imports .report: both live in a package shim on the host
+    _s = importlib.util.spec_from_file_location("_fwpkg." + _n, os.path.join(ROOT, "firmware/foxlib", _n + ".py"))
+    _m = importlib.util.module_from_spec(_s); sys.modules["_fwpkg." + _n] = _m; _s.loader.exec_module(_m)
+cfg = sys.modules["_fwpkg.cfg"]
 
 def load_board(bid):
     """A target (boards/) merged with its hardware (hardware/), as the page's loader does."""
@@ -30,7 +34,6 @@ def canon_pin(bid, name):
     return name
 
 import types as _types
-_pkg = _types.ModuleType("_fwpkg"); _pkg.__path__ = [os.path.join(ROOT, "firmware/foxlib")]; sys.modules["_fwpkg"] = _pkg; sys.modules["_fwpkg.cfg"] = cfg
 _nspec = importlib.util.spec_from_file_location("_fwpkg.netcfg", os.path.join(ROOT, "firmware/foxlib/netcfg.py"))
 netcfg = importlib.util.module_from_spec(_nspec); _nspec.loader.exec_module(netcfg)
 def is_net(t): return json.load(open(os.path.join(ROOT, "firmware/templates", t, "template.json"))).get("contract") == "net"

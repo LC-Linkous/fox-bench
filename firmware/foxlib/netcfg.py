@@ -14,7 +14,7 @@
 #     "schedule": { "kind": "duty", "wake_s": 15, "sleep_s": 5, "sleep": "off" | "deep" },
 #     "led": { "enabled": true }, "fleet": { ... } }
 import json
-from .cfg import Report, _copy, _is_int, _is_num, _intify, SCHEMA
+from .report import Report, _copy, _is_int, _is_num, _intify, SCHEMA
 
 WIFI24_CHANNELS = tuple(range(1, 14))
 WIFI5_CHANNELS = (36, 40, 44, 48, 149, 153, 157, 161, 165)

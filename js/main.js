@@ -30,7 +30,7 @@ import * as tabFleet from './ui/fleet.js';
 import * as tabAbout from './ui/about.js';
 import { state as flashState } from './ui/flash.js';
 
-const VERSION = '0.18.11';
+const VERSION = '0.18.12';
 /** Tab subtitles that read differently per device family (null = the page's original text). */
 const LEDES = { drive: {
   board: 'Which fox is on the bench, open its USB drive (or use the simulated one). The vendor firmware stays; the page writes its files.',
@@ -100,6 +100,21 @@ export const app = {
   /** The foxlib-c console to send bench commands to: the Listen-only device, or the demo's side console. */
   consoleDevice() { if (this.family !== 'foxlib-c') return null; if (this.device?.kind === 'console') return this.device; return this.sideConsole || null; },
   get vendor() { return this.board.vendor ? this.catalog.vendors[this.board.vendor] : null; },
+  /** The foxlib files a template needs on the board (firmware/index.json's sets, from the import graph); every file
+   *  for a template the index does not know. A pack template without an entry gets everything too. */
+  foxlibFilesFor(templateId) {
+    const set = this.catalog.foxlibSets[this.catalog.templateSets[templateId]];
+    return set || this.catalog.foxlibFiles;
+  },
+  /** foxlib files a template needs that the board does not have (from the last read). */
+  foxlibMissingFor(templateId, lib = this.onBoard.libFiles || {}) {
+    return this.foxlibFilesFor(templateId).filter(n => !lib[n] || lib[n].size <= 0);
+  },
+  /** foxlib files on the board that a template does not need: Deploy removes them (a board looks like what it is). */
+  foxlibStaleFor(templateId, lib = this.onBoard.libFiles || {}) {
+    const need = new Set(this.foxlibFilesFor(templateId));
+    return Object.keys(lib).filter(n => !need.has(n)).sort();
+  },
   /** Templates that apply to a family. */
   /** The target a CircuitPython board_id belongs to: its own target when one has that id, otherwise the foxlib target whose
    *  hardware runs that build (`circuitpython.board_id` / `board_ids`: the Waveshare S3-Nano reports arduino_nano_esp32s3).
@@ -488,13 +503,15 @@ export const app = {
     const files = await d.list('');
     const fv = files.foxlib ? ((await d.readText('foxlib/VERSION')) || '').trim() : '';
     const libFiles = files.foxlib ? await d.list('foxlib') : {};
-    const foxlibMissing = this.catalog.foxlibFiles.filter(n => !libFiles[n] || libFiles[n].size <= 0);
     this.info.foxlibVersion = fv;
-    this.onBoard = { cfg: null, raw: null, foxlibVersion: fv, foxlibMissing, foxlibComplete: !!fv && foxlibMissing.length === 0, files, template: null };
-    if (fv && foxlibMissing.length) this.console.err(`foxlib on the board is incomplete (missing ${foxlibMissing.join(', ')}); Deploy will reinstall it`);
-    this.setStatus(`${d.kind === 'demo' ? 'Demo · ' : ''}${this.info.boardId} · uid ${this.info.uid.slice(-6)}${fv ? ' · foxlib ' + fv : ' · no fox firmware'}`, d.kind === 'demo' ? 'demo' : 'ok');
     const code = await d.readText('code.py');
-    this.onBoard.template = code?.match(/fox-bench template: ([\w-]+)/)?.[1] || (code ? 'other' : null);
+    const template = code?.match(/fox-bench template: ([\w-]+)/)?.[1] || (code ? 'other' : null);
+    // complete = every file the board's own template needs (or the selected one's, when the board runs none)
+    const judge = template && this.catalog.templates[template] ? template : this.templateId;
+    const foxlibMissing = this.foxlibMissingFor(judge, libFiles);
+    this.onBoard = { cfg: null, raw: null, foxlibVersion: fv, foxlibMissing, foxlibComplete: !!fv && foxlibMissing.length === 0, files, libFiles, template };
+    if (fv && foxlibMissing.length) this.console.err(`foxlib on the board is incomplete for ${judge} (missing ${foxlibMissing.join(', ')}); Deploy will reinstall it`);
+    this.setStatus(`${d.kind === 'demo' ? 'Demo · ' : ''}${this.info.boardId} · uid ${this.info.uid.slice(-6)}${fv ? ' · foxlib ' + fv : ' · no fox firmware'}`, d.kind === 'demo' ? 'demo' : 'ok');
     const raw = await d.readText('fox.json');
     if (raw) { this.onBoard.raw = raw; try { this.onBoard.cfg = JSON.parse(raw); } catch { this.console.err('fox.json on the board is not valid JSON'); } }
     if (this.onBoard.cfg) { this.console.dim(`fox.json read from board: template ${this.onBoard.cfg.template}, call "${this.onBoard.cfg.id?.callmessage}"`); }

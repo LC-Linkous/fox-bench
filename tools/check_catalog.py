@@ -27,14 +27,19 @@ import json, os, re, subprocess, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 import importlib.util
-_spec = importlib.util.spec_from_file_location("foxcfg", os.path.join(ROOT, "firmware/foxlib/cfg.py"))
-fcfg = importlib.util.module_from_spec(_spec); _spec.loader.exec_module(fcfg)   # the firmware's validator, used as-is (pure Python, no board import)
 import types as _types
-_pkg = _types.ModuleType("_fwpkg"); _pkg.__path__ = [os.path.join(ROOT, "firmware", "foxlib")]; sys.modules["_fwpkg"] = _pkg; sys.modules["_fwpkg.cfg"] = fcfg
+_pkg = _types.ModuleType("_fwpkg"); _pkg.__path__ = [os.path.join(ROOT, "firmware", "foxlib")]; sys.modules["_fwpkg"] = _pkg
+for _n in ("report", "cfg"):       # the firmware's validator, used as-is (pure Python, no board import); cfg imports .report
+    _s = importlib.util.spec_from_file_location("_fwpkg." + _n, os.path.join(ROOT, "firmware", "foxlib", _n + ".py"))
+    _m = importlib.util.module_from_spec(_s); sys.modules["_fwpkg." + _n] = _m; _s.loader.exec_module(_m)
+fcfg = sys.modules["_fwpkg.cfg"]
 _nspec = importlib.util.spec_from_file_location("_fwpkg.netcfg", os.path.join(ROOT, "firmware", "foxlib", "netcfg.py"))
 fnetcfg = importlib.util.module_from_spec(_nspec); _nspec.loader.exec_module(fnetcfg)   # the network foxes' validator
 
 problems = []
+import subprocess as _sp
+if _sp.run([sys.executable, os.path.join(ROOT, "tools", "foxlib_deps.py"), "--check"], capture_output=True).returncode:
+    problems.append(("firmware/index.json", "foxlib_sets/template_sets stale: run tools/foxlib_deps.py --write"))
 CP_IDS = {}   # CircuitPython board_id -> hardware id, to catch two targets claiming one build
 CHIP_OF = {}  # hardware id -> the chip target it is a variant of
 

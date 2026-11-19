@@ -95,7 +95,9 @@ export async function loadCatalog() {
     if (!/^[a-z0-9_-]+$/.test(b.vendor)) { console.warn(`board ${b.id}: vendor id ${b.vendor} refused`); continue; }
     try { vendors[b.vendor] = await import(new URL(`./vendor/${b.vendor}.js`, import.meta.url)); } catch (e) { console.warn(`board ${b.id}: no vendor model ${b.vendor} on this page — target skipped`, e); delete boards[b.id]; }
   }
-  return { boards, hardware, modules, bands, templates, foxlibFiles: fw.foxlib, rootFiles: fw.root || [], foxlibVersion, foxlibFeatures: fw.features || [], foxlibcVersion, songLibraries, vendors, packs };
+  // foxlibSets / templateSets: the files each entry point needs, from the import graph (tools/foxlib_deps.py). Deploy
+  // writes a template's set and removes the rest of foxlib from the board; an index without them writes everything.
+  return { boards, hardware, modules, bands, templates, foxlibFiles: fw.foxlib, foxlibSets: fw.foxlib_sets || {}, templateSets: fw.template_sets || {}, rootFiles: fw.root || [], foxlibVersion, foxlibFeatures: fw.features || [], foxlibcVersion, songLibraries, vendors, packs };
 }
 
 export async function loadDefaults(templateId, boardId) {

@@ -389,6 +389,12 @@ not fit falls back to the defaults file, reported in the banner as
 | `led.enabled` | bool | status LED: 900/100 ms blink while the radio is up, a double flash every 2 s when unconfigured |
 | `fleet.*` | | as the FM contract |
 
+What Deploy writes to `foxlib/` is the set of modules the template imports
+(`firmware/index.json` → `foxlib_sets`, derived by `tools/foxlib_deps.py`
+from the import graph); files from another family already on the board are
+removed as stale. Files on flash cost no RAM — only imports do — so this is
+for deploy time and a board that looks like what it is, not for memory.
+
 `safemode.py` resets the board back into a normal boot after a brownout or
 a watchdog bite, up to 50 times in a row, but after a crash inside
 CircuitPython itself (`HARD_FAULT`, `NO_HEAP`, `STACK_OVERFLOW` …) only 3
