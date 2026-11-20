@@ -516,6 +516,28 @@ m = re.search(r"Status: \*\*v(\d+\.\d+)", readme)
 if page_version and m and not page_version.group(1).startswith(m.group(1) + "."):
     bad("README.md", f"says v{m.group(1)} but js/main.js VERSION is {page_version.group(1)}")
 
+# ---------------------------------------------------------------- strings two sides must agree on
+# The page and a firmware/tool file each carry a copy of something the other reads; a copy that drifts fails silently.
+def _const(path, pattern):
+    m = re.search(pattern, open(os.path.join(ROOT, path)).read(), re.S | re.M)
+    return re.findall(r"['\"]([A-Z_]+)['\"]", m.group(1)) if m else None
+reasons_fw = _const("firmware/safemode.py", r"^AUTO_RESET = \((.*?)\)", )
+reasons_js = _const("js/device/repl-device.js", r"export const SAFE_REASONS = \[(.*?)\]")
+if reasons_fw != reasons_js:
+    bad("js/device/repl-device.js", f"SAFE_REASONS {reasons_js} must equal firmware/safemode.py AUTO_RESET {reasons_fw} (nvm[1] indexes it)")
+def _str(path, pattern):
+    m = re.search(pattern, open(os.path.join(ROOT, path)).read()); return m.group(1) if m else None
+mark_js, mark_py = _str("js/ui/deploy.js", r"const TRACE_MARK = '([^']+)'"), _str("tools/hw_smoke.py", r'TRACE_MARK = "([^"]+)"')
+if mark_js != mark_py:
+    bad("tools/hw_smoke.py", f"TRACE_MARK {mark_py!r} must equal js/ui/deploy.js {mark_js!r} (each removes only the settings.toml the other wrote)")
+sets_js = _str("js/ui/deploy.js", r"const TRACE_TOML = TRACE_MARK \+ '(.+?)';")
+sets_py = _str("tools/hw_smoke.py", r'TRACE_TOML = TRACE_MARK \+ "(.+?)"\n')
+if sets_js and sets_py and sets_js != sets_py.replace('\\"', '"'):
+    bad("tools/hw_smoke.py", "TRACE_TOML text differs from js/ui/deploy.js")
+call_py = _str("tools/hw_smoke.py", r'RECORD_CALL = "([^"]+)"')
+if call_py and re.search(r"[A-Z]{1,2}\d[A-Z]{1,3}", call_py) and call_py.split()[0] not in ("W1ABC", "W1XYZ", "N0CALL"):
+    bad("tools/hw_smoke.py", f"RECORD_CALL {call_py!r} is not a placeholder callsign")
+
 # ---------------------------------------------------------------- result
 n = f"{len(hardware)} hardware, {len(boards)} target(s), {len(modules)} module(s), {len([r for r in bands if not r.startswith('_')])} region(s), {len(templates)} template(s), foxlib {foxlib_version}"
 if problems:

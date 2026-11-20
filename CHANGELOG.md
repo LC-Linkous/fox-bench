@@ -14,6 +14,11 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+- `check_catalog`: strings two sides copy must agree — `SAFE_REASONS` in the
+  page against `AUTO_RESET` in `safemode.py` (nvm[1] indexes it), the trace
+  `settings.toml` text in Deploy against `hw_smoke.py` (each removes only
+  the one the other wrote), and the recording placeholder callsign must be
+  a placeholder.
 - Release job: the released site zip carries the precompiled foxlib set, as
   the live site does. `build_mpy.py` retries a dropped S3 connection three
   times before failing the run.
