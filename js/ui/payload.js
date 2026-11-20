@@ -213,7 +213,6 @@ function qrssCard() {
 }
 
 function render(source) {
-  if (app.isCompiled) { fill(root, h('div.card', {}, h('p.hint', {}, 'kitsune foxes carry no payload: the challenge is the radio itself (an SSID, a beacon, a device name).'))); return; }
   if (app.isNet) return net.renderPayload(root);
   if (source === 'theme') { renderPreview(); return; }
   if (source === 'library') { if (libBox) { fill(libBox, libraryCard()); const i = libBox.querySelector('input[type=text]'); if (i && libQuery) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } } return; }
@@ -225,4 +224,4 @@ function render(source) {
   renderPreview(0);
 }
 export function shown() {
-  if (app.isNet) return; if (!app.isCompiled) renderPreview(0); }
+  if (app.isNet) return; renderPreview(0); }

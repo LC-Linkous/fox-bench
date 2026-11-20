@@ -262,10 +262,9 @@ safe mode) and D (captive sheet on iPhone/Android, C3 RAM) are open.
 
 ## Second round (decided 2026-11-16) — more options than a compiled-in fox
 
-Why: kitsune is an established, compiled-per-fox firmware whose operators
-keep their answers offline. The way to have *more* options than that is not
-one more fox type but behaviour that is **drawn at deploy and changes over
-the day**, so nothing about fox 3 follows from fox 2 and a watcher cannot
+Why: a fox whose configuration is compiled in gives its operators a fixed
+set of answers. The way to have *more* options than that is not one more fox
+type but behaviour that is **drawn at deploy and changes over the day**, so nothing about fox 3 follows from fox 2 and a watcher cannot
 enumerate what we might be doing. Chosen from the brainstorm:
 
 | area | decision |

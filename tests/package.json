@@ -4,7 +4,7 @@
   "type": "module",
   "description": "Tests for the fox-bench page and its device layer. Firmware tests live in firmware/sim.",
   "scripts": {
-    "lint": "cd .. && tests/node_modules/.bin/eslint -c tests/eslint.config.mjs js flasher tests/unit tests/page tools firmware/sim",
+    "lint": "cd .. && tests/node_modules/.bin/eslint -c tests/eslint.config.mjs js flasher tests/unit tests/page firmware/sim",
     "unit": "node --test --test-concurrency=1 unit/*.test.mjs",
     "smoke": "node page/smoke.mjs",
     "test": "npm run lint && npm run unit && npm run smoke"

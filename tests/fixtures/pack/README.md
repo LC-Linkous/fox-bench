@@ -9,8 +9,8 @@ hardware/<id>.json                          physical boards (same fields as this
 boards/<id>.json                            targets: hardware + firmware + family
 firmware/templates/<template>/defaults/<target>.json
                                             defaults for the pack's targets — also for templates the pack does not
-                                            re-publish (this example adds an Atom clone and gives it defaults for the
-                                            built-in kitsune templates)
+                                            re-publish (this example adds a XIAO C3 clone and gives it defaults for
+                                            the built-in FM templates)
 firmware/templates/<id>/template.json       a template of the pack's own (optional; with its defaults/ and code.py)
 modules/<id>.json                           radio modules (optional)
 ```
@@ -18,9 +18,8 @@ modules/<id>.json                           radio modules (optional)
 The page loads packs from `?pack=<url>` (comma-separated for several) or the
 list saved on the Board tab, merges them over the built-in catalog (a pack
 entry with a built-in id replaces it), marks every entry with the pack's
-name, and resolves a target's `firmware.image` / `build_info` relative to
-the pack. Packs are data only: a target may name one of this page's vendor
-models, but no code is loaded from a pack. Lint a pack as the page will see
-it with `python3 tools/check_catalog.py --pack <dir>`.
+name, and lints the result the way `tools/check_catalog.py --pack DIR` does.
+A pack carries descriptors only: the page never loads code from one.
 
-This one is a fixture for the page smoke test; the ids are invented.
+This example is what the smoke test loads (`tests/page/smoke.mjs`, "catalog
+pack"); `python3 tools/check_catalog.py --pack tests/fixtures/pack` lints it.

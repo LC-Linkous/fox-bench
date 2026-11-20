@@ -76,14 +76,14 @@ def main():
     print(f"page {pv} · foxlib {foxlib} · foxlib-c {foxlibc} · {len(log)} hardware-log rows\n")
     queue = []
     # order: stable first (re-runs are the cheapest sessions), then experimental foxlib targets (the boards on the
-    # bench), then the compiled (kitsune) family, whose development is paused and goes last
-    order = lambda kv: (kv[1].get("status", "") != "stable", kv[1].get("family") == "compiled", kv[0])
+    # bench)
+    order = lambda kv: (kv[1].get("status", "") != "stable", kv[0])
     for tid, t in sorted(targets.items(), key=order):
         st = t.get("status", "?"); rs = rows_for(t)
         last = rs[-1] if rs else None
         fam = t.get("family", "?")
         want_fw = {"foxlib": foxlib, "foxlib-c": foxlibc}.get(fam)
-        fw_ok = bool(last) and (want_fw is None or want_fw in last["firmware"] or fam in ("drive", "compiled"))
+        fw_ok = bool(last) and (want_fw is None or want_fw in last["firmware"] or fam == "drive")
         pv_ok = bool(last) and (f"page {pv}" in last["firmware"] or f"page {pv}" in last["checked"])
         if st == "stable" and not rs:
             print(f"  !! {tid:34} stable but NO hardware-log row"); bad += 1; queue.append((tid, "first session (claims stable)"))
@@ -103,8 +103,8 @@ def main():
         if t.get("status") == "stable" and not tested: print(f"  !! template {tid}: stable with boards_tested empty"); bad += 1
         for b in tested:
             if b not in targets: print(f"  !! template {tid}: boards_tested names unknown target {b}"); bad += 1
-    print("Queue, in order (stable re-runs, then boards on the bench, then the paused compiled family):")
-    for i, (tid, why) in enumerate(queue, 1): print(f"  {i}. {tid} — {why}" + ("  (paused)" if targets[tid].get("family") == "compiled" else ""))
+    print("Queue, in order (stable re-runs, then boards on the bench):")
+    for i, (tid, why) in enumerate(queue, 1): print(f"  {i}. {tid} — {why}")
     if check and bad: sys.exit(1)
 
 if __name__ == "__main__": main()

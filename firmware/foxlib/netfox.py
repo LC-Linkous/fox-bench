@@ -314,7 +314,7 @@ class NetFox:
     # ---- the loop
     def cycles(self):
         """One Tx per wake. Between wakes: sleep_s with the radio off (schedule.sleep = off), or deep sleep (= deep),
-        from which the board reboots into this loop again -- the cycle count then restarts at 0, as kitsune's does."""
+        from which the board reboots into this loop again -- the cycle count then restarts at 0."""
         c = self.cfg
         if self.fatal or not self.radio or not self.radio.status.startswith("ok"):
             self.log("unconfigured (%s): silent" % (self.fatal or (self.radio.status if self.radio else "no radio")))

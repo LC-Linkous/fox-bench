@@ -1,0 +1,11 @@
+{
+ "id": "example_c3_clone",
+ "name": "Example C3 clone + SA868 (pack)",
+ "hardware": "example_c3_clone",
+ "status": "experimental",
+ "family": "foxlib",
+ "firmware": {
+  "kind": "circuitpython+foxlib",
+  "note": "CircuitPython on the board, fox-bench's foxlib and a template deployed over the REPL."
+ }
+}

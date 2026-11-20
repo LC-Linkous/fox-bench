@@ -94,14 +94,13 @@ js/
     airtime.js             computed keydown per transmission, duty check
     zip.js                 deploy-set export
     vendor/picofox.js      the vendor PicoFox firmware's files, modelled
-    vendor/kitsune.js      kitsune's compiled-in configuration: validation, header export/import, cycle (compiled family)
   audio/
     morse.js  melody.js  rtttl.js  sstv.js  schedule.js   JS twins of foxlib encoders
     player.js              Web Audio renderer for an event stream
     spectrum.js            event stream → spectrogram (QRSS preview)
     wav.js                 event stream → WAV (the vendor PicoFox's audio file)
   ui/                      one module per tab (board, radio, behavior, plan, id, payload, schedule,
-                           deploy / deploy-drive / deploy-foxlibc / deploy-compiled, kitsune (the compiled family's radio forms),
+                           deploy / deploy-drive / deploy-foxlibc,
                            net (the network foxes' radio / id / schedule forms),
                            bench, fleet, about), console.js (the console drawer), flash.js (flash card, firmware cards, touch, UF2 copy), dom helpers
 flasher/                   esptool-js wrapper + vendored esptool-js (Apache-2.0)
@@ -130,13 +129,11 @@ firmware/
                                       pty board, Python↔JS parity (encoders, validator corpus)
   foxlib-c/                           the C firmware (§10): core/ portable, picofox/ Pico SDK app,
                                       tests/ host build + parity + runner, VERSION
-  kitsune/                            bench/ generated conference headers, extra/ fox-bench's extra PlatformIO envs
 tools/
   check_catalog.py                    lint for every descriptor, defaults file, index and version bump
   check_docs.py                       every file path named in the *.md files exists
   check_firmware_py.py                the firmware against what CircuitPython's compiler and built-ins accept (§5)
   build_info.py                       fingerprint JSON beside the UF2, RAM budget, the image's version tag vs VERSION
-  build_kitsune.py                    CI's build of kitsune images + manifest (gated; --selftest)
   check_ci.py                         strict parse of the workflow file, job graph
   release_notes.py                    the release body from CHANGELOG.md
   atten_sweep.py                      the PicoFox attenuator measured: codes × timed carrier × your meter reading → CSV, dB per code
@@ -147,13 +144,12 @@ tools/
   session_close.py                    turns a hw_smoke report into hardware-log rows and status proposals
   check_fleet.py                      checks a fleet CSV with the page's import rules
   stamp_assets.py                     cache-busting of the page's asset links at deploy
-  kitsune_bench_conf.mjs              generates fox-bench's bench conference headers for the kitsune build
   sniffer/                            CircuitPython for a second board: a probe-request sniffer (wifi.Monitor)
 tests/                                unit (node:test) and page smoke (Playwright), see tests/README.md
 docs/                                 build-and-flash (the pipeline in diagrams: families, templates, what CI builds vs what
                                       is source, the .mpy set, what a flash and a deploy move), bench-runbook (queue,
                                       tick-lists, first session, recordings), hardware-log,
-                                      network-fox-payloads-plan, picofox (hardware + vendor firmware), kitsune plan / bench;
+                                      network-fox-payloads-plan, picofox (hardware + vendor firmware);
                                       contributing, releasing and adding a target are in CONTRIBUTING.md
 CONFIG.md                             fox.json schema — the contract
 PROTOCOL.md                           REPL exchange byte by byte; the foxlib-c console
@@ -244,8 +240,7 @@ board** (a bare board whose own Wi-Fi / BLE is the transmitter, listed *by
 chip*: `boards/esp32c5.json` carries `variants`, the physical boards of that
 chip, chosen on the Radio tab's wiring card — the choice sets the LED /
 battery pins and the CircuitPython build, and a connected board's reported
-id picks it; two variants may share a build when both say so), and
-**Compiled-in configuration** (kitsune, by board). "AI6YM PicoFox (vendor
+id picks it; two variants may share a build when both say so). "AI6YM PicoFox (vendor
 firmware)" and "AI6YM PicoFox (fox-bench firmware)" share
 `hardware/picofox.json`; the XIAO ESP32-C3 is both the combo target and a
 variant of the `esp32c3` chip target. A target with `"status": "planned"`
@@ -367,11 +362,10 @@ The two contracts never mix on one target: a chip target (a bare board)
 offers the `net` templates its radios allow, a board + module target the
 FM ones — so the `nrf52840` target sees `ble-beacon` and `puzzle-beacon`,
 the `esp32c3` chip target the four network templates, and the XIAO ESP32-C3
-+ SA868 combo the seven FM templates. Why not the compiled family's kitsune firmware for
-this: these foxes are configured per deploy, from the page, with no
-toolchain — the same process as the FM foxes — and nothing of kitsune's is
-built or hosted. They mimic a ham fox hunt (`id.use_callsign_as_name`) or a
-contest (a configured SSID / name) but carry no event's real configuration.
++ SA868 combo the seven FM templates. These foxes are configured per deploy,
+from the page, with no toolchain — the same process as the FM foxes. They
+mimic a ham fox hunt (`id.use_callsign_as_name`) or a contest (a configured
+SSID / name) but carry no event's real configuration.
 
 ```
 firmware/foxlib/
@@ -533,7 +527,7 @@ FOX template=composite/0.3.0 … cfg=partial(radio.freq_mhz,pins.ptt) radio=err(
 
 | Tab | Purpose |
 |---|---|
-| **Board** | Which fox is on the bench (board picker in four groups by what the fox is — board + module, drive-configured, bare CircuitPython board by chip, compiled-in — this choice drives every other tab), Connect / Listen only / Open drive, what is on the board before anything is changed (`board.board_id`, `foxlib/VERSION`, `fox.json`; or the drive's files), **Flash CircuitPython** for a bare ESP32 (UF2 restore for drive boards; with a serial session open the button reads **Disconnect and flash** and closes it first), diagnostics. Listen only survives the port dropping (deep sleep, bootsel, a power cycle): the page keeps the granted port, waits up to 10 minutes for the same device, and listens again — the top button reads **Stop waiting** meanwhile. |
+| **Board** | Which fox is on the bench (board picker in three groups by what the fox is — board + module, drive-configured, bare CircuitPython board by chip — this choice drives every other tab), Connect / Listen only / Open drive, what is on the board before anything is changed (`board.board_id`, `foxlib/VERSION`, `fox.json`; or the drive's files), **Flash CircuitPython** for a bare ESP32 (UF2 restore for drive boards; with a serial session open the button reads **Disconnect and flash** and closes it first), diagnostics. Listen only survives the port dropping (deep sleep, bootsel, a power cycle): the page keeps the granted port, waits up to 10 minutes for the same device, and listens again — the top button reads **Stop waiting** meanwhile. |
 | **Radio & pins** | For a bare board (chip target): the network section's form (SSID / PSK / channel / power / MAC, or the BLE fields) and the wiring card — a **Board** dropdown when the chip has more than one variant, the two pins a network fox uses, the CircuitPython build the variant runs. For a board + module: module dropdown and **Probe** (retunes in receive at 146.5 and 433.5 and reports which the module accepted — nothing is transmitted). Region. Power high/low with measured dBm. Bandwidth, squelch, volume. The role → pin wiring table with the board's defaults. Drive family: zone, revision, attenuation, deviations; nothing to wire. |
 | **Behavior** | The firmware template, from the set the selected board can run: description, status, what it reads. Decides which payloads and schedules the next tabs offer. |
 | **Plan** | Frequencies: one, or a rotating list with the `QSY` option. Each entry validated against module ∩ band. |
@@ -621,17 +615,17 @@ a `dmo`-dialect radio module, files written through the REPL, behaviour
 from `foxlib`. Some foxes are built differently and still belong on the
 bench. A *device family* is the unit that varies:
 
-| | foxlib | drive | foxlib-c | compiled |
-|---|---|---|---|---|
-| example | XIAO ESP32-C3 + SA868; the chip targets ESP32-C3 / -C6 / -C5 / -S3 / nRF52840 (XIAO C3, C6, C5, S3; Waveshare S3-Nano; FireBeetle 2 C5; Nano 33 BLE) with no module as **network foxes** (`net` contract) | AI6YM PicoFox with its vendor firmware | AI6YM PicoFox with fox-bench firmware | RFHS kitsune foxes on M5Stack Atom / S3 boards, Nano ESP32, XIAO ESP32C5 (and, as stand-ins fox-bench carries envs for, the Waveshare ESP32-S3-Nano and XIAO ESP32C6) |
-| firmware | ours (CircuitPython + foxlib), deployed by the page | the vendor's, left alone (CC BY-NC-SA; not in this repo) | ours (C, Pico SDK, `firmware/foxlib-c/`), flashed as a UF2 from the Board tab | theirs (PlatformIO/Arduino, `github.com/rfhs/kitsune`; not in this repo), configuration compiled in from a conference header |
-| transport | `repl-device.js` (raw REPL) | `drive-device.js` (File System Access API on the USB drive) | `drive-device.js` for the files; the serial console for banner, log and bench | none yet: the page exports the header block; Listen only reads their boot lines (`docs/kitsune-integration-plan.md` for the next stages) |
-| config contract | `CONFIG.md` → `fox.json` | the vendor's files, modelled in `js/model/vendor/<id>.js` | `CONFIG.md` → `fox.json`, no `pins`, `si5351fm` radio keys | `CONFIG.md` "compiled family": `challenge`, `wifi`/`ble`/`bt`/`zigbee`, `schedule.duty` |
-| payload | event stream played by `foxlib/tones.py` | `audio.wav` the page **renders from the same event stream** (`js/audio/wav.js`), plus its own Morse-ID file | the same event stream, synthesised in the firmware per sample (`core/synth.c`) into FM | none: the radio itself is the challenge |
-| validation | `schema.js` + `cfg.py` (parity-tested) | the vendor module's `validate()`, which knows what makes that firmware fall silent | `schema.js` (pinless) + `core/cfg.c`, parity-tested against both | `js/model/vendor/kitsune.js`: what the fox checks at boot (address, channel, name) and what the headers only document |
-| bench | `exec-and-capture` | none (no REPL); serial boot log on Listen only | text commands on the console (`key`, `tone`, `id`, `batt`, `status`, …) | none; serial boot lines on Listen only |
-| flashing | esptool (`flasher/`) | UF2 copy to the bootloader drive | the site-built UF2 copied to the bootloader drive; `bootsel` from the console gets there | esptool from the page (`flasher/`), a merged whole-flash image written at 0x0 after the chip check — your own PlatformIO build, or the site's once hosting is agreed; unverified on a real kitsune board |
-| reboot after deploy | soft reboot, banner read back | eject + power cycle | the firmware reloads itself ~1.5 s after the last write | rebuild and flash |
+| | foxlib | drive | foxlib-c |
+|---|---|---|---|
+| example | XIAO ESP32-C3 + SA868; the chip targets ESP32-C3 / -C6 / -C5 / -S3 / nRF52840 (XIAO C3, C6, C5, S3; Waveshare S3-Nano; FireBeetle 2 C5; Nano 33 BLE) with no module as **network foxes** (`net` contract) | AI6YM PicoFox with its vendor firmware | AI6YM PicoFox with fox-bench firmware |
+| firmware | ours (CircuitPython + foxlib), deployed by the page | the vendor's, left alone (CC BY-NC-SA; not in this repo) | ours (C, Pico SDK, `firmware/foxlib-c/`), flashed as a UF2 from the Board tab |
+| transport | `repl-device.js` (raw REPL) | `drive-device.js` (File System Access API on the USB drive) | `drive-device.js` for the files; the serial console for banner, log and bench |
+| config contract | `CONFIG.md` → `fox.json` | the vendor's files, modelled in `js/model/vendor/<id>.js` | `CONFIG.md` → `fox.json`, no `pins`, `si5351fm` radio keys |
+| payload | event stream played by `foxlib/tones.py` | `audio.wav` the page **renders from the same event stream** (`js/audio/wav.js`), plus its own Morse-ID file | the same event stream, synthesised in the firmware per sample (`core/synth.c`) into FM |
+| validation | `schema.js` + `cfg.py` (parity-tested) | the vendor module's `validate()`, which knows what makes that firmware fall silent | `schema.js` (pinless) + `core/cfg.c`, parity-tested against both |
+| bench | `exec-and-capture` | none (no REPL); serial boot log on Listen only | text commands on the console (`key`, `tone`, `id`, `batt`, `status`, …) |
+| flashing | esptool (`flasher/`) | UF2 copy to the bootloader drive | the site-built UF2 copied to the bootloader drive; `bootsel` from the console gets there |
+| reboot after deploy | soft reboot, banner read back | eject + power cycle | the firmware reloads itself ~1.5 s after the last write |
 
 Descriptors need not all live here: a **catalog pack** is another site's
 `hardware/`, `boards/`, `firmware/templates/` and `modules/` with a
@@ -643,10 +637,7 @@ lints one; `tests/fixtures/pack/` is the example.
 
 `boards/<id>.json` (a *target*: hardware + firmware + family) names its
 `family`, `vendor` or firmware image, and `module_fixed`; templates list
-the `families` they apply to, and the page shows only those — and, for
-the compiled family, the `radios` they need, matched against the
-hardware's `radios` list, so Bluetooth Classic is offered on the
-original-ESP32 Atom only and Zigbee on the C5 and C6. One piece of
+the `families` they apply to, and the page shows only those. One piece of
 hardware can be several targets — the PicoFox is `picofox-vendor` (drive)
 and `picofox-foxlibc` (foxlib-c) — and the user switches between them by
 flashing. The working config keeps the `fox.json` shape for both families

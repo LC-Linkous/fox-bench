@@ -4,7 +4,7 @@ What is compiled, what is not, where each piece is built, and what the page
 writes to a board. `DESIGN.md` is the map of the repository; this is the
 map of the pipeline. Boxes are files; arrows are who moves them.
 
-## 1. The four families, and what "firmware" means in each
+## 1. The three families, and what "firmware" means in each
 
 ```
   family      the fox's program            where it is built        what the page writes to the board
@@ -16,8 +16,6 @@ map of the pipeline. Boxes are files; arrows are who moves them.
               picofox (the PicoFox)        .uf2 (§5)                drive; the firmware reloads itself
   drive       the vendor's own firmware    not ours                 settings.txt, audio.wav, .callsign.wav and
               (AI6YM PicoFox)                                       the marker file, onto its drive
-  compiled    kitsune (rfhs/kitsune), the  CI from a pinned         nothing (phase 2): a conference header block
-              config compiled in           upstream commit, gated   to export; images flashed by hand
 ```
 
 Two different things get "flashed" and the words matter:
@@ -28,8 +26,7 @@ Two different things get "flashed" and the words matter:
   (the site cannot fetch it for you). The page flashes it with esptool.js over
   Web Serial. Done once per board, or when a newer CircuitPython is wanted.
 - **The fox**: everything in the right-hand column above. Written over the
-  REPL (foxlib), onto a drive (foxlib-c, drive), or not at all (compiled).
-  Done on every Deploy. Nothing is compiled on your machine at this step.
+  REPL (foxlib) or onto a drive (foxlib-c, drive). Done on every Deploy. Nothing is compiled on your machine at this step.
 
 ## 2. A template, from repository to board
 
@@ -138,8 +135,6 @@ Every push to `main` (and every pull request, except the deploy) runs:
               + every simulator scenario,                                                   the job ~3 min
               parity, replay fixtures
    foxlib-c   the PicoFox UF2 (§5)                the ARM toolchain (~100 MB) + pico-sdk    3–4 min
-   kitsune    kitsune images                      upstream at a pinned commit; skipped      skipped unless
-                                                  until hosting is agreed                   KITSUNE_COMMIT is set
    deploy     the site: page + descriptors +      the artifacts above                       1 min; main only,
    (Pages)    firmware/ + the UF2 + the .mpy set                                            after the others pass
 ```
@@ -162,7 +157,6 @@ compiling `.py` on import — and §4 is how to take even that away.
    CircuitPython version   hardware/<board>.json (circuitpython.latest_known, the download page)   you load the .bin
    mpy-cross               firmware/mpy/pins.json                                                  CI fetches it
    ARM toolchain, pico-sdk .github/workflows/ci.yml (TC_URL + sha256, SDK_COMMIT)                  CI fetches them
-   kitsune                 repository variable KITSUNE_COMMIT (+ KITSUNE_HOST to serve it)         CI fetches it
    foxlib                  firmware/foxlib/VERSION; a template's template.json says the range      the page checks it
    the page                js/main.js VERSION; stamped onto css/js links at deploy                 cache-safe
 ```

@@ -3,7 +3,6 @@
 
     python3 tools/check_catalog.py              # whole catalog
     python3 tools/check_catalog.py --since REF  # also: version bumps for what changed since REF
-    python3 tools/check_catalog.py --manifest firmware/kitsune/manifest.json   # also: a kitsune image manifest
 
 Checks that every index.json entry exists and nothing is unlisted; that
 board, module, band, template and song descriptors have the fields the
@@ -96,7 +95,7 @@ def foxlibc_validate(drel, bid):
 
 
 # ---------------------------------------------------------------- hardware (physical facts) and boards (targets = hardware + firmware + family)
-FAMILIES = ("foxlib", "drive", "foxlib-c", "compiled")
+FAMILIES = ("foxlib", "drive", "foxlib-c")
 RADIOS = ("wifi24", "wifi5", "ble", "btclassic", "ieee802154")
 module_ids = with_pack(load("modules/index.json"), "modules")
 templates_listed = set(with_pack(load("firmware/index.json")["templates"], "templates"))
@@ -210,21 +209,6 @@ for bid in board_ids:
             elif pin not in f.get("url", ""): bad(rel, f"stock_firmware_files ({n}): url does not contain the pinned commit (a branch name would move under the page)")
             if not re.fullmatch(r"[0-9a-f]{64}", str(f.get("sha256", ""))): bad(rel, f"stock_firmware_files ({n}): sha256 missing or not 64 hex")
             if not isinstance(f.get("size"), int) or f["size"] <= 0 or f["size"] % 512: bad(rel, f"stock_firmware_files ({n}): size must be a positive multiple of 512 (UF2 blocks)")
-    if fam == "compiled":
-        # a fox whose configuration is compiled into its firmware (kitsune): a vendor model does the fox.json work
-        for k in ("vendor",):
-            if k not in t: bad(rel, f"compiled-family target missing {k}")
-        if t.get("vendor") and not exists(f"js/model/vendor/{t['vendor']}.js"): bad(rel, f"vendor model js/model/vendor/{t['vendor']}.js missing")
-        if not isinstance(hw.get("radios"), list) or not hw["radios"]: bad(rel, "compiled-family hardware must list its radios")
-        for r in hw.get("radios", []):
-            if r not in RADIOS: bad(rel, f"hardware radios: unknown {r!r} (one of {RADIOS})")
-        if hw.get("flash", {}).get("method") != "esptool": bad(rel, "compiled-family hardware is flashed with esptool")
-        if t.get("firmware", {}).get("source", "").startswith("http") is False: bad(rel, "firmware.source must link to the project the firmware comes from")
-        for e in t.get("firmware", {}).get("envs", []):
-            for k in ("env", "project", "template", "tier"):
-                if k not in e: bad(rel, f"firmware.envs entry missing {k}: {e}")
-            if e.get("template") and e["template"] not in templates_listed: bad(rel, f"firmware.envs names unknown template {e.get('template')!r}")
-            if e.get("tier") not in ("easy", "medium", "hard"): bad(rel, f"firmware.envs tier {e.get('tier')!r}")
     if fam == "foxlib-c":
         for k in ("module_fixed", "drive"):
             if k not in t: bad(rel, f"foxlib-c target missing {k}")
@@ -296,10 +280,9 @@ for tid in fw["templates"]:
     fams = t.get("families", ["foxlib"])
     for f in fams:
         if f not in FAMILIES: bad(rel, f"unknown family {f!r}")
-    if ("drive" in fams or "compiled" in fams) and not t.get("vendor"): bad(rel, "drive/compiled-family template needs a vendor")
+    if "drive" in fams and not t.get("vendor"): bad(rel, "drive-family template needs a vendor")
     for r in t.get("radios", []):
         if r not in RADIOS: bad(rel, f"radios: unknown {r!r}")
-    if "compiled" in fams and not t.get("radios"): bad(rel, "compiled-family template must say which radio it uses (radios)")
     is_fw = "foxlib" in fams
     if not SEMVER.match(str(t.get("version", ""))): bad(rel, f"version not semver: {t.get('version')!r}")
     if t.get("status") not in ("stable", "experimental"): bad(rel, f"status must be stable|experimental, got {t.get('status')!r}")
@@ -346,13 +329,6 @@ for tid in fw["templates"]:
             if not all(r in roles for r in req):
                 if exists(drel): bad(drel, f"defaults for a board whose hardware has no {[r for r in req if r not in roles]} role(s) this template needs")
                 continue
-        if b["_family"] == "compiled":
-            if not exists(drel): bad(drel, "missing — every compiled-family template needs defaults for every board with its radio"); continue
-            d = load(drel)
-            if d.get("template") != tid or d.get("board") != bid: bad(drel, "template/board do not match")
-            if d.get("schedule", {}).get("kind") != "duty": bad(drel, "compiled-family defaults need schedule.kind = duty")
-            if "challenge" not in d or "fleet" not in d: bad(drel, "challenge and fleet sections required")
-            continue
         if not exists(drel): bad(drel, f"missing — every template needs defaults for every board of the families it lists"); continue
         d = load(drel)
         if b["_family"] == "drive":
@@ -482,32 +458,6 @@ try:
             bad("hardware/picofox.json", f"usb 'fox-bench firmware' is {u['vid']}:{u['pid']} but usb_descriptors.c says 0x{vid.group(1)}:0x{pid.group(1)}")
     elif ours and not (vid and pid): bad("firmware/foxlib-c/picofox/usb_descriptors.c", "USB_VID/USB_PID not found (the lint compares them with hardware/picofox.json)")
 except FileNotFoundError: pass
-
-# ---------------------------------------------------------------- a kitsune manifest against the catalog (--manifest PATH)
-# tools/build_kitsune.py writes one in CI; the page flashes what it names. Every image must belong to a compiled target,
-# name that target's chip, and be a whole-flash image at offset 0x0 (merge_bin --target-offset 0x0) — the page writes
-# merged images at 0x0, so a manifest saying the bootloader offset would put every piece one offset too high.
-if "--manifest" in sys.argv:
-    mp = sys.argv[sys.argv.index("--manifest") + 1]; rel = os.path.relpath(mp, ROOT)
-    try: man = json.load(open(mp))
-    except Exception as e: man = None; bad(rel, f"not JSON: {e}")
-    if man:
-        for k in ("project", "source", "commit", "images"):
-            if k not in man: bad(rel, f"missing {k}")
-        if man.get("source") and man.get("source") != "https://github.com/rfhs/kitsune": bad(rel, f"source {man.get('source')!r} is not the kitsune repository")
-        if "tools" not in man: bad(rel, "no 'tools' (platformio/esptool versions) — the build is not reproducible without them")
-        for i, im in enumerate(man.get("images", [])):
-            w = f"{rel} images[{i}]"
-            t = boards.get(im.get("board"))
-            if not t or t.get("family") != "compiled": bad(w, f"board {im.get('board')!r} is not a compiled target"); continue
-            hw = hardware.get(t.get("hardware"), {})
-            if im.get("chip") != hw.get("flash", {}).get("chip"): bad(w, f"chip {im.get('chip')!r} but the hardware's is {hw.get('flash', {}).get('chip')!r}")
-            if str(im.get("offset", "")).lower() != "0x0": bad(w, f"offset {im.get('offset')!r}: a merged image is written at 0x0 (the bootloader offset {hw.get('flash', {}).get('offset')} is inside it)")
-            if im.get("template") and im["template"] not in templates: bad(w, f"template {im['template']!r} unknown")
-            if im.get("env") and im["env"] not in [e.get("env") for e in t.get("firmware", {}).get("envs", [])]: bad(w, f"env {im['env']!r} is not one of {t['id']}'s firmware.envs")
-            for k in ("file", "sha256", "size"):
-                if k not in im: bad(w, f"missing {k}")
-            if im.get("sha256") and not re.fullmatch(r"[0-9a-f]{64}", im["sha256"]): bad(w, "sha256 is not 64 hex digits")
 
 # ---------------------------------------------------------------- versions named in prose
 page_version = re.search(r"const VERSION = '([^']+)'", open(os.path.join(ROOT, "js/main.js")).read())

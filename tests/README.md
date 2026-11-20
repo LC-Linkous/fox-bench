@@ -31,10 +31,9 @@ Everything CI runs, locally, from the repository root:
 ```
 python3 -m py_compile firmware/foxlib/*.py firmware/templates/*/code.py firmware/safemode.py
 python3 tools/check_firmware_py.py            # what desktop Python accepts and CircuitPython does not
-(cd tests && npm run lint)                    # ESLint: js/, flasher/, tests/, tools/*.mjs, firmware/sim/*.mjs
+(cd tests && npm run lint)                    # ESLint: js/, flasher/, tests/, firmware/sim/*.mjs
 python3 tools/check_docs.py && python3 tools/bench_queue.py --check
-python3 tools/check_ci.py && python3 tools/build_kitsune.py --selftest && node tools/kitsune_bench_conf.mjs --check
-python3 tools/check_catalog.py --manifest tests/fixtures/kitsune/manifest.json
+python3 tools/check_ci.py
 python3 firmware/sim/run.py
 python3 firmware/sim/test_sniffer_parse.py && python3 firmware/sim/test_netpayload.py
 python3 firmware/sim/parity.py > /tmp/py.json && node firmware/sim/parity.mjs > /tmp/js.json && node firmware/sim/parity.mjs --compare /tmp/py.json /tmp/js.json
@@ -70,8 +69,7 @@ made GitHub refuse the workflow, which showed up as no run at all);
 differs from `firmware/foxlib-c/VERSION` (CMake had read the file once, at
 configure time); `check_catalog.py --since` counts `hardware/` and `boards/` as
 page files (a USB id in a descriptor drives the 1200-baud touch) and compares
-the fox-bench firmware's USB ids with `usb_descriptors.c`;
-`check_catalog.py --manifest` pins a merged kitsune image at offset 0x0.
+the fox-bench firmware's USB ids with `usb_descriptors.c`.
 
 `SHOTS=/some/dir npm run smoke` also saves a screenshot of every tab, which
 CI keeps as an artifact for a week — useful for seeing what a failure looked

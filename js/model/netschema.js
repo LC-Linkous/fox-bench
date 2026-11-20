@@ -2,7 +2,6 @@
 // firmware/foxlib/netcfg.py: same keys checked in the same order, same reasons, same status words, held equal by
 // firmware/sim/schema_parity.*. Plus the page-side checks (warnings) a validator does not make.
 // SPDX-License-Identifier: GPL-2.0-only
-import { randomMac } from './vendor/kitsune.js';
 
 export const SCHEMA = 1;
 export const WIFI24_CHANNELS = Array.from({ length: 13 }, (_, i) => i + 1);
@@ -37,7 +36,11 @@ const variablePowerOk = (x, kind) => {
 };
 export const MAX_NAME = 32, MAX_PSK = 63, PLACEHOLDER = 'N0CALL';
 export const NET_PINS = ['led', 'batt_sense'];   // optional, both: a network fox has no module to wire
-export { randomMac };
+/** A fresh locally administered unicast MAC, F2:xx:xx:xx:xx:xx — the prefix every fox's spoofed address starts with. */
+export function randomMac(bytes = 6) {
+  const b = new Uint8Array(bytes); crypto.getRandomValues(b); b[0] = 0xF2;
+  return [...b].map(x => x.toString(16).padStart(2, '0').toUpperCase()).join(':');
+}
 
 const isInt = v => Number.isInteger(v);
 const isNum = v => typeof v === 'number' && Number.isFinite(v);

@@ -1,10 +1,10 @@
 {
  "name": "example-pack",
- "version": "0.1.0",
+ "version": "0.2.0",
  "hardware": [
-  "example_atom_clone"
+  "example_c3_clone"
  ],
  "boards": [
-  "example_atom_clone-kitsune"
+  "example_c3_clone"
  ]
 }

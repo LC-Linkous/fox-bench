@@ -20,7 +20,7 @@
     "offset": "0x2000",
     "flash_mb": 4,
     "bootloader_instructions": "Hold BOOT (GPIO28) while plugging in USB-C, or hold BOOT and tap RST; release after a second. The chip's USB-JTAG-serial port appears.",
-    "note": "Same chip and module class as the XIAO ESP32C5: kitsune's seeed-xiao-esp32c5 builds are what this target flashes. The bootloader offset 0x2000 is the ESP32-C5 convention, to be confirmed on this board. On the bench at fox-bench since 2026-10-23 (serial over native USB confirmed: the ROM banner 'ESP-ROM:esp32c5-eco2-20250121' prints)."
+    "note": "Same chip and module class as the XIAO ESP32C5. The bootloader offset 0x2000 is the ESP32-C5 convention, to be confirmed on this board. On the bench at fox-bench since 2026-10-23 (serial over native USB confirmed: the ROM banner 'ESP-ROM:esp32c5-eco2-20250121' prints)."
   },
   "has_usb_drive": false,
   "usb": [
@@ -37,7 +37,7 @@
       "aliases": [
         "D13"
       ],
-      "note": "onboard LED; IO15 in the DevKitC-1 CircuitPython build's pin names (kitsune's XIAO build drives GPIO27 instead, so no status LED under kitsune)"
+      "note": "onboard LED; IO15 in the DevKitC-1 CircuitPython build's pin names"
     },
     {
       "name": "IO28",
@@ -56,7 +56,7 @@
     "kind": "single",
     "pin": 15,
     "active_low": false,
-    "note": "onboard LED on GPIO15; the XIAO-C5 build of kitsune drives GPIO27 instead, so expect no status colours on this board until a FireBeetle entry exists in kitsune's rfhsledmacros.h"
+    "note": "onboard LED on GPIO15"
   },
   "battery": {
     "charger": false,
@@ -69,8 +69,7 @@
     "Serial: native USB — with deep sleep the console port disappears while the chip sleeps and returns when it wakes; 'serial port dropped' each cycle is expected (Listen only waits for it)."
   ],
   "serial": {
-    "baud": 115200,
-    "notes": "kitsune prints 'ESP32 boot count', 'Awake and screaming', 'Going to sleep' and 'PANIC' on its serial port; no command interface."
+    "baud": 115200
   },
   "silkscreen": null,
   "circuitpython": {

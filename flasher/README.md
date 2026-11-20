@@ -20,7 +20,7 @@ import * as flasher from './flasher/flasher.js';
 flasher.setImage(fileName, uint8array);              // the image to write
 const facts = await flasher.flash({
   offset: 0x0, eraseAll: true, baud: 460800,
-  expectChip: '',            // e.g. 'esp32c5': refuse to write when the chip reports another family (the compiled family's safety check)
+  expectChip: '',            // e.g. 'esp32c5': refuse to write when the chip reports another family (the Board tab's safety check before an erase)
   port: null, impl: null,    // an already granted SerialPort instead of the chooser; a stand-in esptool (demoEsptool())
   onPhase: text => {}, onProgress: fraction => {}, onLog: line => {},
 });

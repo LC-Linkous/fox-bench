@@ -14,6 +14,17 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.18.18 · foxlib 1.10.12 — one family fewer
+
+The experimental family for foxes whose configuration is compiled into
+their firmware is removed whole: its seven targets and four hardware
+descriptors, five templates, vendor model and forms, image card, build
+tool, CI job, plan and bench notes, test fixtures, and every mention in the
+docs. Nothing of it had reached hardware, and a half-present integration
+is worse than none. The catalog-pack mechanism stays, with its example
+fixture rebuilt around a CircuitPython board clone. Three families remain:
+foxlib, drive, foxlib-c.
+
 - `check_catalog`: strings two sides copy must agree — `SAFE_REASONS` in the
   page against `AUTO_RESET` in `safemode.py` (nvm[1] indexes it), the trace
   `settings.toml` text in Deploy against `hw_smoke.py` (each removes only
@@ -475,9 +486,8 @@ enum members, return shapes) — by reading the CircuitPython source.
   first step of the page job): the recommended rules with `no-unused-vars`
   as an error, empty `catch {}` allowed, control characters in regexes
   allowed (the REPL protocol). The first run cleaned up dead code
-  (unused imports and constants in `main.js`, `board.js`,
-  `deploy-compiled.js`, `net.js`, `netschema.js`, `vendor/picofox.js`,
-  `kitsune_bench_conf.mjs`), redundant regex escapes, a duplicate key in
+  (unused imports and constants in `main.js`, `board.js`, `net.js`,
+  `netschema.js`, `vendor/picofox.js`), redundant regex escapes, a duplicate key in
   the fake ESP32 ROM and dead lines in two tests.
 - Checked and fine: every API name and keyword argument; `stations_ap`'s
   field is `mac_address` (its docstring says `mac`; the namedtuple says
@@ -527,8 +537,7 @@ without its fix.
   `code.py`). `tests/README.md`'s "Everything CI runs" now lists every
   step CI runs (it had half; the C runner was the missing one behind the
   0128 CI failure). README describes the contest features and counts
-  `checkpoint`. The FireBeetle 2 ESP32-C5's notes no longer call it a
-  kitsune stand-in. The runbook opens with the ten open hardware
+  `checkpoint`. The runbook opens with the ten open hardware
   questions (Q1–Q10). CONFIG's cross-section rules list the newer checks.
 
 ### Page 0.18.0 · foxlib 1.10.0 · foxlib-c 0.1.11 — phase E′: the fox that listens, and done for the day
@@ -623,9 +632,9 @@ without its fix.
 
 ### Page 0.15.0 · foxlib 1.8.0 · foxlib-c 0.1.11 — phase G: what varies per wake, and the event sheet
 
-Second round of contest features (plan, "Second round"); kitsune is a
-compiled-per-fox firmware, so the headroom is behaviour drawn at deploy
-and changing over the day.
+Second round of contest features (plan, "Second round"): against a fox
+whose configuration is compiled in, the headroom is behaviour drawn at
+deploy and changing over the day.
 
 - **Channel per wake** — `net.channels`: a list (chips on the Radio tab,
   *1 / 6 / 11*, *any* for the region's channels, *fixed* to clear), one
@@ -783,9 +792,6 @@ subject:
   `tests/README.md`, which owns the one copy; the still-open items of the
   October 2026 audit are listed there and the audit document itself is
   retired to the git history.
-- The kitsune C6 proposal document withdrawn: fox-bench carries its own C6
-  env for experiments, and kitsune's authors will be asked when licensing
-  or a split of the repository comes up.
 
 Every path in the tree (docs, Python/JS comments, the About tab) repointed;
 `tools/check_docs.py` covers 15 documents. Three comments in
@@ -796,9 +802,8 @@ comment. Page 0.12.1 for the About-tab text.
 ### Docs audit (2026-11-14) — no version change
 
 An independent read of every document against the code; 39 findings,
-all addressed. The hard constraints held (no `dc34fox` anywhere; kitsune
-by its repository only; nothing of theirs hosted; no vendor PicoFox files
-in the tree). Fixed: `docs/bench-runbook.md` pinned to 0.9.6 / foxlib
+all addressed. The hard constraints held (no `dc34fox` anywhere; no vendor
+PicoFox files in the tree). Fixed: `docs/bench-runbook.md` pinned to 0.9.6 / foxlib
 1.2.1 (now current, and `puzzle-beacon` in the network run); PROTOCOL.md
 named `fox.radio.key()` (it is `key_for()`) and said nothing about the
 NetFox bench calls, the board-clock write or the Listen-only port grant;
@@ -813,8 +818,7 @@ variants, the wiring card, the contest cards, the deploy clock,
 Disconnect-and-flash and the Listen-only reconnect. SECURITY.md names the
 esptool-js jsDelivr fallback. CONTRIBUTING's bump table and pre-push list
 match the lint and CI. "Three network foxes" is four in six places; the
-kitsune docs no longer describe a `kitsune` branch and name the right
-Board-tab button; the plan's decisions section is restored (the pushed
+plan's decisions section is restored (the pushed
 copy had the pre-decision text), `portal.body` not `body_md`, hw_smoke
 flags marked not built; the 2026-10 audit no longer says no tag exists;
 flasher/README documents `expectChip` / `port` / `impl` / `chipId()`;
@@ -822,9 +826,7 @@ bench-recordings says how a `--sniffer` run replays; CONFIG's table marks
 checkpoint/sense "accepted, not built"; hardware-log rows for 11-14 and
 the C5/C6 serial check; a third party's callsign removed from
 picofox-notes; the stale, untagged `firmware/foxlib-c/picofox/
-foxbench-picofox.uf2` untracked (CI builds the real one). Open on the
-catalog side: `seeed_xiao_esp32c5-kitsune` carries `ble-ibeacon` defaults
-but no iBeacon env (noted in the kitsune plan).
+foxbench-picofox.uf2` untracked (CI builds the real one).
 
 ### Page 0.12.0 · foxlib 1.5.0 · foxlib-c 0.1.11
 
@@ -1004,7 +1006,7 @@ board.
 
 Pre-pause cleanup, 2026-11-06: documentation brought level with the tree,
 and tests for the flasher's real transport, before the remaining boards go
-on the bench and kitsune work pauses.
+on the bench.
 
 - **Tests: the vendored esptool-js runs in CI** against a fake ESP32-C3 ROM
   and stub (`tests/unit/fake-rom-port.mjs`, `esptool-real.test.mjs`): the
@@ -1035,9 +1037,8 @@ on the bench and kitsune work pauses.
   `planned`); absent used to mean stable. `seeed_xiao_esp32c3` says so.
 - Docs: `project-audit-2026-10.md` has a 2026-11-06 status block — most of
   the "open" page items were fixed in 0.7–0.9 and are now listed as such,
-  with what remains; `CONTRIBUTING.md` no longer describes a `kitsune`
-  branch (experimental targets on `main` are the gate);
-  `kitsune-integration-plan.md` marked paused; `releasing.md` lists the
+  with what remains; `CONTRIBUTING.md`: experimental targets on `main` are
+  the gate; `releasing.md` lists the
   pinned tooling (Arm toolchain, Pico SDK, esptool-js, Playwright).
 
 
@@ -1048,7 +1049,7 @@ on the bench and kitsune work pauses.
   only in a tooltip. With a REPL / console / listen session open the button
   now reads **Disconnect and flash** and does exactly that — closes the
   session (console line), then asks for the port to flash. Same on the
-  Batch flashing card and the kitsune image card. A drive session is left
+  Batch flashing card. A drive session is left
   alone (another path). Other reasons (no image, no Web Serial) are shown
   as a visible warning beside the button.
 
@@ -1095,9 +1096,6 @@ family, and the bare boards listed by chip:
   keep whichever is selected, with a console line. New hardware: Seeed
   XIAO ESP32S3 (own build). The 0.8.x per-board targets fold into the chip
   targets (unreleased, so no migration).
-- **Compiled-in configuration (kitsune)** — unchanged, by board. The
-  FireBeetle 2 ESP32-C5 kitsune stand-in is removed: the XIAO ESP32C5 is on
-  the bench and is the board kitsune builds for.
 - `fox.json` (`net` contract): `board` is the chip target, new `variant`
   and `pins` (`led`, `batt_sense`; CONFIG.md); the firmware takes the LED
   from `pins.led` (null = no LED, as on the bare XIAO C3) and reports a
@@ -1207,41 +1205,18 @@ The page lows left from the October audit, in one pass:
 
 ### Page 0.7.13 · foxlib 1.0.4 · foxlib-c 0.1.10
 
-First kitsune build, for the boards on fox-bench's bench:
-
-- Three clone targets behind "Show experimental targets": DFRobot
-  FireBeetle 2 ESP32-C5 (flashes kitsune's XIAO-C5 build), Waveshare
-  ESP32-S3-Nano (kitsune's Arduino Nano ESP32 build, via the ROM's download
-  mode) and Seeed XIAO ESP32C6 (fox-bench's own envs, `fb-` prefix, in
-  `firmware/kitsune/extra/`). Serial over native USB confirmed on the C5
-  and C6.
-- `tools/build_kitsune.py --conf-dir` installs fox-bench's **bench
-  conference** (`firmware/kitsune/bench/*.h`, generated by the page's
-  exporter via `tools/kitsune_bench_conf.mjs`, FOXBENCH names and
-  F2:B0:… MACs) as `current_conf.h` before building — an image fox-bench
-  builds never carries an event's configuration; `--extra-ini-dir` adds the
-  `fb-` envs with kitsune's `platformio.ini` merged in unchanged.
-- CI: `KITSUNE_BUILD` builds images as a run artifact; a second switch
-  `KITSUNE_HOST` is needed before anything is put into the site.
-- Plan §10: the bench conference, fox-bench envs, the branch convention.
-- The firmware card opens the CI artifact folder (**Open artifact
-  folder…**): the same per-board buttons and sha256 checks as a hosted
-  manifest, from the unzipped `kitsune-images` run artifact. Smoke-tested
-  with the three stand-in targets (chip refusal, written at 0x0).
-- `docs/kitsune-bench.md`: the first-flash checklist per board; the battery
-  auto-off and serial-during-sleep notes from kitsune's README are on every
-  kitsune hardware descriptor. A C6 proposal to kitsune's authors (the
-  PR text, with its evidence; withdrawn 2026-11-14 — fox-bench carries its
-  own C6 env and they will be asked when licensing or a split comes up).
+- Three boards behind "Show experimental targets": DFRobot FireBeetle 2
+  ESP32-C5, Waveshare ESP32-S3-Nano (via the ROM's download mode) and Seeed
+  XIAO ESP32C6. Serial over native USB confirmed on the C5 and C6.
+- Hardware descriptors carry the battery auto-off and serial-during-sleep
+  notes for boards that deep-sleep between transmissions.
 
 ### Page 0.7.12 · foxlib 1.0.4 · foxlib-c 0.1.10
 
 - The Board picker lists only targets verified on hardware. Targets with
-  status `experimental` — the five kitsune boards, until one is on the
-  bench — sit behind a **Show experimental targets** checkbox (remembered
-  per browser; a selected target is always listed). Nothing is removed: a
-  release of this page is what the hardware log vouches for, and the
-  kitsune work continues behind the box.
+  status `experimental` sit behind a **Show experimental targets** checkbox
+  (remembered per browser; a selected target is always listed). Nothing is
+  removed: a release of this page is what the hardware log vouches for.
 
 ### Page 0.7.11 · foxlib 1.0.4 · foxlib-c 0.1.10
 
@@ -1286,45 +1261,32 @@ against the datasheet's formulas, plus the timed-out-write recovery paths and
 transitively.
 
 
-Two bugs the new tests found, both on the kitsune side:
+Two bugs the new tests found:
 
-- **A page whose saved working form was a kitsune target did not boot**
-  (blank page, `renderRadio … reading 'cfg'`): the Radio/Plan/Schedule tabs
-  render at boot before the ID tab had initialised the kitsune UI module.
-  Each tab now initialises it itself. The smoke reloads with a kitsune form
-  saved on each of those tabs.
+- **A page whose saved working form was an experimental target did not
+  boot** (blank page, `renderRadio … reading 'cfg'`): the Radio/Plan/Schedule
+  tabs rendered at boot before the ID tab had initialised a shared UI
+  module. Each tab now initialises it itself.
 - **The flasher would have refused a real ATOM Lite.** `chipId()` turned
   esptool's "ESP32-PICO-D4" / "ESP32-D0WDQ6" into `esp32picod4` /
   `esp32d0wdq6`, not `esp32`, so the chip check would have reported "the
   port belongs to an ESP32-PICO-D4, but the selected board is an ESP32" and
   stopped. The classic ESP32's package variants now map to `esp32`; the old
   unit test had encoded the bug.
-- `setTemplate` with carry no longer assumes a `payload` section (compiled
-  configs have none).
+- `setTemplate` with carry no longer assumes a `payload` section.
 
-Tests: the test server can play a deployed site (CI-written fingerprint,
-kitsune manifest and image), so the hosted-image paths run in the smoke —
-fingerprint shown, image accepted when it matches, refused with the
-"mid-deploy" hint when it does not, the same for a kitsune image, and the
-site's merged image flashed at 0x0. The simulated esptool can fail to
+Tests: the test server can play a deployed site (CI-written fingerprint),
+so the hosted-image paths run in the smoke — fingerprint shown, image
+accepted when it matches, refused with the "mid-deploy" hint when it does
+not. The simulated esptool can fail to
 connect or to start its stub (unit-tested); `send()` has a unit test; three
 smoke asserts that could not fail now can, and two sleeps are waits.
 
 ### Page 0.7.9 · foxlib 1.0.4 · foxlib-c 0.1.9
 
-Regroup before kitsune hardware (the 2026-10-22 test and documentation
-reviews). Code:
+Regroup after the 2026-10-22 test and documentation reviews. Code:
 
-- **Merged-image offset.** `tools/build_kitsune.py` merged images padded
-  from address 0, and the page wrote them at the chip's bootloader offset
-  (0x1000 on the ATOM Lite, 0x2000 on the C5): every piece would have landed
-  one offset too high on the first real board; only the C3 (0x0) was safe by
-  coincidence. Now stated once: a merged image is a whole-flash image, built
-  with `--target-offset 0x0`, written at 0x0, manifest `offset` 0x0;
-  `check_catalog.py --manifest` enforces it, the simulated esptool records
-  the write address and the tests read it. Build tools pinned (PlatformIO
-  6.1.18, esptool 4.8.1) and recorded in the manifest;
-  `build_kitsune.py --selftest`.
+- The simulated esptool records the write address and the tests read it.
 - `ReplLink.interrupt()` from raw mode sends Ctrl-B first instead of a 4.5 s
   Ctrl-C dance — every XIAO Bench action after a read paid it. Timeouts are
   injectable; the unit suite dropped from 49 s to 11 s.
@@ -1334,14 +1296,6 @@ reviews). Code:
 
 Documentation, from the same review:
 
-- One sentence about kitsune everywhere it is described (README, About,
-  Board tab, Deploy tab, descriptors, `adding-a-target.md`, DESIGN §10):
-  the page flashes a merged image after the chip check, unverified on real
-  kitsune hardware; hosts nothing today and nothing without agreement
-  (`LICENSES.md` now says what would change and when).
-- `adding-a-target.md`: a `compiled`-family section written from the
-  lint's rules — hardware/target/defaults fields, and that a new compiled
-  template is a code change (`js/model/vendor/kitsune.js` `TEMPLATES`).
 - The contracts say what the code does: the band check is a confirmable
   warning (DESIGN §4, CONFIG `plan`, About → Honest limits); foxlib-c's
   10-minute hard keydown cap (CONFIG `limits`, the Deploy tab warns when the
@@ -1366,7 +1320,7 @@ CI guards (each for a slip that happened): `tools/check_ci.py` parses the
 workflow strictly and checks the job graph; `build_info.py` fails when the
 UF2's `FOXLIBC-VERSION:` tag differs from `VERSION`; the page version-bump
 lint counts `hardware/` and `boards/`; the fox-bench USB ids are compared with
-`usb_descriptors.c`; the kitsune build tools are pinned.
+`usb_descriptors.c`.
 
 ### Page 0.7.8 · foxlib 1.0.4 · foxlib-c 0.1.9
 
@@ -1425,36 +1379,13 @@ fox-bench's, both ways, and loaded an old UF2 by hand.
 foxlib 1.0.4: `payload.images_file` must be a plain file name (no paths,
 never `code.py` / `fox.json` / `defaults.json` / `boot.py` / `board.json`),
 in step with the page and the C firmware. The page's 0.7.x and foxlib-c's
-0.1.8 are described under their own headings in the commit history; see
-`docs/kitsune-integration-plan.md` for the `compiled` family.
+0.1.8 are described under their own headings in the commit history.
 
 ### Page 0.7.0–0.7.4 · foxlib 1.0.3 · foxlib-c 0.1.7–0.1.8
 
-The fourth device family, **compiled**, for foxes whose configuration is
-compiled into their firmware — RF Hackers Sanctuary's kitsune
-(`docs/kitsune-integration-plan.md`; kitsune belongs to its authors,
-https://github.com/rfhs/kitsune, nothing of it hosted here).
-
-- Five kitsune targets (M5Stack ATOM Lite, AtomS3 Lite, StampS3, Arduino
-  Nano ESP32, Seeed XIAO ESP32-C5 — descriptors from public documentation,
-  `experimental` until a board is on the bench) and five templates: Wi-Fi
-  access point, Wi-Fi client, BLE iBeacon, Bluetooth Classic, Zigbee
-  coordinator, each with the challenge/key-phrase fields their build reads.
-- The page's forms check the configuration with kitsune's own constraints
-  (`js/model/vendor/kitsune.js`: channels per band and region, MAC shape,
-  power steps, intervals) and **export the conference header** their
-  PlatformIO build compiles in; an exported header imports back into the
-  form; a random locally-administered MAC per fox; a cycle preview.
-- **Firmware card** for the compiled family: a merged image from the site's
-  manifest (built in CI from a pinned kitsune commit, only when the
-  repository variable `KITSUNE_BUILD` is set — nothing hosted without the
-  project's agreement) or a local merged `.bin`; the flasher checks the
-  port's chip against the target before erasing (`expectChip`); the fleet
-  log keys the fox on its efuse MAC.
 - **Catalog packs** (`?pack=<url>`): another repository's hardware, targets,
   templates and defaults loaded over this site's, data only, linted with
-  `check_catalog.py --pack` — the mechanism for kitsune to publish its own
-  descriptors later (`tests/fixtures/pack/`).
+  `check_catalog.py --pack` (`tests/fixtures/pack/`).
 - 1200-baud touch: the picked port's USB ids are checked against the
   hardware descriptor; "port gone"/"still there" verdicts.
 - foxlib-c 0.1.8: `correction_ppm` applied; `fox_drive_changed` by content;

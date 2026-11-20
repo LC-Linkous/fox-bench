@@ -18,9 +18,8 @@ TEMPLATES = os.path.join(REPO, "firmware", "templates")
 
 
 def fox_templates():
-    """Template directories whose defaults are fox.json for foxlib / foxlib-c. The compiled family's templates
-    (kitsune) keep the file shape but not the sections, and have no payload to compare; nor do the network foxes
-    (`contract: net`), which the C firmware does not run."""
+    """Template directories whose defaults are fox.json for foxlib / foxlib-c. The network foxes (`contract: net`)
+    are left out: the C firmware does not run them, and they have no payload to compare."""
     out = []
     for t in sorted(os.listdir(TEMPLATES)):
         tj = os.path.join(TEMPLATES, t, "template.json")

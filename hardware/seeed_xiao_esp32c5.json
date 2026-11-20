@@ -37,7 +37,7 @@
       "aliases": [
         "D0"
       ],
-      "note": "yellow user LED (kitsune's DATA_PIN); IO27 in the DevKitC-1 CircuitPython build's pin names"
+      "note": "yellow user LED; IO27 in the DevKitC-1 CircuitPython build's pin names"
     }
   ],
   "roles": {
@@ -48,20 +48,19 @@
     "kind": "single",
     "pin": 27,
     "active_low": true,
-    "note": "one yellow LED on GPIO27 (kitsune: on for every state except red)"
+    "note": "one yellow LED on GPIO27"
   },
   "battery": {
     "charger": false,
-    "divider_note": "Powered from USB or a 5 V pack. kitsune's note: the pack must not have a low-current cut-off, or the board never wakes from deep sleep."
+    "divider_note": "Powered from USB or a 5 V pack. The pack must not have a low-current cut-off, or the board never wakes from deep sleep."
   },
   "notes": [
-    "The only kitsune board with 5 GHz Wi-Fi and an 802.15.4 radio (Zigbee coordinator). kitsune builds it with the pioarduino platform fork. kitsune notes client mode gets the wrong MAC on this board. Bootloader offset 0x2000 is the ESP32-C5 convention; to be confirmed with the first board.",
-    "Power: kitsune foxes sleep between transmissions; a USB power bank with a low-current auto-off cuts power during the sleep and the fox never wakes (kitsune's README). Use a pack without auto-off.",
-    "Serial: native USB — the console port disappears while the chip sleeps and returns when it wakes (kitsune's README: 'Serial console during sleep: no'). 'serial port dropped' each cycle is expected."
+    "5 GHz Wi-Fi and an 802.15.4 radio beside the 2.4 GHz Wi-Fi and BLE. Bootloader offset 0x2000 is the ESP32-C5 convention; to be confirmed with the first board.",
+    "Power: a fox sleeps between transmissions; a USB power bank with a low-current auto-off cuts power during the sleep and the fox never wakes. Use a pack without auto-off.",
+    "Serial: native USB — the console port disappears while the chip sleeps and returns when it wakes. 'serial port dropped' each cycle is expected."
   ],
   "serial": {
-    "baud": 115200,
-    "notes": "kitsune prints 'ESP32 boot count', 'Awake and screaming', 'Going to sleep' and 'PANIC' on its serial port; no command interface."
+    "baud": 115200
   },
   "silkscreen": null,
   "circuitpython": {

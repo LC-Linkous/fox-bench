@@ -17,7 +17,7 @@ const unb64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
 export const packProfileImages = images => (images || []).map(im => ({ ...im, pixels: im.pixels instanceof Uint8Array ? b64(im.pixels) : Array.isArray(im.pixels) ? b64(Uint8Array.from(im.pixels)) : im.pixels }));
 export const unpackProfileImages = images => (images || []).map(im => ({ ...im, pixels: typeof im.pixels === 'string' ? unb64(im.pixels) : Uint8Array.from(im.pixels || []) }));
 
-export const FLEET_FIELDS = ['board_number', 'timestamp', 'uid', 'mac', 'board', 'chip_type', 'revision', 'features', 'crystal', 'usb_mode', 'action', 'template', 'profile', 'callsign', 'owner', 'event', 'freq', 'power', 'seed', 'result', 'challenge', 'keyphrase', 'on_air', 'notes'];   // challenge/keyphrase: the compiled family's (kitsune) sheet fields
+export const FLEET_FIELDS = ['board_number', 'timestamp', 'uid', 'mac', 'board', 'chip_type', 'revision', 'features', 'crystal', 'usb_mode', 'action', 'template', 'profile', 'callsign', 'owner', 'event', 'freq', 'power', 'seed', 'result', 'on_air', 'notes'];
 
 export const profiles = {
   all: () => read(KEY_P, []),

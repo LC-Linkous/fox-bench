@@ -628,84 +628,35 @@ try {
   check((await page.$$eval('#tab-behavior select option', els => els.length)) >= 7, 'template dropdown back to the foxlib set');
   await page.click('#demoBtn'); await settle(600);
 
-  section('kitsune (compiled family)');
+  section('experimental targets in the picker');
   await tab('board');
   const optsDefault = await page.$$eval('#tab-board select option', els => els.map(e => e.value));
-  check(!optsDefault.some(v => v.endsWith('-kitsune')) && optsDefault.includes('picofox-foxlibc') && optsDefault.includes('seeed_xiao_esp32c3'), 'experimental (kitsune) targets are hidden from the picker by default; the verified ones are listed');
+  check(optsDefault.includes('picofox-foxlibc') && optsDefault.includes('seeed_xiao_esp32c3') && !optsDefault.includes('nrf52840'), 'experimental targets are hidden from the picker by default; the stable ones are listed');
   const nExp = await app(() => Object.values(window.foxbench.catalog.boards).filter(b => b.status === 'experimental').length);
   check(/Show experimental targets/.test(await text('#tab-board')) && new RegExp(nExp + ' hidden').test(await text('#tab-board')), `the picker says how many targets are hidden (${nExp})`);
   await page.check('#tab-board .card:first-child input[type=checkbox]'); await settle(300);   // the picker card's checkbox, not the flash card's erase box
   const optsAll = await page.$$eval('#tab-board select option', els => els.map(e => e.value));
-  const nK = optsAll.filter(v => v.endsWith('-kitsune')).length, nNet = optsAll.filter(v => ['esp32c3', 'esp32c6', 'esp32c5', 'esp32s3', 'nrf52840'].includes(v)).length;
-  check(nK + nNet === nExp && nK >= 7 && nNet === 5, `the checkbox lists the ${nExp} experimental targets: ${nK} kitsune + ${nNet} chip targets`);
+  const nNet = optsAll.filter(v => ['esp32c3', 'esp32c6', 'esp32c5', 'esp32s3', 'nrf52840'].includes(v)).length;
+  check(nNet === nExp && nNet === 5, `the checkbox lists the ${nExp} experimental targets: the ${nNet} chip targets`);
   const groupsAll = await page.$$eval('#tab-board select optgroup', els => els.map(e => [e.label, [...e.querySelectorAll('option')].map(o => o.value)]));
   const chipGroup = groupsAll.find(([l]) => l === 'CircuitPython board'), fmGroup = groupsAll.find(([l]) => /\+ radio module/.test(l)), driveGroup = groupsAll.find(([l]) => l === 'Drive-configured fox');
-  check(chipGroup && chipGroup[1].join() === 'esp32c3,esp32c5,esp32c6,esp32s3,nrf52840' && fmGroup && fmGroup[1].join() === 'seeed_xiao_esp32c3', 'picker groups: the five chips under "CircuitPython board", the XIAO + SA868 under "+ radio module": ' + JSON.stringify(chipGroup?.[1]));
+  check(chipGroup && chipGroup[1].join() === 'esp32c3,esp32c5,esp32c6,esp32s3,nrf52840' && fmGroup && fmGroup[1].join() === 'seeed_xiao_esp32c3', 'picker groups: the five chips under "CircuitPython board", the XIAO + SA868 under "+ radio module"');
   check(driveGroup && driveGroup[1].join() === 'picofox-vendor,picofox-foxlibc', 'both PicoFox lines under "Drive-configured fox", vendor first');
-  eq(groupsAll.map(([l]) => l).join(' | '), 'CircuitPython board + radio module | Drive-configured fox | CircuitPython board | Compiled-in configuration (kitsune)', 'group order');
-  await page.selectOption('#tab-board select', 'seeed_xiao_esp32c5-kitsune'); await settle(400);
-  eq(await app(() => window.foxbench.family), 'compiled', 'family switches to compiled');
-  eq(await app(() => window.foxbench.templateId), 'wifi-ap', 'first kitsune template selected');
-  check(await page.isDisabled('#connectBtn') && await page.isDisabled('#demoBtn'), 'no Connect / demo for the compiled family yet');
-  check(/kitsune is the work of its authors/.test(await text('#tab-board')) && /github\.com\/rfhs\/kitsune/.test(await text('#tab-board')), 'Board tab attributes kitsune to its repository');
-  check(await page.isHidden('.rail button[data-tab="payload"]') && await page.isHidden('.rail button[data-tab="bench"]'), 'Payload and Bench tabs hidden for the family');
-  await tab('behavior');
-  const kOpts = await page.$$eval('#tab-behavior select option', els => els.map(e => e.value));
-  check(kOpts.includes('wifi-ap') && kOpts.includes('zigbee-coordinator') && !kOpts.includes('bt-classic') && !kOpts.includes('morse-songs'), 'C5 offers Wi-Fi/BLE/Zigbee challenges, not BT Classic or the FM templates (' + kOpts.join(',') + ')');
-  await tab('id');
-  check(/Key phrase/.test(await text('#tab-id')) && /placeholder MAC/.test(await text('#tab-id')), 'ID tab shows the challenge card and flags the placeholder MAC');
-  await page.click('#tab-id button:has-text("roll")'); await settle(300);
-  const mac = await app(() => window.foxbench.cfg.wifi.mac);
-  check(/^F2(:[0-9A-F]{2}){5}$/.test(mac), 'roll gives a locally administered MAC: ' + mac);
-  await tab('plan');
-  check(/Band/.test(await text('#tab-plan')) && /random at every wake/.test(await text('#tab-plan')), 'Plan tab: band and channel for the AP on the C5');
-  await tab('schedule');
-  check(/Duty cycle/.test(await text('#tab-schedule')) && /wakes in 10 min/.test(await text('#tab-schedule')), 'Schedule tab draws the duty cycle');
-  await tab('deploy');
-  check(/#if defined\(AP\)/.test(await text('#tab-deploy')) && /#define FSSID/.test(await text('#tab-deploy')) && /RFHS_CHALLENGE_NAME/.test(await text('#tab-deploy')), 'Deploy tab previews the header block');
-  const [dlh] = await Promise.all([page.waitForEvent('download', { timeout: 10000 }), page.click('#tab-deploy button:has-text("Export header block")')]);
-  check(/\.h$/.test(dlh.suggestedFilename()), 'header block downloads: ' + dlh.suggestedFilename());
-  const hdr = (await import('node:fs/promises')).readFile(await dlh.path(), 'utf8');
-  check(/#define MAC_ADDR \{0xf2,/.test(await hdr) && /#define TIME_TO_WAKE 15/.test(await hdr), 'the exported block carries the rolled MAC and the duty cycle');
-  const rowK = await app(() => JSON.parse(localStorage.getItem('fox-bench.fleet') || '[]').filter(r => r.action === 'export-header').pop());
-  check(rowK && rowK.board === 'seeed_xiao_esp32c5-kitsune' && rowK.mac === mac && /WiFi AP/.test(rowK.challenge), 'fleet row for the export carries MAC and challenge');
-  // import a block of another tier back in
-  await app(async () => { const v = window.foxbench.vendor; const b = v.parseHeader('#if defined(AP)\n#if defined(HARD)\n// RFHS_CHALLENGE_NAME "Imported Fox"\n// FOX_KEYWORDS "Hunter should ask \'Imported?\'"\n#define FSSID "Imported SSID"\n#define PSK "0123456789"\n#define MAC_ADDR {0xF2, 0x01, 0x02, 0x03, 0x04, 0x05}\n#define CHANNEL 0\n#define SSID_HIDDEN 1\n#define MAX_CLIENTS 2\n#define TIME_TO_WAKE 30\n#define TIME_TO_SLEEP 45\n#define TXPOWER WIFI_POWER_7dBm\n#endif\n#endif\n'); const part = v.cfgFromBlock(b[0], 'wifi-ap'); const m = structuredClone(window.foxbench.cfg); for (const [k, x] of Object.entries(part)) m[k] = { ...m[k], ...x }; await window.foxbench.loadCfg(m, { source: 'import' }); });
-  await settle(300);
-  const imp = await app(() => ({ ssid: window.foxbench.cfg.wifi.ssid, tier: window.foxbench.cfg.challenge.tier, hidden: window.foxbench.cfg.wifi.hidden, sleep: window.foxbench.cfg.schedule.sleep_s, p: window.foxbench.cfg.wifi.tx_power_dbm }));
-  check(imp.ssid === 'Imported SSID' && imp.tier === 'hard' && imp.hidden === true && imp.sleep === 45 && imp.p === 7, 'a parsed header block loads into the form: ' + JSON.stringify(imp));
-  // the firmware card: no hosted images on a checkout; a locally built merged image flashes through esptool (simulated),
-  // the chip is checked against the descriptor before anything is erased, the fleet row carries the efuse MAC as UID
-  await tab('board');
-  check(/No kitsune images are hosted on this site/.test(await text('#tab-board')) && /Load merged \.bin/.test(await text('#tab-board')), 'firmware card says no hosted images and takes a merged .bin');
-  await page.setInputFiles('#tab-board input[type=file][accept=".bin"]', { name: 'merged.bin', mimeType: 'application/octet-stream', buffer: Buffer.alloc(8192, 0xe9) }); await settle(300);
-  await app(() => { window.foxbenchFlash.simulate = true; window.foxbenchFlash.simulateChip = 'ESP32-C3 (QFN32) (revision v0.4)'; });
-  await page.click('#tab-board button:has-text("Flash")'); await untilFleet("r.action === 'flash' && r.board === 'seeed_xiao_esp32c5-kitsune'");
-  const badRow = await app(() => JSON.parse(localStorage.getItem('fox-bench.fleet') || '[]').filter(r => r.action === 'flash' && r.board === 'seeed_xiao_esp32c5-kitsune').pop());
-  check(badRow && /^fail: the port belongs to an ESP32-C3/.test(badRow.result), 'a C3 on the port with the C5 target selected is refused before the erase: ' + (badRow && badRow.result));
-  await app(() => { window.foxbenchFlash.simulateChip = 'ESP32-C5'; });
-  await page.click('#tab-board button:has-text("Flash")'); await untilFleet("r.action === 'flash' && r.board === 'seeed_xiao_esp32c5-kitsune' && r.result === 'ok'");
-  const okRow = await app(() => JSON.parse(localStorage.getItem('fox-bench.fleet') || '[]').filter(r => r.action === 'flash' && r.board === 'seeed_xiao_esp32c5-kitsune').pop());
-  check(okRow && okRow.result === 'ok' && okRow.uid === '84f703123456' && /merged\.bin/.test(okRow.notes), 'the right chip flashes; fleet row keyed on the efuse MAC: ' + JSON.stringify(okRow && [okRow.result, okRow.uid]));
-  const lastWrite = await app(() => window.foxbenchFlash.lastWrite?.());
-  check(lastWrite && lastWrite.address === 0 && lastWrite.length === 8192, 'a merged image is written at 0x0 even though the C5\'s bootloader offset is 0x2000: ' + JSON.stringify(lastWrite));
-  check(/rebooting into the kitsune firmware/.test(await text('#tab-board')), 'the result text is the kitsune one');
-  await app(() => { window.foxbenchFlash.simulate = false; window.foxbenchFlash.simulateChip = ''; });
-  await tab('board'); await page.selectOption('#tab-board select', 'seeed_xiao_esp32c3'); await settle(400);
-  eq(await app(() => window.foxbench.family), 'foxlib', 'back to the C3 after kitsune');
-  check(await page.isVisible('.rail button[data-tab="payload"]'), 'Payload tab back');
+  eq(groupsAll.map(([l]) => l).join(' | '), 'CircuitPython board + radio module | Drive-configured fox | CircuitPython board', 'group order');
+  await page.selectOption('#tab-board select', 'seeed_xiao_esp32c3'); await settle(300);
+  check(await page.isVisible('.rail button[data-tab="payload"]'), 'Payload tab shown');
 
   section('catalog pack');
   await page.goto(url + '?pack=/tests/fixtures/pack/'); await page.waitForFunction(() => window.foxbench?.catalog); await settle(400);
   const pk = await app(() => window.foxbench.catalog.packs);
   check(pk.length === 1 && pk[0].name === 'example-pack' && pk[0].counts.boards === 1 && !pk[0].error, 'the example pack loads: ' + JSON.stringify(pk));
-  check(await app(() => !!window.foxbench.catalog.boards['example_atom_clone-kitsune'] && window.foxbench.catalog.boards['example_atom_clone-kitsune']._pack === 'example-pack'), 'the pack\'s target is in the catalog, marked with the pack');
-  await tab('board'); await page.selectOption('#tab-board select', 'example_atom_clone-kitsune'); await settle(500);
-  eq(await app(() => window.foxbench.boardId), 'example_atom_clone-kitsune', 'the pack target can be selected');
-  eq(await app(() => window.foxbench.defaults.board), 'example_atom_clone-kitsune', 'its defaults come from the pack (for a built-in template)');
+  check(await app(() => !!window.foxbench.catalog.boards['example_c3_clone'] && window.foxbench.catalog.boards['example_c3_clone']._pack === 'example-pack'), 'the pack\'s target is in the catalog, marked with the pack');
+  await tab('board'); await page.selectOption('#tab-board select', 'example_c3_clone'); await settle(500);
+  eq(await app(() => window.foxbench.boardId), 'example_c3_clone', 'the pack target can be selected');
+  eq(await app(() => window.foxbench.defaults.board), 'example_c3_clone', 'its defaults come from the pack (for a built-in template)');
   check(/catalog pack/.test(await text('#tab-board')) && /example-pack/.test(await text('#tab-board')), 'Board tab names the pack');
   await page.goto(url); await page.waitForFunction(() => window.foxbench?.catalog); await settle(400);
-  check(await app(() => !window.foxbench.catalog.boards['example_atom_clone-kitsune']), 'without ?pack= the pack is gone, and the saved form for its target falls back');
+  check(await app(() => !window.foxbench.catalog.boards['example_c3_clone']), 'without ?pack= the pack is gone, and the saved form for its target falls back');
   await tab('board'); await page.selectOption('#tab-board select', 'seeed_xiao_esp32c3'); await settle(400);
   await page.click('#demoBtn'); await settle(600);
 
@@ -834,15 +785,12 @@ try {
   await tab('board'); await page.selectOption('#tab-board select', 'seeed_xiao_esp32c3'); await settle(400);
   await page.click('#demoBtn'); await settle(600);
 
-  section('hosted images: the CI-written fingerprint and kitsune manifest, served by the test server');
+  section('hosted images: the CI-written fingerprint, served by the test server');
   const { createHash } = await import('node:crypto');
   const sha = b => createHash('sha256').update(b).digest('hex');
-  const hostedUf2 = mkUf2('FOXLIBC-VERSION:9.9.9'), kImage = Buffer.alloc(8192, 0xe9);
+  const hostedUf2 = mkUf2('FOXLIBC-VERSION:9.9.9');
   overrides.set('/firmware/foxlib-c/picofox/foxbench-picofox.uf2', { body: hostedUf2 });
   overrides.set('/firmware/foxlib-c/picofox/foxbench-picofox.json', { body: JSON.stringify({ name: 'foxbench-picofox.uf2', version: '9.9.9', version_tag: '9.9.9', commit: 'abc1234def', pico_sdk: 'bddd20f9', gcc: 'arm-none-eabi-gcc 15.2.1', sha256: sha(hostedUf2), size: hostedUf2.length, text: 1, bss: 1, built: '2026-10-22T00:00:00Z' }), type: 'application/json' });
-  overrides.set('/firmware/kitsune/manifest.json', { body: JSON.stringify({ project: 'kitsune', source: 'https://github.com/rfhs/kitsune', commit: '0123456789abcdef0123456789abcdef01234567', built: '', tools: { platformio: '6.1.18', esptool: '4.8.1' }, note: 'smoke fixture',
-    images: [{ board: 'm5stack_atom_lite-kitsune', template: 'wifi-ap', tier: 'easy', mode: 'AP', env: 'm5atom-easy-ap', file: 'm5atom-easy-ap.bin', sha256: sha(kImage), size: kImage.length, chip: 'esp32', offset: '0x0' }] }), type: 'application/json' });
-  overrides.set('/firmware/kitsune/m5atom-easy-ap.bin', { body: kImage });
   await page.goto(url); await page.waitForFunction(() => window.foxbench?.catalog); await settle(400);   // the cards cache "no file on this site" per page load
   await tab('board'); await page.selectOption('#tab-board select', 'picofox-foxlibc'); await untilTextArgs('#tab-board', /Hosted build: c-9\.9\.9 · commit abc1234/, 5000);
   check(/Hosted build: c-9\.9\.9 · commit abc1234 · arm-none-eabi-gcc 15\.2\.1 · pico-sdk bddd20f/.test(await text('#tab-board')), 'the Board tab shows the fingerprint CI wrote');
@@ -852,76 +800,7 @@ try {
   overrides.set('/firmware/foxlib-c/picofox/foxbench-picofox.uf2', { body: mkUf2('FOXLIBC-VERSION:9.9.8') });   // the site mid-deploy: a different UF2 under the same fingerprint
   await page.click('#tab-board button:has-text("Get fox-bench firmware")'); await untilTextArgs('#log', /firmware fetch failed: foxbench-picofox\.uf2 rejected/, 5000);
   check(/rejected: .*sha256 .*mid-deploy: reload the page and try again/.test(await text('#log')), 'an image whose sha256 differs from the fingerprint is refused with the mid-deploy hint');
-  await page.selectOption('#tab-board select', 'm5stack_atom_lite-kitsune'); await settle(300);
-  await tab('behavior'); await page.selectOption('#tab-behavior select', 'wifi-ap'); await settle(300);
-  await tab('board'); await untilTextArgs('#tab-board', /Get easy wifi-ap/, 5000);
-  check(/Images for the M5Stack ATOM Lite \(kitsune firmware\) and the Wi-Fi access point/.test(await text('#tab-board')) && /built from kitsune at 0123456/.test(await text('#tab-board')), 'the firmware card lists the manifest\'s image for this board × template');
-  await page.click('#tab-board button:has-text("Get easy wifi-ap")'); await untilTextArgs('#log', /fetched m5atom-easy-ap\.bin .*= manifest/, 5000);
-  check(/m5atom-easy-ap\.bin · 8 kB · from this site/.test(await text('#tab-board')), 'the fetched kitsune image is loaded and marked as the site\'s');
-  overrides.set('/firmware/kitsune/m5atom-easy-ap.bin', { body: Buffer.alloc(8192, 0xea) });
-  await page.click('#tab-board button:has-text("Get easy wifi-ap")'); await untilTextArgs('#log', /image fetch failed: sha256 .* does not match the manifest's/, 5000);
-  check(/does not match the manifest's .*a deploy may be in progress/.test(await text('#log')), 'a kitsune image whose sha256 differs from the manifest is refused');
-  await app(() => { window.foxbenchFlash.simulate = true; window.foxbenchFlash.simulateChip = 'ESP32-PICO-D4 (revision v1.0)'; });
-  await tab('board'); await page.selectOption('#tab-board select', 'm5stack_atom_lite-kitsune'); await settle(200);
-  await page.click('#tab-board button:has-text("Get easy wifi-ap")');   // re-fetch the bad one fails; the good image from before is still loaded
-  await settle(500);
-  overrides.set('/firmware/kitsune/m5atom-easy-ap.bin', { body: kImage });
-  await page.click('#tab-board button:has-text("Get easy wifi-ap")'); await untilTextArgs('#log', /fetched m5atom-easy-ap\.bin .*= manifest/, 5000);
-  await page.click('#tab-board button:has-text("Flash")'); await untilFleet("r.action === 'flash' && r.board === 'm5stack_atom_lite-kitsune' && r.result === 'ok'", 15000);
-  const kw = await app(() => window.foxbenchFlash.lastWrite?.());
-  check(kw && kw.address === 0 && kw.length === 8192, 'the site\'s merged image is written at 0x0 on the ATOM Lite (bootloader offset 0x1000 is inside it): ' + JSON.stringify(kw));
-  check(/SIMULATED flash \(test mode\)/.test(await text('#log')), 'a simulated flash says so in the log');
-  await app(() => { window.foxbenchFlash.simulate = false; window.foxbenchFlash.simulateChip = ''; });
   for (const k of [...overrides.keys()]) overrides.delete(k);
-
-  section('local artifact manifest; the bench\'s three kitsune targets (XIAO C5, S3-Nano, C6)');
-  await page.goto(url); await page.waitForFunction(() => window.foxbench?.catalog); await settle(400);   // no hosted manifest now
-  await tab('board'); await page.selectOption('#tab-board select', 'seeed_xiao_esp32c5-kitsune'); await settle(300);
-  await tab('behavior'); await page.selectOption('#tab-behavior select', 'wifi-ap'); await settle(300);
-  await tab('board'); await untilTextArgs('#tab-board', /No kitsune images are hosted on this site/, 5000);
-  check(/Open artifact folder…/.test(await text('#tab-board')), 'the card offers the CI artifact folder when nothing is hosted');
-  // the artifact as a fake directory handle: manifest.json + images for the three stand-ins
-  const c5img = Buffer.alloc(16384, 0xc5), s3img = Buffer.alloc(12288, 0x53), c6img = Buffer.alloc(8192, 0xc6);
-  const localMan = { project: 'kitsune', source: 'https://github.com/rfhs/kitsune', commit: 'cdfc0ce39d3d68e44041a3c356c889631d48ade3', built: '2026-10-23T00:00:00Z', tools: { platformio: '6.1.18', esptool: '4.8.1' },
-    conference: 'fox-bench bench values (firmware/kitsune/bench), not any event\'s configuration', images: [
-      { board: 'seeed_xiao_esp32c5-kitsune', template: 'wifi-ap', tier: 'easy', mode: 'AP', env: 'seeed-xiao-esp32c5-easy-ap', file: 'seeed-xiao-esp32c5-easy-ap.bin', sha256: sha(c5img), size: c5img.length, chip: 'esp32c5', offset: '0x0' },
-      { board: 'waveshare_esp32s3_nano-kitsune', template: 'wifi-ap', tier: 'easy', mode: 'AP', env: 'arduino-nano-esp32-easy-ap', file: 'arduino-nano-esp32-easy-ap.bin', sha256: sha(s3img), size: s3img.length, chip: 'esp32s3', offset: '0x0' },
-      { board: 'seeed_xiao_esp32c6-kitsune', template: 'wifi-ap', tier: 'easy', mode: 'AP', env: 'fb-seeed-xiao-esp32c6-easy-ap', file: 'fb-seeed-xiao-esp32c6-easy-ap.bin', sha256: sha(c6img), size: c6img.length, chip: 'esp32c6', offset: '0x0' },
-      { board: 'seeed_xiao_esp32c6-kitsune', template: 'wifi-client', tier: 'easy', mode: 'CLIENT', env: 'fb-seeed-xiao-esp32c6-easy-client', file: 'missing.bin', sha256: sha(c6img), size: c6img.length, chip: 'esp32c6', offset: '0x0' } ] };
-  await app(({ man, files }) => {
-    const bytes = Object.fromEntries(Object.entries(files).map(([n, hex]) => [n, Uint8Array.from(hex.match(/../g).map(x => parseInt(x, 16)))]));
-    const all = { 'manifest.json': new TextEncoder().encode(JSON.stringify(man)), ...bytes };
-    const fh = n => ({ kind: 'file', name: n, getFile: async () => new File([all[n]], n) });
-    window.showDirectoryPicker = async () => ({ kind: 'directory', name: 'kitsune-images', values: async function* () { for (const n of Object.keys(all)) yield fh(n); } });
-  }, { man: localMan, files: { 'seeed-xiao-esp32c5-easy-ap.bin': c5img.toString('hex'), 'arduino-nano-esp32-easy-ap.bin': s3img.toString('hex'), 'fb-seeed-xiao-esp32c6-easy-ap.bin': c6img.toString('hex') } });
-  await page.click('#tab-board button:has-text("Open artifact folder…")'); await untilTextArgs('#log', /local kitsune manifest: 4 image\(s\), kitsune at cdfc0ce/, 5000);
-  check(/1 image file\(s\) not among the files picked: missing\.bin/.test(await text('#log')), 'a manifest entry whose file is absent is named');
-  check(/local artifact kitsune-images/.test(await text('#tab-board')) && /Get easy wifi-ap/.test(await text('#tab-board')), 'the card lists the local artifact\'s image for the XIAO C5');
-  await app(() => { window.foxbenchFlash.simulate = true; });
-  const stand = [['seeed_xiao_esp32c5-kitsune', 'ESP32-C5', 'ESP32-C3 (QFN32) (revision v0.4)', 16384], ['waveshare_esp32s3_nano-kitsune', 'ESP32-S3 (QFN56) (revision v0.2)', 'ESP32-C6 (QFN40)', 12288], ['seeed_xiao_esp32c6-kitsune', 'ESP32-C6 (QFN40)', 'ESP32-S3 (QFN56) (revision v0.2)', 8192]];
-  for (const [id, rightChip, wrongChip, size] of stand) {
-    await tab('board'); await page.selectOption('#tab-board select', id); await settle(300);
-    await untilTextArgs('#tab-board', /Get easy wifi-ap/, 5000);
-    await page.click('#tab-board button:has-text("Get easy wifi-ap")'); await untilTextArgs('#log', new RegExp(`loaded \\S+\\.bin .*= manifest.*local artifact`), 5000);
-    await app(c => { window.foxbenchFlash.simulateChip = c; }, wrongChip);
-    await page.click('#tab-board button:has-text("Flash")'); await untilFleet(`r.action === 'flash' && r.board === '${id}'`, 15000);
-    const bad = await app(i => JSON.parse(localStorage.getItem('fox-bench.fleet') || '[]').filter(r => r.action === 'flash' && r.board === i).pop(), id);
-    check(/^fail: the port belongs to an ESP32-/.test(bad.result), `${id}: the wrong chip on the port is refused before the erase (${bad.result.slice(0, 60)})`);
-    await app(c => { window.foxbenchFlash.simulateChip = c; }, rightChip);
-    await page.click('#tab-board button:has-text("Flash")'); await untilFleet(`r.action === 'flash' && r.board === '${id}' && r.result === 'ok'`, 15000);
-    const w = await app(() => window.foxbenchFlash.lastWrite?.());
-    check(w && w.address === 0 && w.length === size, `${id}: the merged image is written at 0x0 (${JSON.stringify(w)})`);
-  }
-  await app(() => { window.foxbenchFlash.simulate = false; window.foxbenchFlash.simulateChip = ''; delete window.showDirectoryPicker; });
-  // a page whose saved working form is a kitsune target must boot (every tab renders at boot, before the ID tab's init)
-  const savedKitsune = await app(() => window.foxbench.boardId);
-  for (const t of ['radio', 'plan', 'schedule', 'deploy']) {
-    await tab(t);
-    await page.goto(url); const booted = await until(id => window.foxbench?.catalog && window.foxbench.boardId === id, `boot with a saved kitsune form on the ${t} tab`, 5000, savedKitsune);
-    check(booted, `reload with a kitsune target saved and the ${t} tab open boots`);
-  }
-  await tab('board'); await page.selectOption('#tab-board select', 'seeed_xiao_esp32c3'); await settle(400);
-  await page.click('#demoBtn'); await settle(600);
 
   section('two tabs; undo a banner-follow');
   // a second tab saving its form makes this one stop overwriting the saved form until it is edited here
@@ -980,7 +859,7 @@ try {
 } finally {
   section('end');
   const real = [...new Set(errors)].filter(e => !/^error: Failed to load resource/.test(e))   // those are reported with their URL by the response/requestfailed listeners
-    .filter(e => !/http 404 .*(foxbench-picofox\.json|firmware\/kitsune\/manifest\.json|firmware\/mpy\/index\.json)$/.test(e));   // the build fingerprint, the kitsune manifest and the precompiled-foxlib index exist only on a deployed site (CI builds them); the page says so
+    .filter(e => !/http 404 .*(foxbench-picofox\.json|firmware\/mpy\/index\.json)$/.test(e));   // the build fingerprint and the precompiled-foxlib index exist only on a deployed site (CI builds them); the page says so
   if (real.length) { failures += real.length; console.log('console errors:\n  ' + real.join('\n  ')); } else console.log('  ok   no console errors or warnings');
   await browser.close(); await close();
   const broken = sections.filter(s => s.failures);

@@ -11,14 +11,14 @@ export function init(a, el) { app = a; root = el; app.listeners.add(render); onF
 
 // The picker groups by what the fox is and how it is configured, not by firmware family: a board wired to a radio module;
 // a bare board whose own radio is the transmitter (listed by chip, the physical board chosen on the Radio tab); a fox
-// configured through its USB drive (the PicoFox, vendor firmware first, fox-bench firmware second); a compiled-in one.
-const GROUP_LABEL = { combo: 'CircuitPython board + radio module', chip: 'CircuitPython board', drive: 'Drive-configured fox', compiled: 'Compiled-in configuration (kitsune)' };
-const GROUP_ORDER = ['combo', 'drive', 'chip', 'compiled'];
+// configured through its USB drive (the PicoFox, vendor firmware first, fox-bench firmware second).
+const GROUP_LABEL = { combo: 'CircuitPython board + radio module', chip: 'CircuitPython board', drive: 'Drive-configured fox' };
+const GROUP_ORDER = ['combo', 'drive', 'chip'];
 
 /** The board picker, grouped by family. This one choice drives every other tab. */
 function pickerCard() {
   const groups = {};
-  // Targets not yet verified on hardware (status experimental: the kitsune boards, until one is on the bench) stay out
+  // Targets not yet verified on hardware (status experimental) stay out
   // of the list unless asked for — a release is what the hardware log vouches for. The selected target is always listed.
   const hidden = Object.values(app.catalog.boards).filter(b => b.status === 'experimental' && !app.showExperimental && b.id !== app.boardId);
   const groupOf = b => { const fam = b.family || 'foxlib'; return fam === 'foxlib' ? (b.variants ? 'chip' : 'combo') : fam === 'foxlib-c' ? 'drive' : fam; };
@@ -40,7 +40,7 @@ function pickerCard() {
   const anyExperimental = Object.values(app.catalog.boards).some(b => b.status === 'experimental');
   return h('div.card', {}, h('h3', {}, 'Which fox is on the bench?'),
     field('Board', sel, h('span', {}, ...how, ' Changing the board switches the template when the current one does not apply, and keeps your callsign.')),
-    anyExperimental ? check('Show experimental targets', app.showExperimental, v => app.setShowExperimental(v), `${hidden.length ? hidden.length + ' hidden: ' : ''}boards described from documentation and not yet verified on hardware (docs/hardware-log.md) — the kitsune family. They flash and configure like the rest; nothing has been tried on a real one.`) : null,
+    anyExperimental ? check('Show experimental targets', app.showExperimental, v => app.setShowExperimental(v), `${hidden.length ? hidden.length + ' hidden: ' : ''}boards described from documentation and not yet verified on hardware (docs/hardware-log.md). They flash and configure like the rest; nothing has been tried on a real one.`) : null,
     app.board._pack ? h('p.hint', {}, 'This target comes from the catalog pack ', h('b', {}, app.board._pack), '.') : null,
     packsDisclosure());
 }
@@ -79,7 +79,6 @@ function fwBadge(app, v) {
 function render() {
   if (app.family === 'drive') return renderDrive();
   if (app.family === 'foxlib-c') return renderFoxlibC();
-  if (app.isCompiled) return renderCompiled();
   const b = app.board, ob = app.onBoard, info = app.info;
   const deviceCard = h('div.card', {},
     h('h3', {}, 'Connection'),
@@ -183,26 +182,3 @@ function renderFoxlibC() {
   root.replaceChildren(pickerCard(), h('div.cols', {}, deviceCard, flashCard(app)), facts, flow, diagCard());
 }
 
-/** Compiled family (kitsune): nothing connects yet. The board's facts, the attribution, and what Listen only can show. */
-function renderCompiled() {
-  const b = app.board, hw = app.hardware || {}, fw = b.firmware || {}, info = app.info, ob = app.onBoard;
-  const radios = { wifi24: 'Wi-Fi 2.4 GHz', wifi5: 'Wi-Fi 5 GHz', ble: 'BLE', btclassic: 'Bluetooth Classic', ieee802154: '802.15.4 (Zigbee)' };
-  const deviceCard = h('div.card', {}, h('h3', {}, 'Connection'),
-    info ? h('dl.kv', {}, h('dt', {}, 'Serial'), h('dd', {}, 'listening', ob.listening ? badge('boot lines only', 'warn') : ''), h('dt', {}, 'Last seen'), h('dd', {}, app.lastBanner ? 'FOX banner' : '—'))
-      : h('div', {},
-        h('p.hint', {}, h('b', {}, 'No connection for this family yet.'), ` The configuration of a kitsune fox is compiled into its firmware from a conference header, so the page does not write a configuration to the board today: it prepares it on the next tabs, checks it the way the fox will check itself at boot, and exports the header for kitsune's build (Deploy tab). The firmware card below flashes a kitsune image (the site's, once hosted, or one you built); per-fox configuration without a rebuild is the next stage (docs/kitsune-integration-plan.md).`),
-        h('p.hint', {}, h('b', {}, 'Listen only'), ' opens the board\'s serial port and shows what kitsune prints: boot count, "Awake and screaming", "Going to sleep", or "PANIC" when a self-check failed (the LED blinks red/yellow). ', hw.notes?.some(n => /serial isn't working/.test(n)) ? h('span.warn', {}, 'kitsune notes that serial is not working on this board yet.') : null)));
-  const facts = h('div.card', {}, h('h3', {}, 'Board facts'),
-    h('dl.kv', {},
-      h('dt', {}, 'Hardware'), h('dd', {}, hw.name || b.hardware, ' · ', hw.mcu || ''),
-      h('dt', {}, 'Radios'), h('dd', {}, (hw.radios || []).map(r => radios[r] || r).join(', ') || '—'),
-      h('dt', {}, 'LED'), h('dd', {}, hw.led?.note || '—'),
-      h('dt', {}, 'Flashing'), h('dd', {}, `esptool, ${hw.flash?.chip || '?'} at ${hw.flash?.offset || '?'}, ${hw.flash?.flash_mb || '?'} MB flash (the firmware card). `, hw.flash?.bootloader_instructions || ''),
-      h('dt', {}, 'Power'), h('dd', {}, hw.battery?.divider_note || '—'),
-      h('dt', {}, 'Design'), h('dd', {}, hw.design?.by || '—', hw.design?.source ? [' — ', h('a', { href: hw.design.source, target: '_blank', rel: 'noopener' }, 'documentation')] : null)),
-    hw.notes?.length ? h('ul', {}, hw.notes.map(n => h('li.hint', {}, n))) : null);
-  const firmware = h('div.card', {}, h('h3', {}, 'Firmware ', badge('kitsune', 'info')),
-    h('p.hint', {}, fw.note || ''),
-    h('p.hint', {}, 'kitsune is the work of its authors: ', h('a', { href: fw.source || 'https://github.com/rfhs/kitsune', target: '_blank', rel: 'noopener' }, fw.source || 'https://github.com/rfhs/kitsune'), '. Nothing of it is hosted here today (the firmware card says if that changes, and only by agreement with the project); the page prepares the header their build reads and flashes the result.'));
-  root.replaceChildren(pickerCard(), h('div.cols', {}, deviceCard, firmware), flashCard(app), facts, diagCard());
-}

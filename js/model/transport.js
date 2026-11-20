@@ -7,7 +7,7 @@
 // firmware's files onto another's board. These checks are what the deploy modules ask before writing.
 
 /** Transports that can carry a deploy for a family: the REPL (or the in-memory demo board) for foxlib, the drive otherwise. */
-export function deployTransports(family) { return family === 'foxlib' ? ['repl', 'memory'] : family === 'compiled' ? [] : ['drive']; }
+export function deployTransports(family) { return family === 'foxlib' ? ['repl', 'memory'] : ['drive']; }
 
 const name = t => t === 'repl' ? 'the CircuitPython REPL' : t === 'console' ? 'the serial console' : t === 'drive' ? 'a USB drive' : t === 'memory' ? 'the demo board' : t;
 
@@ -17,7 +17,6 @@ const name = t => t === 'repl' ? 'the CircuitPython REPL' : t === 'console' ? 't
  */
 export function deployBlocker({ device, board, onBoard }) {
   const family = board.family || 'foxlib';
-  if (family === 'compiled') return 'kitsune foxes are not written from the page yet: the configuration is compiled into their firmware. Export the header on this tab.';
   if (!device) return 'not connected';
   if (!deployTransports(family).includes(device.transport)) return `the connected device is ${name(device.transport)}; ${board.name} is deployed over ${family === 'foxlib' ? 'the REPL' : 'its drive'}. Disconnect, then connect the ${board.name} the right way.`;
   // the demo simulates a physical board: the same XIAO C3 serves the C3 + SA868 combo and the bare ESP32-C3 chip target

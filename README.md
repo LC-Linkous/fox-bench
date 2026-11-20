@@ -10,7 +10,7 @@ to install.
 **Use it:** https://lc-linkous.github.io/fox-bench/ — *Try without
 hardware* runs the whole page against a simulated board.
 
-Status: **v0.18 — four device families, two contracts.** All seven FM templates have been
+Status: **v0.18 — three device families, two contracts.** All seven FM templates have been
 deployed from the page to a XIAO ESP32-C3 + SA868 and run on both 2 m and
 70 cm (checked with `tools/hw_smoke.py`; `docs/hardware-log.md` records
 what was verified on which board, when, with which firmware); CircuitPython itself can be flashed
@@ -41,20 +41,7 @@ with **fox-bench's own firmware** (`firmware/foxlib-c/`, GPL-3.0-or-later:
 at 8 kHz with pre-emphasis, banner and bench buttons over its serial
 console; flashed from the Board tab as a UF2 and swapped with the vendor's from
 the same card — on the air on a rev 3 board since October 2026, with Morse +
-songs and Morse + SSTV verified there and the rest run in the host tests). The fourth
-family, **compiled**, is for the RF Hackers Sanctuary's
-[kitsune](https://github.com/rfhs/kitsune) foxes — Wi-Fi AP and client, BLE
-iBeacon, Bluetooth Classic and Zigbee on kitsune's five boards (seven targets here: two stand-ins fox-bench carries envs for) — whose
-configuration is compiled in: the page prepares and checks it with the
-same forms, exports the conference header their build reads, and can flash
-a kitsune image after checking the port's chip (one built with PlatformIO,
-or the site's once hosting is agreed) — not yet tried on a real kitsune
-board, so these targets sit behind **Show experimental targets** on the
-Board tab until one has a row in `docs/hardware-log.md`. Per-fox
-configuration without a rebuild is Phase 2
-(`docs/kitsune-integration-plan.md`). kitsune belongs to its authors;
-nothing of it is hosted here today, and nothing will be without the
-project's agreement (`LICENSES.md`). Every push runs three test layers in CI: the firmware
+songs and Morse + SSTV verified there and the rest run in the host tests). Every push runs three test layers in CI: the firmware
 simulator (`firmware/sim/`), the REPL protocol against a fake board and
 the page itself in headless Chromium (`tests/`), and a lint of every
 descriptor (`tools/check_catalog.py`); the site deploys from `main` only
@@ -84,7 +71,7 @@ after all three passed, carrying the UF2 that run built
 | `tools/batch_flash.py` | headless CircuitPython batch flasher, same CSV as the Fleet tab |
 | `tools/check_fleet.py` | checks a fleet CSV with the same rules as the Fleet tab's import |
 | `tools/check_catalog.py`, `tools/check_docs.py`, `tools/check_ci.py` | the lints CI runs: descriptors and version bumps, paths named in the docs, the workflow file |
-| `docs/build-and-flash.md` | the pipeline in diagrams: the four families, how a template becomes files on a board, which foxlib files go, source vs `.mpy`, what CI builds on every push and what is pinned where |
+| `docs/build-and-flash.md` | the pipeline in diagrams: the three families, how a template becomes files on a board, which foxlib files go, source vs `.mpy`, what CI builds on every push and what is pinned where |
 | `docs/bench-runbook.md` | the one page for the bench: the queue as commands, what each should print, the network-fox tick-list, a new board's first session, how recordings become CI tests |
 | `docs/picofox.md` | the PicoFox: its hardware from the schematic (what foxlib-c is written against) and what its vendor firmware reads and does (the drive family) |
 | `docs/network-fox-payloads-plan.md` | plan for contest payloads on the network foxes: puzzles, checkpoint portal, sensing, stealth |
@@ -107,8 +94,5 @@ everything under `firmware/` — foxlib and foxlib-c — **GPL-3.0-or-later**
 (`firmware/LICENSE`), the flasher under `flasher/` **Apache-2.0**
 (`flasher/LICENSE`). What each bundles (esptool-js, FatFs, the Pico SDK
 and TinyUSB in the built UF2) and what is deliberately *not* here (the
-PicoFox hardware and vendor firmware, CC BY-NC-SA 4.0; the kitsune fox
-firmware, which is the work of its authors at
-https://github.com/rfhs/kitsune and belongs to them — fox-bench only
-describes the boards it runs on and the header its build reads) is listed
-in `LICENSES.md`.
+PicoFox hardware and vendor firmware, CC BY-NC-SA 4.0) is listed in
+`LICENSES.md`.

@@ -2193,7 +2193,7 @@
 {
 "t": 35.781,
 "kind": "exec",
-"cmd": "f.write(b'ff (schedule.sleep = off), or deep sleep (= deep),\\r\\n        from which the board reboots into this loop again -- the cycle count then restarts at 0, as kitsune\\'s does.\"\"\"\\r\\n        c = self.cfg\\r\\n        if self.fatal or not self.radio or not self.radio.status.startswith(\"ok\"):\\r\\n            self.log(\"unconfigured (%s): silent\" % (self.fatal or (self.radio.status if self.radio else \"n')",
+"cmd": "f.write(b'ff (schedule.sleep = off), or deep sleep (= deep),\\r\\n        from which the board reboots into this loop again -- the cycle count then restarts at 0.\"\"\"\\r\\n        c = self.cfg\\r\\n        if self.fatal or not self.radio or not self.radio.status.startswith(\"ok\"):\\r\\n            self.log(\"unconfigured (%s): silent\" % (self.fatal or (self.radio.status if self.radio else \"n')",
 "out": "",
 "err": ""
 },

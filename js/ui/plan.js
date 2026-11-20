@@ -1,10 +1,9 @@
 // plan.js — Frequency plan tab: one frequency or a rotating list, validated.
 // SPDX-License-Identifier: GPL-2.0-only
-import * as kitsune from './kitsune.js';
 import { h, badge, numInput, check, fill } from './dom.js';
 
 let app, root;
-export function init(a, el) { app = a; root = el; kitsune.init(a); app.listeners.add(render); render(); }   // kitsune.init before the first render: a saved kitsune form renders this tab at boot, before the ID tab's init
+export function init(a, el) { app = a; root = el; app.listeners.add(render); render(); }
 
 function whyBad(f) {
   const inMod = app.cfg.radio.ranges_mhz.some(([a, b]) => f >= a && f <= b);
@@ -16,7 +15,6 @@ function whyBad(f) {
 }
 
 function render() {
-  if (app.isCompiled) return kitsune.renderPlan(root);
   if (app.isNet) { fill(root, h('div.card', {}, h('p.hint', {}, 'A network fox has no frequency plan: it is found by its SSID, beacon or device name. See the Radio tab.'))); return; }
   const p = app.cfg.plan;
   if (app.family === 'drive') return renderDrive();

@@ -19,7 +19,6 @@ test('fleet CSV: every field, quoting of commas, quotes and newlines', () => {
   const csv = fleet.toCsv(), lines = csv.trim().split('\n');
   assert.equal(lines[0], FLEET_FIELDS.join(','));
   assert.ok(csv.includes('"W1ABC ""FOX"", DE W1ABC"')); assert.ok(csv.includes('"line one\nline two"'));
-  assert.ok(FLEET_FIELDS.includes('challenge') && FLEET_FIELDS.includes('keyphrase'));
 });
 
 test('profile images are stored as base64 and come back as Uint8Array; old number-array profiles still load', () => {

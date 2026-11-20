@@ -65,8 +65,6 @@ export function onAir(cfg, { family = 'foxlib', template = '' } = {}) {
     const s = cfg.schedule;
     if (s?.kind) parts.push(s.kind + (s.delay_ms != null ? ` every ${Math.round(s.delay_ms / 1000)} s` : ''));
     if (cfg.payload?.kind) parts.push(cfg.payload.kind);
-  } else if (cfg.template && cfg.challenge) {
-    parts.push(`kitsune ${cfg.template}`);
   }
   if (cfg.fleet?.points_to) parts.push(`→ ${cfg.fleet.points_to}`);
   return parts.join(' · ');
