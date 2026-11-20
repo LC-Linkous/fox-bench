@@ -14,6 +14,9 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+- Release job: the released site zip carries the precompiled foxlib set, as
+  the live site does. `build_mpy.py` retries a dropped S3 connection three
+  times before failing the run.
 - `docs/build-and-flash.md`: the pipeline in diagrams — families, templates
   to files, the foxlib sets, source vs `.mpy`, what CI builds on every push
   (and that nothing is built at flash or deploy time), what is pinned where.

@@ -57,11 +57,16 @@ def fetch_mpy_cross(tag):
     path = os.path.join(CACHE, "mpy-cross-" + tag + (".exe" if os.name == "nt" else ""))
     if not os.path.exists(path):
         print("fetching %s" % url)
-        try:
-            with urllib.request.urlopen(url, timeout=60) as r, open(path + ".part", "wb") as f:
-                f.write(r.read())
-        except Exception as e:
-            raise SystemExit("could not fetch mpy-cross %s (%s): download it from %s and pass --mpy-cross" % (tag, e, url))
+        import time
+        for attempt in range(3):                      # a CI run should not go red on one dropped S3 connection
+            try:
+                with urllib.request.urlopen(url, timeout=60) as r, open(path + ".part", "wb") as f:
+                    f.write(r.read())
+                break
+            except Exception as e:
+                if attempt == 2:
+                    raise SystemExit("could not fetch mpy-cross %s (%s): download it from %s and pass --mpy-cross" % (tag, e, url))
+                print("  retrying (%s)" % e); time.sleep(5)
         os.replace(path + ".part", path)
         os.chmod(path, os.stat(path).st_mode | stat.S_IXUSR)
     return path
