@@ -53,6 +53,15 @@ def trace_on():
         return False
 
 
+def _free():
+    try:
+        import gc
+        gc.collect()
+        return str(gc.mem_free())
+    except Exception:
+        return "?"
+
+
 def _trace(step):
     try:
         import gc
@@ -276,6 +285,7 @@ class NetFox:
         if self.features:
             line += " features=" + ",".join(self.features)
         line += " clock=" + clock_text()
+        line += " mem=" + _free()           # the heap left after init: the number a marginal board (the ESP32-C3) is judged by
         return line
 
     def _banner(self):

@@ -247,6 +247,45 @@ is what `.mpy` is for: page 0.18.13's Deploy → *Precompiled (.mpy)* (after
 trace on, precompiled on, wifi-beacon; the `free` numbers in the `init:`
 lines against the source run's are the measurement either way.
 
+### 3b. What the C3 episode says about the setup (audit, 2026-11-19)
+
+- **Memory is a per-configuration property, and the bench had no number
+  for it.** Every row said ok/fail; none said how close. From foxlib 1.10.11
+  the network banner carries `mem=`; a row without it is incomplete.
+  Under ~20 kB, treat the board as marginal: a feature switched on later
+  (checkpoint is 19 kB of source, sense 14 kB) loads more modules at
+  runtime and is the next `MemoryError`, after the banner said ok.
+- **The C3 cannot shed the BLE stack.** CircuitPython starts its BLE
+  workflow before `code.py`; the fox can stop the advertising, not free the
+  stack. A Wi-Fi-only template on the C3 pays for BLE it never uses. If
+  `mem=` stays low with `.mpy`, the catalog should say the C3 is an FM and
+  BLE-beacon board, not a network-fox board — not squeeze further.
+- **A board that crashed three times stays in safe mode, dark.** That is
+  the design (a crash repeats; the bench must be able to get in), but in
+  the field it looks like a dead fox: no LED, no banner. A power cycle boots
+  normally, crashes, and lands back in safe mode with the count already at
+  its limit. Only a deploy that then completes a cycle clears it. The
+  Board tab's *Safe mode* line is where that shows.
+- **The `.mpy` set is a two-step apply for every firmware patch** from the
+  sandbox (it cannot reach S3): apply, rebuild, commit — CI is red in
+  between, by design. Alternative, if the page is used from GitHub Pages
+  rather than a checkout: let the deploy job build the set and serve it,
+  nothing committed; a local checkout would then build on demand. Not done;
+  a choice to make once the C3 numbers are in.
+- **The replay fixtures are loosening.** Both recordings predate
+  per-template sets; the replay treats unrecorded writes as content and
+  stale removals as housekeeping, so it now uses 247 of 434 exchanges. It
+  still catches a broken exchange, but less of the deploy is under test.
+  Re-record both (`hw_smoke.py --record`) at the next sessions.
+- **The import-graph tool is a regex over `from . import`.** It
+  special-cases `netfeatures.MODULES`; a new `__import__` by name anywhere
+  else would be invisible to it and the file would be missing from the
+  board. The simulator would not notice either (it imports from the tree).
+  Rule: no dynamic imports in foxlib outside `netfeatures`.
+- **The stale removal is foxlib-only and runs after the write**, so a
+  deploy that dies midway leaves a complete set plus leftovers, never a
+  hole. Anything a user put into `foxlib/` by hand is removed with them.
+
 ## The network-fox tick-list (every bare board)
 
 The tick-through list for the network-fox templates (`wifi-beacon`,

@@ -14,6 +14,20 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.18.15 · foxlib 1.10.11 — a memory number on every network banner
+
+A second, critical audit (see the runbook's C3 section for the findings
+that are not code). The one thing every bench row lacked was a memory
+figure: the C3's margin was only visible with the trace on.
+
+- **The network banner ends with `mem=<bytes>`**, the heap left after init
+  (after a collect). Deploy shows it as a chip, amber under 20 kB — the
+  threshold where a feature switched on later, or a longer payload, is the
+  next `MemoryError`; `hw_smoke.py` reports it as `mem_free`. The FM banner
+  is unchanged.
+- Console: Interrupt is refused while a deploy or flash is writing — a
+  Ctrl-C mid-write would corrupt the file in flight.
+
 ### Page 0.18.14 · foxlib 1.10.10 — an audit of 0138–0141
 
 - **foxlib: the watchdog timeout covers a deep sleep.** A nordic watchdog

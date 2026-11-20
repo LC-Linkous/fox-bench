@@ -183,7 +183,7 @@ async function deploy(btn) {
   if (overrides.length && !confirm(`Deploy anyway?\n\n${overrides.map(o => '• ' + o.msg.replace(/ — .*$/, '')).join('\n')}\n\nThese are outside the ${app.region} amateur band table. Make sure this is intended (bench testing into a load, a different allocation, etc.).`)) return;
   const d = app.device, cfg = app.validCfg, log = app.console;
   { const why = app.deployBlocker(); if (why) { log.err(`deploy refused: ${why}`); return; } }   // before busy: a refusal must not leave the button at "Writing…"
-  busy = true; setLast(null); render();
+  busy = true; app.deployBusy = true; setLast(null); render();
   const { files } = plan();
   try {
     await d.interrupt();                       // the fox may be running from a previous deploy or restart
@@ -224,7 +224,7 @@ async function deploy(btn) {
     app.setStatus(`${d.kind === 'demo' ? 'Demo · ' : ''}${app.info.boardId} · uid ${app.info.uid.slice(-6)} · foxlib ${app.catalog.foxlibVersion} · fox running`, d.kind === 'demo' ? 'demo' : 'tx');
     fleet.append({ board_number: cfg.fleet?.number ?? '', uid: app.info.uid, board: app.info.boardId, action: 'deploy', template: `${app.templateId}/${app.template.version}`, profile: cfg.fleet?.profile || '', callsign: cfg.id.callmessage, owner: cfg.fleet?.owner || '', event: cfg.fleet?.event || '', on_air: onAir(cfg, { template: app.templateId }), freq: freqText(cfg), power: powerText(cfg), seed: cfg.schedule?.seed ?? '', result: lastResult.ok ? 'ok' : lastResult.failedFeature ? `failed to load: ${lastResult.failedFeature}` : (banner ? `${banner.cfg} ${banner.radio} ${banner.id}` : 'no banner'), notes: [app.variantId ? app.board.variantName : '', app.device.kind === 'demo' ? 'demo' : ''].filter(Boolean).join(' · ') });
   } catch (e) { setLast({ usbDrive: !!e.usbDrive, error: String(e.message || e) + (/HTTP 404/.test(e.message || '') ? ' — a firmware file is missing from the site; the repo needs a .nojekyll marker so GitHub Pages serves foxlib/__init__.py' : '') }); log.err(lastResult.error); }
-  busy = false; gateOk = false; app.changed('deploy');
+  busy = false; app.deployBusy = false; gateOk = false; app.changed('deploy');
 }
 
 function render() {
@@ -293,7 +293,9 @@ function resultBox(r) {
   if (r.usbDrive) return usbDriveBox();
   if (r.error) return h('pre.out', {}, h('span.err', {}, 'deploy failed: ' + r.error));
   const b = r.banner;
-  const kv = b ? ['template', 'foxlib', 'cfg', 'radio', 'id', 'freq'].map(k => h('span', { class: k === 'cfg' ? (b.cfg === 'ok' ? 'ok' : 'warn') : k === 'radio' ? (b.radio === 'ok' ? 'ok' : 'err') : k === 'id' ? (b.id === 'set' ? 'ok' : b.id === 'none' ? 'warn' : 'err') : '' }, `${k}=${b[k] ?? '?'}  `)) : [h('span.err', {}, 'no FOX banner in the boot log — the firmware did not start')];
+  // mem= (network foxes, foxlib 1.10.11): the heap left after init. Under ~20 kB a feature switched on later, or a longer
+  // payload, is the next MemoryError; the ESP32-C3 started 1.10.6 with 46 kB *before* its radio stack
+  const kv = b ? ['template', 'foxlib', 'cfg', 'radio', 'id', 'freq', ...(b.mem ? ['mem'] : [])].map(k => h('span', { class: k === 'cfg' ? (b.cfg === 'ok' ? 'ok' : 'warn') : k === 'radio' ? (b.radio === 'ok' ? 'ok' : 'err') : k === 'id' ? (b.id === 'set' ? 'ok' : b.id === 'none' ? 'warn' : 'err') : k === 'mem' ? (Number(b.mem) >= 20000 ? 'ok' : 'warn') : '' , title: k === 'mem' ? 'free heap after init (bytes); below 20 kB a feature switched on later is the next MemoryError' : '' }, `${k}=${b[k] ?? '?'}  `)) : [h('span.err', {}, 'no FOX banner in the boot log — the firmware did not start')];
   return h('div', {}, h('p', { style: 'margin:12px 0 4px' }, r.ok ? badge('fox is up', 'ok') : badge('check the banner', 'warn'), ' ', ...kv),
     r.failedFeature ? h('p.hint.err', {}, `${r.failedFeature.split(' ')[0]} failed to load on this board ${r.failedFeature.slice(r.failedFeature.indexOf('('))}: the fox is on the air without it. A foxlib bug, not a configuration problem — see the boot log.`) : null,
     h('p.hint', {}, 'The fox is running now. Re-read board (Board tab) or a Bench action interrupts it; ', h('button.btn.small', { onclick: () => app.restartFox() }, 'Restart fox'), ' starts it again.'),

@@ -30,7 +30,7 @@ import * as tabFleet from './ui/fleet.js';
 import * as tabAbout from './ui/about.js';
 import { state as flashState } from './ui/flash.js';
 
-const VERSION = '0.18.14';
+const VERSION = '0.18.15';
 /** Tab subtitles that read differently per device family (null = the page's original text). */
 const LEDES = { drive: {
   board: 'Which fox is on the bench, open its USB drive (or use the simulated one). The vendor firmware stays; the page writes its files.',
@@ -631,6 +631,7 @@ async function boot() {
       // Ctrl-C / Ctrl-D straight to the board, outside the operation queue: a fox that is running (Listen) stops and
       // shows its REPL prompt; a board that is hung shows nothing, and only its reset button helps
       if (!app.device?.poke) { app.console.dim('no CircuitPython board connected'); return; }
+      if (app.deployBusy || app.flashBusy) { app.console.err('a deploy or flash is writing to the board: a Ctrl-C now would corrupt the file in flight. Wait for it, or unplug the board.'); return; }
       try { await app.device.poke(key === '\x04' ? '\r\x04' : '\r\x03\x03'); }
       catch (e) { app.console.err(String(e.message || e)); return; }
       app.console.dim(key === '\x04' ? 'Ctrl-D sent: a soft reboot, if the board is listening' : 'Ctrl-C sent: a running fox stops at its REPL prompt (>>>). Nothing within a few seconds means the board is not answering: press its reset button, or unplug and replug it, then Connect.');

@@ -374,6 +374,7 @@ def main():
             res["boot_s"] = round(time.monotonic() - t0, 2)
             b = parse_banner(boot)
             res["banner"] = b["_raw"] if b else None
+            if b and b.get("mem"): res["mem_free"] = int(b["mem"]) if b["mem"].isdigit() else b["mem"]   # a network fox's heap after init
             res["boot_log"] = boot[-2000:]
             if a.trace:
                 for l in boot.splitlines():

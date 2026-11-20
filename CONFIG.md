@@ -609,7 +609,9 @@ FOX template=<id>/<ver> foxlib=<ver> board=<board_id> uid=<hex> cfg=<status> rad
 A network fox (`net` contract) prints the same keys with `freq=none`, then
 its own: `net=<kind> name=<name> mac=<XX:…>` — `name` is quoted when it has
 spaces — then `features=<sections>` when any contest section is on, and
-`clock=<ISO time | unset>`. Its `id=` has three values: `set`, `none` (the
+`clock=<ISO time | unset>`, and `mem=<bytes>` (foxlib 1.10.11), the heap
+left after init — under about 20 kB a feature switched on later, or a
+longer payload, is the next `MemoryError`. Its `id=` has three values: `set`, `none` (the
 placeholder, not on the air — allowed), `unset` (the placeholder would be
 the name on the air). `radio`: `ok` · `ok(hidden_unsupported)` · `nowifi` · `noble` ·
 `wifi(<Error>)` · `ble(<Error>)`. After `woke from deep sleep` the cycle
