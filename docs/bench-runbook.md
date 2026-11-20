@@ -91,7 +91,7 @@ python3 tools/bench_queue.py --check && python3 tools/check_catalog.py --since o
 The dry run first so you can read the row before it is written. Add
 `--note "…"` for anything the handheld told you that the script cannot know.
 Then the Recordings section below: list the new fixture in the table and drop
-`pty-c3-all-fm.json`'s "should replace" note.
+`sim-esp32c3-fm.json`'s "should join it" note.
 
 ### After the field report: foxlib 1.6 on the SA868 fox
 
@@ -266,17 +266,19 @@ lines against the source run's are the measurement either way.
   normally, crashes, and lands back in safe mode with the count already at
   its limit. Only a deploy that then completes a cycle clears it. The
   Board tab's *Safe mode* line is where that shows.
-- **The `.mpy` set is a two-step apply for every firmware patch** from the
-  sandbox (it cannot reach S3): apply, rebuild, commit — CI is red in
-  between, by design. Alternative, if the page is used from GitHub Pages
-  rather than a checkout: let the deploy job build the set and serve it,
-  nothing committed; a local checkout would then build on demand. Not done;
-  a choice to make once the C3 numbers are in.
-- **The replay fixtures are loosening.** Both recordings predate
-  per-template sets; the replay treats unrecorded writes as content and
-  stale removals as housekeeping, so it now uses 247 of 434 exchanges. It
-  still catches a broken exchange, but less of the deploy is under test.
-  Re-record both (`hw_smoke.py --record`) at the next sessions.
+- **The `.mpy` set was briefly a committed binary** (page 0.18.13), which
+  made every firmware patch a two-step apply. Page 0.18.17 follows the UF2's
+  precedent instead: CI builds the set in the `sim` job and stages it into
+  the site; nothing is committed and the hosted page always has it. A
+  checkout builds its own with `python3 tools/build_mpy.py` (gitignored).
+- **The replay fixtures were loosening** (247 of 434 and 223 of 685
+  exchanges used; the rest were foxlib source chunks from old releases).
+  Recording format 2 (page 0.18.16) keeps one line per file and is scrubbed
+  of the callsign and the neighbours' SSIDs/addresses; `tests/README.md`.
+  The S3 recording is format 1 and carries the callsign and the bench's
+  neighbours — harmless, but re-record it at the next S3 session; the C3
+  gets a hardware recording once it is up (the old `pty-c3-all-fm.json`, now removed, was
+  a simulator recording, now `sim-esp32c3-fm.json`).
 - **The import-graph tool is a regex over `from . import`.** It
   special-cases `netfeatures.MODULES`; a new `__import__` by name anywhere
   else would be invisible to it and the file would be missing from the
@@ -788,7 +790,7 @@ the page and the live pty board covers for the script.
 
 | | |
 |---|---|
-| `tests/fixtures/bench/pty-c3-all-fm.json` | all seven FM templates against the pty board itself (so CI has one from day one; a real-board recording should replace it after the first session) |
+| `tests/fixtures/bench/sim-esp32c3-fm.json` | all seven FM templates against the pty board itself, recording format 2 (so CI has one from day one; a real-board C3 recording should join it after the first session that boots) |
 
 A run made with `--sniffer` records the fox's exchanges only; replaying it
 needs the sniffer side too — start `firmware/sim/pty_sniffer.py --mac … --ssid …`

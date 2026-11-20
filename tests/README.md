@@ -98,6 +98,24 @@ Options worth knowing: `running` (fox transmitting when the port opens),
 --replay` in CI and fails on a missed command, a failed template or a
 changed uid. `docs/bench-runbook.md` says how to make one on a board.
 
+Recording format 2 (page 0.18.16) keeps one `write` line per file (path,
+size, crc) instead of the file's bytes — those change with every foxlib
+release and made a format-1 recording 70% dead weight within weeks — and
+is scrubbed before it is written: the run's callsign becomes `W1ABC FOX DE
+W1ABC` everywhere, and every scan line keeps its signal levels but names the
+networks and BLE addresses around the bench `neighbour-1`, `neighbour-2` …
+(the fixtures are public). The replay answers a recorded write's
+open/chunks/close/verify from the bytes the tool writes at replay time, so
+a fixture stays tight across firmware releases; what it tests is the
+sequence of exchanges and the board's replies. A format-1 fixture still
+replays, its chunks counted as unmatched content.
+
+Provenance is in the name and in `circuitpython`: `sim-*.json` was recorded
+against `firmware/sim/pty_board.py` (its `circuitpython` is a Linux kernel
+version) and proves the tool and the simulator agree; a board's name with a
+date is a hardware session. `replay_check` prints the format, the exchanges
+used, and for format 2 any recorded exchange the replay no longer reaches.
+
 ## The fake ROM
 
 `tests/unit/fake-rom-port.mjs` is a Web Serial `SerialPort` whose far end is

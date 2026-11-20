@@ -112,8 +112,9 @@ songs/       index.json + libraries   song libraries the Payload tab browses; qu
 bands.json                            amateur allocations by region
 firmware/
   LICENSE                             GPL-3.0-or-later (see §9)
-  mpy/                                foxlib precompiled per CircuitPython major (pins.json, <major>/foxlib/*.mpy + manifest.json,
-                                      index.json; tools/build_mpy.py). Deploy's "Precompiled (.mpy)" writes these instead of the sources
+  mpy/                                foxlib precompiled per CircuitPython major: pins.json is source; <major>/foxlib/*.mpy,
+                                      manifest.json and index.json are build output (tools/build_mpy.py), built by CI into the
+                                      site like the UF2, gitignored. Deploy's "Precompiled (.mpy)" writes these instead of the sources
   index.json                          foxlib file list, template list, and the files each template needs (foxlib_sets /
                                       template_sets, written by tools/foxlib_deps.py from the import graph: Deploy writes a
                                       template's set and removes the rest of foxlib from the board)

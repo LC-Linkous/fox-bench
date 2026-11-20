@@ -14,6 +14,44 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.18.17 — the precompiled set is built by CI, not committed
+
+0.18.13 put `firmware/mpy/` in git, which made every firmware patch a
+two-step apply (rebuild, commit) with CI red in between. The repo already
+had the right pattern — the PicoFox UF2 is built in CI and staged into the
+site — and the `.mpy` set now follows it.
+
+- The `sim` job builds the set with the pinned CircuitPython's `mpy-cross`
+  and uploads it; the deploy job stages it at `firmware/mpy/` beside the
+  UF2. `firmware/mpy/<major>/` and `index.json` are gitignored; `pins.json`
+  is the only source. `--verify` is gone (nothing committed to verify).
+- The hosted page always has the set. A checkout has it after
+  `python3 tools/build_mpy.py`; until then Deploy's checkbox is disabled and
+  says exactly that.
+
+### Page 0.18.16 — bench recordings that stay tight, and say nothing about the neighbours
+
+The two replay fixtures were using 247 of 434 and 223 of 685 exchanges:
+almost all the rest were chunks of foxlib source bytes recorded at 1.2.1
+and 1.10.5, dead the moment foxlib moved. One fixture also carried the
+run's callsign and the SSIDs and BLE addresses around the bench.
+
+- **`hw_smoke.py --record` writes recording format 2:** one `write` line
+  per file (path, size, crc) instead of its bytes, and the recording is
+  scrubbed before it is written — the callsign becomes `W1ABC FOX DE W1ABC`
+  in commands, replies and args; every scan line keeps its dBm but names
+  its neighbours `neighbour-N`. A format-2 fixture is ~80 exchanges instead
+  of ~500 and replays 100% across firmware releases.
+- **The replay answers a recorded write from the bytes written at replay
+  time** (`pty_board.py`); format-1 fixtures still replay. `replay_check`
+  prints the format and, for format 2, any recorded exchange no longer
+  reached — the real drift signal.
+- **`pty-c3-all-fm.json` is now `sim-esp32c3-fm.json`:** it was never a
+  hardware recording (its `circuitpython` is a Linux kernel version — the
+  pty board), so its name now says so; re-recorded in format 2, 83
+  exchanges, all used. The S3 recording stays as it is until the next S3
+  session re-records it.
+
 ### Page 0.18.15 · foxlib 1.10.11 — a memory number on every network banner
 
 A second, critical audit (see the runbook's C3 section for the findings

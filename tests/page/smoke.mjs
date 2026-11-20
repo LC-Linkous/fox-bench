@@ -980,7 +980,7 @@ try {
 } finally {
   section('end');
   const real = [...new Set(errors)].filter(e => !/^error: Failed to load resource/.test(e))   // those are reported with their URL by the response/requestfailed listeners
-    .filter(e => !/http 404 .*(foxbench-picofox\.json|firmware\/kitsune\/manifest\.json)$/.test(e));   // the build fingerprint and the kitsune manifest exist only on a deployed site (CI writes them); the page says so
+    .filter(e => !/http 404 .*(foxbench-picofox\.json|firmware\/kitsune\/manifest\.json|firmware\/mpy\/index\.json)$/.test(e));   // the build fingerprint, the kitsune manifest and the precompiled-foxlib index exist only on a deployed site (CI builds them); the page says so
   if (real.length) { failures += real.length; console.log('console errors:\n  ' + real.join('\n  ')); } else console.log('  ok   no console errors or warnings');
   await browser.close(); await close();
   const broken = sections.filter(s => s.failures);

@@ -47,8 +47,16 @@ def main():
         failed = [t for t, x in rep["templates"].items() if x.get("ok") is False]
         if failed: bad.append("templates failed on replay: " + ", ".join(failed))
         if rep["uid"] != rec["uid"]: bad.append("uid differs: %s vs recorded %s" % (rep["uid"], rec["uid"]))
-    print("\nreplay of %s: %d/%d exchanges used, %d misses, templates %s" % (os.path.basename(rec_path), rr["used"], rr["total"], len(rr["misses"]),
-          "all ok" if rep and not [t for t, x in rep["templates"].items() if x.get("ok") is False] else "FAILED"))
+    fmt = rec.get("format", "?").rsplit("/", 1)[-1]
+    print("\nreplay of %s (format %s): %d/%d exchanges used, %d misses%s, templates %s" % (
+        os.path.basename(rec_path), fmt, rr["used"], rr["total"], len(rr["misses"]),
+        ", %d recorded file(s) written" % rr.get("recorded_writes", 0) if fmt == "2" else " (format 1: %d file-byte chunks unmatched, as expected; re-record for a tight fixture)" % rr.get("content_writes", 0),
+        "all ok" if rep and not [t for t, x in rep["templates"].items() if x.get("ok") is False] else "FAILED"))
+    if fmt == "2":
+        unused = [rec["exchanges"][i] for i in rr.get("unused", [])]
+        if unused:
+            names = sorted({e["kind"] + (" " + e.get("path", e.get("cmd", "")).split("\n")[0][:40] if e["kind"] in ("write", "exec") else "") for e in unused})
+            print("  unused recorded exchanges (%d): %s" % (len(unused), "; ".join(names[:6])))
     if bad:
         for b in bad: print("  !! " + b)
         sys.exit(1)

@@ -30,7 +30,7 @@ import * as tabFleet from './ui/fleet.js';
 import * as tabAbout from './ui/about.js';
 import { state as flashState } from './ui/flash.js';
 
-const VERSION = '0.18.15';
+const VERSION = '0.18.17';
 /** Tab subtitles that read differently per device family (null = the page's original text). */
 const LEDES = { drive: {
   board: 'Which fox is on the bench, open its USB drive (or use the simulated one). The vendor firmware stays; the page writes its files.',
@@ -127,7 +127,7 @@ export const app = {
   /** The precompiled set for the connected board's CircuitPython major, with why there is none: Deploy's checkbox. */
   mpySetFor(cpVersion) {
     const majors = Object.keys(this.catalog.mpySets);
-    if (!majors.length) return { set: null, why: 'no precompiled set on this site (python3 tools/build_mpy.py)' };
+    if (!majors.length) return { set: null, why: 'no precompiled set on this site: the hosted page has one (CI builds it); a checkout gets one from  python3 tools/build_mpy.py' };
     const major = (cpVersion || '').split('.')[0];
     const set = this.catalog.mpySets[major] || (!cpVersion && majors.length === 1 ? this.catalog.mpySets[majors[0]] : null);
     if (!set) return { set: null, major, why: cpVersion ? `no precompiled set for CircuitPython ${major}.x (sets: ${majors.join(', ')})` : 'connect a board to know its CircuitPython major' };

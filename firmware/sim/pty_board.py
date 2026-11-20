@@ -128,14 +128,17 @@ class Replay:
     def __init__(self, path):
         import json
         self.rec = json.load(open(path))
-        if self.rec.get("format") != "fox-bench-bench-recording/1":
+        if self.rec.get("format") not in ("fox-bench-bench-recording/1", "fox-bench-bench-recording/2"):
             raise SystemExit("%s: not a fox-bench bench recording" % path)
+        # format 2 (page 0.18.16): a file write is one {"kind": "write", "path", "size", "crc"} line, not its bytes; the
+        # open/write/close/verify exchanges are answered from the bytes the tool writes at replay time (below).
+        # Format 1 recordings, which carry the chunks, still replay: their chunks match or count as content
         self.ex = self.rec["exchanges"]
         self.used = [False] * len(self.ex)
         self.cursor = 0
         self.misses = []
-    def _take(self, kind, cmd=None):
-        match = lambda e: e["kind"] == kind and (cmd is None or e.get("cmd") == cmd)
+    def _take(self, kind, cmd=None, path=None):
+        match = lambda e: e["kind"] == kind and (cmd is None or e.get("cmd") == cmd) and (path is None or e.get("path") == path)
         dbg = os.environ.get("REPLAY_DEBUG")
         for i in range(self.cursor, len(self.ex)):
             e = self.ex[i]
@@ -179,6 +182,12 @@ class Replay:
             return ("%d %d\n" % (len(data), zlib.crc32(data))).encode(), b""
         if m:
             e = self._take("exec", text)
+            if e is None:                                    # format 2: the file's one recorded line, by path
+                w = self._take("write", path=ast.literal_eval(m.group("p")))
+                if w is not None:
+                    self.recorded_writes = getattr(self, "recorded_writes", 0) + 1
+                    self._unrecorded_file = True             # its chunks and close are answered from the store, not the recording
+                    return b"", b""
             self._unrecorded_file = e is None               # a file the recording never saw: its writes and close are content too
             if e is None:
                 self.content_writes = getattr(self, "content_writes", 0) + 1
@@ -231,7 +240,8 @@ def main():
         if b.replay and a.replay_report:
             import json
             r = b.replay
-            json.dump({"misses": r.misses, "used": sum(r.used), "total": len(r.ex), "content_writes": getattr(r, "content_writes", 0)}, open(a.replay_report, "w"), indent=1)
+            json.dump({"misses": r.misses, "used": sum(r.used), "total": len(r.ex), "content_writes": getattr(r, "content_writes", 0),
+                       "recorded_writes": getattr(r, "recorded_writes", 0), "unused": [i for i, u in enumerate(r.used) if not u]}, open(a.replay_report, "w"), indent=1)
     import signal
     signal.signal(signal.SIGTERM, lambda *_: (write_replay_report(), sys.exit(0)))
     try: b.serve()

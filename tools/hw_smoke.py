@@ -42,6 +42,42 @@ except ImportError:
     sys.exit("pip install pyserial")
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+RECORD_CALL = "W1ABC FOX DE W1ABC"     # what a recording carries instead of the run's callsign (tests/fixtures are public)
+_SCAN_ITEM = re.compile(r"^(-\d+) (\S.*)$")   # one radio.scan() entry: "-38 name" / "-42 AA:BB:CC:DD:EE:FF"; a line is " | "-joined
+
+
+def scrub_recording(exchanges, args, call):
+    """A recording is committed to a public repo: the run's callsign becomes RECORD_CALL everywhere (commands, replies,
+    args), and every scan line -- the networks and BLE addresses around the bench -- keeps its signal levels but names
+    its neighbours neighbour-1, neighbour-2 ... (a line is a scan line when every " | " item is "-<dBm> <name>").
+    Returns a short note of what was done."""
+    n_call = n_scan = 0
+
+    def scrub_line(line):
+        nonlocal n_scan
+        items = line.strip().split(" | ")
+        ms = [_SCAN_ITEM.match(i) for i in items]
+        if not items or not all(ms):
+            return line
+        n_scan += len(items)
+        return " | ".join("%s neighbour-%d" % (m.group(1), k + 1) for k, m in enumerate(ms))
+
+    def scrub_text(t):
+        nonlocal n_call
+        if call and call != RECORD_CALL and call in t:
+            n_call += t.count(call)
+            t = t.replace(call, RECORD_CALL)
+        return "\n".join(scrub_line(l) for l in t.split("\n"))
+
+    for e in exchanges:
+        for k in ("cmd", "out", "err"):
+            if isinstance(e.get(k), str):
+                e[k] = scrub_text(e[k])
+    if args.get("call") and args["call"] != RECORD_CALL:
+        args["call"] = RECORD_CALL
+    return "%d callsign mention(s) replaced, %d scan neighbour(s) renamed" % (n_call, n_scan)
+
+
 TRACE_MARK = "# fox-bench: trace the boot"        # the settings.toml the page's Deploy writes too (js/ui/deploy.js)
 TRACE_TOML = TRACE_MARK + " (foxlib/netfox.py prints every init step before the banner). Remove this file, or untick \"Trace the boot\" on Deploy, to stop it.\nFOX_TRACE = 1\n"
 
@@ -59,7 +95,7 @@ class Repl:
         self.t0 = time.monotonic()
 
     def _rec(self, kind, **kw):
-        if self.record is not None:
+        if self.record is not None and not getattr(self, "_rec_paused", False):
             self.record.append({"t": round(time.monotonic() - self.t0, 3), "kind": kind, **kw})
 
     def _read_until(self, marker, timeout):
@@ -149,14 +185,22 @@ class Repl:
         # a Windows checkout (core.autocrlf) hands over CRLF source: the board gets LF, as the page deploys it, so a
         # recording made there replays against a Linux checkout (and the files on the board are the same bytes either way)
         if path.endswith((".py", ".json", ".txt")) and b"\r\n" in data: data = data.replace(b"\r\n", b"\n")
-        self.exec("f=open(%r,'wb')" % path)
-        for i in range(0, len(data), 384):
-            self.exec("f.write(%r)" % data[i:i + 384])
-        self.exec("f.close()")
-        out = self.exec("import os, binascii\nc=0\nf=open(%r,'rb')\nwhile True:\n b=f.read(512)\n if not b: break\n c=binascii.crc32(b,c)\nf.close()\nprint(os.stat(%r)[6], c)\n" % (path, path))
+        # a recording keeps one line per file (recording format 2: path, size, crc), not the chunks of its bytes: those
+        # change with every foxlib release and made a recording 70% dead weight; the replay answers them from what the
+        # tool writes at replay time (firmware/sim/pty_board.py, Replay)
+        self._rec_paused = True
+        try:
+            self.exec("f=open(%r,'wb')" % path)
+            for i in range(0, len(data), 384):
+                self.exec("f.write(%r)" % data[i:i + 384])
+            self.exec("f.close()")
+            out = self.exec("import os, binascii\nc=0\nf=open(%r,'rb')\nwhile True:\n b=f.read(512)\n if not b: break\n c=binascii.crc32(b,c)\nf.close()\nprint(os.stat(%r)[6], c)\n" % (path, path))
+        finally:
+            self._rec_paused = False
         size, crc = (int(x) for x in out.split())
         if size != len(data) or crc != zlib.crc32(data):
             raise RuntimeError("%s: verify failed (size %d/%d crc %x/%x)" % (path, size, len(data), crc, zlib.crc32(data)))
+        self._rec("write", path=path, size=size, crc="%08x" % crc)
 
     def mkdir(self, path):
         self.exec("import os\ntry:\n os.mkdir(%r)\nexcept OSError:\n pass\n" % path)
@@ -450,11 +494,13 @@ def main():
     path = a.report or "hw_smoke-%s-%s.json" % (uid[-6:], datetime.now().strftime("%Y%m%d-%H%M%S"))
     json.dump(report, open(path, "w"), indent=1)
     if a.record:
-        rec = {"format": "fox-bench-bench-recording/1", "generated": report["generated"], "board_id": board_id, "uid": uid,
-               "circuitpython": cp_release, "foxlib": foxlib_version, "args": {k: (_num(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else v) for k, v in vars(a).items() if k not in ("port", "record", "report")},
-               "exchanges": recording}
+        args_rec = {k: (_num(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else v) for k, v in vars(a).items() if k not in ("port", "record", "report")}
+        scrubbed = scrub_recording(recording, args_rec, a.call)
+        rec = {"format": "fox-bench-bench-recording/2", "generated": report["generated"], "board_id": board_id, "uid": uid,
+               "circuitpython": cp_release, "foxlib": foxlib_version, "args": args_rec, "exchanges": recording,
+               "_": "format 2: one 'write' line per file (path, size, crc) instead of its bytes; the callsign replaced by %s; scan results scrubbed (%s)" % (RECORD_CALL, scrubbed)}
         json.dump(rec, open(a.record, "w"), indent=0)
-        print("recorded %d exchanges to %s" % (len(recording), a.record))
+        print("recorded %d exchanges to %s (callsign -> %s; %s)" % (len(recording), a.record, RECORD_CALL, scrubbed))
         if any(x.get("ok") is False for x in report["templates"].values()):
             print("  (a template failed in this run: a recording replays its failure, so commit this file only from a run where every template passed)")
     print("\n%-14s %-5s %6s %7s %8s %6s %-8s" % ("template", "ok", "boot s", "import", "free B", "rssi", "key"))

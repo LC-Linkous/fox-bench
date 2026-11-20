@@ -91,8 +91,12 @@ jobs:
         run: python3 firmware/sim/test_netpayload.py
       - name: safemode.py (host test)
         run: python3 firmware/sim/test_safemode.py
-      - name: Precompiled foxlib (firmware/mpy) — present for every pinned CircuitPython major, built from these sources, and what the pinned mpy-cross compiles (fetched from Adafruit's S3)
-        run: python3 tools/build_mpy.py --verify
+      - name: Precompiled foxlib (firmware/mpy) — built here with the pinned CircuitPython's mpy-cross (Adafruit's S3), served from the site like the UF2, never committed
+        run: python3 tools/build_mpy.py && python3 tools/build_mpy.py --check
+      - uses: actions/upload-artifact@v4
+        with:
+          name: foxlib-mpy
+          path: firmware/mpy
       - name: Bench script against the simulated board on a pty (tools/hw_smoke.py end to end, all seven FM templates)
         run: |
           pip install --quiet pyserial
@@ -223,12 +227,18 @@ jobs:
         with:
           name: kitsune-images
           path: /tmp/kitsune-out
+      - name: The precompiled foxlib the sim job built
+        uses: actions/download-artifact@v4
+        with:
+          name: foxlib-mpy
+          path: /tmp/mpy
       - name: Stage site (page, descriptors, firmware the page deploys, docs)
         run: |
           mkdir -p _site
           cp -r index.html css js flasher hardware boards modules songs bands.json firmware docs DESIGN.md CONFIG.md PROTOCOL.md LICENSES.md LICENSE _site/
           rm -rf _site/firmware/sim _site/firmware/foxlib-c/tests/build
           cp /tmp/uf2/foxbench-picofox.uf2 /tmp/uf2/foxbench-picofox.json _site/firmware/foxlib-c/picofox/
+          cp -r /tmp/mpy/. _site/firmware/mpy/ && test -f _site/firmware/mpy/index.json
           if [ -d /tmp/kitsune-out ]; then mkdir -p _site/firmware/kitsune && cp /tmp/kitsune-out/* _site/firmware/kitsune/; fi
           python3 tools/stamp_assets.py _site && python3 tools/stamp_assets.py --check _site   # ?v=<VERSION> on css/js links: a deploy is not served against a cached main.js
           touch _site/.nojekyll   # Jekyll would drop foxlib/__init__.py (leading underscore)

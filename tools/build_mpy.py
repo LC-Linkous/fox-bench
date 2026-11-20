@@ -5,9 +5,11 @@
     python3 tools/build_mpy.py                 # build every major in firmware/mpy/pins.json (fetches mpy-cross)
     python3 tools/build_mpy.py --major 10      # one major
     python3 tools/build_mpy.py --mpy-cross P   # use this mpy-cross binary instead of fetching (its version is recorded)
-    python3 tools/build_mpy.py --check         # exit 1 when a pinned set is missing or older than foxlib/ (CI, offline)
-    python3 tools/build_mpy.py --verify        # --check, then rebuild each set with the pinned mpy-cross and compare
-                                               # bytes: the committed .mpy are what the sources compile to (CI, online)
+    python3 tools/build_mpy.py --check         # exit 1 when a pinned set is missing or older than foxlib/
+
+The set is build output, not source: CI builds it in the sim job and stages it into the site beside the PicoFox
+UF2 (firmware/mpy/<major>/ and index.json are gitignored). The hosted page always has it; a checkout has it after
+this tool has run, and until then Deploy's checkbox is disabled and says so.
 
 Why: a CircuitPython board compiles a .py on import, and the compiler's peak heap is several times the source. On the
 ESP32-C3 that peak, on top of the Wi-Fi and BLE stacks, was more than the board had (foxlib 1.10.7: MemoryError in
@@ -21,7 +23,7 @@ tag's mpy-cross, fetched from Adafruit's S3 as the library bundle builder does
 
 Output: firmware/mpy/<major>/foxlib/<module>.mpy and firmware/mpy/<major>/manifest.json (the tag, the mpy-cross
 version line, foxlib's version, each source's sha256) and firmware/mpy/index.json (the majors built), which the page
-reads. mpy-cross output is deterministic for one version, so CI rebuilds the set and compares bytes.
+reads.
 """
 import hashlib, json, os, platform, stat, subprocess, sys, urllib.request
 
@@ -141,22 +143,11 @@ def check(pins):
 def main():
     args = sys.argv[1:]
     pins = {k: v for k, v in json.load(open(PINS)).items() if not k.startswith("_")}
-    if "--check" in args or "--verify" in args:
+    if "--check" in args:
         bad = check(pins)
-        if not bad and "--verify" in args:
-            import tempfile
-            for major, tag in sorted(pins.items()):
-                mx = fetch_mpy_cross(tag)
-                man = json.load(open(os.path.join(OUT, major, "manifest.json")))
-                with tempfile.TemporaryDirectory() as td:
-                    for name in sources():
-                        dst = os.path.join(td, name[:-3] + ".mpy")
-                        subprocess.run([mx, "-o", dst, "-s", "foxlib/" + name, os.path.join(LIB, name)], check=True)
-                        if sha(dst) != man["files"][name]["mpy_sha256"]:
-                            bad.append("firmware/mpy/%s: %s.mpy is not what %s's mpy-cross compiles from the source" % (major, name[:-3], tag))
         for b in bad:
             print(b)
-        print("mpy sets: %s" % ("ok, %d major(s)%s" % (len(pins), ", rebuilt and identical" if "--verify" in args else "") if not bad else "%d problem(s)" % len(bad)))
+        print("mpy sets: %s" % ("ok, %d major(s)" % len(pins) if not bad else "%d problem(s)" % len(bad)))
         return 1 if bad else 0
     majors = [args[args.index("--major") + 1]] if "--major" in args else sorted(pins)
     given = args[args.index("--mpy-cross") + 1] if "--mpy-cross" in args else None
