@@ -32,10 +32,16 @@ def fox_templates():
     return out
 
 def load(name):
-    spec = importlib.util.spec_from_file_location("foxlib_" + name, os.path.join(FOXLIB, name + ".py"))
-    m = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(m)
-    return m
+    """A foxlib module on the host. cfg imports .report (foxlib 1.10.8), so the modules live in a package shim."""
+    import sys, types
+    if "_fwpkg" not in sys.modules:
+        pkg = types.ModuleType("_fwpkg"); pkg.__path__ = [FOXLIB]; sys.modules["_fwpkg"] = pkg
+    full = "_fwpkg." + name
+    if full not in sys.modules:
+        spec = importlib.util.spec_from_file_location(full, os.path.join(FOXLIB, name + ".py"))
+        m = importlib.util.module_from_spec(spec); sys.modules[full] = m
+        spec.loader.exec_module(m)
+    return sys.modules[full]
 
 
 morse, melody, schedule, sstv = load("morse"), load("melody"), load("schedule"), load("sstv")

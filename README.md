@@ -84,6 +84,7 @@ after all three passed, carrying the UF2 that run built
 | `tools/batch_flash.py` | headless CircuitPython batch flasher, same CSV as the Fleet tab |
 | `tools/check_fleet.py` | checks a fleet CSV with the same rules as the Fleet tab's import |
 | `tools/check_catalog.py`, `tools/check_docs.py`, `tools/check_ci.py` | the lints CI runs: descriptors and version bumps, paths named in the docs, the workflow file |
+| `docs/build-and-flash.md` | the pipeline in diagrams: the four families, how a template becomes files on a board, which foxlib files go, source vs `.mpy`, what CI builds on every push and what is pinned where |
 | `docs/bench-runbook.md` | the one page for the bench: the queue as commands, what each should print, the network-fox tick-list, a new board's first session, how recordings become CI tests |
 | `docs/picofox.md` | the PicoFox: its hardware from the schematic (what foxlib-c is written against) and what its vendor firmware reads and does (the drive family) |
 | `docs/network-fox-payloads-plan.md` | plan for contest payloads on the network foxes: puzzles, checkpoint portal, sensing, stealth |

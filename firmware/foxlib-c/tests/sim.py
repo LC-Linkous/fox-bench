@@ -158,9 +158,13 @@ def main():
     ap.add_argument("template", nargs="?")
     a = ap.parse_args()
     scenarios = json.load(open(os.path.join(FW, "sim", "scenarios.json")))
-    import importlib.util
-    spec = importlib.util.spec_from_file_location("_fwcfg", os.path.join(FW, "foxlib", "cfg.py"))
-    fwcfg = importlib.util.module_from_spec(spec); spec.loader.exec_module(fwcfg)
+    import importlib.util, types
+    # cfg imports .report (foxlib 1.10.8): both loaded into a package shim
+    pkg = types.ModuleType("_fwpkg"); pkg.__path__ = [os.path.join(FW, "foxlib")]; sys.modules["_fwpkg"] = pkg
+    for n in ("report", "cfg"):
+        spec = importlib.util.spec_from_file_location("_fwpkg." + n, os.path.join(FW, "foxlib", n + ".py"))
+        m = importlib.util.module_from_spec(spec); sys.modules["_fwpkg." + n] = m; spec.loader.exec_module(m)
+    fwcfg = sys.modules["_fwpkg.cfg"]
     templates = []
     for tid in sorted(os.listdir(os.path.join(FW, "templates"))):
         tj = os.path.join(FW, "templates", tid, "template.json")

@@ -150,7 +150,9 @@ tools/
   kitsune_bench_conf.mjs              generates fox-bench's bench conference headers for the kitsune build
   sniffer/                            CircuitPython for a second board: a probe-request sniffer (wifi.Monitor)
 tests/                                unit (node:test) and page smoke (Playwright), see tests/README.md
-docs/                                 bench-runbook (queue, tick-lists, first session, recordings), hardware-log,
+docs/                                 build-and-flash (the pipeline in diagrams: families, templates, what CI builds vs what
+                                      is source, the .mpy set, what a flash and a deploy move), bench-runbook (queue,
+                                      tick-lists, first session, recordings), hardware-log,
                                       network-fox-payloads-plan, picofox (hardware + vendor firmware), kitsune plan / bench;
                                       contributing, releasing and adding a target are in CONTRIBUTING.md
 CONFIG.md                             fox.json schema — the contract

@@ -14,6 +14,10 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+- `docs/build-and-flash.md`: the pipeline in diagrams — families, templates
+  to files, the foxlib sets, source vs `.mpy`, what CI builds on every push
+  (and that nothing is built at flash or deploy time), what is pinned where.
+
 ### Page 0.18.17 — the precompiled set is built by CI, not committed
 
 0.18.13 put `firmware/mpy/` in git, which made every firmware patch a
