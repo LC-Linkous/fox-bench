@@ -11,7 +11,7 @@ taken on is the second thing to look at: a stable target whose last row predates
 family is listed as "re-run".
 """
 import json, re, sys, signal
-signal.signal(signal.SIGPIPE, signal.SIG_DFL)
+if hasattr(signal, "SIGPIPE"): signal.signal(signal.SIGPIPE, signal.SIG_DFL)   # `| head` without a traceback; Windows has no SIGPIPE
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent

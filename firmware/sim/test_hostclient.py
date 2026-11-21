@@ -111,6 +111,56 @@ check("banner: quoted name is one value", b["name"], "W1ABC FOX DE W1ABC")
 check("banner: the field after it still parses", (b["mac"], b["mem"]), ("F2:B0:00:00:00:C0", "120000"))
 check("banner: unquoted name", hw.parse_banner("FOX net=wifi-ap name=FOX mac=1")["name"], "FOX")
 
+# the Windows backend's parsers (netsh wlan), against output in netsh's shape: the bench laptop runs Windows
+NETSH = """
+Interface name : Wi-Fi
+There are 2 networks currently visible.
+
+SSID 1 : neighbour-1
+    Network type            : Infrastructure
+    Authentication          : WPA2-Personal
+    Encryption              : CCMP
+    BSSID 1                 : aa:bb:cc:00:00:01
+         Signal             : 40%
+         Radio type         : 802.11n
+         Band               : 2.4 GHz
+         Channel            : 6
+         Basic rates (Mbps) : 1 2 5.5 11
+         Other rates (Mbps) : 6 9 12 18 24 36 48 54
+
+SSID 2 : W1ABC FOX DE W1ABC
+    Network type            : Infrastructure
+    Authentication          : Open
+    Encryption              : None
+    BSSID 1                 : f2:b0:00:00:00:c0
+         Signal             : 71%
+         Radio type         : 802.11n
+         Band               : 2.4 GHz
+         Channel            : 1
+         Basic rates (Mbps) : 1 2 5.5 11
+         Other rates (Mbps) : 6 9 12 18 24 36 48 54
+    BSSID 2                 : f2:b0:00:00:00:c1
+         Signal             : 30%
+         Radio type         : 802.11n
+         Band               : 2.4 GHz
+         Channel            : 11
+         Basic rates (Mbps) : 1 2 5.5 11
+         Other rates (Mbps) : 6 9 12 18 24 36 48 54
+"""
+rows = hw.parse_netsh_networks(NETSH)
+check("netsh: one row per BSSID", len(rows), 3)
+check("netsh: the fox's row", rows[1], ("W1ABC FOX DE W1ABC", "F2:B0:00:00:00:C0", "71", "1"))
+check("netsh: a second BSSID under the same SSID", rows[2][1:], ("F2:B0:00:00:00:C1", "30", "11"))
+check("netsh: a name with spaces and no quoting survives", rows[1][0], "W1ABC FOX DE W1ABC")
+check("nmcli: escaped colons in the BSSID", hw.parse_nmcli_list("N0CALL DECOY DECOY N0CALL:F2\\:B0\\:00\\:00\\:00\\:C0:71:1\n"), [("N0CALL DECOY DECOY N0CALL", "F2:B0:00:00:00:C0", "71", "1")])
+prof = hw.netsh_open_profile("fox-bench-smoke", 'W1ABC FOX <DE> W1ABC')
+check("netsh profile: open, no encryption, manual", all(t in prof for t in ("<authentication>open</authentication>", "<encryption>none</encryption>", "<connectionMode>manual</connectionMode>")), True)
+check("netsh profile: the SSID escaped and as hex", ("<name>W1ABC FOX &lt;DE&gt; W1ABC</name>" in prof, "<hex>%s</hex>" % "W1ABC FOX <DE> W1ABC".encode().hex().upper() in prof), (True, True))
+import xml.dom.minidom
+try: xml_ok = bool(xml.dom.minidom.parseString(hw.netsh_open_profile("fox-bench-smoke", "FOXBENCH Checkpoint")))
+except Exception as e: xml_ok = str(e)
+check("netsh profile: well-formed XML", xml_ok, True)
+
 http.close(); dns.close()
 print("%d check(s) failed" % fails if fails else "hostclient: all checks passed")
 sys.exit(1 if fails else 0)

@@ -56,6 +56,7 @@ print(board.board_id)
 print(''.join('%02x' % b for b in microcontroller.cpu.uid))
 print(open('foxlib/VERSION').read().strip())     # '' if missing
 print(os.uname().release)
+print(microcontroller.nvm[0], microcontroller.nvm[1])   # '' if no nvm: safemode.py's reset count and last reason (page 0.18.11)
 ```
 
 ## Bench (after interrupt)

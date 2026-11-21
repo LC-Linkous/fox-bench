@@ -28,14 +28,14 @@ so the same run can be repeated in CI without the board: a bench finding
 becomes a regression test. See docs/bench-runbook.md.
 
 --payload and --checkpoint make this computer the hunter's phone, through
-NetworkManager (nmcli, Linux). --payload scans while each Wi-Fi fox runs
+NetworkManager (nmcli, Linux) or netsh wlan (Windows). --payload scans while each Wi-Fi fox runs
 and requires its name on the air (BSSID, signal and channel go into the
 report; BLE is left to nRF Connect). --checkpoint joins a checkpoint fox's
 network, asks its captive DNS, GETs the sign-in page, hands in --find-call,
 leaves, and once the fox is stopped reads finds.csv back and requires the
 row (a finds.csv that was not there before is removed again). The computer
-has no internet while it is on the fox. Without nmcli, join the network by
-hand and run --portal-only.
+has no internet while it is on the fox. On a machine with neither (macOS),
+join the network by hand and run --portal-only.
 
 It transmits (briefly) unless --key-seconds 0, and every template keys
 the module within seconds of its reboot: connect an antenna or a dummy
@@ -263,22 +263,21 @@ SMOKE_CON = "fox-bench-smoke"      # the NetworkManager connection profile the j
 
 
 class HostWifi:
-    """The computer's Wi-Fi through NetworkManager (nmcli, Linux): scan for the fox, join its open network, leave.
-    Nothing here touches the board; the REPL on the serial port keeps running while the laptop is on the fox's AP
-    (and off the internet: an open network without a gateway replaces the default route for as long as it lasts)."""
+    """The computer's Wi-Fi as a hunter's phone: scan for the fox, join its open network, leave. Two backends, picked by
+    the platform: NetworkManager's nmcli (Linux) and netsh wlan (Windows); macOS has neither, so there the network is
+    joined by hand and --portal-only runs the checks. Nothing here touches the board: the REPL on the serial port keeps
+    running while the laptop is on the fox's AP (and off the internet: an open network without a gateway takes the
+    default route for as long as it lasts)."""
 
     def __init__(self, iface=None, record=None):
-        import shutil
-        if not shutil.which("nmcli"):
-            raise SystemExit("--payload/--checkpoint drive the computer's Wi-Fi with NetworkManager's nmcli (Linux). Without it, join the fox's network by hand and run the portal check alone: python3 tools/hw_smoke.py --portal-only")
-        if iface is None:
-            for line in self._nm("-t", "-f", "DEVICE,TYPE", "dev").splitlines():
-                dev, _, kind = line.partition(":")
-                if kind == "wifi":
-                    iface = dev; break
-        if not iface:
-            raise SystemExit("no Wi-Fi device in `nmcli dev`; pass --wifi IFACE")
-        self.iface = iface
+        import shutil, platform
+        if platform.system() == "Windows" and shutil.which("netsh"):
+            self.be = _Netsh(iface)
+        elif shutil.which("nmcli"):
+            self.be = _Nmcli(iface)
+        else:
+            raise SystemExit("--payload/--checkpoint drive the computer's Wi-Fi with NetworkManager's nmcli (Linux) or netsh wlan (Windows); neither is here. Join the fox's network by hand and run the portal check alone: python3 tools/hw_smoke.py --portal-only")
+        self.iface = self.be.iface
         self.joined = False
         self.record = record     # the run's recording: every host-side result goes in as a {"kind": "host", "op", "result"} line
 
@@ -296,59 +295,168 @@ class HostWifi:
         except OSError as e:
             self._rec("portal", {"error": str(e)[-160:]}); raise
 
-    @staticmethod
-    def _nm(*args, timeout=40):
-        import subprocess
-        p = subprocess.run(["nmcli"] + list(args), capture_output=True, text=True, timeout=timeout)
-        if p.returncode:
-            raise RuntimeError("nmcli %s: %s" % (" ".join(args[:3]), (p.stderr or p.stdout).strip()[-200:]))
-        return p.stdout
-
     def scan(self, seconds, ssid=None, bssid=None):
         """Rescans until `ssid` (or `bssid`) is seen or `seconds` pass. Returns {"seen": bool, "bssid", "signal", "chan",
         "networks": n, "scans": n}: the fox's entry when it was seen, and how many networks were around it."""
         t0 = time.monotonic(); r = {"seen": False, "bssid": None, "signal": None, "chan": None, "networks": 0, "scans": 0}
         while True:
-            try:
-                out = self._nm("-t", "-f", "SSID,BSSID,SIGNAL,CHAN", "dev", "wifi", "list", "ifname", self.iface, "--rescan", "yes")
-            except RuntimeError as e:
-                out = ""
-                if "running" not in str(e) and "busy" not in str(e).lower(): raise
+            rows = self.be.scan_rows()                      # [(ssid, BSSID upper, signal, channel)]
             r["scans"] += 1
-            rows = []
-            for line in out.splitlines():
-                # nmcli escapes the colons in a BSSID as "\:"; the SSID may hold anything but a bare ":"
-                parts = re.split(r"(?<!\\):", line)
-                if len(parts) < 4: continue
-                rows.append((parts[0].replace("\\:", ":"), parts[1].replace("\\:", ":").upper(), parts[2], parts[3]))
             r["networks"] = max(r["networks"], len(rows))
             for s, b, sig, ch in rows:
                 if (ssid and s == ssid) or (bssid and b == bssid.upper()):
-                    r.update(seen=True, bssid=b, signal=int(sig) if sig.isdigit() else sig, chan=ch); return self._rec("scan", r)
+                    r.update(seen=True, bssid=b, signal=int(sig) if str(sig).isdigit() else sig, chan=ch); return self._rec("scan", r)
             if time.monotonic() - t0 > seconds: return self._rec("scan", r)
             time.sleep(1)
 
     def join(self, ssid, timeout=30):
         """Joins the open network `ssid`; returns the gateway the fox's DHCP handed out (the portal's address)."""
         try:
-            self._nm("dev", "wifi", "connect", ssid, "ifname", self.iface, "name", SMOKE_CON, timeout=timeout + 10)
+            self.be.connect(ssid, timeout)
         except RuntimeError as e:
             self._rec("join", {"error": str(e)[-160:]}); raise
         self.joined = True
         t0 = time.monotonic(); gw = ""
         while time.monotonic() - t0 < timeout and not gw:
-            for line in self._nm("-t", "-f", "IP4.GATEWAY", "dev", "show", self.iface).splitlines():
-                gw = line.partition(":")[2].strip() or gw
+            gw = self.be.gateway()
             if not gw: time.sleep(0.5)
         return self._rec("join", gw or PORTAL_IP)
 
     def leave(self):
-        """Down and delete the profile, so the computer does not go back to the fox on its own tomorrow."""
+        """Disconnect and forget the network, so the computer does not go back to the fox on its own tomorrow."""
         if not self.joined: return
         self.joined = False
+        try: self.be.disconnect()
+        except RuntimeError: pass
+
+
+def _run(argv, timeout=40):
+    import subprocess
+    p = subprocess.run(argv, capture_output=True, text=True, timeout=timeout, errors="replace")
+    if p.returncode:
+        raise RuntimeError("%s: %s" % (" ".join(argv[:4]), (p.stderr or p.stdout).strip()[-200:]))
+    return p.stdout
+
+
+class _Nmcli:
+    """NetworkManager (Linux)."""
+
+    def __init__(self, iface):
+        if iface is None:
+            for line in _run(["nmcli", "-t", "-f", "DEVICE,TYPE", "dev"]).splitlines():
+                dev, _, kind = line.partition(":")
+                if kind == "wifi":
+                    iface = dev; break
+        if not iface:
+            raise SystemExit("no Wi-Fi device in `nmcli dev`; pass --wifi IFACE")
+        self.iface = iface
+
+    def scan_rows(self):
+        try:
+            out = _run(["nmcli", "-t", "-f", "SSID,BSSID,SIGNAL,CHAN", "dev", "wifi", "list", "ifname", self.iface, "--rescan", "yes"])
+        except RuntimeError as e:
+            if "running" not in str(e) and "busy" not in str(e).lower(): raise
+            out = ""
+        return parse_nmcli_list(out)
+
+    def connect(self, ssid, timeout):
+        _run(["nmcli", "dev", "wifi", "connect", ssid, "ifname", self.iface, "name", SMOKE_CON], timeout=timeout + 10)
+
+    def gateway(self):
+        gw = ""
+        for line in _run(["nmcli", "-t", "-f", "IP4.GATEWAY", "dev", "show", self.iface]).splitlines():
+            gw = line.partition(":")[2].strip() or gw
+        return gw
+
+    def disconnect(self):
         for args in (("con", "down", SMOKE_CON), ("con", "delete", SMOKE_CON)):
-            try: self._nm(*args, timeout=15)
+            try: _run(["nmcli"] + list(args), timeout=15)
             except RuntimeError: pass
+
+
+def parse_nmcli_list(out):
+    """`nmcli -t -f SSID,BSSID,SIGNAL,CHAN dev wifi list` -> [(ssid, BSSID, signal, chan)]. nmcli escapes the colons in a
+    BSSID as "\\:"; the SSID may hold anything but a bare ":"."""
+    rows = []
+    for line in out.splitlines():
+        parts = re.split(r"(?<!\\):", line)
+        if len(parts) < 4: continue
+        rows.append((parts[0].replace("\\:", ":"), parts[1].replace("\\:", ":").upper(), parts[2], parts[3]))
+    return rows
+
+
+class _Netsh:
+    """netsh wlan (Windows). Joining an open network needs a profile: a temporary one named SMOKE_CON is added, used and
+    deleted again. netsh shows the adapter's last scan, which Windows refreshes every few seconds on its own; the scan
+    loop in HostWifi.scan() asks again until the fox shows up."""
+
+    def __init__(self, iface):
+        if iface is None:
+            m = re.search(r"^\s*Name\s*:\s*(.+?)\s*$", _run(["netsh", "wlan", "show", "interfaces"]), re.M)
+            iface = m.group(1) if m else None
+        if not iface:
+            raise SystemExit("no Wi-Fi interface in `netsh wlan show interfaces`; pass --wifi NAME")
+        self.iface = iface
+
+    def scan_rows(self):
+        return parse_netsh_networks(_run(["netsh", "wlan", "show", "networks", "mode=bssid", "interface=" + self.iface]))
+
+    def connect(self, ssid, timeout):
+        import tempfile
+        xml = netsh_open_profile(SMOKE_CON, ssid)
+        with tempfile.NamedTemporaryFile("w", suffix=".xml", delete=False, encoding="utf-8") as f:
+            f.write(xml); path = f.name
+        try:
+            _run(["netsh", "wlan", "add", "profile", "filename=" + path, "interface=" + self.iface, "user=current"])
+        finally:
+            try: os.remove(path)
+            except OSError: pass
+        _run(["netsh", "wlan", "connect", "name=" + SMOKE_CON, "ssid=" + ssid, "interface=" + self.iface])
+        t0 = time.monotonic()
+        while time.monotonic() - t0 < timeout:
+            st = _run(["netsh", "wlan", "show", "interfaces"])
+            if re.search(r"^\s*State\s*:\s*connected", st, re.M | re.I) and ssid in st:
+                return
+            time.sleep(1)
+        raise RuntimeError("netsh wlan connect %r: not connected after %d s" % (ssid, timeout))
+
+    def gateway(self):
+        m = re.search(r"Default Gateway\s*:\s*([0-9.]+)", _run(["netsh", "interface", "ip", "show", "config", "name=" + self.iface]))
+        return m.group(1) if m else ""
+
+    def disconnect(self):
+        for args in (["netsh", "wlan", "disconnect", "interface=" + self.iface], ["netsh", "wlan", "delete", "profile", "name=" + SMOKE_CON, "interface=" + self.iface]):
+            try: _run(args, timeout=15)
+            except RuntimeError: pass
+
+
+def parse_netsh_networks(out):
+    """`netsh wlan show networks mode=bssid` -> [(ssid, BSSID, signal %, channel)], one row per BSSID."""
+    rows, ssid, bssid, sig = [], None, None, None
+    for line in out.splitlines():
+        m = re.match(r"^\s*SSID \d+\s*:\s*(.*?)\s*$", line)
+        if m:
+            ssid = m.group(1); continue
+        m = re.match(r"^\s*BSSID \d+\s*:\s*([0-9a-fA-F:]{17})", line)
+        if m:
+            bssid = m.group(1).upper(); sig = None; continue
+        m = re.match(r"^\s*Signal\s*:\s*(\d+)%", line)
+        if m:
+            sig = m.group(1); continue
+        m = re.match(r"^\s*Channel\s*:\s*(\d+)", line)
+        if m and ssid is not None and bssid:
+            rows.append((ssid, bssid, sig or "", m.group(1))); bssid = None
+    return rows
+
+
+def netsh_open_profile(name, ssid):
+    """A WLAN profile for an open network, as `netsh wlan add profile` takes it (manual connection: never joined on its own)."""
+    from xml.sax.saxutils import escape
+    return ('<?xml version="1.0"?>\n<WLANProfile xmlns="http://www.microsoft.com/networking/WLAN/profile/v1">'
+            "<name>%s</name><SSIDConfig><SSID><hex>%s</hex><name>%s</name></SSID><nonBroadcast>false</nonBroadcast></SSIDConfig>"
+            "<connectionType>ESS</connectionType><connectionMode>manual</connectionMode>"
+            "<MSM><security><authEncryption><authentication>open</authentication><encryption>none</encryption><useOneX>false</useOneX></authEncryption></security></MSM>"
+            "</WLANProfile>\n") % (escape(name), ssid.encode("utf-8").hex().upper(), escape(ssid))
 
 
 class ReplayHost:
@@ -484,12 +592,12 @@ def main():
     ap.add_argument("--mpy", action="store_true", help="write foxlib precompiled (.mpy, firmware/mpy/<CircuitPython major>/, tools/build_mpy.py) instead of the sources; the sources on the board are removed as stale")
     ap.add_argument("--trace", action="store_true", help="network foxes: write settings.toml with FOX_TRACE = 1 so every init step is printed before the banner (a board that hangs on the way up shows where); removed again at the end unless --no-restore")
     ap.add_argument("--record", help="write every REPL exchange of this run to FILE (JSON) for firmware/sim/pty_board.py --replay")
-    ap.add_argument("--payload", action="store_true", help="network foxes: scan with this computer's Wi-Fi (nmcli) while each Wi-Fi fox runs and require its name on the air (BSSID and signal go into the report); BLE is not checked from the host")
-    ap.add_argument("--checkpoint", action="store_true", help="checkpoint foxes: join the fox's network with this computer's Wi-Fi (nmcli), ask its captive DNS, GET the sign-in page (the code must be on it), POST --find-call to /find, leave, then read finds.csv back over the REPL and require the row; the computer is off the internet while joined")
+    ap.add_argument("--payload", action="store_true", help="network foxes: scan with this computer's Wi-Fi (nmcli on Linux, netsh on Windows) while each Wi-Fi fox runs and require its name on the air (BSSID and signal go into the report); BLE is not checked from the host")
+    ap.add_argument("--checkpoint", action="store_true", help="checkpoint foxes: join the fox's network with this computer's Wi-Fi (nmcli on Linux, netsh on Windows), ask its captive DNS, GET the sign-in page (the code must be on it), POST --find-call to /find, leave, then read finds.csv back over the REPL and require the row; the computer is off the internet while joined")
     ap.add_argument("--find-call", default="W1XYZ", help="the callsign --checkpoint hands in (a placeholder; it ends up in finds.csv on the board and in a recording)")
-    ap.add_argument("--wifi", help="the computer's Wi-Fi interface for --payload/--checkpoint (default: the first wifi device nmcli lists)")
+    ap.add_argument("--wifi", help="the computer's Wi-Fi interface for --payload/--checkpoint (default: the first one nmcli / netsh lists; on Windows the adapter's name, usually Wi-Fi)")
     ap.add_argument("--host-from", metavar="RECORDING", help="replay: take the host side of --payload/--checkpoint (scan, join, DNS, portal) from this recording's 'host' lines instead of the computer's Wi-Fi (tools/replay_check.py)")
-    ap.add_argument("--portal-only", nargs="?", const=PORTAL_IP, metavar="HOST", help="no board: this computer is already on a checkpoint fox's network (joined by hand); run the DNS and portal checks against HOST (default %s) and exit. Works without nmcli" % PORTAL_IP)
+    ap.add_argument("--portal-only", nargs="?", const=PORTAL_IP, metavar="HOST", help="no board: this computer is already on a checkpoint fox's network (joined by hand); run the DNS and portal checks against HOST (default %s) and exit. Needs neither nmcli nor netsh" % PORTAL_IP)
     ap.add_argument("-v", "--verbose", action="store_true")
     a = ap.parse_args()
     if a.portal_only:

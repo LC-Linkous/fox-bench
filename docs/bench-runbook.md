@@ -11,8 +11,11 @@ re-run on a board since: the point of the session is to make the rows in
 ```
 git pull && python3 tools/bench_queue.py          # the order below, derived from the catalog
 pip install pyserial                              # hw_smoke's only dependency
-ls /dev/ttyACM*                                   # Linux; on Windows use COMx everywhere below
+ls /dev/ttyACM*                                   # Linux; on Windows use COMx everywhere below, and `python` for `python3`
 ```
+The bench laptop is a Windows machine (Device Manager → Ports shows the
+COMx); every tool here runs there, `hw_smoke --payload/--checkpoint`
+through `netsh wlan`. Nothing in this file needs Linux.
 
 Each CircuitPython run below writes `hw_smoke-<uid>-<time>.json` (the report)
 and, with `--record`, a replay fixture. Keep both; the report drives
@@ -475,11 +478,18 @@ when the chip has more than one; the LED pin is the descriptor's default.
     BLE`, a `ble` row in `finds.csv`. On the checkpoint template this is a
     second radio beside the access point — watch for `second radio failed`
     on the C3.
-26a. **The computer as the phone** (Linux with NetworkManager): steps 21–23
-    without a phone, and a report that can be diffed.
+26a. **The computer as the phone** (Windows: `netsh wlan`; Linux:
+    NetworkManager): steps 21–23 without a phone, and a report that can be
+    diffed.
     ```
-    python3 tools/hw_smoke.py --port /dev/ttyACM0 --board esp32s3 --yes-antenna --templates checkpoint,wifi-beacon --payload --checkpoint
+    python tools/hw_smoke.py --port COM5 --board esp32s3 --yes-antenna --templates checkpoint,wifi-beacon --payload --checkpoint
     ```
+    On Windows the first `--checkpoint` join may raise the "connect to this
+    network?" prompt once; the profile it adds (`fox-bench-smoke`) is
+    deleted again when the fox is left. `netsh` reports the adapter's last
+    scan, which Windows refreshes on its own every few seconds; if
+    `--payload` keeps saying NOT on the air for a fox a phone can see, open
+    the taskbar's Wi-Fi list once (that forces a scan) and run again.
     `--payload` scans with the computer's Wi-Fi while each Wi-Fi fox runs
     and fails the template unless its name is on the air (the BSSID is
     compared with `net.mac`, Q12). `--checkpoint` joins the checkpoint fox's
@@ -489,7 +499,7 @@ when the chip has more than one; the LED pin is the descriptor's default.
     `finds.csv` back over the REPL and requires the row; a `finds.csv` that
     was not on the board before is removed again. The computer has no
     internet while it is on the fox; the serial port is unaffected. On a
-    machine without `nmcli`, join the network by hand and run
+    machine with neither (macOS), join the network by hand and run
     `python3 tools/hw_smoke.py --portal-only` — the DNS and portal checks
     alone, no board. What the phone alone can answer stays with the phone:
     whether the sheet *pops* (Q5), and anything BLE (step 25, Q8).

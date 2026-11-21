@@ -65,14 +65,20 @@ def main():
         board = f"{board} + {mod_name}"
 
     tpls = rep.get("templates") or {}
-    passed = [k for k, x in tpls.items() if x.get("ok")]
-    failed = [k for k, x in tpls.items() if not x.get("ok")]
-    if not tpls: sys.exit("report has no templates — nothing to close")
+    # hw_smoke marks a template it did not offer on this board (no defaults file) ok: null -- skipped, not failed. A
+    # row counts what ran; a skip is neither a pass nor a fail (the S3's report of 2026-11-18 carried 13 skips, seven FM
+    # templates and five of a family since removed, and read as "13 failed" before this)
+    skipped = [k for k, x in tpls.items() if x.get("ok") is None]
+    ran = {k: x for k, x in tpls.items() if x.get("ok") is not None}
+    passed = [k for k, x in ran.items() if x.get("ok")]
+    failed = [k for k, x in ran.items() if not x.get("ok")]
+    if not ran: sys.exit("report has no template that ran on this board (%d skipped) — nothing to close" % len(skipped))
     date = rep["generated"][:10]
     cp = rep.get("cp_version") or rep.get("circuitpython") or "?"
     fw = f"foxlib {rep.get('foxlib', '?')}, page {a.page}, CircuitPython {cp}"
-    checked = f"{len(passed)}/{len(tpls)} templates deployed from the REPL, booted to banner, keyed: {', '.join(passed)}"
+    checked = f"{len(passed)}/{len(ran)} templates deployed from the REPL, booted to banner, keyed: {', '.join(passed)}"
     if failed: checked += f"; did not: {', '.join(failed)}"
+    if skipped: checked += f"; not offered on this board: {len(skipped)}"
     sniff = rep.get("sniffer")
     if sniff and sniff != "not used": checked += "; wifi-probe seen by the sniffer"
     how = a.how + (f"; recording `{Path(a.recording).name}`" if a.recording else "")

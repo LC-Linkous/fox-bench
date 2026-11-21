@@ -14,6 +14,23 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.18.21 — the bench laptop runs Windows
+
+- `hw_smoke.py --payload / --checkpoint` work on Windows through
+  `netsh wlan` (scan, a temporary open-network profile `fox-bench-smoke`
+  added, connected, deleted again); NetworkManager stays the Linux backend;
+  `--portal-only` needs neither. The netsh parsers and the profile XML are
+  checked by `test_hostclient.py`. 0.18.19 had built the flags on `nmcli`
+  alone, which the bench laptop does not have.
+- `session_close.py`: a template `hw_smoke` did not offer on the board
+  (`ok: null`) is a skip, not a failure. The S3 report of 2026-11-18
+  carried 13 skips (the FM templates and five of a family since removed)
+  and read as "13 failed", with no status change recommended; it now reads
+  `5/5 … not offered on this board: 13` and recommends the flip.
+- `bench_queue.py` no longer trips over `signal.SIGPIPE` on Windows.
+- PROTOCOL.md's identity block shows the nvm line the page has sent since
+  0.18.11. Runbook: Windows named first; `netsh` scan-cache note.
+
 ### Page 0.18.20 · foxlib 1.11.0 — nothing of other people's devices
 
 From the audit of 2026-11-20 (the project's audit note has the full list).
