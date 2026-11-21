@@ -103,6 +103,9 @@ def main():
         if t.get("status") == "stable" and not tested: print(f"  !! template {tid}: stable with boards_tested empty"); bad += 1
         for b in tested:
             if b not in targets: print(f"  !! template {tid}: boards_tested names unknown target {b}"); bad += 1
+            elif not rows_for(targets[b]):
+                # boards_tested is a claim the hardware log must back: a target no row ever names cannot be "tested on"
+                print(f"  !! template {tid}: boards_tested names {b}, which has no hardware-log row (session_close.py writes both)"); bad += 1
     print("Queue, in order (stable re-runs, then boards on the bench):")
     for i, (tid, why) in enumerate(queue, 1): print(f"  {i}. {tid} — {why}")
     if check and bad: sys.exit(1)

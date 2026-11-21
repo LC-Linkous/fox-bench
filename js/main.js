@@ -30,7 +30,7 @@ import * as tabFleet from './ui/fleet.js';
 import * as tabAbout from './ui/about.js';
 import { state as flashState } from './ui/flash.js';
 
-const VERSION = '0.18.18';
+const VERSION = '0.18.19';
 /** Tab subtitles that read differently per device family (null = the page's original text). */
 const LEDES = { drive: {
   board: 'Which fox is on the bench, open its USB drive (or use the simulated one). The vendor firmware stays; the page writes its files.',

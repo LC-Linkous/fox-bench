@@ -35,7 +35,7 @@ python3 tools/check_firmware_py.py            # what desktop Python accepts and 
 python3 tools/check_docs.py && python3 tools/bench_queue.py --check
 python3 tools/check_ci.py
 python3 firmware/sim/run.py
-python3 firmware/sim/test_sniffer_parse.py && python3 firmware/sim/test_netpayload.py
+python3 firmware/sim/test_sniffer_parse.py && python3 firmware/sim/test_netpayload.py && python3 firmware/sim/test_hostclient.py
 python3 firmware/sim/parity.py > /tmp/py.json && node firmware/sim/parity.mjs > /tmp/js.json && node firmware/sim/parity.mjs --compare /tmp/py.json /tmp/js.json
 python3 firmware/sim/schema_parity.py > /tmp/spy.json && node firmware/sim/schema_parity.mjs > /tmp/sjs.json && node firmware/sim/schema_parity.mjs --compare /tmp/spy.json /tmp/sjs.json
 for f in tests/fixtures/bench/*.json; do python3 tools/replay_check.py "$f" || break; done

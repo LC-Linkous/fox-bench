@@ -475,6 +475,27 @@ when the chip has more than one; the LED pin is the descriptor's default.
     BLE`, a `ble` row in `finds.csv`. On the checkpoint template this is a
     second radio beside the access point — watch for `second radio failed`
     on the C3.
+26a. **The computer as the phone** (Linux with NetworkManager): steps 21–23
+    without a phone, and a report that can be diffed.
+    ```
+    python3 tools/hw_smoke.py --port /dev/ttyACM0 --board esp32s3 --yes-antenna --templates checkpoint,wifi-beacon --payload --checkpoint
+    ```
+    `--payload` scans with the computer's Wi-Fi while each Wi-Fi fox runs
+    and fails the template unless its name is on the air (the BSSID is
+    compared with `net.mac`, Q12). `--checkpoint` joins the checkpoint fox's
+    network, asks its captive DNS for `captive.apple.com` (the answer must
+    be the fox), GETs the page (the code must be on it), POSTs `W1XYZ`
+    (`--find-call`), leaves the network, and once the fox is stopped reads
+    `finds.csv` back over the REPL and requires the row; a `finds.csv` that
+    was not on the board before is removed again. The computer has no
+    internet while it is on the fox; the serial port is unaffected. On a
+    machine without `nmcli`, join the network by hand and run
+    `python3 tools/hw_smoke.py --portal-only` — the DNS and portal checks
+    alone, no board. What the phone alone can answer stays with the phone:
+    whether the sheet *pops* (Q5), and anything BLE (step 25, Q8).
+    With `--record`, the host's results (scan, join, DNS, portal) go into
+    the recording as `host` lines, so the run replays in CI without a
+    Wi-Fi adapter (`replay_check.py` passes `--host-from`).
 26. **RAM**: after a wake with several phones attached, the REPL's
     `gc.mem_free()` (Bench → any action, then the console) tells whether
     the C3 has headroom; a `MemoryError` in the console during step 21 or
@@ -605,14 +626,45 @@ target flips to stable only when every variant has its row.
 
 ## When the bench is packed up
 
-1. `git status` — the reports and recordings; commit the fixtures under
-   `tests/fixtures/bench/`, not the reports (they carry the uid).
-2. `python3 tools/replay_check.py` so CI replays what you recorded.
-3. `python3 tools/check_docs.py && python3 tools/bench_queue.py --check`.
-4. Bump `VERSION` in `js/main.js` by hand if a template's `boards_tested`
+The one checklist that turns a session into catalog state. Everything the
+page and the templates claim about a board comes from these steps, so a
+session that skips them did not happen as far as the repository knows (the
+S3's five network templates were run on 2026-11-17/18 and still say
+`boards_tested: []` for exactly this reason).
+
+1. **The report.** `hw_smoke.py --report NAME.json` wrote one; a session run
+   from the page alone has none — run `hw_smoke.py` once at the end with
+   `--observe 5` for the templates you ran, so the row has a source. Reports
+   carry the uid and the callsign: keep them out of git (`git rm --cached`
+   one that got in; the fixtures directory is for recordings, not reports).
+2. **The recording**, if you made one (`--record tests/fixtures/bench/<board>-<date>.json`):
+   format 2 is scrubbed (callsign → `W1ABC FOX DE W1ABC`, neighbours →
+   `neighbour-N`), so it can be committed as is.
+3. **Close the session**, dry run first, then `--apply`:
+
+   ```
+   python3 tools/session_close.py NAME.json --page <page version> [--recording tests/fixtures/bench/…json] [--note "…"]
+   python3 tools/session_close.py NAME.json --page <page version> … --apply
+   ```
+
+   This appends the hardware-log row in the shape `bench_queue.py` matches
+   and adds the target to `boards_tested` in every template that booted and
+   keyed. The two must move together: `bench_queue.py --check` (CI) fails on
+   a `boards_tested` entry whose target has no row.
+4. **Status flips are yours.** `session_close` prints the flip it would
+   recommend (`experimental → stable`, template or target); make it by hand
+   after reading the recording, not because seven boots were clean. A
+   stable target with no row fails CI; so does a stable template with an
+   empty `boards_tested`.
+5. `python3 tools/replay_check.py tests/fixtures/bench/<the new one>.json`
+   — CI replays every fixture; see it pass once here.
+6. `python3 tools/check_docs.py && python3 tools/bench_queue.py --check && python3 tools/check_catalog.py --since origin/main`.
+7. Bump `VERSION` in `js/main.js` by hand if a template's `boards_tested`
    changed (the Behavior tab reads it) and add the CHANGELOG line; the
    version lint does not watch `firmware/templates/`, so it will not remind
    you.
+8. Open questions the session answered: move the answer into the Q-table
+   above, and the detail into the board's section.
 
 ## A new board, module or CircuitPython build (first session)
 
@@ -760,7 +812,13 @@ recording never saw gets a `ReplayError` reply naming it, so a changed
 foxlib or catalog release, so an unrecorded write is answered like every
 real one (silence) and counted as a content write rather than a miss —
 the recording tests the script's commands and the board's replies, not
-the firmware's text.
+the firmware's text. A run made with `--payload` or `--checkpoint` also
+records what the computer's Wi-Fi saw and did (`host` lines: scan, join,
+DNS, portal); `replay_check.py` hands those back to `hw_smoke.py` with
+`--host-from`, so the replay needs no adapter and reaches the same verdict,
+`finds.csv` row included. The run's callsign becomes `W1ABC FOX DE W1ABC`
+in a recording and the laptop's MAC in the `finds.csv` read-back a
+placeholder; the `N0CALL` placeholder is left as it is (it is nobody's).
 
 `tools/replay_check.py` ties the two together — starts the replay board,
 runs `hw_smoke.py` with the recorded arguments, and exits 1 unless every

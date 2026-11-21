@@ -27,6 +27,16 @@ a JSON file. firmware/sim/pty_board.py --replay FILE then answers from it,
 so the same run can be repeated in CI without the board: a bench finding
 becomes a regression test. See docs/bench-runbook.md.
 
+--payload and --checkpoint make this computer the hunter's phone, through
+NetworkManager (nmcli, Linux). --payload scans while each Wi-Fi fox runs
+and requires its name on the air (BSSID, signal and channel go into the
+report; BLE is left to nRF Connect). --checkpoint joins a checkpoint fox's
+network, asks its captive DNS, GETs the sign-in page, hands in --find-call,
+leaves, and once the fox is stopped reads finds.csv back and requires the
+row (a finds.csv that was not there before is removed again). The computer
+has no internet while it is on the fox. Without nmcli, join the network by
+hand and run --portal-only.
+
 It transmits (briefly) unless --key-seconds 0, and every template keys
 the module within seconds of its reboot: connect an antenna or a dummy
 load, and pass --yes-antenna to say you did.
@@ -52,6 +62,8 @@ def scrub_recording(exchanges, args, call):
     its neighbours neighbour-1, neighbour-2 ... (a line is a scan line when every " | " item is "-<dBm> <name>").
     Returns a short note of what was done."""
     n_call = n_scan = 0
+    if call and "N0CALL" in call:
+        call = None      # the placeholder is nobody's callsign; replacing it would make the replay expect id=set from a run that recorded id=unset
 
     def scrub_line(line):
         nonlocal n_scan
@@ -73,7 +85,7 @@ def scrub_recording(exchanges, args, call):
         for k in ("cmd", "out", "err"):
             if isinstance(e.get(k), str):
                 e[k] = scrub_text(e[k])
-    if args.get("call") and args["call"] != RECORD_CALL:
+    if call and args.get("call") and args["call"] != RECORD_CALL:
         args["call"] = RECORD_CALL
     return "%d callsign mention(s) replaced, %d scan neighbour(s) renamed" % (n_call, n_scan)
 
@@ -245,6 +257,194 @@ class Sniffer:
         return r
 
 
+# ---------------------------------------------------------------- the computer as a hunter's phone (--payload, --checkpoint)
+PORTAL_IP = "192.168.4.1"          # what CircuitPython's access point hands out; the DHCP gateway is used when the host reports one
+SMOKE_CON = "fox-bench-smoke"      # the NetworkManager connection profile the join makes and removes again
+
+
+class HostWifi:
+    """The computer's Wi-Fi through NetworkManager (nmcli, Linux): scan for the fox, join its open network, leave.
+    Nothing here touches the board; the REPL on the serial port keeps running while the laptop is on the fox's AP
+    (and off the internet: an open network without a gateway replaces the default route for as long as it lasts)."""
+
+    def __init__(self, iface=None, record=None):
+        import shutil
+        if not shutil.which("nmcli"):
+            raise SystemExit("--payload/--checkpoint drive the computer's Wi-Fi with NetworkManager's nmcli (Linux). Without it, join the fox's network by hand and run the portal check alone: python3 tools/hw_smoke.py --portal-only")
+        if iface is None:
+            for line in self._nm("-t", "-f", "DEVICE,TYPE", "dev").splitlines():
+                dev, _, kind = line.partition(":")
+                if kind == "wifi":
+                    iface = dev; break
+        if not iface:
+            raise SystemExit("no Wi-Fi device in `nmcli dev`; pass --wifi IFACE")
+        self.iface = iface
+        self.joined = False
+        self.record = record     # the run's recording: every host-side result goes in as a {"kind": "host", "op", "result"} line
+
+    def _rec(self, op, result):
+        if self.record is not None:
+            self.record.append({"kind": "host", "op": op, "result": result})
+        return result
+
+    def dns(self, server):
+        return self._rec("dns", dns_query("captive.apple.com", server))
+
+    def portal(self, host, code, call):
+        try:
+            return self._rec("portal", portal_visit(host, code, call))
+        except OSError as e:
+            self._rec("portal", {"error": str(e)[-160:]}); raise
+
+    @staticmethod
+    def _nm(*args, timeout=40):
+        import subprocess
+        p = subprocess.run(["nmcli"] + list(args), capture_output=True, text=True, timeout=timeout)
+        if p.returncode:
+            raise RuntimeError("nmcli %s: %s" % (" ".join(args[:3]), (p.stderr or p.stdout).strip()[-200:]))
+        return p.stdout
+
+    def scan(self, seconds, ssid=None, bssid=None):
+        """Rescans until `ssid` (or `bssid`) is seen or `seconds` pass. Returns {"seen": bool, "bssid", "signal", "chan",
+        "networks": n, "scans": n}: the fox's entry when it was seen, and how many networks were around it."""
+        t0 = time.monotonic(); r = {"seen": False, "bssid": None, "signal": None, "chan": None, "networks": 0, "scans": 0}
+        while True:
+            try:
+                out = self._nm("-t", "-f", "SSID,BSSID,SIGNAL,CHAN", "dev", "wifi", "list", "ifname", self.iface, "--rescan", "yes")
+            except RuntimeError as e:
+                out = ""
+                if "running" not in str(e) and "busy" not in str(e).lower(): raise
+            r["scans"] += 1
+            rows = []
+            for line in out.splitlines():
+                # nmcli escapes the colons in a BSSID as "\:"; the SSID may hold anything but a bare ":"
+                parts = re.split(r"(?<!\\):", line)
+                if len(parts) < 4: continue
+                rows.append((parts[0].replace("\\:", ":"), parts[1].replace("\\:", ":").upper(), parts[2], parts[3]))
+            r["networks"] = max(r["networks"], len(rows))
+            for s, b, sig, ch in rows:
+                if (ssid and s == ssid) or (bssid and b == bssid.upper()):
+                    r.update(seen=True, bssid=b, signal=int(sig) if sig.isdigit() else sig, chan=ch); return self._rec("scan", r)
+            if time.monotonic() - t0 > seconds: return self._rec("scan", r)
+            time.sleep(1)
+
+    def join(self, ssid, timeout=30):
+        """Joins the open network `ssid`; returns the gateway the fox's DHCP handed out (the portal's address)."""
+        try:
+            self._nm("dev", "wifi", "connect", ssid, "ifname", self.iface, "name", SMOKE_CON, timeout=timeout + 10)
+        except RuntimeError as e:
+            self._rec("join", {"error": str(e)[-160:]}); raise
+        self.joined = True
+        t0 = time.monotonic(); gw = ""
+        while time.monotonic() - t0 < timeout and not gw:
+            for line in self._nm("-t", "-f", "IP4.GATEWAY", "dev", "show", self.iface).splitlines():
+                gw = line.partition(":")[2].strip() or gw
+            if not gw: time.sleep(0.5)
+        return self._rec("join", gw or PORTAL_IP)
+
+    def leave(self):
+        """Down and delete the profile, so the computer does not go back to the fox on its own tomorrow."""
+        if not self.joined: return
+        self.joined = False
+        for args in (("con", "down", SMOKE_CON), ("con", "delete", SMOKE_CON)):
+            try: self._nm(*args, timeout=15)
+            except RuntimeError: pass
+
+
+class ReplayHost:
+    """The host side of a recorded run (--host-from): scan, join, DNS and portal results come from the recording's
+    "host" lines, in order, so a --payload/--checkpoint recording replays in CI without a Wi-Fi adapter
+    (tools/replay_check.py passes this). The REPL side is the pty board's replay as usual."""
+    def __init__(self, path):
+        self.ex = [e for e in json.load(open(path))["exchanges"] if e.get("kind") == "host"]
+        self.iface = "replay"; self.joined = False
+
+    def _take(self, op):
+        for i, e in enumerate(self.ex):
+            if e["op"] == op:
+                del self.ex[i]; return e["result"]
+        raise RuntimeError("host %s: not in the recording (the run that made it did not do this)" % op)
+
+    def scan(self, seconds, ssid=None, bssid=None):
+        return self._take("scan")
+
+    def join(self, ssid, timeout=30):
+        r = self._take("join")
+        if isinstance(r, dict) and r.get("error"): raise RuntimeError(r["error"])
+        self.joined = True; return r
+
+    def leave(self):
+        self.joined = False
+
+    def dns(self, server):
+        return self._take("dns")
+
+    def portal(self, host, code, call):
+        r = self._take("portal")
+        if r.get("error"): raise OSError(r["error"])
+        return r
+
+
+def dns_query(name, server, timeout=3):
+    """One A query for `name` straight at `server` (the fox's captive DNS), bypassing the host's resolver.
+    Returns the dotted address in the first answer, or None."""
+    import socket, struct, random
+    q = struct.pack(">HHHHHH", random.randint(1, 0xFFFF), 0x0100, 1, 0, 0, 0)
+    for part in name.strip(".").split("."):
+        q += bytes([len(part)]) + part.encode()
+    q += b"\x00" + struct.pack(">HH", 1, 1)
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM); s.settimeout(timeout)
+    try:
+        s.sendto(q, (server, 53)); ans, _ = s.recvfrom(512)
+    except OSError:
+        return None
+    finally:
+        s.close()
+    return _dns_parse(q, ans)
+
+
+def _dns_parse(q, ans):
+    """The A record in the first answer of `ans` to query `q`, dotted; None when it is not one."""
+    import struct
+    if len(ans) < len(q) + 16 or ans[:2] != q[:2] or struct.unpack(">H", ans[6:8])[0] < 1: return None
+    rr = ans[len(q):]                                   # the first RR: name (a pointer or labels), type, class, ttl, rdlength, rdata
+    i = 0
+    while i < len(rr) and rr[i] and not rr[i] & 0xC0: i += 1 + rr[i]
+    i += 2 if i < len(rr) and rr[i] & 0xC0 else 1
+    if len(rr) < i + 14 or struct.unpack(">H", rr[i:i + 2])[0] != 1: return None
+    return ".".join(str(b) for b in rr[i + 10:i + 14])
+
+
+def portal_visit(host, code, call, timeout=6):
+    """What a phone does on the fox's network: GET the page, read the code, hand in a callsign. One connection per
+    request (the fox closes each). Returns {"get": status, "code_seen", "form_seen", "post": status, "logged"}."""
+    import http.client, urllib.parse
+    r = {"get": None, "code_seen": False, "form_seen": False, "post": None, "logged": False}
+    c = http.client.HTTPConnection(host, 80, timeout=timeout)
+    c.request("GET", "/", headers={"Host": "captive.apple.com", "Connection": "close"})
+    resp = c.getresponse(); body = resp.read().decode(errors="replace"); c.close()
+    r["get"] = resp.status
+    r["code_seen"] = bool(code) and (">%s<" % code) in body
+    r["form_seen"] = "name=callsign" in body
+    if not r["form_seen"]: return r
+    data = urllib.parse.urlencode({"callsign": call})
+    c = http.client.HTTPConnection(host, 80, timeout=timeout)
+    c.request("POST", "/find", body=data, headers={"Host": host, "Content-Type": "application/x-www-form-urlencoded", "Content-Length": str(len(data)), "Connection": "close"})
+    resp = c.getresponse(); body = resp.read().decode(errors="replace"); c.close()
+    r["post"] = resp.status
+    r["logged"] = ("Logged: <b>%s</b>" % call.upper()) in body
+    return r
+
+
+def finds_rows(csv_text, call):
+    """The finds.csv rows (dicts) whose callsign is `call`."""
+    lines = [l for l in csv_text.replace("\r", "").split("\n") if l.strip()]
+    if not lines: return []
+    cols = lines[0].split(",")
+    rows = [dict(zip(cols, l.split(","))) for l in lines[1:]]
+    return [r for r in rows if r.get("callsign") == call.upper()]
+
+
 def _num(x):
     """A number as it goes into a command: 1.0 -> 1, 0.5 -> 0.5. Keeps a recorded command's text equal to a replayed one."""
     return str(int(x)) if float(x) == int(x) else repr(float(x))
@@ -254,8 +454,8 @@ def parse_banner(text):
     m = re.search(r"^FOX (.*)$", text, re.M)
     if not m: return None
     d = {"_raw": m.group(0)}
-    for kv in re.findall(r"\S+=(?:\([^)]*\)|\S)*", m.group(1)):
-        k, _, v = kv.partition("="); d[k] = v
+    for kv in re.findall(r'\S+=(?:"[^"]*"|\([^)]*\)|\S)*', m.group(1)):   # name="W1ABC FOX DE W1ABC" is one value
+        k, _, v = kv.partition("="); d[k] = v[1:-1] if len(v) > 1 and v[0] == v[-1] == '"' else v
     return d
 
 
@@ -284,8 +484,25 @@ def main():
     ap.add_argument("--mpy", action="store_true", help="write foxlib precompiled (.mpy, firmware/mpy/<CircuitPython major>/, tools/build_mpy.py) instead of the sources; the sources on the board are removed as stale")
     ap.add_argument("--trace", action="store_true", help="network foxes: write settings.toml with FOX_TRACE = 1 so every init step is printed before the banner (a board that hangs on the way up shows where); removed again at the end unless --no-restore")
     ap.add_argument("--record", help="write every REPL exchange of this run to FILE (JSON) for firmware/sim/pty_board.py --replay")
+    ap.add_argument("--payload", action="store_true", help="network foxes: scan with this computer's Wi-Fi (nmcli) while each Wi-Fi fox runs and require its name on the air (BSSID and signal go into the report); BLE is not checked from the host")
+    ap.add_argument("--checkpoint", action="store_true", help="checkpoint foxes: join the fox's network with this computer's Wi-Fi (nmcli), ask its captive DNS, GET the sign-in page (the code must be on it), POST --find-call to /find, leave, then read finds.csv back over the REPL and require the row; the computer is off the internet while joined")
+    ap.add_argument("--find-call", default="W1XYZ", help="the callsign --checkpoint hands in (a placeholder; it ends up in finds.csv on the board and in a recording)")
+    ap.add_argument("--wifi", help="the computer's Wi-Fi interface for --payload/--checkpoint (default: the first wifi device nmcli lists)")
+    ap.add_argument("--host-from", metavar="RECORDING", help="replay: take the host side of --payload/--checkpoint (scan, join, DNS, portal) from this recording's 'host' lines instead of the computer's Wi-Fi (tools/replay_check.py)")
+    ap.add_argument("--portal-only", nargs="?", const=PORTAL_IP, metavar="HOST", help="no board: this computer is already on a checkpoint fox's network (joined by hand); run the DNS and portal checks against HOST (default %s) and exit. Works without nmcli" % PORTAL_IP)
     ap.add_argument("-v", "--verbose", action="store_true")
     a = ap.parse_args()
+    if a.portal_only:
+        host = a.portal_only
+        dns = dns_query("captive.apple.com", host)
+        print("captive DNS at %s: %s" % (host, ("captive.apple.com -> %s" % dns) if dns else "no answer (captive_dns off, or this is not the fox's network)"))
+        try:
+            v = portal_visit(host, None, a.find_call)
+        except OSError as e:
+            sys.exit("portal at http://%s/: %s (is this computer on the fox's network?)" % (host, e))
+        print("portal: GET %s, form %s, POST %s, logged %s" % (v["get"], "seen" if v["form_seen"] else "absent (ask_callsign off?)", v["post"], v["logged"]))
+        print("the find is in finds.csv on the fox: Collect finds on the Bench tab, or hw_smoke --checkpoint with the board on serial reads it back")
+        sys.exit(0 if v["get"] == 200 and (v["logged"] or not v["form_seen"]) else 1)
     if not a.yes_antenna:
         sys.exit("Every template keys the transmitter within seconds of booting. Connect an antenna or dummy load, then pass --yes-antenna.")
 
@@ -298,6 +515,8 @@ def main():
     if a.sniffer:
         sniffer = Sniffer(a.sniffer)
         print("sniffer on %s: %s" % (a.sniffer, "hello %s" % sniffer.hello if sniffer.hello else "no hello line in 3 s (is tools/sniffer/code.py running?)"))
+    host = (ReplayHost(a.host_from) if a.host_from else HostWifi(a.wifi, recording)) if (a.payload or a.checkpoint) else None
+    if host: print("host Wi-Fi: %s (%s)" % (host.iface, ", ".join(f for f, on in (("--payload", a.payload), ("--checkpoint", a.checkpoint)) if on)))
     r = Repl(pick_port(a.port), a.verbose, recording)
     print("interrupting whatever runs …")
     r.interrupt()
@@ -407,7 +626,11 @@ def main():
             if a.freq and not net: fox["plan"]["frequencies_mhz"] = [a.freq]
             fox.setdefault("fleet", {})["notes"] = "hw_smoke"
             res["template_version"] = manifest["version"]
+            cp_cfg = fox.get("checkpoint") or {}
+            portal = (cp_cfg.get("portal") or {}) if cp_cfg.get("enabled") else {}
+            portal_on = bool(host and a.checkpoint and net and portal.get("enabled"))
             r.interrupt()
+            finds_before = r.read_file("finds.csv") if portal_on else None     # the board is left as it was found
             r.write_file("code.py", open(os.path.join(tdir, "code.py"), "rb").read())
             r.write_file("defaults.json", json.dumps(defaults))
             r.write_file("fox.json", json.dumps(fox, indent=1))
@@ -433,6 +656,34 @@ def main():
                 run = r.listen(0.1)
                 res["sniffer"] = seen
                 print("  sniffer: %d probe(s) from %s, %d with SSID %r, %d from others%s" % (seen["from_fox"], mac, seen["with_ssid"], ssid, seen["others"], " · " + json.dumps(seen["sample"][0]) if seen["sample"] else ""))
+            elif host and net and (fox["net"].get("kind") or "").startswith("wifi") and fox["net"].get("kind") != "wifi-probe":
+                # the computer as a hunter's phone: is the fox's network on the air, and does its sign-in page work
+                name, mac, hidden = b.get("name", ""), b.get("mac", ""), bool(fox["net"].get("hidden"))
+                if a.payload:
+                    seen = res["on_air"] = host.scan(max(a.observe, 20), ssid=None if hidden else name, bssid=mac if hidden else None)
+                    if seen["seen"]:
+                        print("  on the air: %r from %s, signal %s, channel %s (%d networks around, %d scan%s)%s" % (name, seen["bssid"], seen["signal"], seen["chan"], seen["networks"], seen["scans"], "" if seen["scans"] == 1 else "s",
+                              "" if not mac or mac == "?" or seen["bssid"] == mac.upper() else " · NOTE: BSSID is not the %s fox.json asked for (bench-runbook Q12)" % mac.upper()))
+                    else:
+                        print("  NOT on the air: %r not in %d scan(s) of %d network(s) in %.0f s — the fox never started its AP, or the host adapter is on another band" % (name, seen["scans"], seen["networks"], max(a.observe, 20)))
+                if portal_on:
+                    pv = res["portal"] = {"joined": False}
+                    try:
+                        gw = host.join(name)
+                        pv["joined"] = True; pv["host"] = gw
+                        pv["dns"] = host.dns(gw) if portal.get("captive_dns") else None
+                        pv.update(host.portal(gw, portal.get("code") or None, a.find_call))
+                    except (RuntimeError, OSError) as e:
+                        pv["error"] = str(e)[-160:]
+                    finally:
+                        host.leave()
+                    if pv.get("error"):
+                        print("  portal: %s%s" % ("joined %r, then " % name if pv["joined"] else "could not join %r: " % name, pv["error"]))
+                    else:
+                        print("  portal at http://%s/: GET %s, code %s, form %s, POST %s, %s · captive DNS %s" % (
+                            pv["host"], pv["get"], "shown" if pv["code_seen"] else ("missing" if portal.get("code") else "none set"), "seen" if pv["form_seen"] else "absent",
+                            pv["post"], ("logged %s" % a.find_call) if pv["logged"] else "not logged", ("captive.apple.com -> %s" % pv["dns"]) if pv["dns"] else ("no answer" if portal.get("captive_dns") else "off")))
+                run = r.listen(2)
             else:
                 run = r.listen(a.observe)
             res["observed"] = run.strip()[-1500:]
@@ -444,8 +695,32 @@ def main():
             if b.get("radio") == "skipped": print("  radio=skipped — not attempted because the config was fatal; nothing was transmitted")
             elif b.get("radio") != "ok": print("  radio=%s — module not answering (wiring, PD pin, baud)" % b.get("radio"))
 
+            if res.get("on_air") is not None and not res["on_air"]["seen"]:
+                res["ok"] = False
             # bench, on a fresh VM
             r.interrupt()
+            if portal_on:
+                pv = res["portal"]
+                text = r.read_file("finds.csv") if pv["joined"] else None
+                rows = finds_rows(text.decode(errors="replace"), a.find_call) if text else []
+                pv["finds_rows"] = len(rows)
+                if rows: pv["find"] = rows[-1]
+                if text and recording:
+                    # the read-back carries the computer's MAC: in the recording it is a placeholder (the callsign already is one)
+                    scrubbed = re.sub(r"(?<=,)([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}(?=\s*$)", "AA:BB:CC:DD:EE:FF", text.decode(errors="replace"), flags=re.M)
+                    recording[-1]["out"] = scrubbed.encode().hex()
+                if finds_before is None and text is not None:
+                    r.exec("import os\nos.remove('finds.csv')")
+                want_log = bool(portal.get("log"))
+                pv["ok"] = bool(pv["joined"] and pv.get("get") == 200 and (pv.get("code_seen") or not portal.get("code")) and pv.get("logged")
+                                and (pv["finds_rows"] >= 1 or not want_log) and (pv.get("dns") == pv.get("host") or not portal.get("captive_dns")))
+                print("  finds.csv: %s%s" % (("%d row(s) for %s" % (len(rows), a.find_call)) + (" (%s, cycle %s, client %s)" % (rows[-1].get("ms_since_boot"), rows[-1].get("cycle"), rows[-1].get("client_mac")) if rows else "") if text else "not on the board",
+                                             "" if finds_before is not None or text is None else " · removed again (it was not there before)"))
+                if not pv["ok"]:
+                    res["ok"] = False
+                    why = ("not joined" if not pv["joined"] else "GET %s" % pv.get("get") if pv.get("get") != 200 else "code not on the page" if portal.get("code") and not pv.get("code_seen")
+                           else "callsign not acknowledged" if not pv.get("logged") else "no finds.csv row" if want_log and pv["finds_rows"] < 1 else "captive DNS did not answer with the fox (bench-runbook Q5)")
+                    print("  checkpoint FAILED: %s" % why)
             m = r.exec("import gc, time\ngc.collect()\na=gc.mem_free()\nt=time.monotonic()\nimport foxlib\nprint(a, gc.mem_free(), time.monotonic()-t)\n", timeout=60).split()
             res["mem_free_before"], res["mem_free_after_import"], res["import_s"] = int(m[0]), int(m[1]), round(float(m[2]), 2)
             if net:

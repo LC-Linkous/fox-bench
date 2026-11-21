@@ -33,6 +33,8 @@ def main():
     if args.get("freq"): cmd += ["--freq", str(args["freq"])]
     if args.get("module"): cmd += ["--module", args["module"]]
     if args.get("variant"): cmd += ["--variant", args["variant"]]
+    if args.get("payload") or args.get("checkpoint"):      # the host side (scan, join, DNS, portal) replays from the recording's "host" lines
+        cmd += [f for f, on in (("--payload", args.get("payload")), ("--checkpoint", args.get("checkpoint"))) if on] + ["--find-call", args.get("find_call", "W1XYZ"), "--host-from", rec_path]
     p = subprocess.run(cmd, capture_output=True, text=True)
     sys.stdout.write(p.stdout[-1500:])
     board.terminate()

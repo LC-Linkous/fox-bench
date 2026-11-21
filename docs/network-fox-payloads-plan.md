@@ -9,8 +9,9 @@ preview; bench steps 12–14 in `network-fox-bench.md`. **Phase C built**
 (page 0.12.0, foxlib 1.5.0): `netstealth.py`; bench steps 15–19. **Phase D
 built** (page 0.14.0, foxlib 1.7.0); **G built** (page 0.15.0, foxlib 1.8.0);
 **J built** (page 0.16.0); **H built** (page 0.17.0, foxlib 1.9.0); **E′ built** (page 0.18.0, foxlib 1.10.0;
-relay `rotate` became `toggle`). Phase F (bench, hw_smoke flags, foxdash bridge) remains — see "Status 2026-11-16" below for the second
-round of features (phases G, H, E′, J).
+relay `rotate` became `toggle`). **F's bench half built** (page 0.18.19: `hw_smoke.py --payload / --checkpoint /
+--portal-only`, the host as the hunter's phone, recorded and replayed); the foxdash bridge stays optional and
+unbuilt — see "Status 2026-11-16" below for the second round of features (phases G, H, E′, J).
 Scope: the `net`-contract foxes (`wifi-beacon`, `wifi-probe`, `ble-beacon`
 on the chip targets). The FM foxes are untouched.
 
@@ -201,7 +202,12 @@ sense:
   rows per board per feature; the templates' `boards_tested`.
 - `tools/hw_smoke.py`: `--payload`, `--checkpoint` flags that exercise the
   portal with a Python client over the fox's AP (the laptop joins the AP),
-  and the find log read-back.
+  and the find log read-back. *Built (page 0.18.19)*: NetworkManager joins
+  the AP; captive DNS, GET, POST and the `finds.csv` row are checked;
+  `--portal-only` for a machine without `nmcli`; the host side is recorded
+  as `host` lines and replayed with `--host-from`
+  (`firmware/sim/test_hostclient.py` runs the client against
+  `netcheckpoint.py`'s own page and DNS code on the host). Runbook step 26a.
 - **foxdash bridge (optional)**: the portal/BLE code becomes a rolling
   code `HMAC(key, uid, counter)` shown with its counter, which foxdash's
   verifier could accept like an SDM tag read. Only if the contest wants

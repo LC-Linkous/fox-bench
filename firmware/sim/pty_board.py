@@ -134,7 +134,7 @@ class Replay:
         # open/write/close/verify exchanges are answered from the bytes the tool writes at replay time (below).
         # Format 1 recordings, which carry the chunks, still replay: their chunks match or count as content
         self.ex = self.rec["exchanges"]
-        self.used = [False] * len(self.ex)
+        self.used = [e.get("kind") == "host" for e in self.ex]   # "host" lines are the computer's Wi-Fi side; hw_smoke --host-from replays them, not the board
         self.cursor = 0
         self.misses = []
     def _take(self, kind, cmd=None, path=None):

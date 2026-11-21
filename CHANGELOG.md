@@ -14,6 +14,37 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.18.19 — the computer as the hunter's phone
+
+- `tools/hw_smoke.py --payload` scans with the computer's Wi-Fi
+  (NetworkManager) while each Wi-Fi fox runs and fails the template unless
+  its name is on the air; BSSID, signal and channel go into the report, and
+  a BSSID other than `net.mac` is noted (runbook Q12). `--checkpoint` joins
+  a checkpoint fox's network, asks its captive DNS, GETs the sign-in page
+  (the code must be on it), hands in `--find-call` (`W1XYZ`), leaves, and
+  once the fox is stopped reads `finds.csv` back over the REPL and requires
+  the row; a `finds.csv` that was not there before is removed again.
+  `--portal-only` runs the DNS and portal checks alone, for a machine
+  without `nmcli` that joined the network by hand. The payloads plan's
+  Phase F bench half; runbook step 26a.
+- Recordings carry the host side as `host` lines (scan, join, DNS, portal);
+  `replay_check.py` hands them back with `--host-from`, so such a run
+  replays in CI without a Wi-Fi adapter. The laptop's MAC in the
+  `finds.csv` read-back is a placeholder in the recording. The `N0CALL`
+  placeholder callsign is no longer replaced by `W1ABC …` when scrubbing
+  (a run recorded with `id=unset` then expected `id=set` on replay).
+- `parse_banner` reads a quoted `name="…"` as one value (it was cut at the
+  first space).
+- `firmware/sim/test_hostclient.py` (CI, sim job): the client against
+  `netcheckpoint.py`'s own page, form handling and DNS answerer, served on
+  localhost.
+- `bench_queue.py --check` fails when a template's `boards_tested` names a
+  target with no hardware-log row at all (the two are written together by
+  `session_close.py`; a claim without a row is a typo or a skipped step).
+- Runbook "When the bench is packed up" is an eight-step checklist
+  (report, recording, `session_close.py` dry run then `--apply`, status
+  flips, replay check, the three checkers, version bump, open questions).
+
 ### Page 0.18.18 · foxlib 1.10.12 — one family fewer
 
 The experimental family for foxes whose configuration is compiled into
