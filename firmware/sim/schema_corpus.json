@@ -2453,13 +2453,13 @@
    "board": "esp32c3",
    "user": {
     "checkpoint": {
-     "stop_after_finds": 10,
      "stop_at": "2026-08-08T16:00:00"
     }
    }
   },
   {
    "name": "checkpoint-stop-bad@esp32c3",
+   "_": "stop_after_finds left foxlib in 1.11: a fox.json from before carries it and both validators must call it unknown",
    "template": "checkpoint",
    "board": "esp32c3",
    "user": {

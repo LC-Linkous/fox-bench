@@ -148,7 +148,8 @@ checkpoint:
   that is the whole UX, no app, no typing an address. Tested per phone OS
   on the bench; `captive_dns: false` falls back to "open http://192.168.4.1".
 - **Find log**: `finds.csv` on CIRCUITPY, one line per callsign submission
-  (`fox_uid, template, cycle, ms_since_boot, callsign, client_mac`),
+  (`fox_uid, template, cycle, ms_since_boot, callsign, via` — `client_mac`
+  until 1.11, when addresses left every fox log),
   append-only, capped at 200 lines. The page's Bench tab gains **Collect
   finds** (reads it over the REPL, merges into the fleet log with the fox's
   uid, offers a CSV). This is the "who found it and when" list a contest
@@ -249,7 +250,7 @@ per phase, page minor version per phase (0.10 → 0.14), foxlib 1.3 → 1.7.
    blocking error.
 5. **Find log hand-off**: `finds.csv` on every fox, one format across all
    templates (`fox_uid, template, cycle, ms_since_boot, callsign,
-   client_mac`); *Collect finds* on any fox merges into the one fleet log,
+   via`); *Collect finds* on any fox merges into the one fleet log,
    so a mixed fleet reads as one list. `near.csv` (Phase E) uses the same
    columns plus `kind`.
 6. **Templates**: two new ones, `checkpoint` and `puzzle-beacon`
@@ -388,17 +389,16 @@ sense:
                                                   BLE scanning exists on every chip; Wi-Fi probe counting only
                                                   where wifi.Monitor does.
 checkpoint:
-  stop_after_finds: 0                             0 = never; N = after the N-th callsign logged this boot the fox
-                                                  goes silent (radio down, LED 'done' = long slow blink) until
-                                                  power-cycled; the console says so; the sheet shows N
+  stop_after_finds: 0                             (removed in foxlib 1.11: a count of submissions, not of hunters;
+                                                  one phone reloading could end the day. stop_at stays)
   stop_at:          null | "2026-08-08T16:00:00"   the same silence at a wall-clock time (board clock, set at
                                                   deploy; blocking without it, as start.at). The 'done' state is one
                                                   mechanism with two triggers, so later designs (a finds quota per
                                                   hour, a stop on a relay signal) reuse it.
 ```
 
-- `near.csv`: `fox_uid, template, cycle, ms_since_boot, kind, mac, rssi,
-  name` (the finds format plus kind/rssi/name). Bench **Who is near**
+- `near.csv`: `fox_uid, template, cycle, ms_since_boot, kind, rssi,
+  name` (the finds format plus kind/rssi/name; `mac` until 1.11). Bench **Who is near**
   reads it into the fleet log like finds.
 - Hardware gate: the `wifi.Monitor` check per chip (`import wifi;
   hasattr(wifi, "Monitor")` at the REPL on C3, C5, C6, S3) decides whether
@@ -444,4 +444,4 @@ they land), then J (cheap, page-only, exercises the sheet), then H, then
 E′ when the Monitor answers are in. One patch per phase; page 0.15 → 0.18,
 foxlib 1.8 → 1.10.
 
-Named 2026-11-16: *variable power* (`stealth.variable_power`). `checkpoint.stop_at` added beside `stop_after_finds`. Nothing open before G.
+Named 2026-11-16: *variable power* (`stealth.variable_power`). `checkpoint.stop_at` added beside `stop_after_finds` (the latter removed again in 1.11). Nothing open before G.

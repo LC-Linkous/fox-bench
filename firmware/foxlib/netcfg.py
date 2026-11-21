@@ -262,7 +262,7 @@ FEATURES = ("payload", "checkpoint", "sense", "stealth")
 FEATURE_DEFAULTS = {
     "payload": {"enabled": False, "kind": "static", "names": [], "morse_of": "", "code": {"major": 0, "minor": 0},
                 "eddystone": {"url": "", "tlm": False, "tlm_data": {}}, "split": {"wifi": "", "ble": ""}, "interleave_ms": 1000},
-    "checkpoint": {"enabled": False, "stop_after_finds": 0, "stop_at": "",
+    "checkpoint": {"enabled": False, "stop_at": "",
                    "portal": {"enabled": False, "title": "", "body": "", "code": "", "ask_callsign": True, "captive_dns": True, "log": True},
                    "ble": {"enabled": False, "service_uuid": "F0B0F0B0-0000-4000-8000-0000000000C0", "code": ""}},
     "sense": {"enabled": False, "slot_ms": 1000,
@@ -394,8 +394,7 @@ def _validate_feature(sec, u, cfg, rep, radios, kind=None):
             rep.bad(sec + ".names", "rotate needs at least one name")
             cfg["kind"] = "static"
     elif sec == "checkpoint":
-        known |= {"portal", "ble", "stop_after_finds", "stop_at"}
-        plain("stop_after_finds", lambda x: _is_int(x) and 0 <= x <= 1000, "0-1000")
+        known |= {"portal", "ble", "stop_at"}
         plain("stop_at", _iso_or_empty, "YYYY-MM-DDTHH:MM:SS[zone] or empty")
         sub("portal", {"enabled": (is_bool, "bool"), "title": (lambda x: _str_max(x, 40), "<= 40 bytes"),
                        "body": (lambda x: _str_max(x, MAX_BODY), "<= %d bytes" % MAX_BODY), "code": (lambda x: _str_max(x, MAX_CODE), "<= %d chars" % MAX_CODE),

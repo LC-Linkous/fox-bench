@@ -7,7 +7,7 @@
   "circuitpython": {
     "board_id": "seeed_xiao_esp32c3",
     "download": "https://circuitpython.org/board/seeed_xiao_esp32c3/",
-    "latest_known": "10.2.1"
+    "latest_known": "10.3.2"
   },
   "flash": {
     "method": "esptool",

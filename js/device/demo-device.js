@@ -78,13 +78,13 @@ export class DemoDevice extends Device {
         if (cp.portal?.enabled && cfg.net.kind === 'wifi-ap') {
           lines.push(`checkpoint: portal at http://192.168.4.1/${cp.portal.captive_dns ? ' with captive DNS' : ''}`);
           // the demo's hunters: two finds on the fox, so Collect finds on the Bench tab has something to read
-          if (cp.portal.log && cp.portal.ask_callsign && !this.fs.has('finds.csv')) this.fs.set('finds.csv', this.enc.encode(`fox_uid,template,cycle,ms_since_boot,callsign,client_mac\n${this.uid},${template},0,41250,W1ABC,DA:11:22:33:44:55\n${this.uid},${template},2,318900,W1ABC/P,3E:7A:00:12:9B:C4\n`));
+          if (cp.portal.log && cp.portal.ask_callsign && !this.fs.has('finds.csv')) this.fs.set('finds.csv', this.enc.encode(`fox_uid,template,cycle,ms_since_boot,callsign,via\n${this.uid},${template},0,41250,W1ABC,portal\n${this.uid},${template},2,318900,W1ABC/P,ble\n`));
         }
         if (cp.ble?.enabled) lines.push(`checkpoint: BLE service ${cp.ble.service_uuid} (code ${cp.ble.code || '-'})`);
       }
       if (feats.includes('sense') && !this.fs.has('near.csv')) {
         // the demo's neighbourhood: a tag, a joined phone, a probe, so Who is near on the Bench tab has something to read
-        this.fs.set('near.csv', this.enc.encode(`fox_uid,template,cycle,ms_since_boot,kind,mac,rssi,name\n${this.uid},${template},0,2100,tag,C0:00:00:00:00:07,-61,HUNT-RED\n${this.uid},${template},1,24800,join,DA:11:22:33:44:55,-50,${cfg.net?.ssid || 'fox'}\n${this.uid},${template},2,48200,probe,3E:7A:00:12:9B:C4,-67,${cfg.net?.ssid || 'fox'}\n`));
+        this.fs.set('near.csv', this.enc.encode(`fox_uid,template,cycle,ms_since_boot,kind,rssi,name\n${this.uid},${template},0,2100,tag,-61,HUNT-RED\n${this.uid},${template},1,24800,join,-50,${cfg.net?.ssid || 'fox'}\n${this.uid},${template},2,48200,probe,-67,${cfg.net?.ssid || 'fox'}\n`));
       }
       const name0 = nameForCycle(cfg, 0, MORSE);
       if (feats.includes('payload') && name0 !== name) lines.push(`payload: name this cycle "${name0}"`);

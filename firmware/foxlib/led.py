@@ -21,7 +21,7 @@ PATTERNS = {
     "tx": [(900, 100)],              # network fox: radio up (mostly on)
     "fatal": [(100, 100), (100, 1700)],
     "armed": [(60, 2940)],           # network fox waiting for its start time: a short blink every 3 s
-    "done": [(1500, 3500)],          # network fox finished for the day (stop_after_finds / stop_at): a long slow blink
+    "done": [(1500, 3500)],          # network fox finished for the day (checkpoint.stop_at): a long slow blink
 }
 
 

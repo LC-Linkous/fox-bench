@@ -190,8 +190,8 @@ that wiring is not done (§11).
 
 **`Flasher`** (`flasher/flasher.js`, its own Apache-2.0 component, §9) —
 esptool-js vendored in `flasher/vendor/`, loaded the first time a flash
-is requested, with the same version on jsDelivr as a fallback. Works
-offline.
+is requested, from this site only (the page's Content-Security-Policy
+allows no script from anywhere else). Works offline.
 Erase, write CircuitPython at the offset the board descriptor gives
 (MD5-verified, `flasher/md5.js`), hard-reset, and read chip facts (type,
 revision, features, crystal, MAC, flash size) into the fleet log. On

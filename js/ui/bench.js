@@ -27,7 +27,7 @@ async function collectFinds(btn) {
       for (const r of rows) {
         if (seen.has(key(r))) { present++; continue; }
         seen.add(key(r)); added++;
-        fleet.append({ board_number: '', uid: r.fox_uid, board: app.info?.boardId || '', action: 'find', template: r.template, profile: app.cfg.fleet?.profile || '', callsign: r.callsign, freq: app.cfg.net ? app.cfg.net.kind : '', result: 'find', notes: `cycle ${r.cycle}, +${r.ms_since_boot} ms after boot, client ${r.client_mac}` });
+        fleet.append({ board_number: '', uid: r.fox_uid, board: app.info?.boardId || '', action: 'find', template: r.template, profile: app.cfg.fleet?.profile || '', callsign: r.callsign, freq: app.cfg.net ? app.cfg.net.kind : '', result: 'find', notes: `cycle ${r.cycle}, +${r.ms_since_boot} ms after boot, via ${r.via || '?'}` });
       }
       lastFinds = { rows, text, added, present };
       note('finds', `${rows.length} find${rows.length === 1 ? '' : 's'} on the fox: ${added} new in the fleet log, ${present} already there`);
@@ -63,9 +63,9 @@ async function whoIsNear(btn) {
     const lines = (text || '').split(/\r?\n/).filter(l => l.trim());
     const head = lines.length ? lines[0].split(',') : [];
     const all = lines.slice(1).map(l => { const c = l.split(','); const r = {}; head.forEach((k, i) => { r[k.trim()] = (c[i] || '').trim(); }); return r; });
-    const by = {}; for (const r of all) (by[r.kind] ||= new Set()).add(r.mac);
+    const by = {}; for (const r of all) (by[r.kind] ||= []).push(r);    // rows carry no address (foxlib 1.11): counted, not distinguished
     lastNear = { text: text || '', rows: all, by };
-    note('near', text == null ? 'no near.csv on the fox yet' : `${all.length} line${all.length === 1 ? '' : 's'}: ` + (Object.entries(by).map(([k, v]) => `${v.size} ${k}${v.size === 1 ? '' : 's'}`).join(', ') || 'nothing'));
+    note('near', text == null ? 'no near.csv on the fox yet' : `${all.length} line${all.length === 1 ? '' : 's'}: ` + (Object.entries(by).map(([k, v]) => `${v.length} ${k}${v.length === 1 ? '' : 's'}`).join(', ') || 'nothing'));
   } catch (e) { note('near:error', String(e.message || e)); }
   busy = false; btn.textContent = prev; btn.classList.remove('running');
   render();
@@ -121,7 +121,7 @@ function render() {
           lastFinds?.rows.length ? h('button.btn.small', { onclick: () => download(`finds-${(app.info?.uid || 'fox').slice(-6)}-${Date.now()}.csv`, lastFinds.text, 'text/csv') }, 'Download this fox\'s CSV') : null,
           lastFinds?.rows.length ? h('button.btn.small', { disabled: !ready, onclick: e => clearFinds(e.currentTarget) }, 'Clear on fox') : null,
           last('finds') ? badge(last('finds'), 'info') : null),
-        lastFinds?.rows.length ? h('pre.out', { style: 'margin-top:8px;max-height:160px;overflow:auto' }, lastFinds.rows.slice(-12).map(r => `${r.callsign.padEnd(12)} cycle ${r.cycle}  +${(r.ms_since_boot / 1000).toFixed(0)} s  ${r.client_mac}`).join('\n')) : null) : null,
+        lastFinds?.rows.length ? h('pre.out', { style: 'margin-top:8px;max-height:160px;overflow:auto' }, lastFinds.rows.slice(-12).map(r => `${r.callsign.padEnd(12)} cycle ${r.cycle}  +${(r.ms_since_boot / 1000).toFixed(0)} s  ${r.via || ''}`).join('\n')) : null) : null,
       caps.has('near') ? h('div.card', {}, h('h3', {}, 'Who is near'),
         h('p.hint', {}, 'Reads ', h('code', {}, 'near.csv'), ' from the fox — hunter tags heard, stations that joined, probe requests for its names. Shown here and downloadable; it is about the people near the fox, so it is not merged into the fleet log.'),
         h('div.tools', {}, h('button.btn.primary', { disabled: !ready, onclick: e => whoIsNear(e.currentTarget) }, 'Who is near'),

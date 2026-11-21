@@ -138,6 +138,8 @@ class Tx:
 class NetFox:
     def __init__(self, path="fox.json", defaults="defaults.json", version="?", quiet=False):
         self.quiet = quiet
+        if quiet:
+            guard.disarm()        # a bench session: never under a watchdog a previous code.py may have armed (as Fox does)
         self.template_version = version
         self.board_id = getattr(board, "board_id", "unknown")
         self.uid = "".join("%02x" % b for b in microcontroller.cpu.uid)
@@ -360,7 +362,7 @@ class NetFox:
                 self.radio.down()
 
     def _finish(self):
-        """The 'done' state (checkpoint.stop_after_finds / stop_at): radio off until power-cycled, LED 'done'."""
+        """The 'done' state (checkpoint.stop_at): radio off until power-cycled, LED 'done'."""
         try:
             self.radio.down()
         except Exception:

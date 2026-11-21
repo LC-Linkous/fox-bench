@@ -455,8 +455,8 @@ when the chip has more than one; the LED pin is the descriptor's default.
     by hand — that is the `captive_dns: false` experience, and the answer to
     whether captive DNS works on that phone.
 22. **Hand in a callsign.** Submit the form: the page comes back with
-    `Logged: <callsign>`; the console says `checkpoint: find <callsign>
-    from <MAC or IP>`. If the console instead says `find log: cannot write
+    `Logged: <callsign>`; the console says `checkpoint: find <callsign>`
+    (no address: finds.csv's last column is `portal` or `ble`). If the console instead says `find log: cannot write
     finds.csv`, the host holds the drive (an S3 with USB mass storage):
     note it — the finds are kept in RAM for that session, and a `boot.py`
     remount is the fix to come.
@@ -585,10 +585,10 @@ when the chip has more than one; the LED pin is the descriptor's default.
     — the phone probes for it by name (hidden-network style probes are the
     common case), console `honeypot: 1 probe(s) for our names`. On a build
     without: `this build has no wifi.Monitor` once.
-41. **Done for the day.** checkpoint, *After this many finds* 2: hand in
-    two callsigns → `done: 2 finds (stop_after_finds)`, the AP disappears,
-    the LED's long slow blink; a power cycle brings it back. *At* a time a
-    few minutes ahead with the board clock set at deploy: it stops then.
+41. **Done for the day.** checkpoint, *At* a time a few minutes ahead with
+    the board clock set at deploy: `done: …`, the AP disappears, the LED's
+    long slow blink; a power cycle brings it back. (The count-of-finds
+    trigger left in foxlib 1.11.)
 
 ### Per-board notes
 

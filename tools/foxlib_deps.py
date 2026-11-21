@@ -83,8 +83,14 @@ SETS = {
 }
 
 
+def ordered(names):
+    """A set's write order: VERSION last, so a deploy that dies halfway leaves the OLD version file beside the new
+    modules and the page sees "foxlib X -> Y" next time, not "current" (page 0.18.20)."""
+    return sorted(n for n in names if n != "VERSION") + ["VERSION"]
+
+
 def compute():
-    sets = {k: sorted(set(ALWAYS) | {m + ".py" for m in f()}) for k, f in SETS.items()}
+    sets = {k: ordered(set(ALWAYS) | {m + ".py" for m in f()}) for k, f in SETS.items()}
     tsets = {}
     tdir = os.path.join(ROOT, "firmware", "templates")
     for tid in sorted(os.listdir(tdir)):
@@ -107,6 +113,7 @@ def main():
         return 1 if bad else 0
     if "--write" in sys.argv:
         idx["foxlib_sets"] = sets
+        idx["foxlib"] = ordered(n for n in os.listdir(os.path.join(ROOT, "firmware", "foxlib")) if n.endswith(".py") or n == "VERSION")
         idx["_foxlib_sets"] = "the foxlib files each entry point needs, from the import graph (tools/foxlib_deps.py --write; never by hand). Deploy writes a template's set and removes the rest of foxlib from the board"
         idx["template_sets"] = tsets
         json.dump(idx, open(INDEX, "w"), indent=2)

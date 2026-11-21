@@ -278,9 +278,8 @@ export function renderPayload(root) {
     h('div.card', { style: 'margin-top:8px' }, chk(c.ble, 'enabled', 'BLE service with the code', ble ? 'a connectable service beside the beacon; a scanner app reads the code from a characteristic' : 'needs a BLE radio'),
       c.ble.enabled ? h('div.two-col', {}, fld(c.ble, 'service_uuid', 'Service UUID', { max: 36, upper: true, mono: true }), fld(c.ble, 'code', 'Code', { max: MAX_CODE, mono: true })) : null),
     h('div.card', { style: 'margin-top:8px' }, h('b', {}, 'Done for the day'),
-      h('p.hint', {}, 'The fox goes off the air until it is power-cycled (LED: a long slow blink) after the N-th callsign handed in, or at a set time — whichever comes first. 0 / empty = never.'),
-      h('div.two-col', {}, num(c, 'stop_after_finds', 'After this many finds', { min: 0, max: 1000 }, 'callsigns handed in on the page or over BLE this boot'),
-        field('At', (() => { const i = h('input', { type: 'datetime-local', step: 1, value: (c.stop_at || '').slice(0, 19) }); i.addEventListener('change', () => { c.stop_at = i.value ? (i.value.length === 16 ? i.value + ':00' : i.value) : ''; app.changed('payload'); }); return i; })(), 'board clock (set at deploy); empty = no stop time'))));
+      h('p.hint', {}, 'The fox goes off the air until it is power-cycled (LED: a long slow blink) at a set time. Empty = never.'),
+      h('div.two-col', {}, field('At', (() => { const i = h('input', { type: 'datetime-local', step: 1, value: (c.stop_at || '').slice(0, 19) }); i.addEventListener('change', () => { c.stop_at = i.value ? (i.value.length === 16 ? i.value + ':00' : i.value) : ''; app.changed('payload'); }); return i; })(), 'board clock (set at deploy); empty = no stop time'))));
   const senseBody = c => h('div', {},
     num(c, 'slot_ms', 'BLE scan length', { min: 200, max: 5000 }, 'ms the fox listens for BLE advertisers before each wake (tags and crowd share one scan)'),
     h('div.card', { style: 'margin-top:8px' }, chk(c.tags, 'enabled', 'Hunter tags', ble ? '' : 'needs a BLE radio'),

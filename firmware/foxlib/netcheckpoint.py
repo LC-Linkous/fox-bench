@@ -8,7 +8,8 @@
 #   ble      a connectable service beside the beacon: a read-only characteristic with the code, a write
 #            characteristic for a callsign. Raw _bleio, no adafruit_ble.
 #   finds.csv  one line per callsign handed in, over the portal or BLE:
-#            fox_uid, template, cycle, ms_since_boot, callsign, client_mac   (the fleet-wide format; MAX_FINDS lines)
+#            fox_uid, template, cycle, ms_since_boot, callsign, via   (the fleet-wide format; MAX_FINDS lines).
+#            via is portal or ble. No address of the phone: a hunter's device is not the fox's to record (foxlib 1.11)
 #
 # Hooks: before_up opens the sockets / adds the service, while_up serves whoever is there (the runner ticks every
 # TICK_MS while a checkpoint is on), after_down closes everything. Everything is non-blocking and bounded: a slow
@@ -22,7 +23,7 @@ MAX_CALLSIGN = 16
 RECV_TIMEOUT_S = 0.3
 PORTAL_IP = "192.168.4.1"  # what CircuitPython's access point hands out; read from wifi.radio when it can be
 FINDS_FILE = "finds.csv"
-FINDS_HEADER = "fox_uid,template,cycle,ms_since_boot,callsign,client_mac\n"
+FINDS_HEADER = "fox_uid,template,cycle,ms_since_boot,callsign,via\n"
 
 _HTML = ("<!doctype html><html><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'>"
          "<title>%s</title><style>body{font:18px/1.4 system-ui,sans-serif;margin:24px;max-width:480px}"
@@ -142,21 +143,13 @@ def _ip_bytes(wifi):
 
 
 class FindLog:
-    """finds.csv, append-only, MAX_FINDS lines; a read-only filesystem (a host holding the drive) is said once.
-    handed_in() counts every callsign this boot, logged or not, for checkpoint.stop_after_finds."""
+    """finds.csv, append-only, MAX_FINDS lines; a read-only filesystem (a host holding the drive) is said once."""
 
     def __init__(self, fox):
         self.fox = fox
-        self.boot = 0
-        self.stop_after = 0
         self.count = None
         self.said_ro = False
         self.ram = []            # what could not be written, so the Bench can still read this session's finds
-
-    def handed_in(self, call):
-        self.boot += 1
-        if self.stop_after and self.boot >= self.stop_after and not self.fox.done:
-            self.fox.done = "%d finds (stop_after_finds)" % self.boot
 
     def _count(self):
         n = 0
@@ -170,10 +163,10 @@ class FindLog:
             n = -1               # no file yet: the header goes first
         return n
 
-    def add(self, cycle, callsign, client):
+    def add(self, cycle, callsign, via):
         if self.count is None:
             self.count = self._count()
-        row = "%s,%s,%d,%d,%s,%s\n" % (self.fox.uid, self.fox.cfg.get("template", "?"), cycle, time.monotonic_ns() // 1000000, callsign, client)
+        row = "%s,%s,%d,%d,%s,%s\n" % (self.fox.uid, self.fox.cfg.get("template", "?"), cycle, time.monotonic_ns() // 1000000, callsign, via)
         if self.count >= MAX_FINDS:
             self.fox.log("find log: full (%d lines); %s not written" % (MAX_FINDS, callsign))
             return False
@@ -289,11 +282,9 @@ class Portal:
                 call = clean_callsign(form_value(body, "callsign"))
                 if call:
                     thanks = call
-                    client = self._client_mac(addr)
-                    self.fox.log("checkpoint: find %s from %s" % (call, client))
+                    self.fox.log("checkpoint: find %s" % call)
                     if self.cfg["log"]:
-                        self.finds.add(self.cycle, call, client)
-                    self.finds.handed_in(call)
+                        self.finds.add(self.cycle, call, "portal")
             self.hits += 1
             conn.send(http_response(page_html(self.cfg, thanks)))
         except Exception as e:
@@ -304,16 +295,6 @@ class Portal:
             except Exception:
                 pass
 
-    def _client_mac(self, addr):
-        """The station's MAC when the port tells us (wifi.radio.stations_ap), else its IP."""
-        ip = addr[0] if isinstance(addr, tuple) else str(addr)
-        try:
-            for st in self.fox.radio.wifi.radio.stations_ap:
-                if str(getattr(st, "ipv4_address", "")) == ip:
-                    return ":".join("%02X" % b for b in st.mac_address)
-        except Exception:
-            pass
-        return ip
 
 
 def _content_length(raw):
@@ -377,7 +358,6 @@ class BleService:
                     self.fox.log("checkpoint: find %s over BLE" % call)
                     if self.fox.cfg["checkpoint"]["portal"]["log"]:
                         self.finds.add(self.cycle, call, "ble")
-                    self.finds.handed_in(call)
         except Exception as e:
             self.fox.log("checkpoint: BLE tick failed (%s)" % e.__class__.__name__)
 
@@ -387,7 +367,6 @@ class Checkpoint:
         self.fox = fox
         self.cfg = fox.cfg["checkpoint"]
         self.finds = FindLog(fox)
-        self.finds.stop_after = self.cfg.get("stop_after_finds") or 0
         self.stop_at = None
         if self.cfg.get("stop_at"):
             from .netstealth import parse_at

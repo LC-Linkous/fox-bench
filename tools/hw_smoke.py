@@ -566,7 +566,8 @@ def main():
     # foxlib once, verified: the files the templates of this run need (firmware/index.json's sets, from the import
     # graph; tools/foxlib_deps.py), the rest of foxlib on the board removed as stale -- as the page's Deploy does
     sets, tsets = idx.get("foxlib_sets") or {}, idx.get("template_sets") or {}
-    need = sorted({f for t in templates for f in sets.get(tsets.get(t, ""), idx["foxlib"])})
+    wanted = {f for t in templates for f in sets.get(tsets.get(t, ""), idx["foxlib"])}
+    need = [f for f in idx["foxlib"] if f in wanted]       # the index's order: VERSION last, as the page writes it (foxlib_deps.ordered)
     lib_dir = os.path.join(ROOT, "firmware/foxlib")
     if a.mpy:
         # the precompiled set for the board's CircuitPython major (tools/build_mpy.py); VERSION stays a source file
@@ -705,16 +706,12 @@ def main():
                 rows = finds_rows(text.decode(errors="replace"), a.find_call) if text else []
                 pv["finds_rows"] = len(rows)
                 if rows: pv["find"] = rows[-1]
-                if text and recording:
-                    # the read-back carries the computer's MAC: in the recording it is a placeholder (the callsign already is one)
-                    scrubbed = re.sub(r"(?<=,)([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}(?=\s*$)", "AA:BB:CC:DD:EE:FF", text.decode(errors="replace"), flags=re.M)
-                    recording[-1]["out"] = scrubbed.encode().hex()
                 if finds_before is None and text is not None:
                     r.exec("import os\nos.remove('finds.csv')")
                 want_log = bool(portal.get("log"))
                 pv["ok"] = bool(pv["joined"] and pv.get("get") == 200 and (pv.get("code_seen") or not portal.get("code")) and pv.get("logged")
                                 and (pv["finds_rows"] >= 1 or not want_log) and (pv.get("dns") == pv.get("host") or not portal.get("captive_dns")))
-                print("  finds.csv: %s%s" % (("%d row(s) for %s" % (len(rows), a.find_call)) + (" (%s, cycle %s, client %s)" % (rows[-1].get("ms_since_boot"), rows[-1].get("cycle"), rows[-1].get("client_mac")) if rows else "") if text else "not on the board",
+                print("  finds.csv: %s%s" % (("%d row(s) for %s" % (len(rows), a.find_call)) + (" (+%s ms, cycle %s, via %s)" % (rows[-1].get("ms_since_boot"), rows[-1].get("cycle"), rows[-1].get("via")) if rows else "") if text else "not on the board",
                                              "" if finds_before is not None or text is None else " · removed again (it was not there before)"))
                 if not pv["ok"]:
                     res["ok"] = False

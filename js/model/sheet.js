@@ -43,7 +43,6 @@ export function onAir(cfg, { family = 'foxlib', template = '' } = {}) {
     const cp = cfg.checkpoint?.enabled ? cfg.checkpoint : null;
     if (cp?.portal?.enabled) parts.push(`portal code ${cp.portal.code || '—'}${cp.portal.log ? ', logs finds' : ''}`);
     if (cp?.ble?.enabled) parts.push(`BLE service code ${cp.ble.code || '—'}`);
-    if (cp?.stop_after_finds) parts.push(`stops after ${cp.stop_after_finds} finds`);
     if (cp?.stop_at) parts.push(`stops at ${cp.stop_at}`);
     const se = cfg.sense?.enabled ? cfg.sense : null;
     if (se) {

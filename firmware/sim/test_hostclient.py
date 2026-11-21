@@ -98,10 +98,11 @@ check("captive DNS answers the fox for connectivitycheck", dq("connectivitycheck
 check("a non-answer parses to None", hw._dns_parse(b"\x12\x34" + b"\x00" * 10, b"\x12\x34\x81\x83" + b"\x00" * 8), None)
 
 # finds.csv read back
-csv = nc.FINDS_HEADER + "8248580b63c5,checkpoint,0,41250,W1ABC,DA:11:22:33:44:55\n8248580b63c5,checkpoint,2,318900,W1XYZ,3E:7A:00:12:9B:C4\n"
+csv = nc.FINDS_HEADER + "8248580b63c5,checkpoint,0,41250,W1ABC,portal\n8248580b63c5,checkpoint,2,318900,W1XYZ,ble\n"
 rows = hw.finds_rows(csv, "w1xyz")
 check("finds_rows: the row for the callsign", [r["ms_since_boot"] for r in rows], ["318900"])
-check("finds_rows: columns named", rows[0]["client_mac"], "3E:7A:00:12:9B:C4")
+check("finds_rows: columns named", rows[0]["via"], "ble")
+check("finds.csv carries no address column", "mac" in nc.FINDS_HEADER, False)
 check("finds_rows: empty file", hw.finds_rows("", "W1XYZ"), [])
 
 # the banner with a quoted name

@@ -1891,8 +1891,8 @@
     ],
     "file_contains": {
      "near.csv": [
-      "fox_uid,template,cycle,ms_since_boot,kind,mac,rssi,name",
-      "tag,C0:00:00:00:00:07,-60,HUNT-7"
+      "fox_uid,template,cycle,ms_since_boot,kind,rssi,name",
+      "tag,-60,HUNT-7"
      ]
     }
    }
@@ -2159,13 +2159,13 @@
    "expect": {
     "keyed_min": 1,
     "prints_contain": [
-     "honeypot: DA:11:22:33:44:55 joined (-50 dBm)",
-     "honeypot: 3E:7A:00:12:9B:C4 joined (-66 dBm)"
+     "honeypot: a station joined (-50 dBm)",
+     "honeypot: a station joined (-66 dBm)"
     ],
     "file_contains": {
      "near.csv": [
-      "join,DA:11:22:33:44:55,-50,",
-      "join,3E:7A:00:12:9B:C4,-66,"
+      "join,-50,",
+      "join,-66,"
      ]
     }
    }
@@ -2221,7 +2221,7 @@
     ],
     "file_contains": {
      "near.csv": [
-      "probe,3E:7A:00:12:9B:C4,-55,FOXBENCH Fox"
+      "probe,-55,FOXBENCH Fox"
      ]
     }
    }
@@ -3560,14 +3560,14 @@
     ],
     "prints_contain": [
      "checkpoint: portal at http://192.168.4.1/ with captive DNS",
-     "checkpoint: find W1ABC/P from DA:11:22:33:44:55"
+     "checkpoint: find W1ABC/P"
     ],
     "file_contains": {
      "finds.csv": [
-      "fox_uid,template,cycle,ms_since_boot,callsign,client_mac",
+      "fox_uid,template,cycle,ms_since_boot,callsign,via",
       "checkpoint,0,",
-      "W1ABC/P,DA:11:22:33:44:55",
-      "W1XYZ,DA:11:22:33:44:55"
+      "W1ABC/P,portal",
+      "W1XYZ,portal"
      ]
     }
    }
@@ -3668,48 +3668,6 @@
     "file_contains": {
      "finds.csv": [
       "N1XYZ,ble"
-     ]
-    }
-   }
-  },
-  {
-   "name": "stop-after-finds",
-   "_doc": "the second callsign handed in ends the fox's day: radio down, LED done, no more wakes",
-   "cap_ms": 300000,
-   "stop_after_unkeys": 5,
-   "phone": [
-    {
-     "at_s": 5,
-     "post": "callsign=W1ABC"
-    },
-    {
-     "at_s": 9,
-     "post": "callsign=W1XYZ"
-    }
-   ],
-   "fox": {
-    "id": {
-     "callmessage": "W1ABC FOX"
-    },
-    "checkpoint": {
-     "stop_after_finds": 2
-    },
-    "schedule": {
-     "wake_s": 30,
-     "sleep_s": 5
-    }
-   },
-   "expect": {
-    "prints_contain": [
-     "done: 2 finds (stop_after_finds); off the air until power-cycled"
-    ],
-    "net_events_max": {
-     "ap_up": 1
-    },
-    "file_contains": {
-     "finds.csv": [
-      "W1ABC",
-      "W1XYZ"
      ]
     }
    }

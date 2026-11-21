@@ -12,9 +12,12 @@
 #   crowd     the same BLE scan counts distinct advertisers above rssi_min; more than `max` and the fox is silent for
 #             quiet_s (LED 'armed'), so a swarm following one team gets nothing
 #
-# near.csv: fox_uid,template,cycle,ms_since_boot,kind,mac,rssi,name -- the finds.csv columns with kind/rssi/name, up to
+# near.csv: fox_uid,template,cycle,ms_since_boot,kind,rssi,name -- the finds.csv columns with kind/rssi/name, up to
 # MAX_NEAR lines; the Bench tab's "Who is near" reads it. A tag or a prober is written at most once per NEAR_EVERY_S
 # (every sighting is still on the console); each join is written. A fox with nothing to scan for does no scan.
+# No addresses: the devices a fox hears in a park are not its to record (foxlib 1.11). An address is used in RAM only,
+# to rate-limit the rows and to count joins within a wake; it is never written and never printed. `name` is always one
+# of ours: the tag name the organisers gave out, the SSID a station probed for (only our own are logged), the fox's.
 import time
 from .netcheckpoint import FindLog, text_of
 
@@ -22,7 +25,7 @@ MAX_NEAR = 500
 NEAR_EVERY_S = 300                       # a tag or prober seen again within this is on the console, not written again
 NEAR_MEMORY = 200                        # (kind, mac) pairs remembered for that; forgotten all at once past this
 NEAR_FILE = "near.csv"
-NEAR_HEADER = "fox_uid,template,cycle,ms_since_boot,kind,mac,rssi,name\n"
+NEAR_HEADER = "fox_uid,template,cycle,ms_since_boot,kind,rssi,name\n"
 PROBE_REQ = (0, 4)                       # 802.11 (type, subtype)
 
 
@@ -95,7 +98,8 @@ class NearLog(FindLog):
         return n
 
     def add_near(self, cycle, kind, mac, rssi, name):
-        # one line per (kind, mac) per NEAR_EVERY_S: a tag beside the fox for an hour would otherwise fill the file
+        # one line per (kind, mac) per NEAR_EVERY_S: a tag beside the fox for an hour would otherwise fill the file.
+        # mac is the key of that RAM table and nothing else: the row does not carry it
         now = time.monotonic_ns() // 1000000000
         key = (kind, mac)
         last = self.recent.get(key)
@@ -111,8 +115,8 @@ class NearLog(FindLog):
                 self.said_ro = True
                 self.fox.log("near log: full (%d lines)" % MAX_NEAR)
             return False
-        row = "%s,%s,%d,%d,%s,%s,%s,%s\n" % (self.fox.uid, self.fox.cfg.get("template", "?"), cycle, time.monotonic_ns() // 1000000,
-                                             kind, mac, "" if rssi is None else rssi, name.replace(",", " "))
+        row = "%s,%s,%d,%d,%s,%s,%s\n" % (self.fox.uid, self.fox.cfg.get("template", "?"), cycle, time.monotonic_ns() // 1000000,
+                                          kind, "" if rssi is None else rssi, name.replace(",", " "))
         try:
             with open(NEAR_FILE, "a") as f:
                 if self.count < 0:
@@ -321,7 +325,7 @@ class Sense:
                 continue
             now[mac] = getattr(st, "rssi", None)
             if mac not in self.joined:
-                fox.log("honeypot: %s joined (%s dBm)" % (mac, now[mac]))
+                fox.log("honeypot: a station joined (%s dBm)" % now[mac])
                 if hp["log"]:
                     self.near.add_near(cycle, "join", mac, now[mac], fox.radio.name)
         self.joined = now

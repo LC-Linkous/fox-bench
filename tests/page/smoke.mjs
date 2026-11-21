@@ -68,7 +68,18 @@ const settle = ms => page.waitForTimeout(ms);
  *  `cond` runs in the page; `name` is what the failure says. Returns true when it came true in time. */
 const until = async (cond, name, ms = 15000, arg = null) => { try { await page.waitForFunction(cond, arg, { timeout: ms, polling: 100 }); return true; } catch { console.log(`  (timed out waiting for ${name})`); return false; } };
 const untilTextArgs = async (sel, re, ms = 15000) => { try { await page.waitForFunction(([s, src]) => new RegExp(src).test((document.querySelector(s)?.textContent || '').replace(/\s+/g, ' ')), [sel, re.source], { timeout: ms, polling: 100 }); return true; } catch { console.log(`  (timed out waiting for ${sel} to match ${re})`); return false; } };
-const untilFleet = async (pred, ms = 15000) => { try { await page.waitForFunction(src => (new Function('r', 'return ' + src))(JSON.parse(localStorage.getItem('fox-bench.fleet') || '[]').slice(-1)[0] || {}), pred, { timeout: ms, polling: 100 }); return true; } catch { console.log(`  (timed out waiting for a fleet row where ${pred})`); return false; } };
+// pred is a function of the last fleet row, applied here in Node from a localStorage read: the page's
+// Content-Security-Policy has no 'unsafe-eval', so a predicate built with new Function inside the page is refused
+// (which is the point of the policy; this helper was the one eval in the system)
+const untilFleet = async (pred, ms = 15000) => {
+  const t0 = Date.now();
+  while (Date.now() - t0 < ms) {
+    const r = await app(() => JSON.parse(localStorage.getItem('fox-bench.fleet') || '[]').slice(-1)[0] || {});
+    if (pred(r)) return true;
+    await new Promise(res => setTimeout(res, 100));
+  }
+  console.log(`  (timed out waiting for a fleet row where ${pred})`); return false;
+};
 const tab = async name => { const sel = `.rail button[data-tab="${name}"]`; if (await page.isHidden(sel)) return false; await page.click(sel); await settle(150); if (SHOTS) await page.screenshot({ path: `${SHOTS}/${name}.png`, fullPage: true }); return true; };
 const text = sel => page.textContent(sel).then(t => (t || '').replace(/\s+/g, ' ').trim());
 const app = (fn, arg) => page.evaluate(fn, arg);
@@ -695,7 +706,7 @@ try {
   const fsAfter = await app(() => window.__fakeSerial.files());
   check('code.py' in fsAfter && 'fox.json' in fsAfter && /morse-songs/.test(fsAfter['fox.json'] || ''), 'deploy wrote code.py and fox.json through the REPL protocol onto the fake board: ' + Object.keys(fsAfter).filter(k => !k.startsWith('foxlib/')).join(', '));
   check((fsAfter['foxlib/VERSION'] || '').trim() !== '0.9.0', 'foxlib on the board was updated from 0.9.0');
-  check(await untilFleet("r.action === 'deploy' && r.uid === '85c818eae840'"), 'fleet row carries the board\'s uid');
+  check(await untilFleet(r => r.action === 'deploy' && r.uid === '85c818eae840'), 'fleet row carries the board\'s uid');
   await app(() => window.__fakeSerial.port.drop()); await settle(500);
   eq(await app(() => window.foxbench.connected), false, 'unplugging the port disconnects the page');
   check(/serial port dropped/.test(await text('#log')), 'the console says the port dropped');
@@ -778,7 +789,7 @@ try {
   await page.click('#tab-board button:has-text("2. Copy to RPI-RP2")'); await untilTextArgs('#log', /UF2 copy failed/, 5000);
   check(/not the RPI-RP2 bootloader drive \(no INFO_UF2\.TXT; it holds FOX\.JSON, SETTINGS\.TXT\) — it is the fox's own drive/.test(await text('#log')), 'copying onto the fox\'s own drive is refused by content');
   await app(() => { window.showDirectoryPicker = async () => window.__drives.rpi; });
-  await page.click('#tab-board button:has-text("2. Copy to RPI-RP2")'); await untilFleet("r.action === 'flash' && r.result === 'ok' && /cur\\.uf2/.test(r.notes)", 15000);
+  await page.click('#tab-board button:has-text("2. Copy to RPI-RP2")'); await untilFleet(r => r.action === 'flash' && r.result === 'ok' && /cur\.uf2/.test(r.notes), 15000);
   check(/cur\.uf2 flashed .*the RPI-RP2 drive went away, so the board rebooted into it/.test(await text('#log')), 'the copy succeeds when the bootloader drive vanishes mid-close (the close() error is tolerated)');
   check(/close\(\) said "gone"/.test(await text('#log')), 'the close() error is reported, not treated as failure');
   await app(() => { delete window.__drives; });

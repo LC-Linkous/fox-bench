@@ -4,8 +4,10 @@
 // licensed separately from the rest of fox-bench (see ../flasher/LICENSE, NOTICE).
 //
 // Wraps Espressif's esptool-js (Apache-2.0), vendored in vendor/esptool-js/
-// and loaded the first time it is needed; if the local copy is missing it
-// falls back to the same version on jsDelivr. If neither loads, flashing is
+// and loaded the first time it is needed. Only that copy: a page that writes
+// firmware loads no code from a CDN (the page's Content-Security-Policy says
+// the same), and a vendored file missing from the site is a site bug to fix,
+// not a reason to fetch elsewhere. If it does not load, flashing is
 // unavailable and the page says so — tools/batch_flash.py does the same job
 // from a terminal.
 //
@@ -19,7 +21,6 @@ import { md5 } from './md5.js';
 
 export const ESPTOOL_VERSION = '0.7.0';                       // keep in step with vendor/esptool-js/VERSION
 export const ESPTOOL_LOCAL = new URL('./vendor/esptool-js/bundle.js', import.meta.url).href;
-export const ESPTOOL_URL = `https://cdn.jsdelivr.net/npm/esptool-js@${ESPTOOL_VERSION}/bundle.js`;
 export const BIN_URL = (boardId, version) => `https://downloads.circuitpython.org/bin/${boardId}/en_US/adafruit-circuitpython-${boardId}-en_US-${version}.bin`;
 
 let esptool = null;
@@ -27,10 +28,7 @@ export let esptoolSource = '';
 export async function loadEsptool() {
   if (esptool) return esptool;
   try { esptool = await import(/* webpackIgnore: true */ ESPTOOL_LOCAL); esptoolSource = 'local'; return esptool; }
-  catch (e1) {
-    try { esptool = await import(/* webpackIgnore: true */ ESPTOOL_URL); esptoolSource = 'cdn'; return esptool; }
-    catch (e2) { throw new Error(`could not load esptool-js (local: ${e1.message || e1}; cdn: ${e2.message || e2}). Flashing needs that library; use tools/batch_flash.py instead.`); }
-  }
+  catch (e) { throw new Error(`could not load esptool-js from this site (${e.message || e}): flasher/vendor/esptool-js/bundle.js is missing or not served. Flashing needs that library; use tools/batch_flash.py instead.`); }
 }
 
 /** adafruit-circuitpython-<board>-<lang>-<version>.bin → { boardId, lang, version }; null if not that shape. */

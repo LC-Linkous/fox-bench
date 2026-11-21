@@ -84,7 +84,7 @@ test('checks() with every phase G–E′ section on does not throw, and says wha
     net: { channels: [1, 6, 11] },
     stealth: { enabled: true, ble_only: false, rotate_mac: 'per-cycle', variable_power: { min_dbm: 2, max_dbm: 13, per: 'wake', slot_s: 10 }, modes: ['wifi-ap', 'ble'], shell_game: { identities: ids, period_s: 1800, index: 0 } },
     sense: { enabled: true, relay: { enabled: true, wait_for: 'FOX-2', then: 'toggle' }, honeypot: { enabled: true, probes: true }, crowd: { enabled: true } },
-    checkpoint: { enabled: true, stop_after_finds: 3, stop_at: '2026-08-08T16:00:00', portal: { enabled: true } },
+    checkpoint: { enabled: true, stop_at: '2026-08-08T16:00:00', portal: { enabled: true } },
   }, defaults('wifi-beacon'), C3);
   assert.equal(r.status, 'ok');
   const keys = (clockSet) => checks(r.cfg, C3, { clockSet }).filter(i => i.level === 'err').map(i => i.key);

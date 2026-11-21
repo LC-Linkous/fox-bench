@@ -33,9 +33,9 @@ the detected chip against `expectChip` when set (`chipId()` maps the
 reported name to a family: `esp32`, `esp32c3`, …), optionally erases the
 whole flash, writes the image at `offset` with MD5 verification,
 hard-resets, and closes the port. Errors carry the facts gathered so far
-in `e.facts`. `loadEsptool()` loads the vendored bundle and falls back to
-the pinned jsDelivr copy only if the local one fails; `esptoolSource` says
-which loaded.
+in `e.facts`. `loadEsptool()` loads the vendored bundle, and nothing else: a
+page that writes firmware takes no code from a CDN (the page's
+Content-Security-Policy would refuse it anyway).
 `demoEsptool()` returns a simulated esptool with the same surface so the
 flow can run without hardware.
 

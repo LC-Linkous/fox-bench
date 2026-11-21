@@ -398,7 +398,7 @@ the fox runs without it`. The page says the same on each card.
 | section | keys | phase |
 |---|---|---|
 | `payload` | `enabled`; `kind` static \| rotate \| morse-name; `names` (≤ 16 × 1–32 B); `morse_of` (≤ 16); `code.major` / `.minor` 0–65535; `eddystone.url` (http(s), ≤ 64) / `.tlm` bool / `.tlm_data` `{batt_mv 0–65535, temp_c −128–127, count, uptime_s}` any subset (1.8); `split.wifi` (≤ 32 B) / `.ble` (≤ 29 B); `interleave_ms` 100–10000 | **built, foxlib 1.4.0** |
-| `checkpoint` | `enabled`; `stop_after_finds` 0–1000; `stop_at` `YYYY-MM-DDTHH:MM:SS` or empty (1.10); `portal.{enabled, title ≤ 40 B, body ≤ 512 B plain text, code ≤ 16, ask_callsign, captive_dns, log}`; `ble.{enabled, service_uuid, code ≤ 16}` | **built, foxlib 1.7.0** |
+| `checkpoint` | `enabled`; `stop_at` `YYYY-MM-DDTHH:MM:SS` or empty (1.10); `portal.{enabled, title ≤ 40 B, body ≤ 512 B plain text, code ≤ 16, ask_callsign, captive_dns, log}`; `ble.{enabled, service_uuid, code ≤ 16}` | **built, foxlib 1.7.0** |
 | `sense` | `enabled`; `slot_ms` 200–5000 (BLE scan length); `tags.{enabled, match 1–16 B, log, rssi_min −100–0}`; `relay.{enabled, wait_for ≤ 32 B, then up \| down \| toggle}`; `honeypot.{enabled, log, probes, window_s 1–10}`; `crowd.{enabled, max 1–100, quiet_s 10–3600, rssi_min −100–0}` | **built, foxlib 1.10.0** |
 | `stealth` | `enabled`; `rotate_mac` false \| per-cycle \| per-boot; `rotate_name` bool; `duty_jitter_s` 0–300; `start.after_s` 0–86400 / `start.at` `YYYY-MM-DDTHH:MM:SS[zone]`; `decoys` (≤ 4 × 1–32 B); `ble_only` bool; `variable_power` null \| `{min_dbm, max_dbm, per wake \| slot, slot_s 2–600}`; `modes` `[]` \| 2–3 distinct kinds; `modes_random` bool; `shell_game` null \| `{identities: 2–8 × {name, mac}, period_s 60–86400, index}` | **built, foxlib 1.5.0; `variable_power` 1.8.0; `modes`, `shell_game` 1.9.0** |
 
@@ -445,8 +445,8 @@ on port 53 that answers every A query with the fox's address
 hunters open `http://192.168.4.1/`. With `log`, each callsign handed in
 (letters, digits, `/` and `-`, upper-cased, ≤ 16) is appended to
 `finds.csv` on the fox as `fox_uid,template,cycle,ms_since_boot,
-callsign,client_mac` (the client's MAC from `wifi.radio.stations_ap` when
-the port gives it, else its IP), up to 200 lines; a filesystem the host
+callsign,via` (`via` is `portal` or `ble`; no address of the phone — a
+hunter's device is not the fox's to record, foxlib 1.11), up to 200 lines; a filesystem the host
 holds is reported once and the finds kept in RAM. The runner ticks the
 server every 50 ms while the radio is up (the LED is then steadily on
 instead of blinking). `ble` adds a connectable service to the fox's BLE
@@ -513,17 +513,24 @@ decoys, probe list, shell-game identities: kind `probe`; other probe
 requests are counted in one line). A build without `wifi.Monitor` says so
 once and logs joins only. A silent wake is logged `silent this wake
 (<reason>)` and the other features' after-wake steps still run.
-`near.csv` columns: `fox_uid, template, cycle, ms_since_boot, kind, mac,
-rssi, name`, up to 500 lines; the Bench tab's **Who is near** reads it
-(shown and downloadable, not merged into the fleet log).
+`near.csv` columns: `fox_uid, template, cycle, ms_since_boot, kind, rssi,
+name`, up to 500 lines; the Bench tab's **Who is near** reads it (shown
+and downloadable, not merged into the fleet log). No addresses (foxlib
+1.11): the devices a fox hears in a park are not its to record. An address
+is used in RAM only, to write a tag or prober at most once per five minutes
+and to count joins within a wake; `name` is always one of ours (the tag
+name the organisers gave out, the SSID a station probed for — only our
+own are logged — or the fox's).
 
-**Done for the day (`checkpoint.stop_after_finds`, `checkpoint.stop_at`,
-foxlib 1.10):** after the N-th callsign handed in this boot (page or BLE,
-logged or not), or once the board clock reaches `stop_at`, the fox takes
-its radio down, says `done: <reason>; off the air until power-cycled`,
+**Done for the day (`checkpoint.stop_at`, foxlib 1.10):** once the board
+clock reaches `stop_at`, the fox takes its radio down, says `done: <reason>; off the air until power-cycled`,
 and blinks the LED `done` pattern (long and slow) until power-cycled.
 `stop_at` without the board clock set is an error on the page; on the
-fox it is said once and ignored.
+fox it is said once and ignored. (`stop_after_finds`, a count of callsigns
+handed in, left in 1.11: one phone reloading the thank-you page could end
+a checkpoint's day, and a count of devices is not something a fox should
+keep. A fox.json carrying the key gets `checkpoint.stop_after_finds ->
+default (unknown)` in the banner and runs.)
 
 Cross-section rules the validator applies: `payload.kind: rotate` with no
 names falls back to `static`; `checkpoint.portal` and `sense.honeypot` /

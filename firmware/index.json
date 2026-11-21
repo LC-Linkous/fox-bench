@@ -1,6 +1,5 @@
 {
   "foxlib": [
-    "VERSION",
     "__init__.py",
     "battery.py",
     "cfg.py",
@@ -23,7 +22,8 @@
     "report.py",
     "schedule.py",
     "sstv.py",
-    "tones.py"
+    "tones.py",
+    "VERSION"
   ],
   "root": [
     "safemode.py"
@@ -53,7 +53,6 @@
   "_features": "contest feature sections (payload, checkpoint, sense, stealth) this foxlib runs; the page marks the rest 'accepted, not built'",
   "foxlib_sets": {
     "fm": [
-      "VERSION",
       "__init__.py",
       "battery.py",
       "cfg.py",
@@ -66,10 +65,10 @@
       "report.py",
       "schedule.py",
       "sstv.py",
-      "tones.py"
+      "tones.py",
+      "VERSION"
     ],
     "net": [
-      "VERSION",
       "__init__.py",
       "guard.py",
       "led.py",
@@ -84,7 +83,8 @@
       "netsense.py",
       "netstealth.py",
       "netvary.py",
-      "report.py"
+      "report.py",
+      "VERSION"
     ]
   },
   "_foxlib_sets": "the foxlib files each entry point needs, from the import graph (tools/foxlib_deps.py --write; never by hand). Deploy writes a template's set and removes the rest of foxlib from the board",

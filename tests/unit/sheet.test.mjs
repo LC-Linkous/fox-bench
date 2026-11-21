@@ -37,10 +37,10 @@ test('event filter', () => {
 test('onAir: a network fox and an FM fox', () => {
   const net = { net: { kind: 'wifi-ap', ssid: 'FOX-3', channel: 6, channels: [1, 6, 11], mac: 'F2:00:00:00:00:03', tx_power_dbm: 13, max_clients: 4, hidden: false, psk: '' },
     id: { callmessage: 'N0CALL', use_callsign_as_name: false }, schedule: { wake_s: 120, sleep_s: 10, sleep: 'off' },
-    checkpoint: { enabled: true, stop_after_finds: 5, stop_at: '', portal: { enabled: true, code: '4471', log: true }, ble: { enabled: false } },
+    checkpoint: { enabled: true, stop_at: '2026-08-08T16:00:00', portal: { enabled: true, code: '4471', log: true }, ble: { enabled: false } },
     fleet: { points_to: 2 } };
   const a = onAir(net);
-  for (const want of ['AP "FOX-3"', 'ch 1/6/11 per wake', '4 clients', 'MAC F2:00:00:00:00:03', '13 dBm', 'portal code 4471, logs finds', 'stops after 5 finds', '120 s on / 10 s off', '→ 2']) assert.ok(a.includes(want), `${want} in ${a}`);
+  for (const want of ['AP "FOX-3"', 'ch 1/6/11 per wake', '4 clients', 'MAC F2:00:00:00:00:03', '13 dBm', 'portal code 4471, logs finds', 'stops at 2026-08-08T16:00:00', '120 s on / 10 s off', '→ 2']) assert.ok(a.includes(want), `${want} in ${a}`);
   const fm = { plan: { frequencies_mhz: [146.565, 147.42] }, id: { callmessage: 'W1ABC FOX' }, schedule: { kind: 'fixed', delay_ms: 30000 }, payload: { kind: 'songs' } };
   assert.equal(onAir(fm), 'FM 146.565 → 147.420 MHz · "W1ABC FOX" · fixed every 30 s · songs');
 });

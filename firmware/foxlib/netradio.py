@@ -105,7 +105,7 @@ class WifiAp(Base):
                 self.mac_error = e.__class__.__name__
             r.enabled = True                    # the access point starts here, under the new address
         self._start()
-        _wifi_power(self.wifi, self.cfg)        # after the start: the ESP-IDF call needs a started interface, and
+        _wifi_power(self.wifi, self.cfg, self)  # after the start: the ESP-IDF call needs a started interface, and
                                                 # enabling the radio resets the power to the build's default
 
     def down(self):
@@ -172,7 +172,7 @@ class WifiProbe(Base):
             r.start_station()               # idempotent; connect() below would start it too, but the power setter
         except Exception:                   # wants a started interface first
             pass
-        _wifi_power(self.wifi, self.cfg)
+        _wifi_power(self.wifi, self.cfg, self)
         self.keep()
 
     def keep(self, seconds=2):
@@ -387,11 +387,14 @@ def _nordic():
         return False
 
 
-def _wifi_power(wifi, cfg):
+def _wifi_power(wifi, cfg, radio=None):
+    """Sets the Wi-Fi power; a build that refuses the value is said once by the runner (radio.notes), like a MAC it would not take."""
     try:
         wifi.radio.tx_power = float(cfg["tx_power_dbm"])
-    except Exception:
-        pass
+    except Exception as e:
+        if radio is not None and not getattr(radio, "_wifi_power_said", False):
+            radio._wifi_power_said = True
+            radio.notes.append("tx_power %s dBm refused (%s); the build's default power is on the air" % (cfg["tx_power_dbm"], e.__class__.__name__))
 
 
 DRIVERS = {WifiAp.kind: WifiAp, WifiProbe.kind: WifiProbe, BleBeacon.kind: BleBeacon}

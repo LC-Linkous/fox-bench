@@ -222,7 +222,12 @@ async function deploy(btn) {
     app.info.foxlibVersion = app.catalog.foxlibVersion;
     app.setStatus(`${d.kind === 'demo' ? 'Demo · ' : ''}${app.info.boardId} · uid ${app.info.uid.slice(-6)} · foxlib ${app.catalog.foxlibVersion} · fox running`, d.kind === 'demo' ? 'demo' : 'tx');
     fleet.append({ board_number: cfg.fleet?.number ?? '', uid: app.info.uid, board: app.info.boardId, action: 'deploy', template: `${app.templateId}/${app.template.version}`, profile: cfg.fleet?.profile || '', callsign: cfg.id.callmessage, owner: cfg.fleet?.owner || '', event: cfg.fleet?.event || '', on_air: onAir(cfg, { template: app.templateId }), freq: freqText(cfg), power: powerText(cfg), seed: cfg.schedule?.seed ?? '', result: lastResult.ok ? 'ok' : lastResult.failedFeature ? `failed to load: ${lastResult.failedFeature}` : (banner ? `${banner.cfg} ${banner.radio} ${banner.id}` : 'no banner'), notes: [app.variantId ? app.board.variantName : '', app.device.kind === 'demo' ? 'demo' : ''].filter(Boolean).join(' · ') });
-  } catch (e) { setLast({ usbDrive: !!e.usbDrive, error: String(e.message || e) + (/HTTP 404/.test(e.message || '') ? ' — a firmware file is missing from the site; the repo needs a .nojekyll marker so GitHub Pages serves foxlib/__init__.py' : '') }); log.err(lastResult.error); }
+  } catch (e) {
+    setLast({ usbDrive: !!e.usbDrive, error: String(e.message || e) + (/HTTP 404/.test(e.message || '') ? ' — a firmware file is missing from the site; the repo needs a .nojekyll marker so GitHub Pages serves foxlib/__init__.py' : '') }); log.err(lastResult.error);
+    // the board is in an unknown state between what was written and what was not: the next plan must not trust the
+    // last read (a foxlib/ half written would otherwise read as current). The next Deploy rewrites the whole set.
+    if (app.onBoard) { app.onBoard = { ...app.onBoard, foxlibVersion: null, foxlibComplete: false, libFiles: {}, template: null }; log.dim('the board\'s state is unknown after this; the next Deploy writes everything (or Re-read board)'); }
+  }
   busy = false; app.deployBusy = false; gateOk = false; app.changed('deploy');
 }
 

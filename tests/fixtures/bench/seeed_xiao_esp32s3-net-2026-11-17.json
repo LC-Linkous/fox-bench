@@ -9,7 +9,7 @@
 "board": "esp32s3",
 "variant": "seeed_xiao_esp32s3",
 "templates": "all",
-"call": "KY4ZR FOX DE KY4ZR",
+"call": "W1ABC FOX DE W1ABC",
 "freq": null,
 "module": null,
 "observe": "20",
@@ -4048,7 +4048,7 @@
 {
 "t": 70.391,
 "kind": "exec",
-"cmd": "f.write(b'{\\n \"schema\": 1,\\n \"template\": \"wifi-beacon\",\\n \"board\": \"esp32s3\",\\n \"variant\": \"seeed_xiao_esp32s3\",\\n \"pins\": {\\n  \"led\": \"LED\",\\n  \"batt_sense\": null\\n },\\n \"net\": {\\n  \"kind\": \"wifi-ap\",\\n  \"ssid\": \"FOXBENCH WiFi Beacon\",\\n  \"psk\": \"\",\\n  \"mac\": \"F2:B0:00:00:00:01\",\\n  \"channel\": 1,\\n  \"hidden\": false,\\n  \"tx_power_dbm\": 17,\\n  \"max_clients\": 1\\n },\\n \"id\": {\\n  \"callmessage\": \"KY4ZR FOX DE KY4ZR')",
+"cmd": "f.write(b'{\\n \"schema\": 1,\\n \"template\": \"wifi-beacon\",\\n \"board\": \"esp32s3\",\\n \"variant\": \"seeed_xiao_esp32s3\",\\n \"pins\": {\\n  \"led\": \"LED\",\\n  \"batt_sense\": null\\n },\\n \"net\": {\\n  \"kind\": \"wifi-ap\",\\n  \"ssid\": \"FOXBENCH WiFi Beacon\",\\n  \"psk\": \"\",\\n  \"mac\": \"F2:B0:00:00:00:01\",\\n  \"channel\": 1,\\n  \"hidden\": false,\\n  \"tx_power_dbm\": 17,\\n  \"max_clients\": 1\\n },\\n \"id\": {\\n  \"callmessage\": \"W1ABC FOX DE W1ABC')",
 "out": "",
 "err": ""
 },
@@ -4076,13 +4076,13 @@
 {
 "t": 72.235,
 "kind": "reboot",
-"out": "\nsoft reboot\ncode.py output:\ninitializing system ... \nFOX template=wifi-beacon/1.0.0 foxlib=1.10.5 board=seeed_xiao_esp32_s3_sense uid=8248580b63c5 cfg=ok radio=ok id=set freq=none net=wifi-ap name=\"KY4ZR FOX DE KY4ZR\" mac=F2:B0:00:00:00:01 clock=unset\ncycle 0\nwifi-ap up: KY4ZR FOX DE KY4ZR (F2:B0:00:00:00:01) for 15 s\n"
+"out": "\nsoft reboot\ncode.py output:\ninitializing system ... \nFOX template=wifi-beacon/1.0.0 foxlib=1.10.5 board=seeed_xiao_esp32_s3_sense uid=8248580b63c5 cfg=ok radio=ok id=set freq=none net=wifi-ap name=\"W1ABC FOX DE W1ABC\" mac=F2:B0:00:00:00:01 clock=unset\ncycle 0\nwifi-ap up: W1ABC FOX DE W1ABC (F2:B0:00:00:00:01) for 15 s\n"
 },
 {
 "t": 92.281,
 "kind": "listen",
 "seconds": 20.0,
-"out": "wifi-ap down\nsleep 5 s\ncycle 1\nwifi-ap up: KY4ZR FOX DE KY4ZR (F2:B0:00:00:00:01) for 15 s\n"
+"out": "wifi-ap down\nsleep 5 s\ncycle 1\nwifi-ap up: W1ABC FOX DE W1ABC (F2:B0:00:00:00:01) for 15 s\n"
 },
 {
 "t": 95.469,
@@ -4095,14 +4095,14 @@
 "t": 98.656,
 "kind": "exec",
 "cmd": "import gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfrom foxlib.netfox import NetFox\nfox = NetFox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(gc.mem_free())\nprint(fox.radio.status)\nprint(fox.rssi())\nprint(fox.radio.mac())\n",
-"out": "8041936\nok\n-38 eduroam | -38 VCU SafeNet Wireless | -38 VCU Guest Wireless | -49 VCUMedSecGuest | -50 VCUMedSecIoT | -51 VCUMedSecStudents | -54 ShareLink-200-0F-A3-C2 | -68 eduroam\n28:84:85:B0:36:5D\n",
+"out": "8041936\nok\n-38 neighbour-1 | -38 neighbour-2 | -38 neighbour-3 | -49 neighbour-4 | -50 neighbour-5 | -51 neighbour-6 | -54 neighbour-7 | -68 neighbour-8\n28:84:85:B0:36:5D\n",
 "err": ""
 },
 {
 "t": 99.797,
 "kind": "exec",
 "cmd": "import gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfrom foxlib.netfox import NetFox\nfox = NetFox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(fox.key_for(1))\n",
-"out": "ok wifi-ap KY4ZR FOX DE KY4ZR (F2:B0:00:00:00:01) for 1.0 s\n",
+"out": "ok wifi-ap W1ABC FOX DE W1ABC (F2:B0:00:00:00:01) for 1.0 s\n",
 "err": ""
 },
 {
@@ -4185,7 +4185,7 @@
 {
 "t": 106.266,
 "kind": "exec",
-"cmd": "f.write(b'{\\n \"schema\": 1,\\n \"template\": \"wifi-probe\",\\n \"board\": \"esp32s3\",\\n \"variant\": \"seeed_xiao_esp32s3\",\\n \"pins\": {\\n  \"led\": \"LED\",\\n  \"batt_sense\": null\\n },\\n \"net\": {\\n  \"kind\": \"wifi-probe\",\\n  \"ssid\": \"FOXBENCH WiFi Probe\",\\n  \"mac\": \"F2:B0:00:00:00:05\",\\n  \"tx_power_dbm\": 17\\n },\\n \"id\": {\\n  \"callmessage\": \"KY4ZR FOX DE KY4ZR\",\\n  \"use_callsign_as_name\": true\\n },\\n \"schedule\": {\\n  \"kind\": \"dut')",
+"cmd": "f.write(b'{\\n \"schema\": 1,\\n \"template\": \"wifi-probe\",\\n \"board\": \"esp32s3\",\\n \"variant\": \"seeed_xiao_esp32s3\",\\n \"pins\": {\\n  \"led\": \"LED\",\\n  \"batt_sense\": null\\n },\\n \"net\": {\\n  \"kind\": \"wifi-probe\",\\n  \"ssid\": \"FOXBENCH WiFi Probe\",\\n  \"mac\": \"F2:B0:00:00:00:05\",\\n  \"tx_power_dbm\": 17\\n },\\n \"id\": {\\n  \"callmessage\": \"W1ABC FOX DE W1ABC\",\\n  \"use_callsign_as_name\": true\\n },\\n \"schedule\": {\\n  \"kind\": \"dut')",
 "out": "",
 "err": ""
 },
@@ -4213,13 +4213,13 @@
 {
 "t": 108.11,
 "kind": "reboot",
-"out": "\nsoft reboot\ncode.py output:\ninitializing system ... \nFOX template=wifi-probe/1.0.0 foxlib=1.10.5 board=seeed_xiao_esp32_s3_sense uid=8248580b63c5 cfg=ok radio=ok id=set freq=none net=wifi-probe name=\"KY4ZR FOX DE KY4ZR\" mac=F2:B0:00:00:00:05 clock=unset\ncycle 0\n"
+"out": "\nsoft reboot\ncode.py output:\ninitializing system ... \nFOX template=wifi-probe/1.0.0 foxlib=1.10.5 board=seeed_xiao_esp32_s3_sense uid=8248580b63c5 cfg=ok radio=ok id=set freq=none net=wifi-probe name=\"W1ABC FOX DE W1ABC\" mac=F2:B0:00:00:00:05 clock=unset\ncycle 0\n"
 },
 {
 "t": 128.11,
 "kind": "listen",
 "seconds": 20.0,
-"out": "wifi-probe up: KY4ZR FOX DE KY4ZR (F2:B0:00:00:00:05) for 15 s\nwifi-probe down\nsleep 5 s\n"
+"out": "wifi-probe up: W1ABC FOX DE W1ABC (F2:B0:00:00:00:05) for 15 s\nwifi-probe down\nsleep 5 s\n"
 },
 {
 "t": 131.25,
@@ -4232,14 +4232,14 @@
 "t": 134.406,
 "kind": "exec",
 "cmd": "import gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfrom foxlib.netfox import NetFox\nfox = NetFox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(gc.mem_free())\nprint(fox.radio.status)\nprint(fox.rssi())\nprint(fox.radio.mac())\n",
-"out": "8042080\nok\n-42 eduroam | -42 VCU SafeNet Wireless | -42 VCU Guest Wireless | -50 VCUMedSecStudents | -50 VCUMedSecGuest | -51 VCUMedSecIoT | -54 ShareLink-200-0F-A3-C2 | -66 OpenCyberCity_2.4GHz\n28:84:85:B0:36:5C\n",
+"out": "8042080\nok\n-42 neighbour-1 | -42 neighbour-2 | -42 neighbour-3 | -50 neighbour-4 | -50 neighbour-5 | -51 neighbour-6 | -54 neighbour-7 | -66 neighbour-8\n28:84:85:B0:36:5C\n",
 "err": ""
 },
 {
 "t": 137.938,
 "kind": "exec",
 "cmd": "import gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfrom foxlib.netfox import NetFox\nfox = NetFox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(fox.key_for(1))\n",
-"out": "ok wifi-probe KY4ZR FOX DE KY4ZR (F2:B0:00:00:00:05) for 1.0 s\n",
+"out": "ok wifi-probe W1ABC FOX DE W1ABC (F2:B0:00:00:00:05) for 1.0 s\n",
 "err": ""
 },
 {
@@ -4329,7 +4329,7 @@
 {
 "t": 144.485,
 "kind": "exec",
-"cmd": "f.write(b'00:00:00:07\"\\n },\\n \"id\": {\\n  \"callmessage\": \"KY4ZR FOX DE KY4ZR\",\\n  \"use_callsign_as_name\": true\\n },\\n \"schedule\": {\\n  \"kind\": \"duty\",\\n  \"wake_s\": 15,\\n  \"sleep_s\": 5,\\n  \"sleep\": \"off\"\\n },\\n \"led\": {\\n  \"enabled\": true\\n },\\n \"fleet\": {\\n  \"profile\": \"\",\\n  \"number\": null,\\n  \"event\": \"\",\\n  \"notes\": \"hw_smoke\"\\n }\\n}')",
+"cmd": "f.write(b'00:00:00:07\"\\n },\\n \"id\": {\\n  \"callmessage\": \"W1ABC FOX DE W1ABC\",\\n  \"use_callsign_as_name\": true\\n },\\n \"schedule\": {\\n  \"kind\": \"duty\",\\n  \"wake_s\": 15,\\n  \"sleep_s\": 5,\\n  \"sleep\": \"off\"\\n },\\n \"led\": {\\n  \"enabled\": true\\n },\\n \"fleet\": {\\n  \"profile\": \"\",\\n  \"number\": null,\\n  \"event\": \"\",\\n  \"notes\": \"hw_smoke\"\\n }\\n}')",
 "out": "",
 "err": ""
 },
@@ -4350,13 +4350,13 @@
 {
 "t": 146.25,
 "kind": "reboot",
-"out": "\nsoft reboot\ncode.py output:\ninitializing system ... \nFOX template=ble-beacon/1.0.0 foxlib=1.10.5 board=seeed_xiao_esp32_s3_sense uid=8248580b63c5 cfg=ok radio=ok id=set freq=none net=ble name=\"KY4ZR FOX DE KY4ZR\" mac=F2:B0:00:00:00:07 clock=unset\ncycle 0\nble up: KY4ZR FOX DE KY4ZR (F2:B0:00:00:00:07) for 15 s\n  note: BLE start refused (BluetoothError: Unknown system firmware error: 530); adapter reset and started\n"
+"out": "\nsoft reboot\ncode.py output:\ninitializing system ... \nFOX template=ble-beacon/1.0.0 foxlib=1.10.5 board=seeed_xiao_esp32_s3_sense uid=8248580b63c5 cfg=ok radio=ok id=set freq=none net=ble name=\"W1ABC FOX DE W1ABC\" mac=F2:B0:00:00:00:07 clock=unset\ncycle 0\nble up: W1ABC FOX DE W1ABC (F2:B0:00:00:00:07) for 15 s\n  note: BLE start refused (BluetoothError: Unknown system firmware error: 530); adapter reset and started\n"
 },
 {
 "t": 166.281,
 "kind": "listen",
 "seconds": 20.0,
-"out": "ble down\nsleep 5 s\ncycle 1\nble up: KY4ZR FOX DE KY4ZR (F2:B0:00:00:00:07) for 15 s\n"
+"out": "ble down\nsleep 5 s\ncycle 1\nble up: W1ABC FOX DE W1ABC (F2:B0:00:00:00:07) for 15 s\n"
 },
 {
 "t": 169.422,
@@ -4369,14 +4369,14 @@
 "t": 170.672,
 "kind": "exec",
 "cmd": "import gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfrom foxlib.netfox import NetFox\nfox = NetFox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(gc.mem_free())\nprint(fox.radio.status)\nprint(fox.rssi())\nprint(fox.radio.mac())\n",
-"out": "8041888\nok\n-42 05:B6:16:1D:4C:02 | -59 DESKTOP-H9O0FO2 04:7C:67:1C:56:9F | -70 RAHMANR 47:51:70:DA:0D:43 | -70 C211299 DD:0D:FB:2E:5F:FC | -74 60:4E:F3:1F:6E:6C | -77 40:FF:11:00:EE:E0 | -78 6F:EF:C6:7B:34:87 | -78 30:50:02:3D:3C:33\n28:84:85:B0:36:5E\n",
+"out": "8041888\nok\n-42 neighbour-1 | -59 neighbour-2 | -70 neighbour-3 | -70 neighbour-4 | -74 neighbour-5 | -77 neighbour-6 | -78 neighbour-7 | -78 neighbour-8\n28:84:85:B0:36:5E\n",
 "err": ""
 },
 {
 "t": 171.781,
 "kind": "exec",
 "cmd": "import gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfrom foxlib.netfox import NetFox\nfox = NetFox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(fox.key_for(1))\n",
-"out": "ok ble KY4ZR FOX DE KY4ZR (F2:B0:00:00:00:07) for 1.0 s\n",
+"out": "ok ble W1ABC FOX DE W1ABC (F2:B0:00:00:00:07) for 1.0 s\n",
 "err": ""
 },
 {
@@ -4473,7 +4473,7 @@
 {
 "t": 178.344,
 "kind": "exec",
-"cmd": "f.write(b'B0:00:00:00:07\"\\n },\\n \"payload\": {\\n  \"enabled\": true,\\n  \"kind\": \"rotate\",\\n  \"names\": [\\n   \"FOXBENCH Puzzle\",\\n   \"FIND ME\",\\n   \"WHO AM I\"\\n  ],\\n  \"morse_of\": \"\",\\n  \"code\": {\\n   \"major\": 1,\\n   \"minor\": 1\\n  },\\n  \"eddystone\": {\\n   \"url\": \"\",\\n   \"tlm\": true\\n  },\\n  \"split\": {\\n   \"wifi\": \"\",\\n   \"ble\": \"\"\\n  },\\n  \"interleave_ms\": 1000\\n },\\n \"id\": {\\n  \"callmessage\": \"KY4ZR FOX DE KY4ZR\",\\n  \"use')",
+"cmd": "f.write(b'B0:00:00:00:07\"\\n },\\n \"payload\": {\\n  \"enabled\": true,\\n  \"kind\": \"rotate\",\\n  \"names\": [\\n   \"FOXBENCH Puzzle\",\\n   \"FIND ME\",\\n   \"WHO AM I\"\\n  ],\\n  \"morse_of\": \"\",\\n  \"code\": {\\n   \"major\": 1,\\n   \"minor\": 1\\n  },\\n  \"eddystone\": {\\n   \"url\": \"\",\\n   \"tlm\": true\\n  },\\n  \"split\": {\\n   \"wifi\": \"\",\\n   \"ble\": \"\"\\n  },\\n  \"interleave_ms\": 1000\\n },\\n \"id\": {\\n  \"callmessage\": \"W1ABC FOX DE W1ABC\",\\n  \"use')",
 "out": "",
 "err": ""
 },
@@ -4501,7 +4501,7 @@
 {
 "t": 180.25,
 "kind": "reboot",
-"out": "\nsoft reboot\ncode.py output:\ninitializing system ... \nFOX template=puzzle-beacon/1.0.0 foxlib=1.10.5 board=seeed_xiao_esp32_s3_sense uid=8248580b63c5 cfg=ok radio=ok id=set freq=none net=ble name=\"KY4ZR FOX DE KY4ZR\" mac=F2:B0:00:00:00:07 features=payload clock=unset\ncycle 0\npayload: name this cycle \"FOXBENCH Puzzle\"\npayload: 2 BLE frames, every 1000 ms\nble up: FOXBENCH Puzzle (F2:B0:00:00:00:07) for 15 s\n"
+"out": "\nsoft reboot\ncode.py output:\ninitializing system ... \nFOX template=puzzle-beacon/1.0.0 foxlib=1.10.5 board=seeed_xiao_esp32_s3_sense uid=8248580b63c5 cfg=ok radio=ok id=set freq=none net=ble name=\"W1ABC FOX DE W1ABC\" mac=F2:B0:00:00:00:07 features=payload clock=unset\ncycle 0\npayload: name this cycle \"FOXBENCH Puzzle\"\npayload: 2 BLE frames, every 1000 ms\nble up: FOXBENCH Puzzle (F2:B0:00:00:00:07) for 15 s\n"
 },
 {
 "t": 200.297,
@@ -4520,14 +4520,14 @@
 "t": 204.719,
 "kind": "exec",
 "cmd": "import gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfrom foxlib.netfox import NetFox\nfox = NetFox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(gc.mem_free())\nprint(fox.radio.status)\nprint(fox.rssi())\nprint(fox.radio.mac())\n",
-"out": "8036992\nok\n-58 DESKTOP-H9O0FO2 04:7C:67:1C:56:9F | -71 RAHMANR 47:51:70:DA:0D:43 | -74 C211299 DD:0D:FB:2E:5F:FC | -74 15:48:0B:DB:93:67 | -75 40:FF:11:00:EE:E0 | -77 30:50:02:3D:3C:33 | -78 MDSL_e2a4 3C:0F:02:ED:E2:A5 | -79 6F:EF:C6:7B:34:87\n28:84:85:B0:36:5E\n",
+"out": "8036992\nok\n-58 neighbour-1 | -71 neighbour-2 | -74 neighbour-3 | -74 neighbour-4 | -75 neighbour-5 | -77 neighbour-6 | -78 neighbour-7 | -79 neighbour-8\n28:84:85:B0:36:5E\n",
 "err": ""
 },
 {
 "t": 205.86,
 "kind": "exec",
 "cmd": "import gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfrom foxlib.netfox import NetFox\nfox = NetFox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(fox.key_for(1))\n",
-"out": "ok ble KY4ZR FOX DE KY4ZR (F2:B0:00:00:00:07) for 1.0 s\n",
+"out": "ok ble W1ABC FOX DE W1ABC (F2:B0:00:00:00:07) for 1.0 s\n",
 "err": ""
 },
 {
@@ -4617,7 +4617,7 @@
 {
 "t": 212.469,
 "kind": "exec",
-"cmd": "f.write(b'{\\n \"schema\": 1,\\n \"template\": \"checkpoint\",\\n \"board\": \"esp32s3\",\\n \"variant\": \"seeed_xiao_esp32s3\",\\n \"pins\": {\\n  \"led\": \"LED\",\\n  \"batt_sense\": null\\n },\\n \"net\": {\\n  \"kind\": \"wifi-ap\",\\n  \"ssid\": \"FOXBENCH Checkpoint\",\\n  \"psk\": \"\",\\n  \"mac\": \"F2:B0:00:00:00:C0\",\\n  \"channel\": 1,\\n  \"hidden\": false,\\n  \"tx_power_dbm\": 17,\\n  \"max_clients\": 4\\n },\\n \"id\": {\\n  \"callmessage\": \"KY4ZR FOX DE KY4ZR\",')",
+"cmd": "f.write(b'{\\n \"schema\": 1,\\n \"template\": \"checkpoint\",\\n \"board\": \"esp32s3\",\\n \"variant\": \"seeed_xiao_esp32s3\",\\n \"pins\": {\\n  \"led\": \"LED\",\\n  \"batt_sense\": null\\n },\\n \"net\": {\\n  \"kind\": \"wifi-ap\",\\n  \"ssid\": \"FOXBENCH Checkpoint\",\\n  \"psk\": \"\",\\n  \"mac\": \"F2:B0:00:00:00:C0\",\\n  \"channel\": 1,\\n  \"hidden\": false,\\n  \"tx_power_dbm\": 17,\\n  \"max_clients\": 4\\n },\\n \"id\": {\\n  \"callmessage\": \"W1ABC FOX DE W1ABC\",')",
 "out": "",
 "err": ""
 },
@@ -4652,7 +4652,7 @@
 {
 "t": 214.672,
 "kind": "reboot",
-"out": "\nsoft reboot\ncode.py output:\ninitializing system ... \nFOX template=checkpoint/1.0.0 foxlib=1.10.5 board=seeed_xiao_esp32_s3_sense uid=8248580b63c5 cfg=ok radio=ok id=set freq=none net=wifi-ap name=\"KY4ZR FOX DE KY4ZR\" mac=F2:B0:00:00:00:C0 features=checkpoint clock=unset\ncycle 0\nwifi-ap up: KY4ZR FOX DE KY4ZR (F2:B0:00:00:00:C0) for 120 s\ncheckpoint: portal at http://192.168.4.1/ with captive DNS\n"
+"out": "\nsoft reboot\ncode.py output:\ninitializing system ... \nFOX template=checkpoint/1.0.0 foxlib=1.10.5 board=seeed_xiao_esp32_s3_sense uid=8248580b63c5 cfg=ok radio=ok id=set freq=none net=wifi-ap name=\"W1ABC FOX DE W1ABC\" mac=F2:B0:00:00:00:C0 features=checkpoint clock=unset\ncycle 0\nwifi-ap up: W1ABC FOX DE W1ABC (F2:B0:00:00:00:C0) for 120 s\ncheckpoint: portal at http://192.168.4.1/ with captive DNS\n"
 },
 {
 "t": 234.719,
@@ -4671,14 +4671,14 @@
 "t": 241.266,
 "kind": "exec",
 "cmd": "import gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfrom foxlib.netfox import NetFox\nfox = NetFox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(gc.mem_free())\nprint(fox.radio.status)\nprint(fox.rssi())\nprint(fox.radio.mac())\n",
-"out": "8156656\nok\n-40 eduroam | -40 VCU SafeNet Wireless | -40 VCU Guest Wireless | -49 VCUMedSecStudents | -49 VCUMedSecIoT | -49 VCUMedSecGuest | -51 ShareLink-200-0F-A3-C2 | -68 eduroam\n28:84:85:B0:36:5D\n",
+"out": "8156656\nok\n-40 neighbour-1 | -40 neighbour-2 | -40 neighbour-3 | -49 neighbour-4 | -49 neighbour-5 | -49 neighbour-6 | -51 neighbour-7 | -68 neighbour-8\n28:84:85:B0:36:5D\n",
 "err": ""
 },
 {
 "t": 242.406,
 "kind": "exec",
 "cmd": "import gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfrom foxlib.netfox import NetFox\nfox = NetFox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(fox.key_for(1))\n",
-"out": "ok wifi-ap KY4ZR FOX DE KY4ZR (F2:B0:00:00:00:C0) for 1.0 s\n",
+"out": "ok wifi-ap W1ABC FOX DE W1ABC (F2:B0:00:00:00:C0) for 1.0 s\n",
 "err": ""
 },
 {
@@ -4798,5 +4798,6 @@
 "kind": "reboot",
 "out": "\nsoft reboot\ncode.py output:\ninitializing system ... \nFOX template=ble-beacon/1.0.0 foxlib=1.10.5 board=seeed_xiao_esp32_s3_sense uid=8248580b63c5 cfg=ok radio=ok id=none freq=none net=ble name=\"FOXBENCH Beacon\" mac=F2:B0:00:00:00:07 features=payload clock=unset\ncycle 0\npayload: name this cycle \"FOXBENCH Puzzle\"\npayload: 2 BLE frames, every 1000 ms\nble up: FOXBENCH Puzzle (F2:B0:00:00:00:07) for 15 s\n"
 }
-]
+],
+"_": "format 1 (file bytes recorded); scrubbed in place 2026-11-20 like a format-2 recording: callsign -> W1ABC FOX DE W1ABC, scan neighbours renamed (21 callsign mention(s) replaced, 40 scan neighbour(s) renamed; 0 file read-back(s))"
 }

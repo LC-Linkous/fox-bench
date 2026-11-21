@@ -14,6 +14,50 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.18.20 · foxlib 1.11.0 — nothing of other people's devices
+
+From the audit of 2026-11-20 (the project's audit note has the full list).
+
+- **No addresses in the fox's logs.** `finds.csv` loses `client_mac`; its
+  last column is `via` (`portal` or `ble`). `near.csv` loses `mac`. The
+  console says `checkpoint: find W1ABC` and `honeypot: a station joined
+  (-50 dBm)`, not the phone's address. An address is still used in RAM to
+  write a tag or prober at most once per five minutes and to count joins
+  within a wake; it is never written and never printed. `name` in
+  `near.csv` is always one of ours (a tag name the organisers gave out, an
+  SSID a station probed for — only our own are logged — or the fox's).
+  Collect finds / Who is near, the demo board, the simulator scenarios and
+  `hw_smoke --checkpoint` follow.
+- **`checkpoint.stop_after_finds` removed.** It counted submissions, not
+  hunters: one phone reloading the thank-you page could end a checkpoint's
+  day, and a count of devices is not a thing a fox should keep (phones
+  rotate their addresses anyway). `stop_at` stays. A `fox.json` carrying
+  the key is reported `-> default (unknown)` on both validators (schema
+  corpus keeps the case) and runs.
+- **Deploy forgets the board after a failed write.** A write that failed
+  halfway left the last read in place, so a half-written `foxlib/` could
+  read as current next time. Now the plan after an error rewrites
+  everything (or Re-read board), and every foxlib set is written with
+  `VERSION` last (`foxlib_deps.ordered`, `hw_smoke` follows the index's
+  order), so an interrupted set leaves the *old* version file beside the
+  new modules and says `foxlib X → Y`.
+- **`NetFox(quiet=True)` disarms the watchdog** as `Fox(quiet=True)` does:
+  a Bench action on a network fox after an uncaught `code.py` exception is
+  no longer reset under the operator.
+- **The flasher loads esptool-js from this site only.** The jsDelivr
+  fallback is gone, and `index.html` carries a Content-Security-Policy:
+  scripts from the site, fetches from the site plus the two image hosts
+  (the vendor's GitHub, circuitpython.org), nothing framed, no plugins. A
+  page that writes firmware takes no code from a CDN.
+- `netradio`: a Wi-Fi `tx_power` the build refuses is said once
+  (`note: tx_power … refused`), like a MAC it would not take.
+- The S3 bench recording of 2026-11-17 (format 1) scrubbed in place as a
+  format-2 one would be: callsign → `W1ABC FOX DE W1ABC`, the networks and
+  devices around the bench → `neighbour-N`. Replays unchanged (the
+  replayer matches commands, not replies).
+- CI jobs carry `timeout-minutes: 25`. `.vscode/settings.json` untracked.
+  XIAO ESP32-C3 `latest_known` CircuitPython 10.3.2.
+
 ### Page 0.18.19 — the computer as the hunter's phone
 
 - `tools/hw_smoke.py --payload` scans with the computer's Wi-Fi
@@ -833,8 +877,8 @@ comment. Page 0.12.1 for the About-tab text.
 ### Docs audit (2026-11-14) — no version change
 
 An independent read of every document against the code; 39 findings,
-all addressed. The hard constraints held (no `dc34fox` anywhere; no vendor
-PicoFox files in the tree). Fixed: `docs/bench-runbook.md` pinned to 0.9.6 / foxlib
+all addressed. The hard constraints held (no vendor PicoFox files in the
+tree; nothing of other projects named). Fixed: `docs/bench-runbook.md` pinned to 0.9.6 / foxlib
 1.2.1 (now current, and `puzzle-beacon` in the network run); PROTOCOL.md
 named `fox.radio.key()` (it is `key_for()`) and said nothing about the
 NetFox bench calls, the board-clock write or the Listen-only port grant;

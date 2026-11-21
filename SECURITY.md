@@ -6,10 +6,11 @@ Access APIs, after you pick the port or drive in a browser prompt, and it
 keeps profiles and the fleet log in your browser's local storage. Nothing
 leaves your machine except fetches of the page's own files; when you ask
 for the vendor PicoFox firmware, one fetch from the vendor's GitHub at a
-pinned commit, checked against a sha256 in the catalog; and, only if the
-site's own copy of the esptool-js flasher library fails to load, one fetch
-of that library (pinned version) from jsDelivr — the console says which
-copy it is using.
+pinned commit, checked against a sha256 in the catalog. The page runs no
+code from anywhere but itself: a Content-Security-Policy in `index.html`
+limits scripts to the site and fetches to the site plus the two image hosts
+(the vendor's GitHub, circuitpython.org), so a compromised CDN cannot reach
+a page that writes firmware.
 
 What could go wrong, and what the page does about it:
 

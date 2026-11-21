@@ -178,7 +178,7 @@ export function validate(user, defaults, board) {
 export const FEATURES = ['payload', 'checkpoint', 'sense', 'stealth'];
 export const FEATURE_DEFAULTS = {
   payload: { enabled: false, kind: 'static', names: [], morse_of: '', code: { major: 0, minor: 0 }, eddystone: { url: '', tlm: false, tlm_data: {} }, split: { wifi: '', ble: '' }, interleave_ms: 1000 },
-  checkpoint: { enabled: false, stop_after_finds: 0, stop_at: '',
+  checkpoint: { enabled: false, stop_at: '',
     portal: { enabled: false, title: '', body: '', code: '', ask_callsign: true, captive_dns: true, log: true },
     ble: { enabled: false, service_uuid: 'F0B0F0B0-0000-4000-8000-0000000000C0', code: '' } },
   sense: { enabled: false, slot_ms: 1000,
@@ -222,8 +222,7 @@ function validateFeature(sec, u, cfg, bad, radios, kind = null) {
     plain('interleave_ms', x => isInt(x) && x >= 100 && x <= 10000, '100-10000 ms');
     if (cfg.kind === 'rotate' && !cfg.names.length) { bad(sec + '.names', 'rotate needs at least one name'); cfg.kind = 'static'; }
   } else if (sec === 'checkpoint') {
-    for (const k of ['portal', 'ble', 'stop_after_finds', 'stop_at']) known.add(k);
-    plain('stop_after_finds', x => isInt(x) && x >= 0 && x <= 1000, '0-1000');
+    for (const k of ['portal', 'ble', 'stop_at']) known.add(k);
     plain('stop_at', isoOrEmpty, 'YYYY-MM-DDTHH:MM:SS[zone] or empty');
     sub('portal', { enabled: [isBool, 'bool'], title: [x => strMax(x, 40), '<= 40 bytes'], body: [x => strMax(x, MAX_BODY), `<= ${MAX_BODY} bytes`], code: [x => strMax(x, MAX_CODE), `<= ${MAX_CODE} chars`],
       ask_callsign: [isBool, 'bool'], captive_dns: [isBool, 'bool'], log: [isBool, 'bool'] });
@@ -315,7 +314,6 @@ export function checks(cfg, board, { clockSet = false } = {}) {
   if (se?.enabled && se.honeypot?.enabled && se.honeypot.probes) issues.push({ level: 'info', key: 'sense.honeypot.probes', msg: 'probe requests need wifi.Monitor in the CircuitPython build; a build without it says so once and logs joins only' });
   if (se?.enabled && se.crowd?.enabled && se.tags?.enabled && se.crowd.max < 2) issues.push({ level: 'warn', key: 'sense.crowd.max', msg: 'a crowd of 1: the first tag nearby silences the fox' });
   if (cp?.enabled && cp.stop_at && !clockSet) issues.push({ level: 'err', key: 'checkpoint.stop_at', msg: 'a stop time needs the board clock set at deploy: tick "Set the board clock" on the Deploy tab', fix: 'clock' });
-  if (cp?.enabled && cp.stop_after_finds && !(cp.portal?.enabled && cp.portal.ask_callsign) && !cp.ble?.enabled) issues.push({ level: 'warn', key: 'checkpoint.stop_after_finds', msg: 'stop after N finds counts callsigns handed in; neither the sign-in form nor the BLE service is on' });
   if (se?.enabled && cfg.schedule.sleep === 'deep') issues.push({ level: 'warn', key: 'sense.enabled', msg: 'listening happens only while awake; with deep sleep the fox hears nothing between wakes' });
   if (se?.enabled && !se.tags?.enabled && !se.relay?.enabled && !se.honeypot?.enabled && !se.crowd?.enabled) issues.push({ level: 'warn', key: 'sense.enabled', msg: 'sense is on but nothing is being listened for' });
   if (st?.enabled && st.start?.at && !clockSet) issues.push({ level: 'err', key: 'stealth.start.at', msg: 'a start time needs the board clock set at deploy: tick "Set the board clock" on the Deploy tab', fix: 'clock' });
