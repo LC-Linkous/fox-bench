@@ -48,6 +48,12 @@ the checkers' one-line rule tables — is left alone.
   untouched: schema parity, the 241 simulator runs and the unit tests pass
   unchanged. On the board this costs fifteen function objects, well under a
   kilobyte.
+- `firmware/sim/mocks.py`: the 559-line `install()` is twelve `_mock_<module>`
+  functions (time, board, digitalio, pwmio, uart, analogio, net_events,
+  wifi, ble, supervisor, alarm, rtc) sharing an `env`, each with a
+  docstring saying what it fakes, and a twenty-line `install()`; the
+  longest is now `_mock_ble` at 131 lines. Same 241 scenario runs; Python's symbol table confirms no
+  section reaches outside the module for a name.
 
 ### Page 0.18.21 — the bench laptop runs Windows
 

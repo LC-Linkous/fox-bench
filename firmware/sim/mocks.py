@@ -74,18 +74,10 @@ class Recorder:
         return out
 
 
-def install(scenario):
-    """scenario: dict with keys module_ranges, battery (list of [t_s, volts]) or None,
-    cap_ms, stop_after_unkeys, board_names, pin_roles (to know which pin is PTT/LED)."""
-    clock = Clock(scenario.get("cap_ms", 600000))
-    rec = Recorder()
-    import sys as _sys
-    _sys.platform = scenario.get("platform", "Espressif ESP32-S3")       # what CircuitPython's sys.platform says on the board
-    rec.break_module = scenario.get("break_module")
-    rec.code_patch = scenario.get("code_patch")          # [old, new]: code.py edited before it runs (a body that raises)
-    now_ms = lambda: clock.ns / 1e6
-
-    # ---- time
+def _mock_time(env):
+    """time: virtual, from the scenario clock; monotonic_ns() costs 50 us so busy-waits end; sleep() runs the pre_sleep hooks
+    (the BLE mock flushes a pending stop) before the clock moves."""
+    clock = env.clock
     t = types.ModuleType("time")
     t.monotonic = lambda: clock.ns / 1e9
     def monotonic_ns():
@@ -98,8 +90,14 @@ def install(scenario):
         clock.advance(s * 1e9)
     t.sleep = sleep
     t.time = lambda: clock.ns / 1e9
+    env.pre_sleep = pre_sleep
+    env.sleep = sleep
+    env.t = t
 
-    # ---- board
+def _mock_board(env):
+    """board and microcontroller: the scenario's pin names as Pin objects, which role is PTT / LED, cpu.uid, nvm and the
+    watchdog (watchdog module) whose bite is recorded."""
+    clock, rec, scenario = env.clock, env.rec, env.scenario
     class Pin:
         def __init__(self, name):
             self.name = name
@@ -158,8 +156,17 @@ def install(scenario):
     def release(pin):
         if pin is not None:
             claimed.pop(pin.name, None)
+    env.Pin = Pin
+    env.claim = claim
+    env.release = release
+    env.mc = mc
+    env.board = board
+    env.ptt_name = ptt_name
+    env.led_name = led_name
 
-    # ---- digitalio
+def _mock_digitalio(env):
+    """digitalio: DigitalInOut on a claimed pin; the PTT pin's edges are the keyed/unkeyed record, the LED's its blinks."""
+    clock, rec, now_ms, claim, release, ptt_name, led_name = env.clock, env.rec, env.now_ms, env.claim, env.release, env.ptt_name, env.led_name
     dio = types.ModuleType("digitalio")
     class Direction:
         OUTPUT, INPUT = "out", "in"
@@ -193,8 +200,11 @@ def install(scenario):
     dio.Direction = Direction
     dio.DigitalInOut = DigitalInOut
     dio.Pull = types.SimpleNamespace(UP="up", DOWN="down")
+    env.dio = dio
 
-    # ---- pwmio
+def _mock_pwmio(env):
+    """pwmio: PWMOut on a claimed pin; frequency changes while on are the tone record (what Morse and songs sent)."""
+    clock, rec, scenario, now_ms, claim, release = env.clock, env.rec, env.scenario, env.now_ms, env.claim, env.release
     pwm = types.ModuleType("pwmio")
     class PWMOut:
         def __init__(self, pin, frequency=500, duty_cycle=0, variable_frequency=False):
@@ -225,8 +235,12 @@ def install(scenario):
             self.duty_cycle = 0
             release(self.pin)
     pwm.PWMOut = PWMOut
+    env.pwm = pwm
 
-    # ---- busio.UART with a scripted DMO module
+def _mock_uart(env):
+    """busio.UART with a scripted DMO module (SA868 / SA818) on the other end: answers the AT commands, keeps the channel
+    it was set to, can lose power at scenario.module_reset_at_s or be absent (break_module)."""
+    clock, rec, scenario, now_ms, claim, release = env.clock, env.rec, env.scenario, env.now_ms, env.claim, env.release
     ranges = scenario.get("module_ranges", [[134.0, 174.0]])
     bus = types.ModuleType("busio")
     class UART:
@@ -274,8 +288,11 @@ def install(scenario):
         if t is not None and clock.ns / 1e9 >= t:
             scenario["module_reset_at_s"] = None; rec.module_mhz = None; rec.module_resets += 1
     clock.checks.append(module_dip)
+    env.bus = bus
 
-    # ---- analogio with a scripted battery
+def _mock_analogio(env):
+    """analogio with a scripted battery: AnalogIn on the battery-sense pin reads scenario.battery's [t_s, volts] curve."""
+    clock, scenario, claim, release = env.clock, env.scenario, env.claim, env.release
     sched = scenario.get("battery")
     an = types.ModuleType("analogio")
     class AnalogIn:
@@ -297,9 +314,12 @@ def install(scenario):
         def deinit(self):
             release(self.pin)
     an.AnalogIn = AnalogIn
+    env.an = an
 
-    # ---- the SoC's own radios (network foxes): wifi, _bleio, alarm. Up/down is recorded as keyed/unkeyed so the
-    # same stop condition and keyed_intervals serve both kinds of fox; rec.net keeps what went on the air.
+def _mock_net_events(env):
+    """The net_event hook the radio mocks share: up/down is recorded as keyed/unkeyed so the same stop condition and
+    keyed_intervals serve both kinds of fox; rec.net keeps what went on the air."""
+    clock, rec, scenario, now_ms = env.clock, env.rec, env.scenario, env.now_ms
     rec.net = []           # (t_ms, event, detail)
     def net_event(ev, detail=""):
         rec.net.append((now_ms(), ev, detail))
@@ -310,6 +330,13 @@ def install(scenario):
             if rec.stop_after_unkeys and rec.unkeys >= rec.stop_after_unkeys:
                 clock.stop_requested = "unkeys"
     radios = scenario.get("radios", ["wifi24", "ble"])
+    env.net_event = net_event
+    env.radios = radios
+
+def _mock_wifi(env):
+    """wifi: the access point / station radio as ports/espressif has it (MAC rules, tx_power, scan, stations_ap), plus
+    socketpool with a scripted phone (_install_socketpool); absent when the scenario's board has no Wi-Fi."""
+    clock, rec, scenario, now_ms, pre_sleep, sleep, an, net_event, radios = env.clock, env.rec, env.scenario, env.now_ms, env.pre_sleep, env.sleep, env.an, env.net_event, env.radios
     if "wifi24" in radios or "wifi5" in radios:
         wifi = types.ModuleType("wifi")
         class _Net:
@@ -435,6 +462,11 @@ def install(scenario):
         _install_socketpool(scenario, clock, rec, net_event, wifi)
     else:
         sys.modules.pop("wifi", None); sys.modules.pop("socketpool", None)
+
+def _mock_ble(env):
+    """_bleio: adapter, advertising and scanning with the ESP32's advertise-after-scan quirk and a scripted neighbourhood;
+    absent when the scenario's board has no BLE."""
+    clock, rec, scenario, now_ms, pre_sleep, sleep, an, net_event, radios = env.clock, env.rec, env.scenario, env.now_ms, env.pre_sleep, env.sleep, env.an, env.net_event, env.radios
     if "ble" in radios:
         bleio = types.ModuleType("_bleio")
         class Address:
@@ -562,6 +594,11 @@ def install(scenario):
         sys.modules["_bleio"] = bleio
     else:
         sys.modules.pop("_bleio", None)
+
+def _mock_supervisor(env):
+    """supervisor (runtime.ble_workflow, the CIRCUITPYxxxx advertising the fox switches off), gc.mem_free for the boot
+    trace, and settings.toml as os.environ from scenario.env."""
+    rec, scenario, _sys, board, net_event, radios = env.rec, env.scenario, env._sys, env.board, env.net_event, env.radios
     # supervisor.runtime.ble_workflow: CircuitPython's own BLE advertising (CIRCUITPYxxxx). On builds without native
     # USB (espressif) it is on from boot; the fox switches it off (netfox._quiet_workflow). The mock starts it on
     # where the scenario says (default: a BLE-capable Espressif board) and records the switch (rec.ble_workflow).
@@ -591,6 +628,11 @@ def install(scenario):
         _os.environ.pop(k, None)
     for k, v in (scenario.get("env") or {}).items():
         _os.environ[k] = str(v)
+    env.has_ble = has_ble
+
+def _mock_alarm(env):
+    """alarm: TimeAlarm and deep_sleep, which ends the run as a deep sleep would end code.py."""
+    clock, scenario, pre_sleep, sleep, board, net_event = env.clock, env.scenario, env.pre_sleep, env.sleep, env.board, env.net_event
     alarm = types.ModuleType("alarm")
     class TimeAlarm:
         def __init__(self, *, monotonic_time): self.when = monotonic_time
@@ -605,6 +647,10 @@ def install(scenario):
         raise Reboot()                        # the runner starts code.py again, as the board does after deep sleep
     alarm.exit_and_deep_sleep_until_alarms = deep_sleep
     sys.modules["alarm"] = alarm
+
+def _mock_rtc(env):
+    """rtc: the board clock, 2000-01-01 until set; scenario.clock pretends the page set it at deploy."""
+    clock, scenario, board, net_event = env.clock, env.scenario, env.board, env.net_event
     # rtc: the board clock. CircuitPython boots at 2000-01-01 until something sets it; scenario["clock"] = "YYYY-MM-DDTHH:MM:SS"
     # pretends the page set it at deploy. Setting rtc.RTC().datetime is recorded as a net event.
     rtcm = types.ModuleType("rtc")
@@ -625,14 +671,44 @@ def install(scenario):
     _one = _RTC()
     rtcm.RTC = lambda: _one
     sys.modules["rtc"] = rtcm
-    if not hasattr(board, "LED"): board.LED = Pin("LED")
 
-    for name, mod in (("time", t), ("board", board), ("microcontroller", mc), ("digitalio", dio), ("pwmio", pwm), ("busio", bus), ("analogio", an)):
+def install(scenario):
+    """Installs a CircuitPython in sys.modules for one scenario and returns the Recorder the mocks write to.
+    scenario: dict with keys module_ranges, battery (list of [t_s, volts]) or None, cap_ms, stop_after_unkeys,
+    board_names, pin_roles (to know which pin is PTT/LED), radios, platform, ... (firmware/sim/scenarios.json).
+    One _mock_<module> function per CircuitPython module above; env carries what they share (the clock, the recorder,
+    the scenario, the Pin class and claims, the modules already made)."""
+    clock = Clock(scenario.get("cap_ms", 600000))
+    rec = Recorder()
+    import sys as _sys
+    _sys.platform = scenario.get("platform", "Espressif ESP32-S3")       # what CircuitPython's sys.platform says on the board
+    rec.break_module = scenario.get("break_module")
+    rec.code_patch = scenario.get("code_patch")          # [old, new]: code.py edited before it runs (a body that raises)
+    now_ms = lambda: clock.ns / 1e6
+
+    # each CircuitPython module is mocked by one function below, in this order; env carries what they share
+    env = types.SimpleNamespace(clock=clock, rec=rec, scenario=scenario, now_ms=now_ms, _sys=_sys)
+    _mock_time(env)
+    _mock_board(env)
+    _mock_digitalio(env)
+    _mock_pwmio(env)
+    _mock_uart(env)
+    _mock_analogio(env)
+    _mock_net_events(env)
+    _mock_wifi(env)
+    _mock_ble(env)
+    _mock_supervisor(env)
+    _mock_alarm(env)
+    _mock_rtc(env)
+    if not hasattr(env.board, "LED"): env.board.LED = env.Pin("LED")
+    for name, mod in (("time", env.t), ("board", env.board), ("microcontroller", env.mc), ("digitalio", env.dio), ("pwmio", env.pwm), ("busio", env.bus), ("analogio", env.an)):
         sys.modules[name] = mod
+
     rec.stop_after_unkeys = scenario.get("stop_after_unkeys")
     rec.clock = clock
-    rec.flush = lambda: [f() for f in pre_sleep]      # the runner calls it when the script ends: pending stops become stops
+    rec.flush = lambda: [f() for f in env.pre_sleep]  # the runner calls it when the script ends: pending stops become stops
     return rec
+
 
 
 def _install_socketpool(scenario, clock, rec, net_event, wifi):
