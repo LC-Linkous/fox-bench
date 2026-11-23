@@ -574,7 +574,7 @@ def pick_port(explicit):
     sys.exit("pass --port; candidates: %s" % ", ".join(ports) or "none")
 
 
-def main():
+def parse_args():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0], formatter_class=argparse.RawDescriptionHelpFormatter, epilog=__doc__)
     ap.add_argument("--port")
     ap.add_argument("--board", default="seeed_xiao_esp32c3", help="target id: the defaults file to use (seeed_xiao_esp32c3 for the C3 + SA868; esp32c3, esp32c6, esp32c5, esp32s3, nrf52840 for the bare boards)")
@@ -599,298 +599,392 @@ def main():
     ap.add_argument("--host-from", metavar="RECORDING", help="replay: take the host side of --payload/--checkpoint (scan, join, DNS, portal) from this recording's 'host' lines instead of the computer's Wi-Fi (tools/replay_check.py)")
     ap.add_argument("--portal-only", nargs="?", const=PORTAL_IP, metavar="HOST", help="no board: this computer is already on a checkpoint fox's network (joined by hand); run the DNS and portal checks against HOST (default %s) and exit. Needs neither nmcli nor netsh" % PORTAL_IP)
     ap.add_argument("-v", "--verbose", action="store_true")
-    a = ap.parse_args()
-    if a.portal_only:
-        host = a.portal_only
-        dns = dns_query("captive.apple.com", host)
-        print("captive DNS at %s: %s" % (host, ("captive.apple.com -> %s" % dns) if dns else "no answer (captive_dns off, or this is not the fox's network)"))
-        try:
-            v = portal_visit(host, None, a.find_call)
-        except OSError as e:
-            sys.exit("portal at http://%s/: %s (is this computer on the fox's network?)" % (host, e))
-        print("portal: GET %s, form %s, POST %s, logged %s" % (v["get"], "seen" if v["form_seen"] else "absent (ask_callsign off?)", v["post"], v["logged"]))
-        print("the find is in finds.csv on the fox: Collect finds on the Bench tab, or hw_smoke --checkpoint with the board on serial reads it back")
-        sys.exit(0 if v["get"] == 200 and (v["logged"] or not v["form_seen"]) else 1)
-    if not a.yes_antenna:
-        sys.exit("Every template keys the transmitter within seconds of booting. Connect an antenna or dummy load, then pass --yes-antenna.")
+    return ap.parse_args()
 
-    idx = json.load(open(os.path.join(ROOT, "firmware/index.json")))
-    templates = idx["templates"] if a.templates == "all" else a.templates.split(",")
-    foxlib_version = open(os.path.join(ROOT, "firmware/foxlib/VERSION")).read().strip()
 
-    recording = [] if a.record else None
-    sniffer = None
-    if a.sniffer:
-        sniffer = Sniffer(a.sniffer)
-        print("sniffer on %s: %s" % (a.sniffer, "hello %s" % sniffer.hello if sniffer.hello else "no hello line in 3 s (is tools/sniffer/code.py running?)"))
-    host = (ReplayHost(a.host_from) if a.host_from else HostWifi(a.wifi, recording)) if (a.payload or a.checkpoint) else None
-    if host: print("host Wi-Fi: %s (%s)" % (host.iface, ", ".join(f for f, on in (("--payload", a.payload), ("--checkpoint", a.checkpoint)) if on)))
-    r = Repl(pick_port(a.port), a.verbose, recording)
-    print("interrupting whatever runs …")
-    r.interrupt()
-    ident = r.exec("import board, microcontroller, os, sys\nprint(board.board_id)\nprint(''.join('%02x' % b for b in microcontroller.cpu.uid))\nprint(os.uname().release)\nprint(os.uname().version)\n").strip().splitlines()
-    board_id, uid, cp_release, cp_version = (ident + ["", "", "", ""])[:4]
-    print("board %s  uid %s  CircuitPython %s" % (board_id, uid, cp_release))
-    # the ids a catalog entry answers to: its own, its CircuitPython build's, and the builds it shares (board_ids)
-    known = {a.board}
-    for hw in glob.glob(os.path.join(ROOT, "hardware", "*.json")):
-        try:
-            h = json.load(open(hw))
-        except Exception:
-            continue
-        if not isinstance(h, dict):
-            continue
-        if h.get("id") in (a.board, a.variant) or h.get("target") == a.board:
-            cp = h.get("circuitpython") or {}
-            known.add(cp.get("board_id")); known.update(cp.get("board_ids") or [])
-    if board_id not in known:
-        print("WARNING: board reports %s, deploying defaults for %s" % (board_id, a.board))
-    report = {"generated": datetime.now().isoformat(timespec="seconds"), "board_id": board_id, "uid": uid, "circuitpython": cp_release, "cp_version": cp_version,
-              "foxlib": foxlib_version, "call": a.call, "freq": a.freq, "module": a.module, "sniffer": a.sniffer or "not used", "templates": {}}
+def portal_only(a):
+    """--portal-only: the DNS and portal checks against a fox this computer is already on. No board, no backend."""
+    host = a.portal_only
+    dns = dns_query("captive.apple.com", host)
+    print("captive DNS at %s: %s" % (host, ("captive.apple.com -> %s" % dns) if dns else "no answer (captive_dns off, or this is not the fox's network)"))
+    try:
+        v = portal_visit(host, None, a.find_call)
+    except OSError as e:
+        sys.exit("portal at http://%s/: %s (is this computer on the fox's network?)" % (host, e))
+    print("portal: GET %s, form %s, POST %s, logged %s" % (v["get"], "seen" if v["form_seen"] else "absent (ask_callsign off?)", v["post"], v["logged"]))
+    print("the find is in finds.csv on the fox: Collect finds on the Bench tab, or hw_smoke --checkpoint with the board on serial reads it back")
+    sys.exit(0 if v["get"] == 200 and (v["logged"] or not v["form_seen"]) else 1)
 
-    # A board with a CIRCUITPY drive (ESP32-S3, nRF52840): its files are the computer's, read-only to the board's
-    # code (which is what writes here), until firmware/boot.py gives them to the board. The remount works from the
-    # REPL only once the drive is ejected on the computer.
-    fs = r.exec("try:\n import storage\n ro = storage.getmount('/').readonly\nexcept Exception:\n ro = False\n"
-                "if not ro:\n print('rw')\nelse:\n try:\n  storage.remount('/', False)\n  print('remounted')\n except Exception as e:\n  print('usb', e)\n").strip()
-    if fs.startswith("usb"):
-        sys.exit("\nThe board's files are read-only to the board: it shows up as a CIRCUITPY drive and the computer has it (%s).\n"
-                 "Once per board, either:\n"
-                 "  1. copy firmware/boot.py onto the CIRCUITPY drive, press the board's reset button, run this again; or\n"
-                 "  2. eject the CIRCUITPY drive in the file manager (leave the cable in) and run this again.\n"
-                 "After that the drive is read-only on the computer. To undo: import os; os.remove('boot.py') at the REPL, then reset." % fs[4:])
-    if fs.startswith("remounted"):
-        have = r.read_file("boot.py")
-        if have is None or b"fox-bench boot.py" in have:
-            r.write_file("boot.py", open(os.path.join(ROOT, "firmware/boot.py"), "rb").read())
-            print("wrote boot.py: from the next reset the board's files belong to the board (the CIRCUITPY drive is read-only on the computer)")
-        else:
-            print("WARNING: the board has its own boot.py, left alone; without storage.remount('/', readonly=False) in it the next power-up is read-only again")
 
-    # what was there
-    before = {p: r.read_file(p) for p in ("code.py", "fox.json", "defaults.json")}
-    print("saved current code.py/fox.json/defaults.json (%s)" % ", ".join(k for k, v in before.items() if v is not None))
+class Run:
+    """One bench run, in phases. The REPL exchanges happen in exactly this order, and a recording replays them in it:
 
-    # foxlib once, verified: the files the templates of this run need (firmware/index.json's sets, from the import
-    # graph; tools/foxlib_deps.py), the rest of foxlib on the board removed as stale -- as the page's Deploy does
-    sets, tsets = idx.get("foxlib_sets") or {}, idx.get("template_sets") or {}
-    wanted = {f for t in templates for f in sets.get(tsets.get(t, ""), idx["foxlib"])}
-    need = [f for f in idx["foxlib"] if f in wanted]       # the index's order: VERSION last, as the page writes it (foxlib_deps.ordered)
-    lib_dir = os.path.join(ROOT, "firmware/foxlib")
-    if a.mpy:
-        # the precompiled set for the board's CircuitPython major (tools/build_mpy.py); VERSION stays a source file
-        major = cp_release.split(".")[0]
-        mdir = os.path.join(ROOT, "firmware/mpy", major)
-        if not os.path.exists(os.path.join(mdir, "manifest.json")):
-            raise SystemExit("--mpy: no precompiled set for CircuitPython %s.x (python3 tools/build_mpy.py)" % major)
-        man = json.load(open(os.path.join(mdir, "manifest.json")))
-        if man["foxlib"] != foxlib_version:
-            raise SystemExit("--mpy: firmware/mpy/%s is foxlib %s, the repo has %s (rebuild it)" % (major, man["foxlib"], foxlib_version))
-        need = [n[:-3] + ".mpy" if n.endswith(".py") else n for n in need]
-    print("writing foxlib %s (%d of %d files: %s%s) …" % (foxlib_version, len(need), len(idx["foxlib"]), "+".join(sorted({tsets.get(t, "all") for t in templates})), ", precompiled .mpy" if a.mpy else ""), end="", flush=True)
-    r.mkdir("foxlib")
-    for name in need:
-        src = os.path.join(mdir, "foxlib", name) if a.mpy and name.endswith(".mpy") else os.path.join(lib_dir, name)
-        r.write_file("foxlib/" + name, open(src, "rb").read())
-    for name in idx.get("root", []):           # safemode.py, beside code.py
-        r.write_file(name, open(os.path.join(ROOT, "firmware", name), "rb").read())
-        print(".", end="", flush=True)
-    stale = [n for n in r.listdir("foxlib") if n not in need]
-    for n in stale:
-        r.exec("import os\nos.remove('foxlib/%s')" % n)
-    print(" ok" + (" (removed stale: %s)" % ", ".join(stale) if stale else ""))
-    if a.trace:
-        have = r.read_file("settings.toml")
-        if have and TRACE_MARK.encode() not in have:
-            print("WARNING: the board has its own settings.toml, left alone; add  FOX_TRACE = 1  to it for the boot trace")
-        else:
-            r.write_file("settings.toml", TRACE_TOML.encode())
-            print("wrote settings.toml: FOX_TRACE = 1 (the boot trace; removed at the end unless --no-restore)")
+        identify -> make_writable -> save_before -> install_foxlib -> [for each template: deploy, boot, watch, bench]
+        -> restore -> finish
 
-    for tid in templates:
+    `a` is the command line, `r` the REPL, `report` what finish() writes; `before` is what was on the board."""
+
+    def __init__(self, a):
+        self.a = a
+        self.idx = json.load(open(os.path.join(ROOT, "firmware/index.json")))
+        self.templates = self.idx["templates"] if a.templates == "all" else a.templates.split(",")
+        self.foxlib_version = open(os.path.join(ROOT, "firmware/foxlib/VERSION")).read().strip()
+        self.recording = [] if a.record else None
+        self.sniffer = None
+        if a.sniffer:
+            self.sniffer = Sniffer(a.sniffer)
+            print("sniffer on %s: %s" % (a.sniffer, "hello %s" % self.sniffer.hello if self.sniffer.hello else "no hello line in 3 s (is tools/sniffer/code.py running?)"))
+        self.host = (ReplayHost(a.host_from) if a.host_from else HostWifi(a.wifi, self.recording)) if (a.payload or a.checkpoint) else None
+        if self.host: print("host Wi-Fi: %s (%s)" % (self.host.iface, ", ".join(f for f, on in (("--payload", a.payload), ("--checkpoint", a.checkpoint)) if on)))
+        self.r = Repl(pick_port(a.port), a.verbose, self.recording)
+        self.board_id = self.uid = self.cp_release = self.cp_version = ""
+        self.report = None
+        self.before = {}
+
+    # -- before the templates --------------------------------------------------------------------------------------
+
+    def identify(self):
+        """Who is on the port: board id, uid, CircuitPython; a warning when it is not the --board the defaults are for."""
+        a, r = self.a, self.r
+        print("interrupting whatever runs …")
+        r.interrupt()
+        ident = r.exec("import board, microcontroller, os, sys\nprint(board.board_id)\nprint(''.join('%02x' % b for b in microcontroller.cpu.uid))\nprint(os.uname().release)\nprint(os.uname().version)\n").strip().splitlines()
+        self.board_id, self.uid, self.cp_release, self.cp_version = (ident + ["", "", "", ""])[:4]
+        print("board %s  uid %s  CircuitPython %s" % (self.board_id, self.uid, self.cp_release))
+        # the ids a catalog entry answers to: its own, its CircuitPython build's, and the builds it shares (board_ids)
+        known = {a.board}
+        for hw in glob.glob(os.path.join(ROOT, "hardware", "*.json")):
+            try:
+                h = json.load(open(hw))
+            except Exception:
+                continue
+            if not isinstance(h, dict):
+                continue
+            if h.get("id") in (a.board, a.variant) or h.get("target") == a.board:
+                cp = h.get("circuitpython") or {}
+                known.add(cp.get("board_id")); known.update(cp.get("board_ids") or [])
+        if self.board_id not in known:
+            print("WARNING: board reports %s, deploying defaults for %s" % (self.board_id, a.board))
+        self.report = {"generated": datetime.now().isoformat(timespec="seconds"), "board_id": self.board_id, "uid": self.uid, "circuitpython": self.cp_release, "cp_version": self.cp_version,
+                       "foxlib": self.foxlib_version, "call": a.call, "freq": a.freq, "module": a.module, "sniffer": a.sniffer or "not used", "templates": {}}
+
+    def make_writable(self):
+        """A board with a CIRCUITPY drive (ESP32-S3, nRF52840): its files are the computer's, read-only to the board's
+        code (which is what writes here), until firmware/boot.py gives them to the board. The remount works from the
+        REPL only once the drive is ejected on the computer."""
+        r = self.r
+        fs = r.exec("try:\n import storage\n ro = storage.getmount('/').readonly\nexcept Exception:\n ro = False\n"
+                    "if not ro:\n print('rw')\nelse:\n try:\n  storage.remount('/', False)\n  print('remounted')\n except Exception as e:\n  print('usb', e)\n").strip()
+        if fs.startswith("usb"):
+            sys.exit("\nThe board's files are read-only to the board: it shows up as a CIRCUITPY drive and the computer has it (%s).\n"
+                     "Once per board, either:\n"
+                     "  1. copy firmware/boot.py onto the CIRCUITPY drive, press the board's reset button, run this again; or\n"
+                     "  2. eject the CIRCUITPY drive in the file manager (leave the cable in) and run this again.\n"
+                     "After that the drive is read-only on the computer. To undo: import os; os.remove('boot.py') at the REPL, then reset." % fs[4:])
+        if fs.startswith("remounted"):
+            have = r.read_file("boot.py")
+            if have is None or b"fox-bench boot.py" in have:
+                r.write_file("boot.py", open(os.path.join(ROOT, "firmware/boot.py"), "rb").read())
+                print("wrote boot.py: from the next reset the board's files belong to the board (the CIRCUITPY drive is read-only on the computer)")
+            else:
+                print("WARNING: the board has its own boot.py, left alone; without storage.remount('/', readonly=False) in it the next power-up is read-only again")
+
+    def save_before(self):
+        """What was on the board, to put back at the end."""
+        self.before = {p: self.r.read_file(p) for p in ("code.py", "fox.json", "defaults.json")}
+        print("saved current code.py/fox.json/defaults.json (%s)" % ", ".join(k for k, v in self.before.items() if v is not None))
+
+    def install_foxlib(self):
+        """foxlib once, verified: the files the templates of this run need (firmware/index.json's sets, from the import
+        graph; tools/foxlib_deps.py), the rest of foxlib on the board removed as stale -- as the page's Deploy does.
+        With --mpy the precompiled set for the board's CircuitPython major; with --trace a settings.toml."""
+        a, r, idx = self.a, self.r, self.idx
+        sets, tsets = idx.get("foxlib_sets") or {}, idx.get("template_sets") or {}
+        wanted = {f for t in self.templates for f in sets.get(tsets.get(t, ""), idx["foxlib"])}
+        need = [f for f in idx["foxlib"] if f in wanted]       # the index's order: VERSION last, as the page writes it (foxlib_deps.ordered)
+        lib_dir = os.path.join(ROOT, "firmware/foxlib")
+        mdir = None
+        if a.mpy:
+            # the precompiled set for the board's CircuitPython major (tools/build_mpy.py); VERSION stays a source file
+            major = self.cp_release.split(".")[0]
+            mdir = os.path.join(ROOT, "firmware/mpy", major)
+            if not os.path.exists(os.path.join(mdir, "manifest.json")):
+                raise SystemExit("--mpy: no precompiled set for CircuitPython %s.x (python3 tools/build_mpy.py)" % major)
+            man = json.load(open(os.path.join(mdir, "manifest.json")))
+            if man["foxlib"] != self.foxlib_version:
+                raise SystemExit("--mpy: firmware/mpy/%s is foxlib %s, the repo has %s (rebuild it)" % (major, man["foxlib"], self.foxlib_version))
+            need = [n[:-3] + ".mpy" if n.endswith(".py") else n for n in need]
+        print("writing foxlib %s (%d of %d files: %s%s) …" % (self.foxlib_version, len(need), len(idx["foxlib"]), "+".join(sorted({tsets.get(t, "all") for t in self.templates})), ", precompiled .mpy" if a.mpy else ""), end="", flush=True)
+        r.mkdir("foxlib")
+        for name in need:
+            src = os.path.join(mdir, "foxlib", name) if a.mpy and name.endswith(".mpy") else os.path.join(lib_dir, name)
+            r.write_file("foxlib/" + name, open(src, "rb").read())
+        for name in idx.get("root", []):           # safemode.py, beside code.py
+            r.write_file(name, open(os.path.join(ROOT, "firmware", name), "rb").read())
+            print(".", end="", flush=True)
+        stale = [n for n in r.listdir("foxlib") if n not in need]
+        for n in stale:
+            r.exec("import os\nos.remove('foxlib/%s')" % n)
+        print(" ok" + (" (removed stale: %s)" % ", ".join(stale) if stale else ""))
+        if a.trace:
+            have = r.read_file("settings.toml")
+            if have and TRACE_MARK.encode() not in have:
+                print("WARNING: the board has its own settings.toml, left alone; add  FOX_TRACE = 1  to it for the boot trace")
+            else:
+                r.write_file("settings.toml", TRACE_TOML.encode())
+                print("wrote settings.toml: FOX_TRACE = 1 (the boot trace; removed at the end unless --no-restore)")
+
+    # -- one template ----------------------------------------------------------------------------------------------
+
+    def run_template(self, tid):
+        """Deploy, boot, watch, bench. Everything the template does ends up in report["templates"][tid]; an exception
+        anywhere makes it a FAIL with the message, and the next template still runs."""
         print("\n== %s" % tid)
-        res = report["templates"][tid] = {}
+        res = self.report["templates"][tid] = {}
         try:
-            tdir = os.path.join(ROOT, "firmware/templates", tid)
-            manifest = json.load(open(os.path.join(tdir, "template.json")))
-            dpath = os.path.join(tdir, "defaults", a.board + ".json")
-            if not os.path.exists(dpath):
-                res["ok"] = None; print("  no defaults for %s: not offered on this board, skipped" % a.board); continue
-            defaults = json.load(open(dpath))
-            net = manifest.get("contract") == "net"          # a network fox: no module, no plan, no payload
-            fox = json.loads(json.dumps(defaults))
-            fox["id"]["callmessage"] = a.call
-            if net:
-                fox["id"]["use_callsign_as_name"] = True        # what a hunter's phone shows is the callsign
-                if a.variant:
-                    vhw = json.load(open(os.path.join(ROOT, "hardware", a.variant + ".json")))
-                    nr = vhw.get("net") or vhw.get("roles") or {}
-                    fox["variant"] = a.variant
-                    fox["pins"] = {"led": nr.get("led"), "batt_sense": nr.get("batt_sense")}
-            if a.module and not net:
-                mod = json.load(open(os.path.join(ROOT, "modules", a.module + ".json")))
-                fox["module"] = mod["id"]
-                fox["radio"]["family"] = mod["family"]
-                fox["radio"]["ranges_mhz"] = mod["ranges_mhz"]
-            if a.freq and not net: fox["plan"]["frequencies_mhz"] = [a.freq]
-            fox.setdefault("fleet", {})["notes"] = "hw_smoke"
-            res["template_version"] = manifest["version"]
-            cp_cfg = fox.get("checkpoint") or {}
-            portal = (cp_cfg.get("portal") or {}) if cp_cfg.get("enabled") else {}
-            portal_on = bool(host and a.checkpoint and net and portal.get("enabled"))
-            r.interrupt()
-            finds_before = r.read_file("finds.csv") if portal_on else None     # the board is left as it was found
-            r.write_file("code.py", open(os.path.join(tdir, "code.py"), "rb").read())
-            r.write_file("defaults.json", json.dumps(defaults))
-            r.write_file("fox.json", json.dumps(fox, indent=1))
-            if not net and fox["payload"]["kind"] == "sstv":
-                r.write_file(fox["payload"]["images_file"], b"")      # firmware falls back to its built-in test card
-            t0 = time.monotonic()
-            boot = r.reboot_and_capture()
-            res["boot_s"] = round(time.monotonic() - t0, 2)
-            b = parse_banner(boot)
-            res["banner"] = b["_raw"] if b else None
-            if b and b.get("mem"): res["mem_free"] = int(b["mem"]) if b["mem"].isdigit() else b["mem"]   # a network fox's heap after init
-            res["boot_log"] = boot[-2000:]
-            if a.trace:
-                for l in boot.splitlines():
-                    if l.startswith("init: "): print("  " + l)
-            if not b:
-                res["ok"] = False; print("  no FOX banner within 20 s:\n" + "\n".join("    " + l for l in boot.strip().splitlines()[-8:])); continue
-            print("  %s (%.1f s to banner)" % (b["_raw"], res["boot_s"]))
-            if sniffer and manifest.get("contract") == "net" and (defaults.get("net") or {}).get("kind") == "wifi-probe":
-                # the probes carry the MAC and the SSID the banner names: count what went over the air while the fox runs
-                mac = b.get("mac", ""); ssid = a.call   # hw_smoke deploys with use_callsign_as_name, so the SSID the fox probes for is the callsign
-                seen = sniffer.watch(a.observe, mac, ssid)
-                run = r.listen(0.1)
-                res["sniffer"] = seen
-                print("  sniffer: %d probe(s) from %s, %d with SSID %r, %d from others%s" % (seen["from_fox"], mac, seen["with_ssid"], ssid, seen["others"], " · " + json.dumps(seen["sample"][0]) if seen["sample"] else ""))
-            elif host and net and (fox["net"].get("kind") or "").startswith("wifi") and fox["net"].get("kind") != "wifi-probe":
-                # the computer as a hunter's phone: is the fox's network on the air, and does its sign-in page work
-                name, mac, hidden = b.get("name", ""), b.get("mac", ""), bool(fox["net"].get("hidden"))
-                if a.payload:
-                    seen = res["on_air"] = host.scan(max(a.observe, 20), ssid=None if hidden else name, bssid=mac if hidden else None)
-                    if seen["seen"]:
-                        print("  on the air: %r from %s, signal %s, channel %s (%d networks around, %d scan%s)%s" % (name, seen["bssid"], seen["signal"], seen["chan"], seen["networks"], seen["scans"], "" if seen["scans"] == 1 else "s",
-                              "" if not mac or mac == "?" or seen["bssid"] == mac.upper() else " · NOTE: BSSID is not the %s fox.json asked for (bench-runbook Q12)" % mac.upper()))
-                    else:
-                        print("  NOT on the air: %r not in %d scan(s) of %d network(s) in %.0f s — the fox never started its AP, or the host adapter is on another band" % (name, seen["scans"], seen["networks"], max(a.observe, 20)))
-                if portal_on:
-                    pv = res["portal"] = {"joined": False}
-                    try:
-                        gw = host.join(name)
-                        pv["joined"] = True; pv["host"] = gw
-                        pv["dns"] = host.dns(gw) if portal.get("captive_dns") else None
-                        pv.update(host.portal(gw, portal.get("code") or None, a.find_call))
-                    except (RuntimeError, OSError) as e:
-                        pv["error"] = str(e)[-160:]
-                    finally:
-                        host.leave()
-                    if pv.get("error"):
-                        print("  portal: %s%s" % ("joined %r, then " % name if pv["joined"] else "could not join %r: " % name, pv["error"]))
-                    else:
-                        print("  portal at http://%s/: GET %s, code %s, form %s, POST %s, %s · captive DNS %s" % (
-                            pv["host"], pv["get"], "shown" if pv["code_seen"] else ("missing" if portal.get("code") else "none set"), "seen" if pv["form_seen"] else "absent",
-                            pv["post"], ("logged %s" % a.find_call) if pv["logged"] else "not logged", ("captive.apple.com -> %s" % pv["dns"]) if pv["dns"] else ("no answer" if portal.get("captive_dns") else "off")))
-                run = r.listen(2)
-            else:
-                run = r.listen(a.observe)
-            res["observed"] = run.strip()[-1500:]
-            if run.strip(): print("  while running: " + " | ".join(run.strip().splitlines()[-3:])[:200])
-            res["ok"] = b.get("cfg") == "ok" and b.get("radio") == "ok" and (b.get("id") == "set" or a.call.startswith("N0CALL"))
-            if res.get("sniffer") is not None and res["sniffer"]["with_ssid"] < 1:
-                res["ok"] = False; print("  no probe request from the fox with its SSID reached the sniffer in %.1f s — nothing went over the air, or the sniffer is on the wrong channels" % a.observe)
-            if b.get("cfg") != "ok": print("  cfg=%s — the firmware disagreed with the defaults or fox.json" % b.get("cfg"))
-            if b.get("radio") == "skipped": print("  radio=skipped — not attempted because the config was fatal; nothing was transmitted")
-            elif b.get("radio") != "ok": print("  radio=%s — module not answering (wiring, PD pin, baud)" % b.get("radio"))
-
-            if res.get("on_air") is not None and not res["on_air"]["seen"]:
-                res["ok"] = False
-            # bench, on a fresh VM
-            r.interrupt()
-            if portal_on:
-                pv = res["portal"]
-                text = r.read_file("finds.csv") if pv["joined"] else None
-                rows = finds_rows(text.decode(errors="replace"), a.find_call) if text else []
-                pv["finds_rows"] = len(rows)
-                if rows: pv["find"] = rows[-1]
-                if finds_before is None and text is not None:
-                    r.exec("import os\nos.remove('finds.csv')")
-                want_log = bool(portal.get("log"))
-                pv["ok"] = bool(pv["joined"] and pv.get("get") == 200 and (pv.get("code_seen") or not portal.get("code")) and pv.get("logged")
-                                and (pv["finds_rows"] >= 1 or not want_log) and (pv.get("dns") == pv.get("host") or not portal.get("captive_dns")))
-                print("  finds.csv: %s%s" % (("%d row(s) for %s" % (len(rows), a.find_call)) + (" (+%s ms, cycle %s, via %s)" % (rows[-1].get("ms_since_boot"), rows[-1].get("cycle"), rows[-1].get("via")) if rows else "") if text else "not on the board",
-                                             "" if finds_before is not None or text is None else " · removed again (it was not there before)"))
-                if not pv["ok"]:
-                    res["ok"] = False
-                    why = ("not joined" if not pv["joined"] else "GET %s" % pv.get("get") if pv.get("get") != 200 else "code not on the page" if portal.get("code") and not pv.get("code_seen")
-                           else "callsign not acknowledged" if not pv.get("logged") else "no finds.csv row" if want_log and pv["finds_rows"] < 1 else "captive DNS did not answer with the fox (bench-runbook Q5)")
-                    print("  checkpoint FAILED: %s" % why)
-            m = r.exec("import gc, time\ngc.collect()\na=gc.mem_free()\nt=time.monotonic()\nimport foxlib\nprint(a, gc.mem_free(), time.monotonic()-t)\n", timeout=60).split()
-            res["mem_free_before"], res["mem_free_after_import"], res["import_s"] = int(m[0]), int(m[1]), round(float(m[2]), 2)
-            if net:
-                pre = "import gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfrom foxlib.netfox import NetFox\nfox = NetFox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\n"
-                out = r.exec(pre + "print(gc.mem_free())\nprint(fox.radio.status)\nprint(fox.rssi())\nprint(fox.radio.mac())\n", timeout=60).strip().splitlines()
-                res["mem_free_with_fox"], res["probe"], res["rssi"], res["batt_v"] = int(out[0]), out[1], out[2], None
-                print("  import %.1fs · free %d → %d → %d B · radio %s · scan %s · mac before up %s" % (res["import_s"], res["mem_free_before"], res["mem_free_after_import"], res["mem_free_with_fox"], out[1], out[2][:120], out[3]))
-                if a.key_seconds > 0:
-                    res["key"] = r.exec(pre + "print(fox.key_for(%s))\n" % _num(a.key_seconds), timeout=60 + a.key_seconds).strip()
-                    print("  radio up %ss: %s" % (a.key_seconds, res["key"]))
-                    want = (fox.get("net") or {}).get("mac")
-                    got = re.search(r"\(([0-9A-Fa-f:?]+)\) for [0-9.]+ s$", res["key"])
-                    if want and got:
-                        res["mac_on_air"] = got.group(1).upper()
-                        if fox["net"].get("kind") == "ble":          # a static random address: the two top bits set
-                            want = "%02X%s" % (int(want[:2], 16) | 0xC0, want[2:])
-                        if res["mac_on_air"] != want.upper():
-                            print("  NOTE: the radio reports %s, fox.json asked for %s (bench-runbook Q12)" % (res["mac_on_air"], want.upper()))
-            else:
-                pre = "import foxlib, gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfox = foxlib.Fox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\n"
-                out = r.exec(pre + "print(gc.mem_free())\nprint(fox.radio.probe((146.5, 433.5)))\nprint(fox.radio.rssi())\nprint(fox.batt.read() if fox.batt else None)\n", timeout=60).strip().splitlines()
-                res["mem_free_with_fox"], res["probe"], res["rssi"], res["batt_v"] = int(out[0]), out[1], out[2], out[3]
-                print("  import %.1fs · free %d → %d → %d B · probe %s · rssi %s · batt %s" % (res["import_s"], res["mem_free_before"], res["mem_free_after_import"], res["mem_free_with_fox"], out[1], out[2], out[3]))
-                if a.key_seconds > 0 and "keytest" in manifest.get("capabilities", []):
-                    res["key"] = r.exec(pre + "print(fox.radio.key_for(%s))\n" % _num(a.key_seconds), timeout=60 + a.key_seconds).strip()
-                    print("  key test %ss: %s" % (a.key_seconds, res["key"]))
+            t = self.build_fox(tid, res)
+            if t is None:
+                return
+            if not self.boot_template(t, res):
+                return
+            self.watch(t, res)
+            self.bench(t, res)
         except Exception as e:
             res["ok"] = False; res["error"] = str(e); print("  ERROR:", e)
 
-    # restore
-    if not a.no_restore:
-        r.interrupt()
-        if a.trace:
-            have = r.read_file("settings.toml")
-            if have and TRACE_MARK.encode() in have: r.exec("import os\nos.remove('settings.toml')")
-        for p, data in before.items():
-            if data is not None: r.write_file(p, data)
-            else: r.exec("import os\ntry:\n os.remove(%r)\nexcept OSError:\n pass\n" % p)
-        boot = r.reboot_and_capture(timeout=10)
-        b = parse_banner(boot)
-        print("\nrestored what was on the board before%s" % (": " + b["_raw"] if b else ""))
-    else:
-        r.reboot_and_capture(timeout=10)
-        print("\nleft %s running" % templates[-1])
+    def build_fox(self, tid, res):
+        """The template's fox.json for this run: its defaults for --board with the callsign, --variant, --module and
+        --freq applied. None when the template has no defaults for this board (skipped, ok: null)."""
+        a = self.a
+        tdir = os.path.join(ROOT, "firmware/templates", tid)
+        manifest = json.load(open(os.path.join(tdir, "template.json")))
+        dpath = os.path.join(tdir, "defaults", a.board + ".json")
+        if not os.path.exists(dpath):
+            res["ok"] = None; print("  no defaults for %s: not offered on this board, skipped" % a.board); return None
+        defaults = json.load(open(dpath))
+        net = manifest.get("contract") == "net"          # a network fox: no module, no plan, no payload
+        fox = json.loads(json.dumps(defaults))
+        fox["id"]["callmessage"] = a.call
+        if net:
+            fox["id"]["use_callsign_as_name"] = True        # what a hunter's phone shows is the callsign
+            if a.variant:
+                vhw = json.load(open(os.path.join(ROOT, "hardware", a.variant + ".json")))
+                nr = vhw.get("net") or vhw.get("roles") or {}
+                fox["variant"] = a.variant
+                fox["pins"] = {"led": nr.get("led"), "batt_sense": nr.get("batt_sense")}
+        if a.module and not net:
+            mod = json.load(open(os.path.join(ROOT, "modules", a.module + ".json")))
+            fox["module"] = mod["id"]
+            fox["radio"]["family"] = mod["family"]
+            fox["radio"]["ranges_mhz"] = mod["ranges_mhz"]
+        if a.freq and not net: fox["plan"]["frequencies_mhz"] = [a.freq]
+        fox.setdefault("fleet", {})["notes"] = "hw_smoke"
+        res["template_version"] = manifest["version"]
+        cp_cfg = fox.get("checkpoint") or {}
+        portal = (cp_cfg.get("portal") or {}) if cp_cfg.get("enabled") else {}
+        portal_on = bool(self.host and a.checkpoint and net and portal.get("enabled"))
+        return {"tid": tid, "tdir": tdir, "manifest": manifest, "defaults": defaults, "fox": fox, "net": net, "portal": portal, "portal_on": portal_on,
+                "finds_before": None, "banner": None}
 
-    path = a.report or "hw_smoke-%s-%s.json" % (uid[-6:], datetime.now().strftime("%Y%m%d-%H%M%S"))
-    json.dump(report, open(path, "w"), indent=1)
-    if a.record:
-        args_rec = {k: (_num(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else v) for k, v in vars(a).items() if k not in ("port", "record", "report")}
-        scrubbed = scrub_recording(recording, args_rec, a.call)
-        rec = {"format": "fox-bench-bench-recording/2", "generated": report["generated"], "board_id": board_id, "uid": uid,
-               "circuitpython": cp_release, "foxlib": foxlib_version, "args": args_rec, "exchanges": recording,
-               "_": "format 2: one 'write' line per file (path, size, crc) instead of its bytes; the callsign replaced by %s; scan results scrubbed (%s)" % (RECORD_CALL, scrubbed)}
-        json.dump(rec, open(a.record, "w"), indent=0)
-        print("recorded %d exchanges to %s (callsign -> %s; %s)" % (len(recording), a.record, RECORD_CALL, scrubbed))
-        if any(x.get("ok") is False for x in report["templates"].values()):
-            print("  (a template failed in this run: a recording replays its failure, so commit this file only from a run where every template passed)")
-    print("\n%-14s %-5s %6s %7s %8s %6s %-8s" % ("template", "ok", "boot s", "import", "free B", "rssi", "key"))
-    for tid, res in report["templates"].items():
-        print("%-14s %-5s %6s %7s %8s %6s %-8s" % (tid, "skip" if res.get("ok") is None else "ok" if res.get("ok") else "FAIL", res.get("boot_s", ""), res.get("import_s", ""), res.get("mem_free_with_fox", ""), str(res.get("rssi", ""))[:6], res.get("key", res.get("error", "")[:30] if not res.get("ok") else "")))
-    print("report: %s" % path)
-    failed = [t for t, x in report["templates"].items() if x.get("ok") is False]
-    if not failed:
-        print("every template booted clean on %s — add %r to boards_tested in those template.json files if it is not there" % (board_id, board_id))
-    sys.exit(1 if failed else 0)
+    def boot_template(self, t, res):
+        """Write code.py / defaults.json / fox.json, reboot, wait for the banner. False when none came."""
+        a, r, fox = self.a, self.r, t["fox"]
+        r.interrupt()
+        t["finds_before"] = r.read_file("finds.csv") if t["portal_on"] else None     # the board is left as it was found
+        r.write_file("code.py", open(os.path.join(t["tdir"], "code.py"), "rb").read())
+        r.write_file("defaults.json", json.dumps(t["defaults"]))
+        r.write_file("fox.json", json.dumps(fox, indent=1))
+        if not t["net"] and fox["payload"]["kind"] == "sstv":
+            r.write_file(fox["payload"]["images_file"], b"")      # firmware falls back to its built-in test card
+        t0 = time.monotonic()
+        boot = r.reboot_and_capture()
+        res["boot_s"] = round(time.monotonic() - t0, 2)
+        b = t["banner"] = parse_banner(boot)
+        res["banner"] = b["_raw"] if b else None
+        if b and b.get("mem"): res["mem_free"] = int(b["mem"]) if b["mem"].isdigit() else b["mem"]   # a network fox's heap after init
+        res["boot_log"] = boot[-2000:]
+        if a.trace:
+            for l in boot.splitlines():
+                if l.startswith("init: "): print("  " + l)
+        if not b:
+            res["ok"] = False; print("  no FOX banner within 20 s:\n" + "\n".join("    " + l for l in boot.strip().splitlines()[-8:])); return False
+        print("  %s (%.1f s to banner)" % (b["_raw"], res["boot_s"]))
+        return True
+
+    def watch(self, t, res):
+        """The fox runs: the sniffer counts a wifi-probe's probes, the host (--payload / --checkpoint) sees a Wi-Fi fox
+        on the air and uses a checkpoint's portal, or the console is just listened to for --observe seconds. Then the
+        verdict from the banner and from what was seen."""
+        a, r, host, b, fox, net = self.a, self.r, self.host, t["banner"], t["fox"], t["net"]
+        if self.sniffer and t["manifest"].get("contract") == "net" and (t["defaults"].get("net") or {}).get("kind") == "wifi-probe":
+            # the probes carry the MAC and the SSID the banner names: count what went over the air while the fox runs
+            mac = b.get("mac", ""); ssid = a.call   # hw_smoke deploys with use_callsign_as_name, so the SSID the fox probes for is the callsign
+            seen = self.sniffer.watch(a.observe, mac, ssid)
+            run = r.listen(0.1)
+            res["sniffer"] = seen
+            print("  sniffer: %d probe(s) from %s, %d with SSID %r, %d from others%s" % (seen["from_fox"], mac, seen["with_ssid"], ssid, seen["others"], " · " + json.dumps(seen["sample"][0]) if seen["sample"] else ""))
+        elif host and net and (fox["net"].get("kind") or "").startswith("wifi") and fox["net"].get("kind") != "wifi-probe":
+            self.watch_as_phone(t, res)
+            run = r.listen(2)
+        else:
+            run = r.listen(a.observe)
+        res["observed"] = run.strip()[-1500:]
+        if run.strip(): print("  while running: " + " | ".join(run.strip().splitlines()[-3:])[:200])
+        res["ok"] = b.get("cfg") == "ok" and b.get("radio") == "ok" and (b.get("id") == "set" or a.call.startswith("N0CALL"))
+        if res.get("sniffer") is not None and res["sniffer"]["with_ssid"] < 1:
+            res["ok"] = False; print("  no probe request from the fox with its SSID reached the sniffer in %.1f s — nothing went over the air, or the sniffer is on the wrong channels" % a.observe)
+        if b.get("cfg") != "ok": print("  cfg=%s — the firmware disagreed with the defaults or fox.json" % b.get("cfg"))
+        if b.get("radio") == "skipped": print("  radio=skipped — not attempted because the config was fatal; nothing was transmitted")
+        elif b.get("radio") != "ok": print("  radio=%s — module not answering (wiring, PD pin, baud)" % b.get("radio"))
+        if res.get("on_air") is not None and not res["on_air"]["seen"]:
+            res["ok"] = False
+
+    def watch_as_phone(self, t, res):
+        """The computer as a hunter's phone: is the fox's network on the air (--payload), and does its sign-in page
+        work (--checkpoint: join, captive DNS, GET, POST, leave)."""
+        a, host, b, fox, portal = self.a, self.host, t["banner"], t["fox"], t["portal"]
+        name, mac, hidden = b.get("name", ""), b.get("mac", ""), bool(fox["net"].get("hidden"))
+        if a.payload:
+            seen = res["on_air"] = host.scan(max(a.observe, 20), ssid=None if hidden else name, bssid=mac if hidden else None)
+            if seen["seen"]:
+                print("  on the air: %r from %s, signal %s, channel %s (%d networks around, %d scan%s)%s" % (name, seen["bssid"], seen["signal"], seen["chan"], seen["networks"], seen["scans"], "" if seen["scans"] == 1 else "s",
+                      "" if not mac or mac == "?" or seen["bssid"] == mac.upper() else " · NOTE: BSSID is not the %s fox.json asked for (bench-runbook Q12)" % mac.upper()))
+            else:
+                print("  NOT on the air: %r not in %d scan(s) of %d network(s) in %.0f s — the fox never started its AP, or the host adapter is on another band" % (name, seen["scans"], seen["networks"], max(a.observe, 20)))
+        if t["portal_on"]:
+            pv = res["portal"] = {"joined": False}
+            try:
+                gw = host.join(name)
+                pv["joined"] = True; pv["host"] = gw
+                pv["dns"] = host.dns(gw) if portal.get("captive_dns") else None
+                pv.update(host.portal(gw, portal.get("code") or None, a.find_call))
+            except (RuntimeError, OSError) as e:
+                pv["error"] = str(e)[-160:]
+            finally:
+                host.leave()
+            if pv.get("error"):
+                print("  portal: %s%s" % ("joined %r, then " % name if pv["joined"] else "could not join %r: " % name, pv["error"]))
+            else:
+                print("  portal at http://%s/: GET %s, code %s, form %s, POST %s, %s · captive DNS %s" % (
+                    pv["host"], pv["get"], "shown" if pv["code_seen"] else ("missing" if portal.get("code") else "none set"), "seen" if pv["form_seen"] else "absent",
+                    pv["post"], ("logged %s" % a.find_call) if pv["logged"] else "not logged", ("captive.apple.com -> %s" % pv["dns"]) if pv["dns"] else ("no answer" if portal.get("captive_dns") else "off")))
+
+    def bench(self, t, res):
+        """The fox stopped, on a fresh VM: finds.csv read back after a checkpoint visit, then memory, import time, the
+        radio's answers, and a short key (FM: key test; network: radio up) with the MAC on the air compared to fox.json."""
+        a, r, fox, net = self.a, self.r, t["fox"], t["net"]
+        r.interrupt()
+        if t["portal_on"]:
+            self.finds_readback(t, res)
+        m = r.exec("import gc, time\ngc.collect()\na=gc.mem_free()\nt=time.monotonic()\nimport foxlib\nprint(a, gc.mem_free(), time.monotonic()-t)\n", timeout=60).split()
+        res["mem_free_before"], res["mem_free_after_import"], res["import_s"] = int(m[0]), int(m[1]), round(float(m[2]), 2)
+        if net:
+            pre = "import gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfrom foxlib.netfox import NetFox\nfox = NetFox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\n"
+            out = r.exec(pre + "print(gc.mem_free())\nprint(fox.radio.status)\nprint(fox.rssi())\nprint(fox.radio.mac())\n", timeout=60).strip().splitlines()
+            res["mem_free_with_fox"], res["probe"], res["rssi"], res["batt_v"] = int(out[0]), out[1], out[2], None
+            print("  import %.1fs · free %d → %d → %d B · radio %s · scan %s · mac before up %s" % (res["import_s"], res["mem_free_before"], res["mem_free_after_import"], res["mem_free_with_fox"], out[1], out[2][:120], out[3]))
+            if a.key_seconds > 0:
+                res["key"] = r.exec(pre + "print(fox.key_for(%s))\n" % _num(a.key_seconds), timeout=60 + a.key_seconds).strip()
+                print("  radio up %ss: %s" % (a.key_seconds, res["key"]))
+                want = (fox.get("net") or {}).get("mac")
+                got = re.search(r"\(([0-9A-Fa-f:?]+)\) for [0-9.]+ s$", res["key"])
+                if want and got:
+                    res["mac_on_air"] = got.group(1).upper()
+                    if fox["net"].get("kind") == "ble":          # a static random address: the two top bits set
+                        want = "%02X%s" % (int(want[:2], 16) | 0xC0, want[2:])
+                    if res["mac_on_air"] != want.upper():
+                        print("  NOTE: the radio reports %s, fox.json asked for %s (bench-runbook Q12)" % (res["mac_on_air"], want.upper()))
+        else:
+            pre = "import foxlib, gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfox = foxlib.Fox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\n"
+            out = r.exec(pre + "print(gc.mem_free())\nprint(fox.radio.probe((146.5, 433.5)))\nprint(fox.radio.rssi())\nprint(fox.batt.read() if fox.batt else None)\n", timeout=60).strip().splitlines()
+            res["mem_free_with_fox"], res["probe"], res["rssi"], res["batt_v"] = int(out[0]), out[1], out[2], out[3]
+            print("  import %.1fs · free %d → %d → %d B · probe %s · rssi %s · batt %s" % (res["import_s"], res["mem_free_before"], res["mem_free_after_import"], res["mem_free_with_fox"], out[1], out[2], out[3]))
+            if a.key_seconds > 0 and "keytest" in t["manifest"].get("capabilities", []):
+                res["key"] = r.exec(pre + "print(fox.radio.key_for(%s))\n" % _num(a.key_seconds), timeout=60 + a.key_seconds).strip()
+                print("  key test %ss: %s" % (a.key_seconds, res["key"]))
+
+    def finds_readback(self, t, res):
+        """After a --checkpoint visit: the row the fox logged, read back over the REPL; a finds.csv that was not there
+        before is removed again. Sets the checkpoint verdict."""
+        a, r, portal = self.a, self.r, t["portal"]
+        pv = res["portal"]
+        text = r.read_file("finds.csv") if pv["joined"] else None
+        rows = finds_rows(text.decode(errors="replace"), a.find_call) if text else []
+        pv["finds_rows"] = len(rows)
+        if rows: pv["find"] = rows[-1]
+        if t["finds_before"] is None and text is not None:
+            r.exec("import os\nos.remove('finds.csv')")
+        want_log = bool(portal.get("log"))
+        pv["ok"] = bool(pv["joined"] and pv.get("get") == 200 and (pv.get("code_seen") or not portal.get("code")) and pv.get("logged")
+                        and (pv["finds_rows"] >= 1 or not want_log) and (pv.get("dns") == pv.get("host") or not portal.get("captive_dns")))
+        print("  finds.csv: %s%s" % (("%d row(s) for %s" % (len(rows), a.find_call)) + (" (+%s ms, cycle %s, via %s)" % (rows[-1].get("ms_since_boot"), rows[-1].get("cycle"), rows[-1].get("via")) if rows else "") if text else "not on the board",
+                                     "" if t["finds_before"] is not None or text is None else " · removed again (it was not there before)"))
+        if not pv["ok"]:
+            res["ok"] = False
+            why = ("not joined" if not pv["joined"] else "GET %s" % pv.get("get") if pv.get("get") != 200 else "code not on the page" if portal.get("code") and not pv.get("code_seen")
+                   else "callsign not acknowledged" if not pv.get("logged") else "no finds.csv row" if want_log and pv["finds_rows"] < 1 else "captive DNS did not answer with the fox (bench-runbook Q5)")
+            print("  checkpoint FAILED: %s" % why)
+
+    # -- after the templates ---------------------------------------------------------------------------------------
+
+    def restore(self):
+        """Put back what was on the board (and take the trace settings.toml away), or leave the last template running."""
+        a, r = self.a, self.r
+        if not a.no_restore:
+            r.interrupt()
+            if a.trace:
+                have = r.read_file("settings.toml")
+                if have and TRACE_MARK.encode() in have: r.exec("import os\nos.remove('settings.toml')")
+            for p, data in self.before.items():
+                if data is not None: r.write_file(p, data)
+                else: r.exec("import os\ntry:\n os.remove(%r)\nexcept OSError:\n pass\n" % p)
+            boot = r.reboot_and_capture(timeout=10)
+            b = parse_banner(boot)
+            print("\nrestored what was on the board before%s" % (": " + b["_raw"] if b else ""))
+        else:
+            r.reboot_and_capture(timeout=10)
+            print("\nleft %s running" % self.templates[-1])
+
+    def finish(self):
+        """The report file, the recording (scrubbed), the summary table; exit 1 if any template failed."""
+        a, report = self.a, self.report
+        path = a.report or "hw_smoke-%s-%s.json" % (self.uid[-6:], datetime.now().strftime("%Y%m%d-%H%M%S"))
+        json.dump(report, open(path, "w"), indent=1)
+        if a.record:
+            args_rec = {k: (_num(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else v) for k, v in vars(a).items() if k not in ("port", "record", "report")}
+            scrubbed = scrub_recording(self.recording, args_rec, a.call)
+            rec = {"format": "fox-bench-bench-recording/2", "generated": report["generated"], "board_id": self.board_id, "uid": self.uid,
+                   "circuitpython": self.cp_release, "foxlib": self.foxlib_version, "args": args_rec, "exchanges": self.recording,
+                   "_": "format 2: one 'write' line per file (path, size, crc) instead of its bytes; the callsign replaced by %s; scan results scrubbed (%s)" % (RECORD_CALL, scrubbed)}
+            json.dump(rec, open(a.record, "w"), indent=0)
+            print("recorded %d exchanges to %s (callsign -> %s; %s)" % (len(self.recording), a.record, RECORD_CALL, scrubbed))
+            if any(x.get("ok") is False for x in report["templates"].values()):
+                print("  (a template failed in this run: a recording replays its failure, so commit this file only from a run where every template passed)")
+        print("\n%-14s %-5s %6s %7s %8s %6s %-8s" % ("template", "ok", "boot s", "import", "free B", "rssi", "key"))
+        for tid, res in report["templates"].items():
+            print("%-14s %-5s %6s %7s %8s %6s %-8s" % (tid, "skip" if res.get("ok") is None else "ok" if res.get("ok") else "FAIL", res.get("boot_s", ""), res.get("import_s", ""), res.get("mem_free_with_fox", ""), str(res.get("rssi", ""))[:6], res.get("key", res.get("error", "")[:30] if not res.get("ok") else "")))
+        print("report: %s" % path)
+        failed = [t for t, x in report["templates"].items() if x.get("ok") is False]
+        if not failed:
+            print("every template booted clean on %s — add %r to boards_tested in those template.json files if it is not there" % (self.board_id, self.board_id))
+        sys.exit(1 if failed else 0)
+
+
+def main():
+    a = parse_args()
+    if a.portal_only:
+        portal_only(a)
+    if not a.yes_antenna:
+        sys.exit("Every template keys the transmitter within seconds of booting. Connect an antenna or dummy load, then pass --yes-antenna.")
+    run = Run(a)
+    run.identify()
+    run.make_writable()
+    run.save_before()
+    run.install_foxlib()
+    for tid in run.templates:
+        run.run_template(tid)
+    run.restore()
+    run.finish()
 
 
 if __name__ == "__main__":

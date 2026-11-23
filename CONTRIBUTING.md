@@ -45,7 +45,8 @@ reads and `app.changed()` that re-renders them.
 that holds them together, `firmware/sim/schema_corpus.json` its cases.
 
 **A bench session, or why a bench finding is a test.** `tools/hw_smoke.py`
-(the docstring, then `main()` and the `Repl` class); a run with `--record`
+(the docstring, then `class Run` — its docstring lists the phases in order —
+and the `Repl` class); a run with `--record`
 becomes a file in `tests/fixtures/bench/`, which `firmware/sim/pty_board.py
 --replay` plays back against the same script in CI (`tools/replay_check.py`).
 `tools/session_close.py` turns a run into a hardware-log row;

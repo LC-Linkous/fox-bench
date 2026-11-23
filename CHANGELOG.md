@@ -26,6 +26,12 @@ the checkers' one-line rule tables — is left alone.
   add a board, a Deploy, validation, a bench session, the simulator) the
   three to five files in reading order and the function to open first.
   README points at it.
+- `tools/hw_smoke.py`: the 317-line `main()` is a `Run` object with named
+  phases — `identify`, `make_writable`, `save_before`, `install_foxlib`,
+  then per template `build_fox`, `boot_template`, `watch` (`watch_as_phone`),
+  `bench` (`finds_readback`), then `restore`, `finish`; `parse_args` and
+  `portal_only` on their own. Every REPL exchange and every printed line is
+  as before: all three bench recordings replay with every exchange used.
 
 ### Page 0.18.21 — the bench laptop runs Windows
 
