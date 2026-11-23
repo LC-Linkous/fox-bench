@@ -87,6 +87,9 @@ Tests: the full local sequence is in `tests/README.md` (catalog and docs
 lint, the two simulators, the C firmware's host tests, the page's unit and
 smoke suites); CI runs the same.
 
+Reading the code: `CONTRIBUTING.md` opens with a map — which three to five
+files to read, in order, for each thing you might have come to do.
+
 ## Licensing
 
 Three pieces, three licences: the page **GPL-2.0-only** (`LICENSE`),

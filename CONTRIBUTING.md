@@ -6,6 +6,62 @@ long versions are the Adding a target section below (new hardware, firmware or
 templates), `tests/README.md` (what the tests cover) and
 the Releasing section below (tags).
 
+## Reading the code
+
+Where to start depends on what you came to do. Each path is three to five
+files, in reading order; the first function named is the one to open.
+
+**A fox, end to end (what the firmware does).** `firmware/foxlib/__init__.py`
+(`Fox.cycles()`: load `fox.json` over `defaults.json`, print the banner,
+key and sleep) for an FM fox; `firmware/foxlib/netfox.py` (`NetFox.cycles()`
+and `Tx.beacon()`) for a network fox. `firmware/foxlib/guard.py` is the
+watchdog both run under; `firmware/safemode.py` what happens after a crash.
+The config contract they read is `CONFIG.md`.
+
+**Add a template.** `firmware/templates/wifi-beacon/` as the model
+(`template.json` = what the form offers, `defaults/<target>.json` = the
+numbers for a board, `code.py` = three lines); then the Adding a target
+section below; then `tools/check_catalog.py` (run it: it names what is
+missing) and `firmware/sim/scenarios.json` (one scenario per claim the
+template makes). `tools/foxlib_deps.py --write` records which foxlib
+modules the template imports. `DESIGN.md` §5 is the long version.
+
+**Add a board.** `hardware/seeed_xiao_esp32s3.json` (the physical board:
+pins, radios, CircuitPython ids) and `boards/esp32s3.json` (a target: a
+board plus a family plus a status), then the Adding a target section and
+`DESIGN.md` §4. A board's first bench session is `docs/bench-runbook.md`.
+
+**Understand a Deploy (what the page writes to a board).** `js/ui/deploy.js`
+(`plan()`: what differs between the board and the catalog; `deploy()`: the
+writes, in order), then `js/device/repl-device.js` (`ReplDevice`: the REPL
+snippets, from `PROTOCOL.md`) and `js/device/repl-link.js` (`ReplLink`: raw
+mode, one exchange at a time). `docs/build-and-flash.md` is the diagram of
+the whole pipeline. `js/main.js` holds the one `app` object every tab
+reads and `app.changed()` that re-renders them.
+
+**How the page validates a `fox.json`.** `js/model/schema.js` and
+`js/model/netschema.js`, which mirror `firmware/foxlib/cfg.py` and
+`netcfg.py` rule for rule; `firmware/sim/schema_parity.py` is the CI step
+that holds them together, `firmware/sim/schema_corpus.json` its cases.
+
+**A bench session, or why a bench finding is a test.** `tools/hw_smoke.py`
+(the docstring, then `main()` and the `Repl` class); a run with `--record`
+becomes a file in `tests/fixtures/bench/`, which `firmware/sim/pty_board.py
+--replay` plays back against the same script in CI (`tools/replay_check.py`).
+`tools/session_close.py` turns a run into a hardware-log row;
+`tools/bench_queue.py` says what the log still lacks.
+
+**The simulator.** `firmware/sim/run.py` (`check()`: one scenario against
+the real foxlib under `firmware/sim/mocks.py`'s CircuitPython); the
+PicoFox's C firmware runs the same scenarios through
+`firmware/foxlib-c/tests/`.
+
+Conventions worth knowing before reading: a comment that ends in
+`(page 0.18.20)` or `(foxlib 1.11)` names the version a behaviour landed
+in, and `CHANGELOG.md` has the why; `W1ABC`, `W1XYZ` and `N0CALL` are
+placeholders, never real callsigns; nothing with a device address is
+written to a fox's flash.
+
 ## Branches
 
 - `main` is what the live page is built from, and what the hardware log

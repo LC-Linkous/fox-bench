@@ -14,6 +14,19 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.18.22 — readability
+
+From the readability review of 2026-11-22: five changes, none of which
+alters behaviour (the full suite and every bench recording replay are the
+proof). What was already readable — foxlib, the device layer, the docs,
+the checkers' one-line rule tables — is left alone.
+
+- `CONTRIBUTING.md` opens with **Reading the code**: for each of seven
+  things a reader might have come to do (a fox end to end, add a template,
+  add a board, a Deploy, validation, a bench session, the simulator) the
+  three to five files in reading order and the function to open first.
+  README points at it.
+
 ### Page 0.18.21 — the bench laptop runs Windows
 
 - `hw_smoke.py --payload / --checkpoint` work on Windows through
