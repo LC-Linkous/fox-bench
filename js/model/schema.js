@@ -26,25 +26,9 @@ export function findPin(board, name) {
   return board.pins.find(p => p.name === name || (p.aliases || []).includes(name)) || null;
 }
 
-export function mergeAndValidate(user, defaults, board) {
-  const cfg = structuredClone(defaults);
-  const report = [];
-  let fatal = null;
-  const bad = (key, reason) => report.push({ key, reason });
-  const u = (user && typeof user === 'object' && !Array.isArray(user)) ? user : {};
-
-  // ---- top level gates
-  if (u.schema !== undefined && u.schema !== SCHEMA) { return {cfg, report: [{ key: 'schema', reason: `schema ${u.schema} not supported` }],
-    fatal: null, status: 'default(schema)'}; }
-  if (u.template !== undefined && u.template !== defaults.template) return {cfg,
-    report: [{ key: 'template', reason: 'does not match firmware' }], fatal: null, status: 'default(template)'};
-  if (u.board !== undefined && board && u.board !== board.id && u.board !== defaults.board) return {cfg,
-    report: [{ key: 'board', reason: 'config is for another board' }], fatal: null, status: 'default(board)'};
-  if (u.module !== undefined) { if (typeof u.module === 'string') cfg.module = u.module; else bad('module', 'string'); }
-  // foxlib-c targets (fox-bench's native firmware) have no pins section: the radio is wired on the board
-  const pinless = board?.family === 'foxlib-c';
-
-  // ---- pins
+// ---- pins
+function validatePins(ctx) {
+  const { cfg, u, defaults, board, pinless, bad } = ctx;
   const pins = !pinless && u.pins && typeof u.pins === 'object' ? u.pins : {};
   for (const role of [...REQUIRED_PINS, ...OPTIONAL_PINS]) {
     if (!(role in pins)) continue;
@@ -61,12 +45,15 @@ export function mergeAndValidate(user, defaults, board) {
   const seen = new Map();
   for (const role of [...REQUIRED_PINS, ...OPTIONAL_PINS]) {
     const v = cfg.pins[role]; if (v == null) continue;
-    if (seen.has(v)) { bad(`pins.${role}`, `shares ${v} with ${seen.get(v)}`); cfg.pins[role] = defaults.pins[role]; if (cfg.pins[role] === v) { if (REQUIRED_PINS.includes(role)) fatal = fatal || `pins.${role}`; else cfg.pins[role] = null; } }
+    if (seen.has(v)) { bad(`pins.${role}`, `shares ${v} with ${seen.get(v)}`); cfg.pins[role] = defaults.pins[role]; if (cfg.pins[role] === v) { if (REQUIRED_PINS.includes(role)) ctx.fatal = ctx.fatal || `pins.${role}`; else cfg.pins[role] = null; } }
     else seen.set(v, role);
   }
-  if (!pinless) for (const role of REQUIRED_PINS) if (!findPin(board, cfg.pins[role])) fatal = fatal || `pins.${role}`;
+  if (!pinless) for (const role of REQUIRED_PINS) if (!findPin(board, cfg.pins[role])) ctx.fatal = ctx.fatal || `pins.${role}`;
+}
 
-  // ---- radio
+// ---- radio
+function validateRadio(ctx) {
+  const { cfg, u, pinless, bad } = ctx;
   const r = u.radio || {};
   if ('family' in r) { if (typeof r.family === 'string' && r.family) cfg.radio.family = r.family; else bad('radio.family', 'string'); }
   if ('ranges_mhz' in r) { if (Array.isArray(r.ranges_mhz) && r.ranges_mhz.length && r.ranges_mhz.every(x => Array.isArray(x) && x.length === 2 && isNum(x[0]) && isNum(x[1]) && x[0] < x[1])) cfg.radio.ranges_mhz = r.ranges_mhz; else bad('radio.ranges_mhz', '[[lo,hi],…]'); }
@@ -85,8 +72,11 @@ export function mergeAndValidate(user, defaults, board) {
     if ('sample_rate' in r) { if (isInt(r.sample_rate) && inRange(r.sample_rate, 4000, 10000)) cfg.radio.sample_rate = r.sample_rate; else bad('radio.sample_rate', '4000-10000'); }
     if ('tx_while_mounted' in r) { if (typeof r.tx_while_mounted === 'boolean') cfg.radio.tx_while_mounted = r.tx_while_mounted; else bad('radio.tx_while_mounted', 'bool'); }
   }
+}
 
-  // ---- plan
+// ---- plan
+function validatePlan(ctx) {
+  const { cfg, u, bad } = ctx;
   const p = u.plan || {};
   if ('frequencies_mhz' in p) {
     if (Array.isArray(p.frequencies_mhz) && p.frequencies_mhz.length && p.frequencies_mhz.every(isNum)) cfg.plan.frequencies_mhz = p.frequencies_mhz.slice();
@@ -96,9 +86,12 @@ export function mergeAndValidate(user, defaults, board) {
   const inModule = f => cfg.radio.ranges_mhz.some(([lo, hi]) => f >= lo && f <= hi);
   const dropped = cfg.plan.frequencies_mhz.filter(f => !inModule(f));
   if (dropped.length) { bad('plan.frequencies_mhz', `out of module range: ${dropped.join(', ')}`); cfg.plan.frequencies_mhz = cfg.plan.frequencies_mhz.filter(inModule); }
-  if (!cfg.plan.frequencies_mhz.length) fatal = fatal || 'plan';
+  if (!cfg.plan.frequencies_mhz.length) ctx.fatal = ctx.fatal || 'plan';
+}
 
-  // ---- id
+// ---- id
+function validateId(ctx) {
+  const { cfg, u, bad } = ctx;
   const d = u.id || {};
   if ('callmessage' in d) { const n = typeof d.callmessage === 'string' ? utf8len(d.callmessage) : 0; if (n >= 1 && n <= 64) cfg.id.callmessage = d.callmessage; else bad('id.callmessage', '1–64 chars'); }   // bytes of UTF-8: the C firmware's buffer
   if ('placeholder' in d) { if (typeof d.placeholder === 'string' && d.placeholder) cfg.id.placeholder = d.placeholder; else bad('id.placeholder', 'string'); }
@@ -106,8 +99,11 @@ export function mergeAndValidate(user, defaults, board) {
   if ('tone_hz' in d) { if (isInt(d.tone_hz) && inRange(d.tone_hz, 300, 3000)) cfg.id.tone_hz = d.tone_hz; else bad('id.tone_hz', '300–3000'); }
   if ('telemetry' in d) { if (Array.isArray(d.telemetry) && d.telemetry.every(t => t === 'batt' || t === 'chg')) cfg.id.telemetry = d.telemetry.slice(); else bad('id.telemetry', 'subset of ["batt","chg"]'); }
   if ('tx_without_callsign' in d) { if (typeof d.tx_without_callsign === 'boolean') cfg.id.tx_without_callsign = d.tx_without_callsign; else bad('id.tx_without_callsign', 'bool'); }
+}
 
-  // ---- payload
+// ---- payload
+function validatePayload(ctx) {
+  const { cfg, u, defaults, bad } = ctx;
   const pl = u.payload;
   if (pl && typeof pl === 'object') {
     if (!['songs', 'sstv', 'none'].includes(pl.kind)) bad('payload.kind', 'songs | sstv | none');
@@ -137,8 +133,11 @@ export function mergeAndValidate(user, defaults, board) {
       cfg.payload = out;
     }
   } else if (pl !== undefined && pl !== null) bad('payload', 'object');   // null: section left to the defaults, as the firmware treats it
+}
 
-  // ---- schedule
+// ---- schedule
+function validateSchedule(ctx) {
+  const { cfg, u, bad } = ctx;
   const s = u.schedule;
   if (s && typeof s === 'object') {
     const ms = (k, lo = 0, hi = 86400000) => { if (!(k in s)) return null; if (isInt(s[k]) && inRange(s[k], lo, hi)) return s[k]; bad(`schedule.${k}`, `int ms ${lo}–${hi}`); return null; };
@@ -157,29 +156,72 @@ export function mergeAndValidate(user, defaults, board) {
       for (const [a, b] of [['alive_min_ms', 'alive_max_ms'], ['dit_min_ms', 'dit_max_ms']]) if (cfg.schedule[a] > cfg.schedule[b]) { bad(`schedule.${a}`, 'min > max'); cfg.schedule[a] = cfg.schedule[b]; }
     } else bad('schedule.kind', 'fixed | popcorn | resurrection');
   } else if (s !== undefined && s !== null) bad('schedule', 'object');
+}
 
-  // ---- battery
+// ---- battery
+function validateBattery(ctx) {
+  const { cfg, u, defaults, bad } = ctx;
   const b = u.battery || {};
   const bnum = (k, lo, hi) => { if (!(k in b)) return; if (inRange(b[k], lo, hi)) cfg.battery[k] = b[k]; else bad(`battery.${k}`, `${lo}–${hi}`); };
   bnum('divider_ratio', 1, 10); bnum('calibration', 0.5, 2); bnum('low_v', 2.5, 4.5); bnum('critical_v', 2.5, 4.5); bnum('recovery_v', 2.5, 4.5);
   if ('samples' in b) { if (isInt(b.samples) && inRange(b.samples, 1, 64)) cfg.battery.samples = b.samples; else bad('battery.samples', '1–64'); }
   if (!(cfg.battery.critical_v < cfg.battery.recovery_v && cfg.battery.recovery_v <= cfg.battery.low_v)) { bad('battery', 'need critical < recovery ≤ low'); Object.assign(cfg.battery, { low_v: defaults.battery.low_v, critical_v: defaults.battery.critical_v, recovery_v: defaults.battery.recovery_v }); }
+}
 
-  // ---- limits
+// ---- limits
+function validateLimits(ctx) {
+  const { cfg, u, bad } = ctx;
   const l = u.limits || {};
   if ('max_keydown_s' in l) { if (l.max_keydown_s === null || (isNum(l.max_keydown_s) && inRange(l.max_keydown_s, 1, 7200))) cfg.limits.max_keydown_s = l.max_keydown_s; else bad('limits.max_keydown_s', 'null or 1–7200'); }
   if ('recover' in l) { if (typeof l.recover === 'boolean') cfg.limits.recover = l.recover; else bad('limits.recover', 'true | false'); }
   if ('watchdog_s' in l) { if (l.watchdog_s === null || (isInt(l.watchdog_s) && inRange(l.watchdog_s, 10, 3600))) cfg.limits.watchdog_s = l.watchdog_s; else bad('limits.watchdog_s', 'null or 10–3600'); }
+}
 
-  // ---- fleet (opaque)
+// ---- fleet (opaque)
+function validateFleet(ctx) {
+  const { cfg, u } = ctx;
   if (u.fleet && typeof u.fleet === 'object') cfg.fleet = { ...cfg.fleet, ...u.fleet };
+}
 
-  // ---- unknown top-level keys
+// ---- unknown top-level keys
+function validateUnknownKeys(ctx) {
+  const { u, bad } = ctx;
   for (const k of Object.keys(u)) if (!['schema', 'template', 'board', 'module', 'pins', 'radio', 'plan', 'id', 'payload', 'schedule',
     'battery', 'limits', 'fleet'].includes(k)) bad(k, 'unknown key');
+}
 
-  const status = fatal ? `fatal(${fatal})` : report.length ? `partial(${report.map(x => x.key).join(',')})` : 'ok';
-  return { cfg, report, fatal, status };
+export function mergeAndValidate(user, defaults, board) {
+  const cfg = structuredClone(defaults);
+  const report = [];
+  const bad = (key, reason) => report.push({ key, reason });
+  const u = (user && typeof user === 'object' && !Array.isArray(user)) ? user : {};
+
+  // ---- top level gates
+  if (u.schema !== undefined && u.schema !== SCHEMA) { return {cfg, report: [{ key: 'schema', reason: `schema ${u.schema} not supported` }],
+    fatal: null, status: 'default(schema)'}; }
+  if (u.template !== undefined && u.template !== defaults.template) return {cfg,
+    report: [{ key: 'template', reason: 'does not match firmware' }], fatal: null, status: 'default(template)'};
+  if (u.board !== undefined && board && u.board !== board.id && u.board !== defaults.board) return {cfg,
+    report: [{ key: 'board', reason: 'config is for another board' }], fatal: null, status: 'default(board)'};
+  if (u.module !== undefined) { if (typeof u.module === 'string') cfg.module = u.module; else bad('module', 'string'); }
+  // foxlib-c targets (fox-bench's native firmware) have no pins section: the radio is wired on the board
+  const pinless = board?.family === 'foxlib-c';
+
+  // one object carries what every section reads and writes: the sections are the functions above, in CONFIG.md's order
+  const ctx = { cfg, u, defaults, board, pinless, bad, report, fatal: null };
+  validatePins(ctx);
+  validateRadio(ctx);
+  validatePlan(ctx);
+  validateId(ctx);
+  validatePayload(ctx);
+  validateSchedule(ctx);
+  validateBattery(ctx);
+  validateLimits(ctx);
+  validateFleet(ctx);
+  validateUnknownKeys(ctx);
+
+  const status = ctx.fatal ? `fatal(${ctx.fatal})` : report.length ? `partial(${report.map(x => x.key).join(',')})` : 'ok';
+  return { cfg, report, fatal: ctx.fatal, status };
 }
 
 /** Page-side checks that go beyond the firmware: callsign set, band plan, Morse characters. */

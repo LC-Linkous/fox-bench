@@ -47,26 +47,8 @@ def _blen(s):
     return len(s.encode("utf-8"))
 
 
-def validate(user, defaults, board_id=None, radios=None, board_names=None):
-    """Returns (cfg, report). radios: what the hardware has ("wifi24", "wifi5", "ble", ...) or None = don't check.
-    board_names: names the board module exposes (dir(board)) for the pins section, or None = don't check names."""
-    cfg = _copy(defaults)
-    rep = Report()
-    u = _intify(user) if isinstance(user, dict) else {}
-    if "schema" in u and u["schema"] != SCHEMA:
-        rep.mode = "default(schema)"
-        return cfg, rep
-    if "template" in u and u["template"] != defaults.get("template"):
-        rep.mode = "default(template)"
-        return cfg, rep
-    # fox.json names a target; the running board may report another CircuitPython board_id when a target runs a
-    # sibling board's build (the Waveshare S3-Nano runs as arduino_nano_esp32s3): the defaults.json written with it
-    # names the same target, so a fox.json for that target is for this board
-    if "board" in u and board_id and u["board"] != board_id and u["board"] != defaults.get("board"):
-        rep.mode = "default(board)"
-        return cfg, rep
-
-    # ---- variant (which physical board of this chip; recorded, shown in the fleet log) and its pins
+def _validate_variant_and_pins(u, cfg, defaults, rep, board_names, radios):
+    """variant (which physical board of this chip; recorded, shown in the fleet log) and its pins."""
     if "variant" in u:
         if isinstance(u["variant"], str) and 1 <= len(u["variant"]) <= 40:
             cfg["variant"] = u["variant"]
@@ -85,7 +67,9 @@ def validate(user, defaults, board_id=None, radios=None, board_names=None):
         if k not in NET_PINS:
             rep.bad("pins." + k, "unknown role")
 
-    # ---- net
+
+def _validate_net(u, cfg, defaults, rep, board_names, radios):
+    """net: the radio section for the template's kind (wifi-ap, wifi-probe, ble) and the MAC; keys the kind does not have are unknown."""
     n = u.get("net") if isinstance(u.get("net"), dict) else {}
     kind = cfg["net"]["kind"]
     if "kind" in n and n["kind"] != kind:
@@ -193,7 +177,9 @@ def validate(user, defaults, board_id=None, radios=None, board_names=None):
         if k not in cfg["net"]:
             rep.bad("net." + k, "unknown")
 
-    # ---- id
+
+def _validate_id(u, cfg, defaults, rep, board_names, radios):
+    """id: callmessage and whether it is the name on the air (not over 32 bytes if so)."""
     i = u.get("id") if isinstance(u.get("id"), dict) else {}
     if "callmessage" in i:
         if isinstance(i["callmessage"], str) and 1 <= _blen(i["callmessage"]) <= 64:
@@ -209,7 +195,9 @@ def validate(user, defaults, board_id=None, radios=None, board_names=None):
         rep.bad("id.callmessage", "over 32 bytes for a network name")
         cfg["id"]["use_callsign_as_name"] = False
 
-    # ---- schedule
+
+def _validate_schedule(u, cfg, defaults, rep, board_names, radios):
+    """schedule: duty cycle (wake_s, sleep_s) and off|deep sleep."""
     s = u.get("schedule") if isinstance(u.get("schedule"), dict) else {}
     if "kind" in s and s["kind"] != "duty":
         rep.bad("schedule.kind", "duty")
@@ -225,7 +213,9 @@ def validate(user, defaults, board_id=None, radios=None, board_names=None):
         else:
             rep.bad("schedule.sleep", "off|deep")
 
-    # ---- contest features: payload, checkpoint, sense, stealth (docs/network-fox-payloads-plan.md). Each is optional
+
+def _validate_contest_features(u, cfg, defaults, rep, board_names, radios):
+    """contest features: payload, checkpoint, sense, stealth (docs/network-fox-payloads-plan.md). Each is optional and off unless fox.json carries it; a section the defaults lack starts from FEATURE_DEFAULTS. Deep sleep is refused while a portal is on."""
     # and off unless fox.json carries it; a section the defaults lack starts from FEATURE_DEFAULTS. Phase A accepts and
     # reports them; what each does arrives in phases B-E and is logged as "not in this foxlib" until then.
     for sec in FEATURES:
@@ -242,7 +232,9 @@ def validate(user, defaults, board_id=None, radios=None, board_names=None):
         rep.bad("schedule.sleep", "deep sleep would drop a hunter mid-page; off")      # the page refuses the same way
         cfg["schedule"]["sleep"] = "off"
 
-    # ---- led, fleet
+
+def _validate_led_and_fleet(u, cfg, defaults, rep, board_names, radios):
+    """led, fleet (owner / points_to and the keys the defaults carry)."""
     l = u.get("led") if isinstance(u.get("led"), dict) else {}
     if "enabled" in l:
         if isinstance(l["enabled"], bool):
@@ -253,6 +245,34 @@ def validate(user, defaults, board_id=None, radios=None, board_names=None):
         for k, v in u["fleet"].items():
             if (k in cfg["fleet"] or k in ("owner", "points_to")) and (v is None or isinstance(v, (str, int))):
                 cfg["fleet"][k] = v
+
+
+def validate(user, defaults, board_id=None, radios=None, board_names=None):
+    """Returns (cfg, report). radios: what the hardware has ("wifi24", "wifi5", "ble", ...) or None = don't check.
+    board_names: names the board module exposes (dir(board)) for the pins section, or None = don't check names."""
+    cfg = _copy(defaults)
+    rep = Report()
+    u = _intify(user) if isinstance(user, dict) else {}
+    if "schema" in u and u["schema"] != SCHEMA:
+        rep.mode = "default(schema)"
+        return cfg, rep
+    if "template" in u and u["template"] != defaults.get("template"):
+        rep.mode = "default(template)"
+        return cfg, rep
+    # fox.json names a target; the running board may report another CircuitPython board_id when a target runs a
+    # sibling board's build (the Waveshare S3-Nano runs as arduino_nano_esp32s3): the defaults.json written with it
+    # names the same target, so a fox.json for that target is for this board
+    if "board" in u and board_id and u["board"] != board_id and u["board"] != defaults.get("board"):
+        rep.mode = "default(board)"
+        return cfg, rep
+
+    # ---- the sections, in CONFIG.md's order; each takes what it needs from the user's dict and writes cfg
+    _validate_variant_and_pins(u, cfg, defaults, rep, board_names, radios)
+    _validate_net(u, cfg, defaults, rep, board_names, radios)
+    _validate_id(u, cfg, defaults, rep, board_names, radios)
+    _validate_schedule(u, cfg, defaults, rep, board_names, radios)
+    _validate_contest_features(u, cfg, defaults, rep, board_names, radios)
+    _validate_led_and_fleet(u, cfg, defaults, rep, board_names, radios)
     if rep.items and rep.mode == "ok":
         rep.mode = "partial"
     return cfg, rep

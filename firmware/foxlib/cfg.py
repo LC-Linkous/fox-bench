@@ -20,33 +20,8 @@ OPTIONAL_PINS = ("led", "batt_sense")
 TOP_KEYS = ("schema", "template", "board", "module", "pins", "radio", "plan", "id", "payload", "schedule", "battery", "limits", "fleet")
 
 
-def validate(user, defaults, board_names, board_id=None):
-    """Returns (cfg, report). board_names: names the board module exposes (dir(board))."""
-    cfg = _copy(defaults)
-    rep = Report()
-    u = _intify(user) if isinstance(user, dict) else {}
-    has = lambda name: isinstance(name, str) and name in board_names
-
-    # ---- gates: whole-file fallbacks
-    if "schema" in u and u["schema"] != SCHEMA:
-        rep.mode = "default(schema)"
-        return cfg, rep
-    if "template" in u and u["template"] != defaults.get("template"):
-        rep.mode = "default(template)"
-        return cfg, rep
-    # fox.json names a target; the running board may report another CircuitPython board_id when a target runs a
-    # sibling board's build (the Waveshare S3-Nano runs as arduino_nano_esp32s3): the defaults.json written with it
-    # names the same target, so a fox.json for that target is for this board
-    if "board" in u and board_id and u["board"] != board_id and u["board"] != defaults.get("board"):
-        rep.mode = "default(board)"
-        return cfg, rep
-    if "module" in u:
-        if isinstance(u["module"], str):
-            cfg["module"] = u["module"]
-        else:
-            rep.bad("module", "string")
-
-    # ---- pins
+def _validate_pins(u, cfg, defaults, rep, has):
+    """pins: each role a name the board has; a pin shared by two roles goes back to the default (fatal when a required one cannot)."""
     pins = u.get("pins") if isinstance(u.get("pins"), dict) else {}
     for role in REQUIRED_PINS + OPTIONAL_PINS:
         if role not in pins:
@@ -84,7 +59,9 @@ def validate(user, defaults, board_names, board_id=None):
         if not has(cfg["pins"].get(role)):
             rep.fatal = rep.fatal or "pins." + role
 
-    # ---- radio
+
+def _validate_radio(u, cfg, defaults, rep, has):
+    """radio: module family, ranges, bandwidth, power, squelch, volume, high_power."""
     r = u.get("radio") if isinstance(u.get("radio"), dict) else {}
     if "family" in r:
         if isinstance(r["family"], str) and r["family"]:
@@ -125,7 +102,9 @@ def validate(user, defaults, board_names, board_id=None):
         else:
             rep.bad("radio.high_power", "bool")
 
-    # ---- plan
+
+def _validate_plan(u, cfg, defaults, rep, has):
+    """plan: the frequency list, kept inside the module's ranges (fatal when nothing is left)."""
     p = u.get("plan") if isinstance(u.get("plan"), dict) else {}
     if "frequencies_mhz" in p:
         fl = p["frequencies_mhz"]
@@ -147,7 +126,9 @@ def validate(user, defaults, board_names, board_id=None):
     if not kept:
         rep.fatal = rep.fatal or "plan"
 
-    # ---- id
+
+def _validate_id(u, cfg, defaults, rep, has):
+    """id: callmessage, placeholder, wpm, tone, telemetry, tx_without_callsign."""
     d = u.get("id") if isinstance(u.get("id"), dict) else {}
     if "callmessage" in d:
         if isinstance(d["callmessage"], str) and 1 <= len(d["callmessage"].encode("utf-8")) <= 64:   # bytes, as the C firmware counts
@@ -180,7 +161,9 @@ def validate(user, defaults, board_names, board_id=None):
         else:
             rep.bad("id.tx_without_callsign", "bool")
 
-    # ---- payload
+
+def _validate_payload(u, cfg, defaults, rep, has):
+    """payload: songs (a playlist), sstv (an images file) or none (a message); bad entries fall back one by one."""
     pl = u.get("payload")
     if isinstance(pl, dict):
         kind = pl.get("kind")
@@ -237,7 +220,9 @@ def validate(user, defaults, board_names, board_id=None):
     elif pl is not None:
         rep.bad("payload", "object")
 
-    # ---- schedule
+
+def _validate_schedule(u, cfg, defaults, rep, has):
+    """schedule: fixed, popcorn or resurrection, each with its own millisecond fields; min>max is clamped."""
     s = u.get("schedule")
     if isinstance(s, dict):
         def ms(k, default, lo=0, hi=86400000):
@@ -289,7 +274,9 @@ def validate(user, defaults, board_names, board_id=None):
     elif s is not None:
         rep.bad("schedule", "object")
 
-    # ---- battery
+
+def _validate_battery(u, cfg, defaults, rep, has):
+    """battery: divider, calibration, the three thresholds in order (critical < recovery <= low)."""
     b = u.get("battery") if isinstance(u.get("battery"), dict) else {}
     for k, lo, hi in (("divider_ratio", 1, 10), ("calibration", 0.5, 2), ("low_v", 2.5, 4.5), ("critical_v", 2.5, 4.5), ("recovery_v", 2.5, 4.5)):
         if k in b:
@@ -308,7 +295,9 @@ def validate(user, defaults, board_names, board_id=None):
         for k in ("low_v", "critical_v", "recovery_v"):
             bb[k] = defaults["battery"][k]
 
-    # ---- limits
+
+def _validate_limits(u, cfg, defaults, rep, has):
+    """limits: max_keydown_s, watchdog_s, recover."""
     l = u.get("limits") if isinstance(u.get("limits"), dict) else {}
     if "max_keydown_s" in l:
         v = l["max_keydown_s"]
@@ -328,7 +317,9 @@ def validate(user, defaults, board_names, board_id=None):
         else:
             rep.bad("limits.recover", "true | false")
 
-    # ---- fleet (opaque), unknown keys
+
+def _validate_fleet_and_unknown(u, cfg, defaults, rep, has):
+    """fleet (opaque, merged over the defaults) and the keys this schema does not know."""
     if isinstance(u.get("fleet"), dict):
         fl = dict(cfg.get("fleet") or {})
         fl.update(_copy(u["fleet"]))
@@ -336,6 +327,44 @@ def validate(user, defaults, board_names, board_id=None):
     for k in u:
         if k not in TOP_KEYS:
             rep.bad(k, "unknown key")
+
+
+def validate(user, defaults, board_names, board_id=None):
+    """Returns (cfg, report). board_names: names the board module exposes (dir(board))."""
+    cfg = _copy(defaults)
+    rep = Report()
+    u = _intify(user) if isinstance(user, dict) else {}
+    has = lambda name: isinstance(name, str) and name in board_names
+
+    # ---- gates: whole-file fallbacks
+    if "schema" in u and u["schema"] != SCHEMA:
+        rep.mode = "default(schema)"
+        return cfg, rep
+    if "template" in u and u["template"] != defaults.get("template"):
+        rep.mode = "default(template)"
+        return cfg, rep
+    # fox.json names a target; the running board may report another CircuitPython board_id when a target runs a
+    # sibling board's build (the Waveshare S3-Nano runs as arduino_nano_esp32s3): the defaults.json written with it
+    # names the same target, so a fox.json for that target is for this board
+    if "board" in u and board_id and u["board"] != board_id and u["board"] != defaults.get("board"):
+        rep.mode = "default(board)"
+        return cfg, rep
+    if "module" in u:
+        if isinstance(u["module"], str):
+            cfg["module"] = u["module"]
+        else:
+            rep.bad("module", "string")
+
+    # ---- the sections, in CONFIG.md's order; each takes what it needs from the user's dict and writes cfg
+    _validate_pins(u, cfg, defaults, rep, has)
+    _validate_radio(u, cfg, defaults, rep, has)
+    _validate_plan(u, cfg, defaults, rep, has)
+    _validate_id(u, cfg, defaults, rep, has)
+    _validate_payload(u, cfg, defaults, rep, has)
+    _validate_schedule(u, cfg, defaults, rep, has)
+    _validate_battery(u, cfg, defaults, rep, has)
+    _validate_limits(u, cfg, defaults, rep, has)
+    _validate_fleet_and_unknown(u, cfg, defaults, rep, has)
     if rep.items and rep.mode == "ok":
         rep.mode = "partial"
     return cfg, rep

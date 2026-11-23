@@ -40,6 +40,14 @@ the checkers' one-line rule tables — is left alone.
   from 575 to 233; what is left is method chains and long strings, which
   this does not touch. The parsed AST of every file is identical before
   and after; lint, unit and smoke agree.
+- The four validators are one function per section (foxlib 1.11.1):
+  `cfg.validate` (319 lines) is nine `_validate_<section>` functions and a
+  twelve-line driver; `netcfg.validate` (209) six; `schema.js` and
+  `netschema.js` the same way, their sections sharing one `ctx` object
+  (`cfg`, `u`, `defaults`, `board`, `bad`, `fatal`). The rules themselves are
+  untouched: schema parity, the 241 simulator runs and the unit tests pass
+  unchanged. On the board this costs fifteen function objects, well under a
+  kilobyte.
 
 ### Page 0.18.21 — the bench laptop runs Windows
 

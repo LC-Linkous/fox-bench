@@ -80,19 +80,9 @@ export function parseMac(s, n = 6) {
 
 /** Like Python's _intify: a float with an integral value is an int (JSON has one number type; the firmware sees both). */
 
-export function validate(user, defaults, board) {
-  const cfg = structuredClone(defaults), report = [];
-  const bad = (key, reason) => report.push({ key, reason });
-  const u = user && typeof user === 'object' && !Array.isArray(user) ? user : {};
-  const radios = board?.radios || null;
-  if (u.schema !== undefined && u.schema !== SCHEMA) return {cfg, report: [{ key: 'schema', reason: `schema ${u.schema} not supported` }],
-    fatal: null, status: 'default(schema)'};
-  if (u.template !== undefined && u.template !== defaults.template) return {cfg,
-    report: [{ key: 'template', reason: 'does not match firmware' }], fatal: null, status: 'default(template)'};
-  if (u.board !== undefined && board && u.board !== board.id && u.board !== defaults.board) return {cfg,
-    report: [{ key: 'board', reason: 'config is for another board' }], fatal: null, status: 'default(board)'};
-
-  // variant (which physical board of this chip) and its pins: names the board module exposes, or null
+// ---- variant (which physical board of this chip) and its pins
+function validateVariantAndPins(ctx) {
+  const { cfg, u, board, bad } = ctx;
   if ('variant' in u) { if (typeof u.variant === 'string' && u.variant.length >= 1 && u.variant.length <= 40) cfg.variant = u.variant; else bad('variant', 'string'); }
   const names = board?.pins ? new Set(board.pins.flatMap(p => [p.name, ...(p.aliases || [])])) : null;
   const pins = u.pins && typeof u.pins === 'object' ? u.pins : {};
@@ -103,7 +93,11 @@ export function validate(user, defaults, board) {
     else bad('pins.' + role, typeof v === 'string' ? `no pin ${v} on this board` : 'name or null');
   }
   for (const k of Object.keys(pins)) if (!NET_PINS.includes(k)) bad('pins.' + k, 'unknown role');
+}
 
+// ---- net: the radio section for the template's kind (wifi-ap, wifi-probe, ble) and the MAC
+function validateNet(ctx) {
+  const { cfg, u, radios, bad } = ctx;
   const n = u.net && typeof u.net === 'object' ? u.net : {};
   const kind = cfg.net.kind;
   if ('kind' in n && n.kind !== kind) bad('net.kind', 'fixed by the template');
@@ -147,17 +141,29 @@ export function validate(user, defaults, board) {
   }
   if ('mac' in n) { if (parseMac(n.mac)) cfg.net.mac = n.mac.toUpperCase().replace(/-/g, ':'); else bad('net.mac', '6 hex bytes, unicast'); }
   for (const k of Object.keys(n)) if (!(k in cfg.net)) bad('net.' + k, 'unknown');
+}
 
+// ---- id: callmessage and whether it is the name on the air
+function validateId(ctx) {
+  const { cfg, u, bad } = ctx;
   const i = u.id && typeof u.id === 'object' ? u.id : {};
   if ('callmessage' in i) { if (typeof i.callmessage === 'string' && blen(i.callmessage) >= 1 && blen(i.callmessage) <= 64) cfg.id.callmessage = i.callmessage; else bad('id.callmessage', '1-64 chars'); }
   if ('use_callsign_as_name' in i) { if (typeof i.use_callsign_as_name === 'boolean') cfg.id.use_callsign_as_name = i.use_callsign_as_name; else bad('id.use_callsign_as_name', 'bool'); }
   if (cfg.id.use_callsign_as_name && blen(cfg.id.callmessage) > MAX_NAME) { bad('id.callmessage', 'over 32 bytes for a network name'); cfg.id.use_callsign_as_name = false; }
+}
 
+// ---- schedule: duty cycle and off|deep sleep
+function validateSchedule(ctx) {
+  const { cfg, u, bad } = ctx;
   const s = u.schedule && typeof u.schedule === 'object' ? u.schedule : {};
   if ('kind' in s && s.kind !== 'duty') bad('schedule.kind', 'duty');
   for (const [k, lo, hi] of [['wake_s', 1, 3600], ['sleep_s', 0, 86400]]) if (k in s) { if (isInt(s[k]) && s[k] >= lo && s[k] <= hi) cfg.schedule[k] = s[k]; else bad('schedule.' + k, `${lo}-${hi}`); }
   if ('sleep' in s) { if (s.sleep === 'off' || s.sleep === 'deep') cfg.schedule.sleep = s.sleep; else bad('schedule.sleep', 'off|deep'); }
+}
 
+// ---- contest features: payload, checkpoint, sense, stealth; deep sleep refused while a portal is on
+function validateContestFeatures(ctx) {
+  const { cfg, u, radios, bad } = ctx;
   // contest features (docs/network-fox-payloads-plan.md): optional sections, each from FEATURE_DEFAULTS when the
   // defaults file lacks it; same checks and order as netcfg._validate_feature
   for (const sec of FEATURES) {
@@ -170,10 +176,36 @@ export function validate(user, defaults, board) {
   const cpv = cfg.checkpoint;
   if (cpv && cpv.enabled && cpv.portal.enabled && cfg.schedule.sleep === 'deep') { bad('schedule.sleep',
     'deep sleep would drop a hunter mid-page; off'); cfg.schedule.sleep = 'off'; }
+}
 
+// ---- led, fleet
+function validateLedAndFleet(ctx) {
+  const { cfg, u, bad } = ctx;
   const l = u.led && typeof u.led === 'object' ? u.led : {};
   if ('enabled' in l) { if (typeof l.enabled === 'boolean') cfg.led.enabled = l.enabled; else bad('led.enabled', 'bool'); }
   if (u.fleet && typeof u.fleet === 'object') for (const [k, v] of Object.entries(u.fleet)) if ((k in cfg.fleet || k === 'owner' || k === 'points_to') && (v === null || typeof v === 'string' || typeof v === 'number')) cfg.fleet[k] = v;
+}
+
+export function validate(user, defaults, board) {
+  const cfg = structuredClone(defaults), report = [];
+  const bad = (key, reason) => report.push({ key, reason });
+  const u = user && typeof user === 'object' && !Array.isArray(user) ? user : {};
+  const radios = board?.radios || null;
+  if (u.schema !== undefined && u.schema !== SCHEMA) return {cfg, report: [{ key: 'schema', reason: `schema ${u.schema} not supported` }],
+    fatal: null, status: 'default(schema)'};
+  if (u.template !== undefined && u.template !== defaults.template) return {cfg,
+    report: [{ key: 'template', reason: 'does not match firmware' }], fatal: null, status: 'default(template)'};
+  if (u.board !== undefined && board && u.board !== board.id && u.board !== defaults.board) return {cfg,
+    report: [{ key: 'board', reason: 'config is for another board' }], fatal: null, status: 'default(board)'};
+
+  // one object carries what every section reads and writes: the sections are the functions above, in CONFIG.md's order
+  const ctx = { cfg, u, defaults, board, radios, bad, report };
+  validateVariantAndPins(ctx);
+  validateNet(ctx);
+  validateId(ctx);
+  validateSchedule(ctx);
+  validateContestFeatures(ctx);
+  validateLedAndFleet(ctx);
 
   const status = report.length ? `partial(${report.map(x => x.key).join(',')})` : 'ok';
   return { cfg, report, fatal: null, status };
