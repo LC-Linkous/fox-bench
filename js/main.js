@@ -47,8 +47,10 @@ const LEDES = { drive: {
   bench: 'Bench actions for this firmware go over its serial console (Listen only, then type key 2, tone 800 2, id, batt, status).',
 } };
 const TAB_ID = Math.random().toString(36).slice(2, 10);   // this page load, for the saved-form handoff between tabs
-const TABS = { board: tabBoard, radio: tabRadio, behavior: tabBehavior, plan: tabPlan, id: tabId, payload: tabPayload, schedule: tabSchedule, deploy: tabDeploy, bench: tabBench, fleet: tabFleet, about: tabAbout };
-const TAB_KEYS = { radio: ['radio', 'module', 'pins', 'net'], plan: ['plan'], id: ['id'], payload: ['payload', 'checkpoint', 'sense', 'stealth'], schedule: ['schedule'] };
+const TABS = {board: tabBoard, radio: tabRadio, behavior: tabBehavior, plan: tabPlan, id: tabId, payload: tabPayload, schedule: tabSchedule,
+  deploy: tabDeploy, bench: tabBench, fleet: tabFleet, about: tabAbout};
+const TAB_KEYS = {radio: ['radio', 'module', 'pins', 'net'], plan: ['plan'], id: ['id'],
+  payload: ['payload', 'checkpoint', 'sense', 'stealth'], schedule: ['schedule']};
 
 export const app = {
   version: VERSION,
@@ -117,11 +119,14 @@ export const app = {
   /** The precompiled set for the connected board's CircuitPython major, with why there is none: Deploy's checkbox. */
   mpySetFor(cpVersion) {
     const majors = Object.keys(this.catalog.mpySets);
-    if (!majors.length) return { set: null, why: 'no precompiled set on this site: the hosted page has one (CI builds it); a checkout gets one from  python3 tools/build_mpy.py' };
+    if (!majors.length) return {set: null,
+      why: 'no precompiled set on this site: the hosted page has one (CI builds it); a checkout gets one from  python3 tools/build_mpy.py'};
     const major = (cpVersion || '').split('.')[0];
     const set = this.catalog.mpySets[major] || (!cpVersion && majors.length === 1 ? this.catalog.mpySets[majors[0]] : null);
-    if (!set) return { set: null, major, why: cpVersion ? `no precompiled set for CircuitPython ${major}.x (sets: ${majors.join(', ')})` : 'connect a board to know its CircuitPython major' };
-    if (set.foxlib !== this.catalog.foxlibVersion) return { set: null, major, why: `the ${major}.x set is foxlib ${set.foxlib}, this page has ${this.catalog.foxlibVersion}: rebuild it (python3 tools/build_mpy.py)` };
+    if (!set) return {set: null, major,
+      why: cpVersion ? `no precompiled set for CircuitPython ${major}.x (sets: ${majors.join(', ')})` : 'connect a board to know its CircuitPython major'};
+    if (set.foxlib !== this.catalog.foxlibVersion) return {set: null, major,
+      why: `the ${major}.x set is foxlib ${set.foxlib}, this page has ${this.catalog.foxlibVersion}: rebuild it (python3 tools/build_mpy.py)`};
     return { set, major: major || majors[0] };
   },
   /** Templates that apply to a family. */
@@ -177,7 +182,8 @@ export const app = {
     const h = this.handoff;
     if (!h) return [];
     const out = h.unresolved.map(u => ({ level: 'err', key: u.path || 'fleet.points_to', msg: `handoff: ${u.why}` }));
-    if (h.target && !h.used.length && !h.unresolved.length) out.push({ level: 'info', key: 'fleet.points_to', msg: `points to "${h.target.name}" but no text uses it yet ({{to.freq}}, {{to.name}}, {{to.code}}, {{to.number}}, {{to.callsign}})` });
+    if (h.target && !h.used.length && !h.unresolved.length) out.push({level: 'info', key: 'fleet.points_to',
+      msg: `points to "${h.target.name}" but no text uses it yet ({{to.freq}}, {{to.name}}, {{to.code}}, {{to.number}}, {{to.callsign}})`});
     return out;
   },
   _changed(source) {
@@ -187,14 +193,18 @@ export const app = {
     } else if (this.isNet) {
       const src = this._handoff();
       const r = netValidate(src, this.defaults, { ...this.board, radios: this.hardware?.radios });
-      this.report = r.report; this.status = r.status; this.validCfg = r.cfg; this.issues = netChecks(r.cfg, { ...this.board, radios: this.hardware?.radios || [] }, { clockSet: this.deployClock?.enabled });
+      this.report = r.report; this.status = r.status; this.validCfg = r.cfg; this.issues = netChecks(r.cfg,
+        { ...this.board, radios: this.hardware?.radios || [] }, { clockSet: this.deployClock?.enabled });
       this.issues.push(...this._handoffIssues());
     } else {
       const src = this._handoff();
       const r = mergeAndValidate(src, this.defaults, this.board);
       this.report = r.report; this.status = r.status;
-      this.issues = pageChecks(r.cfg, { bands: this.catalog.bands, region: this.region, morseTable: MORSE, templateManifest: this.template, module: this.module, pinless: this.family === 'foxlib-c' });
-      if (this.family === 'foxlib-c') this.issues.push(...foxlibcCompat(r.cfg, { foxVersion: this.device ? this.onBoard?.foxlibVersion : '', hostedVersion: this.catalog.foxlibcVersion }));
+      this.issues = pageChecks(r.cfg,
+        {bands: this.catalog.bands, region: this.region, morseTable: MORSE, templateManifest: this.template, module: this.module,
+          pinless: this.family === 'foxlib-c'});
+      if (this.family === 'foxlib-c') this.issues.push(...foxlibcCompat(r.cfg,
+        { foxVersion: this.device ? this.onBoard?.foxlibVersion : '', hostedVersion: this.catalog.foxlibcVersion }));
       this.issues.push(...this._handoffIssues());
       this.validCfg = r.cfg;
     }
@@ -213,13 +223,16 @@ export const app = {
     // save seen from another tab (the `storage` event, wired at boot) makes this tab stop saving until something is
     // edited here again — whichever tab was touched last owns the saved form, and nothing is lost silently.
     if (this._yieldSave && source !== 'boot') { /* another tab saved more recently; this tab's form stays in memory */ }
-    else try { localStorage.setItem('fox-bench.working', JSON.stringify({ version: VERSION, tab: TAB_ID, cfg: this.cfg, boardId: this.boardId, templateId: this.templateId, moduleId: this.moduleId, region: this.region })); this._storageWarned = false; }
+    else try { localStorage.setItem('fox-bench.working',
+      JSON.stringify({version: VERSION, tab: TAB_ID, cfg: this.cfg, boardId: this.boardId, templateId: this.templateId,
+        moduleId: this.moduleId, region: this.region})); this._storageWarned = false; }
     catch (e) { if (!this._storageWarned) { this._storageWarned = true; this.console.err(`the form is not being remembered between page loads: browser storage refused it (${e.message || e})`); } }
     for (const [tab, keys] of Object.entries(TAB_KEYS)) {
       const bad = [...this.report.map(x => ({ level: 'err', key: x.key })), ...this.issues].filter(i => keys.some(k => i.key === k || i.key.startsWith(k + '.')));
       setFlag(tab, bad.some(i => i.level === 'err') ? 'err' : bad.some(i => i.level === 'warn') ? 'warn' : '');
     }
-    setFlag('deploy', this.report.length || this.issues.some(i => i.level === 'err' && i.blocking !== false) ? 'err' : this.issues.some(i => i.level === 'err') ? 'warn' : this.connected ? 'ok' : '');
+    setFlag('deploy',
+      this.report.length || this.issues.some(i => i.level === 'err' && i.blocking !== false) ? 'err' : this.issues.some(i => i.level === 'err') ? 'warn' : this.connected ? 'ok' : '');
     for (const fn of this.listeners) fn(source);
     $('#tmplBadge').textContent = `${this.template.name}${this.template.status === 'experimental' ? ' · experimental' : ''}`;
     $('#tmplBadge').className = 'badge ' + (this.template.status === 'experimental' ? 'warn' : 'info'); $('#tmplBadge').hidden = false;
@@ -269,7 +282,8 @@ export const app = {
       return;
     }
     await this.disconnect();
-    this.console.line(`disconnected from the ${was}: ${next.name} is a different kind of board (${(next.family || 'foxlib') === 'foxlib' ? 'REPL' : 'USB drive'}), connect it when you are ready to deploy`, 'ok');
+    this.console.line(`disconnected from the ${was}: ${next.name} is a different kind of board (${(next.family || 'foxlib') === 'foxlib' ? 'REPL' : 'USB drive'}), connect it when you are ready to deploy`,
+      'ok');
   },
   /** Run a device action from a button: a rejection becomes a console line instead of a silent no-op (audit W12). */
   async guard(fn) { try { return await fn(); } catch (e) { this.console.err(e?.message || String(e)); return undefined; } },
@@ -303,7 +317,8 @@ export const app = {
       this.console.dim(`board ${this.board.name}: radio, module and pins reset to this board's defaults (${this.cfg.radio.family}); plan, ID, payload and schedule kept`);
     } else {
       this.cfg.board = id; if (this.defaults.pins) this.cfg.pins = structuredClone(this.defaults.pins);
-      if (this.board.module_fixed) { this.cfg.module = this.moduleId; this.cfg.radio = { ...this.cfg.radio, ...structuredClone(this.defaults.radio) }; }
+      if (this.board.module_fixed) { this.cfg.module = this.moduleId; this.cfg.radio = {...this.cfg.radio,
+        ...structuredClone(this.defaults.radio)}; }
     }
     this._moduleFollowsBoard();
     this._applyVariant();
@@ -347,7 +362,8 @@ export const app = {
     name = (name || '').trim(); if (!name) return null;
     this.cfg.fleet = { ...this.cfg.fleet, profile: name };
     let rec;
-    try { rec = profiles.save({ name, template: this.templateId, board: this.boardId, module: this.moduleId, cfg: structuredClone(this.cfg), images: this.images }); }
+    try { rec = profiles.save({name, template: this.templateId, board: this.boardId, module: this.moduleId, cfg: structuredClone(this.cfg),
+      images: this.images}); }
     catch (e) { this.console.err(`profile "${name}" NOT saved: ${e.message || e}`); return null; }
     this.console.line(`profile "${name}" saved`, 'ok');
     this.changed('profile');
@@ -393,13 +409,17 @@ export const app = {
     device.onLog = (t, cls) => cls === 'tx' ? this.console.tx(t) : cls === 'reply' ? this.console.reply(t) : cls === 'ok' ? this.console.line(t, 'ok') : cls === 'err' ? this.console.err(t) : this.console.dim(t);
     this.setStatus(kind === 'demo' ? 'Starting simulated board…' : listen ? 'Opening port…' : 'Connecting…');
     if (listen && kind !== 'demo') {
-      this.device = device; this.info = await device.listen(); this.onBoard = { cfg: null, raw: null, foxlibVersion: '', foxlibMissing: [], foxlibComplete: false, files: {}, template: null, listening: true };
+      this.device = device; this.info = await device.listen(); this.onBoard = {cfg: null, raw: null, foxlibVersion: '', foxlibMissing: [],
+        foxlibComplete: false, files: {}, template: null, listening: true};
       // banner lines that scroll past while listening update the status
       const prev = device.onLog; device.onLog = (t, cls) => { prev(t, cls); const b = parseBanner(t); if (b) { this.lastBanner = b; this.info = { ...this.info, boardId: b.board || '?', uid: b.uid || '' }; this.onBoard.foxlibVersion = b.foxlib || ''; this.onBoard.template = (b.template || '').split('/')[0] || null; this.setStatus(`Listening · ${b.board} · uid ${(b.uid || '').slice(-6)} · ${b.template} · cfg=${b.cfg} radio=${b.radio}`, 'tx'); this.changed('banner'); this._followBanner(b); }
-        else if (this.family === 'drive' && this.vendor?.BOOT_OK?.test(t)) { this.setStatus(`Listening · ${this.board.name} · firmware up, transmitting`, 'tx'); this.changed('banner'); }
-        else if (this.family === 'drive' && this.vendor?.BOOT_REGEN?.test(t)) { this.console.line('the firmware is regenerating its own ID audio: the marker file did not match settings.txt (expected after a hand edit; not after a page deploy)', 'err'); } };
+        else if (this.family === 'drive' && this.vendor?.BOOT_OK?.test(t)) { this.setStatus(`Listening · ${this.board.name} · firmware up, transmitting`,
+          'tx'); this.changed('banner'); }
+        else if (this.family === 'drive' && this.vendor?.BOOT_REGEN?.test(t)) { this.console.line('the firmware is regenerating its own ID audio: the marker file did not match settings.txt (expected after a hand edit; not after a page deploy)',
+          'err'); } };
       $('#connectBtn').textContent = 'Disconnect'; $('#listenBtn').hidden = true; this.console.setEnabled(this.family === 'foxlib-c');   // the foxlib-c console takes text commands
-      this.setStatus(this.family === 'drive' ? `Listening on the ${this.board.name} serial port — switch it off and on to see its boot messages` : this.family === 'foxlib-c' ? `Listening on the ${this.board.name} console — its banner appears now; type help in the console` : 'Listening — fox output streams to the console; tap R on the board to see its boot banner', 'tx');
+      this.setStatus(this.family === 'drive' ? `Listening on the ${this.board.name} serial port — switch it off and on to see its boot messages` : this.family === 'foxlib-c' ? `Listening on the ${this.board.name} console — its banner appears now; type help in the console` : 'Listening — fox output streams to the console; tap R on the board to see its boot banner',
+        'tx');
       this.changed('connect'); return;
     }
     try { this.info = await device.connect(); }
@@ -414,8 +434,10 @@ export const app = {
     $('#demoBtn').setAttribute('aria-pressed', kind === 'demo' ? 'true' : 'false');
     $('#connectBtn').textContent = 'Disconnect'; $('#listenBtn').hidden = true;
     this.console.setEnabled((kind !== 'demo' && !this.usesDrive) || !!this.sideConsole);
-    if (this.usesDrive) { this.setStatus(`${kind === 'demo' ? 'Demo · ' : ''}${this.board.name} · drive "${this.info.driveName || ''}"`, kind === 'demo' ? 'demo' : 'ok'); await this.readDrive(); this.changed('connect'); return; }
-    this.setStatus(`${kind === 'demo' ? 'Demo · ' : ''}${this.info.boardId} · uid ${this.info.uid.slice(-6)}${this.info.foxlibVersion ? ' · foxlib ' + this.info.foxlibVersion : ' · no fox firmware'}`, kind === 'demo' ? 'demo' : 'ok');
+    if (this.usesDrive) { this.setStatus(`${kind === 'demo' ? 'Demo · ' : ''}${this.board.name} · drive "${this.info.driveName || ''}"`,
+      kind === 'demo' ? 'demo' : 'ok'); await this.readDrive(); this.changed('connect'); return; }
+    this.setStatus(`${kind === 'demo' ? 'Demo · ' : ''}${this.info.boardId} · uid ${this.info.uid.slice(-6)}${this.info.foxlibVersion ? ' · foxlib ' + this.info.foxlibVersion : ' · no fox firmware'}`,
+      kind === 'demo' ? 'demo' : 'ok');
     { const r = this.resolveBoardId(this.info.boardId); if (r && (r.target !== this.boardId || (r.variant && r.variant !== this.variantId))) await this.setBoard(r.target, { variant: r.variant }); if (r?.variant && this.board.circuitpython?.shared_build) this.console.dim(`${this.info.boardId} is a build shared by ${this.variants.map(v => v.variantName).join(' and ')}: keeping ${this.board.variantName || this.board.name} as the board`); }
     try { await this.readBoard(); }
     catch (e) { this.console.err(`connected, but reading the board failed: ${e.message || e} — Re-read board on the Board tab retries`); }
@@ -440,7 +462,9 @@ export const app = {
     const wasFamily = this.family;
     // W6: following the banner rewrites the working form (board, maybe template and config); keep what was there
     const before = { cfg: structuredClone(this.cfg), boardId: this.boardId, templateId: this.templateId, moduleId: this.moduleId };
-    this.undoFollow = async () => { this.undoFollow = null; await this.loadCfg({ ...before.cfg, board: before.boardId, template: before.templateId, module: before.moduleId }, { source: 'undo' }); this.console.line(`form restored to ${before.boardId} / ${before.templateId}`, 'ok'); };
+    this.undoFollow = async () => { this.undoFollow = null; await this.loadCfg({...before.cfg, board: before.boardId,
+      template: before.templateId, module: before.moduleId},
+      { source: 'undo' }); this.console.line(`form restored to ${before.boardId} / ${before.templateId}`, 'ok'); };
     this.console.dim(`banner says ${b.board}: selecting ${target === b.board ? 'that board' : `the ${this.catalog.boards[target].name} (it runs that CircuitPython build)`} (the form you had is kept: window.foxbench.undoFollow() in the browser console brings it back)`);
     await this.setBoard(target, { keepDevice: true, variant: res.variant });
     if (!this.device) return;                       // dropped meanwhile (deep sleep, a reset): nothing to swap
@@ -472,7 +496,8 @@ export const app = {
       // board.json is rewritten by the firmware at boot (0.1.4+) — a firmware that predates it leaves an old one behind.
       // The banner, when one was seen, is the truth about what runs now.
       if (ident?.foxlib && this.lastBanner?.foxlib && this.lastBanner.foxlib !== ident.foxlib) { this.console.err(`board.json says ${ident.foxlib} but the fox's banner said ${this.lastBanner.foxlib}: the file is stale (that firmware does not write it). Going by the banner.`); ident.foxlib = this.lastBanner.foxlib; }
-      const ob = { cfg: null, raw, foxlibVersion: ident?.foxlib || this.onBoard.foxlibVersion || '', foxlibMissing: [], foxlibComplete: true, files, template: null, ident };
+      const ob = {cfg: null, raw, foxlibVersion: ident?.foxlib || this.onBoard.foxlibVersion || '', foxlibMissing: [], foxlibComplete: true,
+        files, template: null, ident};
       if (raw != null) { try { ob.cfg = JSON.parse(raw); ob.template = ob.cfg.template || null; } catch { this.console.err('fox.json on the drive is not valid JSON (the fox falls back to defaults.json and says cfg=default(parse) in its banner)'); } }
       this.onBoard = ob;
       const vendorFiles = !raw && ('settings.txt' in files || 'audio.wav' in files);
@@ -488,7 +513,8 @@ export const app = {
     const raw = await d.readText(v.FILES.settings);
     const marker = await d.readBytes(v.FILES.marker);
     if (this.board.vendor === 'picofox' && ('board.json' in files || 'fox.json' in files)) this.console.err(`this drive holds fox-bench firmware's files (${['board.json', 'fox.json'].filter(n => n in files).join(', ')}): the board is running fox-bench's firmware, and ${v.FILES.settings} here is a leftover it does not read. Select the "(fox-bench firmware)" target, or flash the vendor firmware from the Board tab to use this one.`);
-    const ob = { cfg: null, raw, foxlibVersion: '', foxlibMissing: [], foxlibComplete: true, files, template: raw != null ? this.templatesFor('drive')[0]?.id : null, settings: raw != null ? v.parseSettings(raw) : null, markerOk: null };
+    const ob = {cfg: null, raw, foxlibVersion: '', foxlibMissing: [], foxlibComplete: true, files,
+      template: raw != null ? this.templatesFor('drive')[0]?.id : null, settings: raw != null ? v.parseSettings(raw) : null, markerOk: null};
     if (raw != null) { ob.cfg = v.cfgFromSettings(ob.settings, this.defaults); ob.markerOk = marker ? v.readMarker(marker) === v.byteSum(raw) : false; }
     this.onBoard = ob;
     if (raw == null && 'fox.json' in files) this.console.err('this drive holds fox.json and no settings.txt: the board is running fox-bench firmware, which ignores the vendor\'s files. Select the "(fox-bench firmware)" target, or put the vendor firmware back from the Board tab (Get pfoxr3v1.uf2 → Reboot into bootloader → Copy).');
@@ -510,9 +536,11 @@ export const app = {
     const judge = template && this.catalog.templates[template] ? template : this.templateId;
     const mpy = Object.keys(libFiles).some(n => n.endsWith('.mpy'));        // a precompiled install (tools/build_mpy.py)
     const foxlibMissing = this.foxlibMissingFor(judge, libFiles, mpy);
-    this.onBoard = { cfg: null, raw: null, foxlibVersion: fv, foxlibMissing, foxlibComplete: !!fv && foxlibMissing.length === 0, files, libFiles, template, mpy };
+    this.onBoard = {cfg: null, raw: null, foxlibVersion: fv, foxlibMissing, foxlibComplete: !!fv && foxlibMissing.length === 0, files,
+      libFiles, template, mpy};
     if (fv && foxlibMissing.length) this.console.err(`foxlib on the board is incomplete for ${judge} (missing ${foxlibMissing.join(', ')}); Deploy will reinstall it`);
-    this.setStatus(`${d.kind === 'demo' ? 'Demo · ' : ''}${this.info.boardId} · uid ${this.info.uid.slice(-6)}${fv ? ' · foxlib ' + fv : ' · no fox firmware'}`, d.kind === 'demo' ? 'demo' : 'ok');
+    this.setStatus(`${d.kind === 'demo' ? 'Demo · ' : ''}${this.info.boardId} · uid ${this.info.uid.slice(-6)}${fv ? ' · foxlib ' + fv : ' · no fox firmware'}`,
+      d.kind === 'demo' ? 'demo' : 'ok');
     const raw = await d.readText('fox.json');
     if (raw) { this.onBoard.raw = raw; try { this.onBoard.cfg = JSON.parse(raw); } catch { this.console.err('fox.json on the board is not valid JSON'); } }
     if (this.onBoard.cfg) { this.console.dim(`fox.json read from board: template ${this.onBoard.cfg.template}, call "${this.onBoard.cfg.id?.callmessage}"`); }
@@ -521,8 +549,10 @@ export const app = {
   /** Soft-reboot so code.py runs again; shows the banner. */
   async restartFox() {
     if (!this.device) return null;
-    if (this.family === 'drive') { this.console.line('no reset over USB: eject the drive, switch the board off and on; Listen only shows its boot messages', 'dim'); return null; }
-    if (this.family === 'foxlib-c') { this.console.line('the fox reloads by itself about a second after the last write; Listen only on its serial port shows the new banner', 'dim'); return null; }
+    if (this.family === 'drive') { this.console.line('no reset over USB: eject the drive, switch the board off and on; Listen only shows its boot messages',
+      'dim'); return null; }
+    if (this.family === 'foxlib-c') { this.console.line('the fox reloads by itself about a second after the last write; Listen only on its serial port shows the new banner',
+      'dim'); return null; }
     const text = await this.device.reboot();
     const banner = parseBanner(text);
     if (banner) this.lastBanner = banner;
@@ -535,16 +565,21 @@ export const app = {
     const safe = fn => { try { return fn(); } catch (e) { return `(unavailable: ${e.message})`; } };
     return {
       generated: new Date().toISOString(),
-      page: { version: VERSION, url: location.href, userAgent: navigator.userAgent, webSerial: 'serial' in navigator, theme: document.documentElement.dataset.theme },
-      catalog: safe(() => ({ foxlib: this.catalog.foxlibVersion, templates: Object.fromEntries(Object.values(this.catalog.templates).map(t => [t.id, `${t.version} ${t.status}`])), boards: Object.keys(this.catalog.boards), modules: Object.keys(this.catalog.modules) })),
+      page: {version: VERSION, url: location.href, userAgent: navigator.userAgent, webSerial: 'serial' in navigator,
+        theme: document.documentElement.dataset.theme},
+      catalog: safe(() => ({foxlib: this.catalog.foxlibVersion,
+        templates: Object.fromEntries(Object.values(this.catalog.templates).map(t => [t.id, `${t.version} ${t.status}`])),
+        boards: Object.keys(this.catalog.boards), modules: Object.keys(this.catalog.modules)})),
       selection: { boardId: this.boardId, templateId: this.templateId, moduleId: this.moduleId, region: this.region },
       validation: { status: this.status, report: this.report, issues: this.issues },
       cfg: this.cfg, images: this.images.map(im => ({ name: im.name, w: im.w, h: im.h })),
-      device: this.device ? { kind: this.device.kind, listening: !!this.device.listening, info: this.info, link: safe(() => this.device.link?.info?.()) } : null,
+      device: this.device ? {kind: this.device.kind, listening: !!this.device.listening, info: this.info,
+        link: safe(() => this.device.link?.info?.())} : null,
       onBoard: { ...this.onBoard, raw: this.onBoard.raw ? this.onBoard.raw.slice(0, 4000) : null },
       lastDeploy: this.lastDeploy || null,
       bench: (this.benchEvents || []).slice(-50),
-      storage: safe(() => ({ profiles: JSON.parse(localStorage.getItem('fox-bench.profiles') || '[]').length, fleetRows: JSON.parse(localStorage.getItem('fox-bench.fleet') || '[]').length })),
+      storage: safe(() => ({profiles: JSON.parse(localStorage.getItem('fox-bench.profiles') || '[]').length,
+        fleetRows: JSON.parse(localStorage.getItem('fox-bench.fleet') || '[]').length})),
       pageErrors: this.pageErrors.slice(-50),
       console: safe(() => this.console.recent(300)),
     };
@@ -557,7 +592,8 @@ export const app = {
     try { await this.device?.close(); } catch {}
     try { await this.sideConsole?.close(); } catch {} this.sideConsole = null;
     this.lastBanner = null;
-    this.device = null; this.info = null; this.onBoard = { cfg: null, raw: null, foxlibVersion: '', foxlibMissing: [], foxlibComplete: false, files: {} };
+    this.device = null; this.info = null; this.onBoard = {cfg: null, raw: null, foxlibVersion: '', foxlibMissing: [], foxlibComplete: false,
+      files: {}};
     $('#demoBtn').setAttribute('aria-pressed', 'false'); $('#listenBtn').hidden = false;
     this.console.setEnabled(false); this.setStatus('Not connected');
     this.changed('disconnect');       // also resets the Connect button label for the family
@@ -605,8 +641,11 @@ export function showTab(name) {
 async function boot() {
   $('#ver').textContent = 'v' + VERSION;
   const theme = localStorage.getItem('fox-bench.theme'); if (theme) document.documentElement.dataset.theme = theme;
-  $('#themeBtn').addEventListener('click', () => { const t = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light'; document.documentElement.dataset.theme = t; localStorage.setItem('fox-bench.theme', t); app.changed('theme'); });
-  app.console = initConsole({ log: $('#log'), form: $('#sendForm'), input: $('#sendInput'), handle: $('#consoleHandle'), drawer: $('#console'), toggle: $('#consoleToggle'), clearBtn: $('#clearLog'), copyBtn: $('#copyLog'), dlBtn: $('#dlLog'), dlMode: $('#dlMode'), interruptBtn: $('#sendInterrupt') },
+  $('#themeBtn').addEventListener('click',
+    () => { const t = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light'; document.documentElement.dataset.theme = t; localStorage.setItem('fox-bench.theme', t); app.changed('theme'); });
+  app.console = initConsole({log: $('#log'), form: $('#sendForm'), input: $('#sendInput'), handle: $('#consoleHandle'),
+    drawer: $('#console'), toggle: $('#consoleToggle'), clearBtn: $('#clearLog'), copyBtn: $('#copyLog'), dlBtn: $('#dlLog'),
+    dlMode: $('#dlMode'), interruptBtn: $('#sendInterrupt')},
     async code => { if (!app.device) return;
       try {
         const con = app.consoleDevice(); if (con) { await con.send(code); return; }   // the foxlib-c console: text commands, replies arrive as fox output
@@ -649,13 +688,17 @@ async function boot() {
 
   for (const [name, mod] of Object.entries(TABS)) mod.init(app, $(`#tab-${name} .body`));
   $$('.rail button').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
-  $('#connectBtn').addEventListener('click', () => app.device ? app.disconnect() : app.waiting ? (app._stopWaiting(), app.console.dim('stopped waiting for the port'), app.setStatus('Not connected'), app.changed('disconnect')) : app.connect(app.usesDrive ? 'drive' : 'serial'));
+  $('#connectBtn').addEventListener('click',
+    () => app.device ? app.disconnect() : app.waiting ? (app._stopWaiting(), app.console.dim('stopped waiting for the port'),
+      app.setStatus('Not connected'), app.changed('disconnect')) : app.connect(app.usesDrive ? 'drive' : 'serial'));
   $('#listenBtn').addEventListener('click', () => app.device ? app.disconnect() : app.connect('serial', { listen: true }));
   if (!hasWebSerial()) $('#listenBtn').disabled = true;
   $('#demoBtn').addEventListener('click', () => app.device?.kind === 'demo' ? app.disconnect() : app.connect('demo'));
   window.addEventListener('beforeunload', () => { app.device?.close?.(); });
-  window.addEventListener('error', e => app.pageErrors.push({ t: new Date().toISOString(), msg: String(e.message), at: `${e.filename}:${e.lineno}` }));
-  window.addEventListener('unhandledrejection', e => app.pageErrors.push({ t: new Date().toISOString(), msg: String(e.reason?.message || e.reason) }));
+  window.addEventListener('error',
+    e => app.pageErrors.push({ t: new Date().toISOString(), msg: String(e.message), at: `${e.filename}:${e.lineno}` }));
+  window.addEventListener('unhandledrejection',
+    e => app.pageErrors.push({ t: new Date().toISOString(), msg: String(e.reason?.message || e.reason) }));
 
   app.changed('boot');
   const savedTab = localStorage.getItem('fox-bench.tab'); showTab(savedTab && TABS[savedTab] ? savedTab : 'board');

@@ -8,7 +8,11 @@ import { issueAction, TAB_NAMES } from '../model/issuetab.js';
 export function issueItem(app, i, here) {
   const act = issueAction(i, app.isNet, here);
   const btn = act.fix === 'clock'
-    ? h('button.btn.small', { title: 'the same as ticking "Set the board clock" on the Deploy tab: every deploy sets the board to this browser\'s time', onclick: () => app.setDeployClock({ enabled: true }) }, 'Set the board clock at deploy')
+    ? h('button.btn.small',
+      {title: 'the same as ticking "Set the board clock" on the Deploy tab: every deploy sets the board to this browser\'s time',
+        onclick: () => app.setDeployClock({ enabled: true })},
+      'Set the board clock at deploy')
     : act.tab ? h('button.btn.small', { onclick: () => app.showTab(act.tab) }, `Open ${TAB_NAMES[act.tab]}`) : null;
-  return h('li', { class: i.level === 'err' ? 'hint err' : i.level === 'warn' ? 'hint warn' : 'hint', style: 'font-size:.9rem' }, h('code', {}, i.key), ' ', i.msg, btn ? ' ' : null, btn);
+  return h('li', { class: i.level === 'err' ? 'hint err' : i.level === 'warn' ? 'hint warn' : 'hint', style: 'font-size:.9rem' },
+    h('code', {}, i.key), ' ', i.msg, btn ? ' ' : null, btn);
 }

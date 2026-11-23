@@ -69,7 +69,8 @@ export async function runFlash(app, { boardNumber = '' } = {}) {
       const info = port.getInfo?.() || {};
       const u = (b.usb || []).find(u => parseInt(u.vid, 16) === info.usbVendorId && parseInt(u.pid, 16) === info.usbProductId);
       if (u && /CircuitPython running|REPL/.test(u.when || '')) {
-        throw Object.assign(new Error(`the port picked is the board running CircuitPython (USB ${info.usbVendorId.toString(16)}:${info.usbProductId.toString(16)}), not its bootloader. Nothing to flash if CircuitPython is already on it: Connect and Deploy. To reflash, unplug, hold B while plugging in, and pick the new port`), { notBootloader: true });
+        throw Object.assign(new Error(`the port picked is the board running CircuitPython (USB ${info.usbVendorId.toString(16)}:${info.usbProductId.toString(16)}), not its bootloader. Nothing to flash if CircuitPython is already on it: Connect and Deploy. To reflash, unplug, hold B while plugging in, and pick the new port`),
+          { notBootloader: true });
       }
     }
     facts = await flasher.flash({
@@ -101,12 +102,17 @@ export async function runFlash(app, { boardNumber = '' } = {}) {
 /** Progress / result block shared by both cards. */
 export function statusBlock() {
   const out = [];
-  if (state.busy) out.push(h('p.hint', {}, badge('working', 'warn'), ' ', state.phase), h('progress', { max: 1, value: state.progress, style: 'width:100%' }));
+  if (state.busy) out.push(h('p.hint', {}, badge('working', 'warn'), ' ', state.phase),
+    h('progress', { max: 1, value: state.progress, style: 'width:100%' }));
   const l = state.last;
   if (l && !state.busy) {
     out.push(l.ok
-      ? h('p.hint.ok', {}, `Flashed in ${l.facts.seconds} s — ${l.facts.chip}, MAC ${l.facts.mac}${l.facts.flash_size ? ', ' + l.facts.flash_size + ' flash' : ''}. `, ['The board is rebooting into CircuitPython; first boot takes ~10 s and it may come back on a different port. Then ', h('b', {}, 'Connect'), '.'])
-      : h('p.hint.err', {}, 'Flash failed: ', l.error, l.facts?.chip ? ` (reached the chip: ${l.facts.chip})` : state.notBootloader ? '' : ' (never reached the bootloader — hold B while plugging in, pick the port that appears, and check nothing else holds it)'));
+      ? h('p.hint.ok', {},
+        `Flashed in ${l.facts.seconds} s — ${l.facts.chip}, MAC ${l.facts.mac}${l.facts.flash_size ? ', ' + l.facts.flash_size + ' flash' : ''}. `,
+        ['The board is rebooting into CircuitPython; first boot takes ~10 s and it may come back on a different port. Then ',
+          h('b', {}, 'Connect'), '.'])
+      : h('p.hint.err', {}, 'Flash failed: ', l.error,
+        l.facts?.chip ? ` (reached the chip: ${l.facts.chip})` : state.notBootloader ? '' : ' (never reached the bootloader — hold B while plugging in, pick the port that appears, and check nothing else holds it)'));
   }
   return out;
 }
@@ -116,7 +122,11 @@ export function flashCard(app) {
   const b = app.board;
   if (b.flash.method === 'uf2') return uf2Card(app);
   if (b.flash.method !== 'esptool') {
-    return h('div.card', {}, h('h3', {}, 'Flash CircuitPython'), h('p.hint', {}, `${b.name} is flashed by ${b.flash.method}, which this page does not do yet. `, b.circuitpython ? h('a', { href: b.circuitpython.download, target: '_blank', rel: 'noopener' }, 'CircuitPython downloads for this board') : null, '.'));
+    return h('div.card', {}, h('h3', {}, 'Flash CircuitPython'),
+      h('p.hint', {}, `${b.name} is flashed by ${b.flash.method}, which this page does not do yet. `,
+        b.circuitpython ? h('a', { href: b.circuitpython.download, target: '_blank', rel: 'noopener' },
+          'CircuitPython downloads for this board') : null,
+        '.'));
   }
   const fileIn = h('input', { type: 'file', accept: '.bin', hidden: true });
   fileIn.addEventListener('change', async () => {
@@ -126,19 +136,34 @@ export function flashCard(app) {
   const mism = flasher.image.info && flasher.image.info.boardId !== b.circuitpython.board_id && !(b.circuitpython.board_ids || []).includes(flasher.image.info.boardId);
   const why = blocker(app);
   return h('div.card', {}, h('h3', {}, 'Flash CircuitPython ', imageBadge()),
-    h('p.hint', {}, 'For a bare board, or to reset one to factory CircuitPython. ', h('b', {}, b.flash.bootloader_instructions), ' The board then shows up as a new serial port; pick that one when asked.'),
-    field('Image', h('div.row', {}, h('button.btn.small', { onclick: () => fileIn.click() }, 'Load .bin…'), fileIn, h('span.hint', {}, flasher.image.bytes ? `${flasher.image.name}${flasher.image.info ? ' · CircuitPython ' + flasher.image.info.version : ''}` : 'nothing loaded')),
-      h('span', {}, 'Get it from ', h('a', { href: b.circuitpython.download, target: '_blank', rel: 'noopener' }, `circuitpython.org › ${b.name}`), ` — the .bin (not the .uf2). ${b.circuitpython.latest_known ? 'Last known good: ' + b.circuitpython.latest_known + '. ' : ''}The download site does not allow a page to fetch it directly, so it is a save-then-load.`)),
-    mism ? h('p.hint.err', {}, `This image is built for "${flasher.image.info.boardId}"; this board's build is ${b.circuitpython.board_id}. Some boards do share a build (a maker may ship one image for two variants), and that can change between releases: check on the maker's page or circuitpython.org that this image supports your board before flashing. A wrong image bricks nothing, but pins, the LED or the radio may not work, and the board will report itself as "${flasher.image.info.boardId}".`) : null,
+    h('p.hint', {}, 'For a bare board, or to reset one to factory CircuitPython. ', h('b', {}, b.flash.bootloader_instructions),
+      ' The board then shows up as a new serial port; pick that one when asked.'),
+    field('Image', h('div.row', {}, h('button.btn.small', { onclick: () => fileIn.click() }, 'Load .bin…'), fileIn,
+      h('span.hint', {},
+        flasher.image.bytes ? `${flasher.image.name}${flasher.image.info ? ' · CircuitPython ' + flasher.image.info.version : ''}` : 'nothing loaded')),
+      h('span', {}, 'Get it from ',
+        h('a', { href: b.circuitpython.download, target: '_blank', rel: 'noopener' }, `circuitpython.org › ${b.name}`),
+        ` — the .bin (not the .uf2). ${b.circuitpython.latest_known ? 'Last known good: ' + b.circuitpython.latest_known + '. ' : ''}The download site does not allow a page to fetch it directly, so it is a save-then-load.`)),
+    mism ? h('p.hint.err', {},
+      `This image is built for "${flasher.image.info.boardId}"; this board's build is ${b.circuitpython.board_id}. Some boards do share a build (a maker may ship one image for two variants), and that can change between releases: check on the maker's page or circuitpython.org that this image supports your board before flashing. A wrong image bricks nothing, but pins, the LED or the radio may not work, and the board will report itself as "${flasher.image.info.boardId}".`) : null,
     h('div.two-col', {},
-      check('Erase the whole flash first', state.erase, v => { state.erase = v; notify(); }, 'Also wipes the board\'s files (fox.json, foxlib). What a fleet reset wants; off only for a quick CircuitPython upgrade that keeps the files.'),
-      field('Speed', select([[921600, '921600 baud'], [460800, '460800 baud (default)'], [230400, '230400 baud'], [115200, '115200 baud (safe)']], state.baud, v => { state.baud = +v; }), 'Drop it if the write fails part way.')),
+      check('Erase the whole flash first', state.erase, v => { state.erase = v; notify(); },
+        'Also wipes the board\'s files (fox.json, foxlib). What a fleet reset wants; off only for a quick CircuitPython upgrade that keeps the files.'),
+      field('Speed',
+        select([[921600, '921600 baud'], [460800, '460800 baud (default)'], [230400, '230400 baud'], [115200, '115200 baud (safe)']],
+          state.baud, v => { state.baud = +v; }),
+        'Drop it if the write fails part way.')),
     h('div.tools', {},
-      h('button.btn.primary', { disabled: !!why, title: why, onclick: () => disconnectAndFlash(app).catch(() => {}) }, state.busy ? 'Flashing…' : canDisconnectFirst(app) ? 'Disconnect and flash CircuitPython' : 'Flash CircuitPython'),
-      why && !state.busy ? h('span.hint.warn', {}, why) : canDisconnectFirst(app) ? h('span.hint', {}, 'the page is connected to a board; flashing closes that session first and asks for the port to flash') : null),
+      h('button.btn.primary', { disabled: !!why, title: why, onclick: () => disconnectAndFlash(app).catch(() => {}) },
+        state.busy ? 'Flashing…' : canDisconnectFirst(app) ? 'Disconnect and flash CircuitPython' : 'Flash CircuitPython'),
+      why && !state.busy ? h('span.hint.warn', {}, why) : canDisconnectFirst(app) ? h('span.hint', {},
+        'the page is connected to a board; flashing closes that session first and asks for the port to flash') : null),
     ...statusBlock(),
     bootPyStep(app),
-    h('p.hint', {}, 'The flasher is a separate component of fox-bench (', h('code', {}, 'flasher/'), ', Apache-2.0) built on ', h('a', { href: 'https://github.com/espressif/esptool-js', target: '_blank', rel: 'noopener' }, 'esptool-js'), ` ${flasher.ESPTOOL_VERSION}. Works offline. From a terminal, `, h('code', {}, 'tools/batch_flash.py'), ' does the same with the same log columns.'));
+    h('p.hint', {}, 'The flasher is a separate component of fox-bench (', h('code', {}, 'flasher/'), ', Apache-2.0) built on ',
+      h('a', { href: 'https://github.com/espressif/esptool-js', target: '_blank', rel: 'noopener' }, 'esptool-js'),
+      ` ${flasher.ESPTOOL_VERSION}. Works offline. From a terminal, `, h('code', {}, 'tools/batch_flash.py'),
+      ' does the same with the same log columns.'));
 }
 
 /** Boards that show up as a CIRCUITPY drive (ESP32-S3, nRF52840): CircuitPython gives their files to the computer,
@@ -150,29 +175,40 @@ function bootPyStep(app) {
   if (!b.has_usb_drive) return null;
   const get = async () => { try { download('boot.py', await loadRootFile('boot.py')); } catch (e) { app.console.err(String(e.message || e)); } };
   const fresh = state.last?.ok;
-  return h('div', { class: fresh ? 'hint ok' : 'hint', style: 'margin-top:8px;padding:8px;border:1px solid var(--line, #ccc);border-radius:6px' },
+  return h('div', {class: fresh ? 'hint ok' : 'hint',
+    style: 'margin-top:8px;padding:8px;border:1px solid var(--line, #ccc);border-radius:6px'},
     h('b', {}, fresh ? 'Step 2, now: ' : 'After flashing, once per board: '), `the ${b.name} shows up on the computer as a CIRCUITPY drive, and CircuitPython then lets only the computer write its files — not this page, not the fox. `,
     h('button.btn.small', { onclick: get }, 'Download boot.py'), ' and copy it onto the CIRCUITPY drive next to code.py; eject the drive; press the board\'s reset button (R). From then on the board owns its files (the drive is read-only on the computer) and Deploy works. Deploy checks for this and says so if it was skipped.');
 }
 
 /** Fleet tab: plug → click → next. */
 export function batchCard(app) {
-  if (app.board.flash.method !== 'esptool') return h('div.card', {}, h('h3', {}, 'Batch flashing'), h('p.hint', {}, `${app.board.name} does not run CircuitPython; there is nothing to batch-flash. Select an ESP32 board on the Board tab for this.`));
+  if (app.board.flash.method !== 'esptool') return h('div.card', {}, h('h3', {}, 'Batch flashing'),
+    h('p.hint', {},
+      `${app.board.name} does not run CircuitPython; there is nothing to batch-flash. Select an ESP32 board on the Board tab for this.`));
   const why = blocker(app);
   const n = state.boardNumber;
   return h('div.card', {}, h('h3', {}, 'Batch flashing ', imageBadge()),
-    h('p.hint', {}, 'Plug a board in with B held → click → it is erased, flashed and logged with its MAC and chip facts → unplug → next. One click per board because the browser grants each port by hand. Same CSV columns as ', h('code', {}, 'tools/batch_flash.py'), '.'),
+    h('p.hint', {},
+      'Plug a board in with B held → click → it is erased, flashed and logged with its MAC and chip facts → unplug → next. One click per board because the browser grants each port by hand. Same CSV columns as ',
+      h('code', {}, 'tools/batch_flash.py'), '.'),
     flasher.image.bytes ? null : h('p.hint.warn', {}, 'Load the CircuitPython image on the Board tab first.'),
     h('div.tools', {},
-      h('button.btn.primary', { disabled: !!why, title: why, onclick: () => disconnectAndFlash(app, { boardNumber: n }).then(() => { state.boardNumber = n + 1; notify(); }).catch(() => {}) }, state.busy ? 'Flashing…' : canDisconnectFirst(app) ? `Disconnect and flash board #${n}` : `Flash board #${n}`),
-      h('span.hint', {}, 'next number '), h('input', { type: 'number', min: 1, value: n, style: 'width:80px', onchange: e => { state.boardNumber = Math.max(1, parseInt(e.target.value, 10) || 1); notify(); } }),
+      h('button.btn.primary',
+        {disabled: !!why, title: why,
+          onclick: () => disconnectAndFlash(app, { boardNumber: n }).then(() => { state.boardNumber = n + 1; notify(); }).catch(() => {})},
+        state.busy ? 'Flashing…' : canDisconnectFirst(app) ? `Disconnect and flash board #${n}` : `Flash board #${n}`),
+      h('span.hint', {}, 'next number '), h('input',
+        {type: 'number', min: 1, value: n, style: 'width:80px',
+          onchange: e => { state.boardNumber = Math.max(1, parseInt(e.target.value, 10) || 1); notify(); }}),
       why && !state.busy ? h('span.hint', {}, why) : null),
     ...statusBlock());
 }
 
 /** UF2 boards (PicoFox): no CircuitPython. Firmware is a .uf2 copied to the bootloader drive: the vendor's (a file you
  * load) or fox-bench's own (fetched from this site for foxlib-c targets). The same card restores the vendor firmware. */
-let uf2 = { name: '', bytes: null, busy: false, last: null, source: '', fetching: false, touching: false, forBoard: '', sha256: '', build: null };
+let uf2 = {name: '', bytes: null, busy: false, last: null, source: '', fetching: false, touching: false, forBoard: '', sha256: '',
+  build: null};
 /** Fingerprint of the hosted fox-bench UF2 (foxbench-picofox.json written by CI beside the file): version, commit,
  * compiler, sha256. null until fetched; false when the site has none (a local checkout without a CI build). */
 let buildInfo;
@@ -197,14 +233,17 @@ async function fetchImage(app, url, source, label, expect = {}) {
     const bytes = new Uint8Array(await r.arrayBuffer());
     const chk = await checkImage(bytes, expect);
     if (!chk.ok) throw new Error(`${url.split('/').pop()} rejected: ${chk.problems.join('; ')}` + (expect.sha256 ? (source === 'fox-bench' ? ' (the site may be mid-deploy: reload the page and try again)' : ' (the vendor\'s file differs from the one this page was checked against; nothing was loaded)') : ''));
-    uf2 = { ...uf2, name: url.split('/').pop(), bytes, source, last: null, forBoard: app.boardId, sha256: chk.sha256, version: source === 'fox-bench' ? foxlibcVersionIn(bytes) : null };
+    uf2 = {...uf2, name: url.split('/').pop(), bytes, source, last: null, forBoard: app.boardId, sha256: chk.sha256,
+      version: source === 'fox-bench' ? foxlibcVersionIn(bytes) : null};
     app.console.dim(`fetched ${uf2.name} (${(bytes.length / 1024).toFixed(0)} kB, ${chk.blocks} blocks, RP2040, sha256 ${chk.sha256.slice(0, 12)}…${expect.sha256 ? ' = pinned' : ''}) — ${label}`);
   } catch (e) { uf2.last = { ok: false, text: String(e.message || e) }; app.console.err('firmware fetch failed: ' + uf2.last.text); }
   uf2.fetching = false; notify();
 }
 async function fetchHosted(app) {
   const bi = await loadBuildInfo(app);
-  return fetchImage(app, app.board.firmware?.image, 'fox-bench', `fox-bench firmware ${bi?.version ? 'c-' + bi.version : ''} built from this site's source${bi?.commit ? ' at ' + bi.commit.slice(0, 7) : ''}`, bi ? { sha256: bi.sha256, size: bi.size } : {});
+  return fetchImage(app, app.board.firmware?.image, 'fox-bench',
+    `fox-bench firmware ${bi?.version ? 'c-' + bi.version : ''} built from this site's source${bi?.commit ? ' at ' + bi.commit.slice(0, 7) : ''}`,
+    bi ? { sha256: bi.sha256, size: bi.size } : {});
 }
 /** The Arduino "1200-baud touch": open the board's serial port at 1200 baud, drop DTR, close. Firmware built on the
  * Arduino RP2040 core (the PicoFox vendor's) and fox-bench's own both reboot into the UF2 bootloader on it. The only
@@ -230,10 +269,12 @@ async function touch1200(app) {
     let gone = null;
     if ('connected' in port) { for (let i = 0; i < 16 && port.connected; i++) await new Promise(r => setTimeout(r, 250)); gone = !port.connected; }
     if (gone === false) {
-      uf2.last = { ok: false, text: `1200-baud touch sent, but the port is still there after 4 s: the board did not reboot. ${known === false ? 'The port picked was not the fox\'s — try again and choose the PicoFox\'s port (Device Manager shows which COM number has VID 2E8A).' : 'Try once more (Windows sometimes leaves DTR as it was); if it still stays, Listen only and type bootsel, which does the same from the console; the BOOTSEL button (SW2, inside the case) is the last resort.'}` };
+      uf2.last = {ok: false,
+        text: `1200-baud touch sent, but the port is still there after 4 s: the board did not reboot. ${known === false ? 'The port picked was not the fox\'s — try again and choose the PicoFox\'s port (Device Manager shows which COM number has VID 2E8A).' : 'Try once more (Windows sometimes leaves DTR as it was); if it still stays, Listen only and type bootsel, which does the same from the console; the BOOTSEL button (SW2, inside the case) is the last resort.'}`};
       app.console.err(uf2.last.text);
     } else {
-      uf2.last = { ok: true, text: `1200-baud touch sent${gone ? ' and the port went away' : ''}. A ${b.flash.drive_name} drive appears within a few seconds — then Copy below and pick that drive. If nothing appears, the firmware on the board does not answer the touch; the BOOTSEL button (SW2, inside the case) is the fallback.` };
+      uf2.last = {ok: true,
+        text: `1200-baud touch sent${gone ? ' and the port went away' : ''}. A ${b.flash.drive_name} drive appears within a few seconds — then Copy below and pick that drive. If nothing appears, the firmware on the board does not answer the touch; the BOOTSEL button (SW2, inside the case) is the fallback.`};
       app.console.line(`1200-baud touch sent${gone ? ', port gone' : ''} — look for the ${b.flash.drive_name} drive`, 'ok');
     }
   } catch (e) { if (e.name !== 'NotFoundError') { uf2.last = { ok: false, text: 'bootloader touch failed: ' + String(e.message || e) }; app.console.err(uf2.last.text); } }
@@ -246,7 +287,8 @@ function uf2Card(app) {
   fileIn.addEventListener('change', async () => {
     const f = fileIn.files[0]; if (!f) return; fileIn.value = '';
     const bytes = new Uint8Array(await f.arrayBuffer()); const chk = await checkImage(bytes);
-    if (!chk.ok) { uf2 = { ...uf2, name: '', bytes: null, source: '', last: { ok: false, text: `${f.name} rejected: ${chk.problems.join('; ')}` }, forBoard: app.boardId }; notify(); return; }
+    if (!chk.ok) { uf2 = {...uf2, name: '', bytes: null, source: '',
+      last: { ok: false, text: `${f.name} rejected: ${chk.problems.join('; ')}` }, forBoard: app.boardId}; notify(); return; }
     const version = app.family === 'foxlib-c' ? foxlibcVersionIn(bytes) : null;
     uf2 = { ...uf2, name: f.name, bytes, source: 'file', last: null, forBoard: app.boardId, sha256: chk.sha256, version }; app.console.dim(`loaded ${f.name} (${chk.blocks} blocks, RP2040, sha256 ${chk.sha256.slice(0, 12)}…${app.family === 'foxlib-c' ? ', ' + (version ? 'foxlib-c ' + version : 'no version tag: a fox-bench build before 0.1.9, or not fox-bench firmware') : ''})`);
     if (app.family === 'foxlib-c' && app.catalog.foxlibcVersion && (!version || cmpVersion(version, app.catalog.foxlibcVersion) < 0)) app.console.err(`${f.name} is ${version ? 'foxlib-c ' + version : 'an untagged build'}; this site builds ${app.catalog.foxlibcVersion} — an old download? "Get fox-bench firmware" fetches the current one.`);
@@ -274,7 +316,8 @@ function uf2Card(app) {
       // So: write, then try to close, and let the "did the drive go away" check below be the verdict either way.
       const h2 = await dir.getFileHandle(uf2.name, { create: true }); const w = await h2.createWritable(); await w.write(uf2.bytes);
       let closeErr = null; try { await w.close(); } catch (e) { closeErr = e; }
-      app.console.line(`UF2 ${uf2.name} written to the bootloader drive${closeErr ? ` (close() said "${closeErr.message || closeErr}" — expected when the board reboots mid-write)` : ''} — waiting for the board to reboot`, 'dim');
+      app.console.line(`UF2 ${uf2.name} written to the bootloader drive${closeErr ? ` (close() said "${closeErr.message || closeErr}" — expected when the board reboots mid-write)` : ''} — waiting for the board to reboot`,
+        'dim');
       // Verify: the bootloader drive must go away (the board rebooted into the new firmware). Listing it should fail.
       let gone = false;
       for (let i = 0; i < 12 && !gone; i++) { await new Promise(r => setTimeout(r, 500)); try { for await (const _ of dir.values()) { void _; break; } } catch { gone = true; } }
@@ -282,28 +325,63 @@ function uf2Card(app) {
         : uf2.source === 'vendor' ? ' The fox\'s drive and a serial port come back; Listen only shows "Revision: N … si5351 setup complete" after a power cycle. Select the "(vendor firmware)" target to write its files.'
         : uf2.source === 'vendor-recovery' ? ' THIS IMAGE REFORMATS THE DRIVE AT EVERY BOOT: do not write files yet. Flash pfoxr3v1.uf2 next (Reboot into bootloader → Copy), and only then write the four files and power-cycle.' : '';
       uf2.last = gone
-        ? { ok: true, text: `${uf2.name} flashed (${(uf2.bytes.length / 1024).toFixed(0)} kB): the ${b.flash.drive_name} drive went away, so the board rebooted into it.${after}` }
-        : { ok: false, text: `${uf2.name} was written but the ${b.flash.drive_name} drive is still there after 6 s — the bootloader did not accept it${closeErr ? ` and the copy itself failed (${closeErr.message || closeErr})` : ''}. A .uf2 for another chip, or a copy that did not complete; try again.` };
+        ? {ok: true,
+          text: `${uf2.name} flashed (${(uf2.bytes.length / 1024).toFixed(0)} kB): the ${b.flash.drive_name} drive went away, so the board rebooted into it.${after}`}
+        : {ok: false,
+          text: `${uf2.name} was written but the ${b.flash.drive_name} drive is still there after 6 s — the bootloader did not accept it${closeErr ? ` and the copy itself failed (${closeErr.message || closeErr})` : ''}. A .uf2 for another chip, or a copy that did not complete; try again.`};
       app.console.line(uf2.last.text, gone ? 'ok' : 'err');
       if (gone && app.device) { await app.disconnect(); app.console.dim(`the board rebooted: open its drive again (${app.usesDrive ? 'Open ' + (b.drive?.label || 'drive') : 'Connect'} in the top bar) before writing files`); }
-      fleet.append({ board_number: '', uid: '', board: b.id, action: 'flash', template: '', profile: '', callsign: '', freq: '', power: '', seed: '', result: gone ? 'ok' : 'not accepted', notes: uf2.name + ' (uf2' + (uf2.source === 'fox-bench' ? ', fox-bench firmware' : '') + ')' });
+      fleet.append({board_number: '', uid: '', board: b.id, action: 'flash', template: '', profile: '', callsign: '', freq: '', power: '',
+        seed: '', result: gone ? 'ok' : 'not accepted',
+        notes: uf2.name + ' (uf2' + (uf2.source === 'fox-bench' ? ', fox-bench firmware' : '') + ')'});
     } catch (e) { if (e.name !== 'AbortError' && e.message !== 'cancelled') { uf2.last = { ok: false, text: String(e.message || e) }; app.console.err('UF2 copy failed: ' + uf2.last.text); } }
     uf2.busy = false; notify(); app.changed('flash');
   };
   return h('div.card', {}, h('h3', {}, 'Firmware ', badge('no CircuitPython', 'warn')),
     h('p.hint', {}, h('b', {}, `This fox board does not run CircuitPython.`), ' ', b.firmware?.note || ''),
-    h('p.hint', {}, h('b', {}, 'Bootloader: '), b.flash.bootloader_instructions, ' Firmware is a .uf2 file copied onto that drive; the board reboots when the copy finishes.', b.firmware?.stock_firmware_url ? [' The vendor\'s releases are at ', h('a', { href: b.firmware.stock_firmware_url, target: '_blank', rel: 'noopener' }, 'their GitHub'), '.'] : null),
-    h('p.hint', {}, h('b', {}, 'Order: '), 'fox on, plugged in → ', h('b', {}, '1. Reboot into bootloader'), ' (pick the fox\'s serial port) → a drive with just ', h('code', {}, 'INFO_UF2.TXT'), ' and ', h('code', {}, 'INDEX.HTM'), ' appears → ', h('b', {}, '2. Copy'), ' and pick ', h('i', {}, 'that'), ' drive. The page checks for INFO_UF2.TXT, because a .uf2 copied onto the fox\'s own drive is only a file and the board keeps running what it ran.'),
-    b.flash.touch_1200 ? h('div.tools', {}, h('button.btn', { disabled: uf2.touching || uf2.busy, onclick: () => touch1200(app) }, uf2.touching ? 'Touching…' : '1. Reboot into bootloader'), h('span.hint', {}, 'Opens the serial port at 1200 baud and closes it: the Arduino way into the bootloader, no button needed.')) : null,
-    ours ? h('div.tools', {}, h('button.btn', { disabled: uf2.fetching || uf2.busy, onclick: () => fetchHosted(app) }, uf2.fetching ? 'Fetching…' : 'Get fox-bench firmware'), h('span.hint', {}, `foxbench-picofox.uf2 built from this site's source (firmware/foxlib-c/picofox). To go back to the vendor firmware, select the "(vendor firmware)" target: its card fetches the vendor's .uf2.`)) : null,
-    ours ? h('p.hint', {}, h('b', {}, 'Hosted build: '), buildInfo ? [h('code', {}, `c-${buildInfo.version}`), ` · commit ${(buildInfo.commit || '').slice(0, 7)} · ${buildInfo.gcc || '?'} · pico-sdk ${(buildInfo.pico_sdk || '').slice(0, 7)} · sha256 ${(buildInfo.sha256 || '').slice(0, 12)}… · ${buildInfo.built || ''}`, ' — a fetched image must match this fingerprint before it can be copied.'] : buildInfo === false ? 'no build info on this site (a local checkout, or an older deploy): the image is checked as a UF2 for the RP2040 only.' : 'loading…') : null,
+    h('p.hint', {}, h('b', {}, 'Bootloader: '), b.flash.bootloader_instructions,
+      ' Firmware is a .uf2 file copied onto that drive; the board reboots when the copy finishes.',
+      b.firmware?.stock_firmware_url ? [' The vendor\'s releases are at ',
+        h('a', { href: b.firmware.stock_firmware_url, target: '_blank', rel: 'noopener' }, 'their GitHub'), '.'] : null),
+    h('p.hint', {}, h('b', {}, 'Order: '), 'fox on, plugged in → ', h('b', {}, '1. Reboot into bootloader'),
+      ' (pick the fox\'s serial port) → a drive with just ', h('code', {}, 'INFO_UF2.TXT'), ' and ', h('code', {}, 'INDEX.HTM'),
+      ' appears → ', h('b', {}, '2. Copy'), ' and pick ', h('i', {}, 'that'),
+      ' drive. The page checks for INFO_UF2.TXT, because a .uf2 copied onto the fox\'s own drive is only a file and the board keeps running what it ran.'),
+    b.flash.touch_1200 ? h('div.tools', {},
+      h('button.btn', { disabled: uf2.touching || uf2.busy, onclick: () => touch1200(app) },
+        uf2.touching ? 'Touching…' : '1. Reboot into bootloader'),
+      h('span.hint', {}, 'Opens the serial port at 1200 baud and closes it: the Arduino way into the bootloader, no button needed.')) : null,
+    ours ? h('div.tools', {},
+      h('button.btn', { disabled: uf2.fetching || uf2.busy, onclick: () => fetchHosted(app) },
+        uf2.fetching ? 'Fetching…' : 'Get fox-bench firmware'),
+      h('span.hint', {},
+        `foxbench-picofox.uf2 built from this site's source (firmware/foxlib-c/picofox). To go back to the vendor firmware, select the "(vendor firmware)" target: its card fetches the vendor's .uf2.`)) : null,
+    ours ? h('p.hint', {}, h('b', {}, 'Hosted build: '),
+      buildInfo ? [h('code', {}, `c-${buildInfo.version}`),
+        ` · commit ${(buildInfo.commit || '').slice(0, 7)} · ${buildInfo.gcc || '?'} · pico-sdk ${(buildInfo.pico_sdk || '').slice(0, 7)} · sha256 ${(buildInfo.sha256 || '').slice(0, 12)}… · ${buildInfo.built || ''}`,
+        ' — a fetched image must match this fingerprint before it can be copied.'] : buildInfo === false ? 'no build info on this site (a local checkout, or an older deploy): the image is checked as a UF2 for the RP2040 only.' : 'loading…') : null,
     !ours && b.firmware?.stock_firmware_files?.length ? h('div', {},
-      ...b.firmware.stock_firmware_files.filter(f => !f.recovery).map(f => h('div.tools', {}, h('button.btn', { disabled: uf2.fetching || uf2.busy, onclick: () => fetchImage(app, f.url, 'vendor', f.note, { sha256: f.sha256, size: f.size }) }, uf2.fetching ? 'Fetching…' : `Get ${f.name}`), h('span.hint', {}, f.note, ` — fetched from the vendor's GitHub into this browser${b.firmware.stock_firmware_pinned_commit ? ` at commit ${b.firmware.stock_firmware_pinned_commit.slice(0, 7)} and checked against sha256 ${(f.sha256 || '').slice(0, 12)}…` : ''}.`))),
-      ...b.firmware.stock_firmware_files.filter(f => f.recovery).map(f => h('details', { style: 'margin-top:6px' }, h('summary.hint', {}, 'Recovery image (wipes the drive)'), h('div.tools', {}, h('button.btn.small.danger', { disabled: uf2.fetching || uf2.busy, onclick: () => fetchImage(app, f.url, 'vendor-recovery', f.note, { sha256: f.sha256, size: f.size }) }, uf2.fetching ? 'Fetching…' : `Get ${f.name}`), h('span.hint.warn', {}, f.note))))) : null,
-    h('div.tools', {}, h('button.btn.small', { onclick: () => fileIn.click() }, 'Load .uf2…'), fileIn, h('span.hint', {}, uf2.name ? `${uf2.name} · ${(uf2.bytes.length / 1024).toFixed(0)} kB${uf2.source === 'fox-bench' ? ' · fox-bench firmware' : ''}${uf2.version ? ' · foxlib-c ' + uf2.version : uf2.source === 'file' && app.family === 'foxlib-c' ? ' · no version tag' : ''}${uf2.sha256 ? ' · sha256 ' + uf2.sha256.slice(0, 12) + '…' : ''}` : 'nothing loaded'),
+      ...b.firmware.stock_firmware_files.filter(f => !f.recovery).map(f => h('div.tools', {},
+        h('button.btn',
+          { disabled: uf2.fetching || uf2.busy, onclick: () => fetchImage(app, f.url, 'vendor', f.note, { sha256: f.sha256, size: f.size }) },
+          uf2.fetching ? 'Fetching…' : `Get ${f.name}`),
+        h('span.hint', {}, f.note,
+          ` — fetched from the vendor's GitHub into this browser${b.firmware.stock_firmware_pinned_commit ? ` at commit ${b.firmware.stock_firmware_pinned_commit.slice(0, 7)} and checked against sha256 ${(f.sha256 || '').slice(0, 12)}…` : ''}.`))),
+      ...b.firmware.stock_firmware_files.filter(f => f.recovery).map(f => h('details', { style: 'margin-top:6px' },
+        h('summary.hint', {}, 'Recovery image (wipes the drive)'),
+        h('div.tools', {},
+          h('button.btn.small.danger',
+            {disabled: uf2.fetching || uf2.busy,
+              onclick: () => fetchImage(app, f.url, 'vendor-recovery', f.note, { sha256: f.sha256, size: f.size })},
+            uf2.fetching ? 'Fetching…' : `Get ${f.name}`),
+          h('span.hint.warn', {}, f.note))))) : null,
+    h('div.tools', {}, h('button.btn.small', { onclick: () => fileIn.click() }, 'Load .uf2…'), fileIn, h('span.hint', {},
+      uf2.name ? `${uf2.name} · ${(uf2.bytes.length / 1024).toFixed(0)} kB${uf2.source === 'fox-bench' ? ' · fox-bench firmware' : ''}${uf2.version ? ' · foxlib-c ' + uf2.version : uf2.source === 'file' && app.family === 'foxlib-c' ? ' · no version tag' : ''}${uf2.sha256 ? ' · sha256 ' + uf2.sha256.slice(0, 12) + '…' : ''}` : 'nothing loaded'),
       uf2.bytes && app.family === 'foxlib-c' && app.catalog.foxlibcVersion && (!uf2.version || cmpVersion(uf2.version, app.catalog.foxlibcVersion) < 0) ? badge(uf2.version ? `older than this site's ${app.catalog.foxlibcVersion}` : 'untagged build', 'warn') : null,
-      h('button.btn' + (uf2.source === 'fox-bench' || uf2.source === 'vendor' ? '.primary' : uf2.source === 'vendor-recovery' ? '.danger' : ''), { disabled: !uf2.bytes || uf2.busy, onclick: copy }, uf2.busy ? 'Copying…' : `2. Copy to ${b.flash.drive_name}…`)),
+      h('button.btn' + (uf2.source === 'fox-bench' || uf2.source === 'vendor' ? '.primary' : uf2.source === 'vendor-recovery' ? '.danger' : ''),
+        { disabled: !uf2.bytes || uf2.busy, onclick: copy }, uf2.busy ? 'Copying…' : `2. Copy to ${b.flash.drive_name}…`)),
     uf2.last ? h('p.hint' + (uf2.last.ok ? '.ok' : '.err'), {}, uf2.last.text) : null,
-    ours ? h('p.hint', {}, 'Running fox-bench firmware and Listening? ', h('code', {}, 'bootsel'), ' in the console (or the button on the Board tab) does the same as the touch.') : h('p.hint', {}, 'Want fox-bench\'s own firmware on this board instead (fox.json, the same templates as the CircuitPython foxes, bench over serial)? Pick the "(fox-bench firmware)" entry of this board above.'),
+    ours ? h('p.hint', {}, 'Running fox-bench firmware and Listening? ', h('code', {}, 'bootsel'),
+      ' in the console (or the button on the Board tab) does the same as the touch.') : h('p.hint', {}, 'Want fox-bench\'s own firmware on this board instead (fox.json, the same templates as the CircuitPython foxes, bench over serial)? Pick the "(fox-bench firmware)" entry of this board above.'),
     h('p.hint', {}, 'There is no "flash CircuitPython" here on purpose; the batch-flashing card on the Fleet tab is for the ESP32 family.'));
 }

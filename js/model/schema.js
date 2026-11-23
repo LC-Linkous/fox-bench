@@ -6,7 +6,8 @@
 // (foxlib/cfg.py) implements the same document independently; the demo
 // device uses this one to produce its boot banner.
 import { foxlibcLimitIssues } from './foxlibc-limits.js';
-const IMAGES_FILE_OK = /^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$/, RESERVED_FILES = new Set(['code.py', 'boot.py', 'fox.json', 'defaults.json', 'board.json', 'settings.txt', 'audio.wav', '.callsign.wav', '.settings_crc.bin', 'readme.txt']);
+const IMAGES_FILE_OK = /^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$/, RESERVED_FILES = new Set(['code.py', 'boot.py', 'fox.json', 'defaults.json',
+  'board.json', 'settings.txt', 'audio.wav', '.callsign.wav', '.settings_crc.bin', 'readme.txt']);
 
 export const SCHEMA = 1;
 export const REQUIRED_PINS = ['ptt', 'pd', 'hl', 'uart_tx', 'uart_rx', 'audio'];
@@ -33,9 +34,12 @@ export function mergeAndValidate(user, defaults, board) {
   const u = (user && typeof user === 'object' && !Array.isArray(user)) ? user : {};
 
   // ---- top level gates
-  if (u.schema !== undefined && u.schema !== SCHEMA) { return { cfg, report: [{ key: 'schema', reason: `schema ${u.schema} not supported` }], fatal: null, status: 'default(schema)' }; }
-  if (u.template !== undefined && u.template !== defaults.template) return { cfg, report: [{ key: 'template', reason: 'does not match firmware' }], fatal: null, status: 'default(template)' };
-  if (u.board !== undefined && board && u.board !== board.id && u.board !== defaults.board) return { cfg, report: [{ key: 'board', reason: 'config is for another board' }], fatal: null, status: 'default(board)' };
+  if (u.schema !== undefined && u.schema !== SCHEMA) { return {cfg, report: [{ key: 'schema', reason: `schema ${u.schema} not supported` }],
+    fatal: null, status: 'default(schema)'}; }
+  if (u.template !== undefined && u.template !== defaults.template) return {cfg,
+    report: [{ key: 'template', reason: 'does not match firmware' }], fatal: null, status: 'default(template)'};
+  if (u.board !== undefined && board && u.board !== board.id && u.board !== defaults.board) return {cfg,
+    report: [{ key: 'board', reason: 'config is for another board' }], fatal: null, status: 'default(board)'};
   if (u.module !== undefined) { if (typeof u.module === 'string') cfg.module = u.module; else bad('module', 'string'); }
   // foxlib-c targets (fox-bench's native firmware) have no pins section: the radio is wired on the board
   const pinless = board?.family === 'foxlib-c';
@@ -123,7 +127,8 @@ export function mergeAndValidate(user, defaults, board) {
         // a plain file name in the board's root: no paths, and never one of the files the fox runs from (Deploy writes it)
         if (!('images_file' in pl)) out.images_file = 'images.bin';
         else if (typeof pl.images_file === 'string' && IMAGES_FILE_OK.test(pl.images_file) && !RESERVED_FILES.has(pl.images_file.toLowerCase())) out.images_file = pl.images_file;
-        else { bad('payload.images_file', 'a plain file name (letters, digits, . _ -), not code.py / fox.json / defaults.json / boot.py / board.json'); out.images_file = 'images.bin'; }
+        else { bad('payload.images_file',
+          'a plain file name (letters, digits, . _ -), not code.py / fox.json / defaults.json / boot.py / board.json'); out.images_file = 'images.bin'; }
         out.skip_on_low_battery = typeof pl.skip_on_low_battery === 'boolean' ? pl.skip_on_low_battery : true;
       } else {
         out.dit_s = pl.dit_s == null ? null : inRange(pl.dit_s, 0.05, 30) ? pl.dit_s : (bad('payload.dit_s', '0.05–30'), null);
@@ -170,7 +175,8 @@ export function mergeAndValidate(user, defaults, board) {
   if (u.fleet && typeof u.fleet === 'object') cfg.fleet = { ...cfg.fleet, ...u.fleet };
 
   // ---- unknown top-level keys
-  for (const k of Object.keys(u)) if (!['schema', 'template', 'board', 'module', 'pins', 'radio', 'plan', 'id', 'payload', 'schedule', 'battery', 'limits', 'fleet'].includes(k)) bad(k, 'unknown key');
+  for (const k of Object.keys(u)) if (!['schema', 'template', 'board', 'module', 'pins', 'radio', 'plan', 'id', 'payload', 'schedule',
+    'battery', 'limits', 'fleet'].includes(k)) bad(k, 'unknown key');
 
   const status = fatal ? `fatal(${fatal})` : report.length ? `partial(${report.map(x => x.key).join(',')})` : 'ok';
   return { cfg, report, fatal, status };
@@ -181,28 +187,41 @@ export function pageChecks(cfg, { bands, region, morseTable, templateManifest, m
   const issues = [];   // { level: 'err'|'warn', key, msg }
   // the radio section must be the selected module's driver family: a config carried from a PicoFox (si5351fm) onto a
   // XIAO + SA868 (dmo) boots fatal(hardware) on the board — caught here first
-  if (module && cfg.radio?.family && cfg.radio.family !== module.family) issues.push({ level: 'err', key: 'radio.family', msg: `radio.family is ${cfg.radio.family} but the ${module.name || module.id} is a ${module.family} module: the fox would boot silent (fatal hardware). Re-select the board to reset the radio section.` });
-  if (cfg.id.callmessage.includes(cfg.id.placeholder)) issues.push({ level: 'err', key: 'id.callmessage', msg: `callsign not set (still contains ${cfg.id.placeholder})` });
+  if (module && cfg.radio?.family && cfg.radio.family !== module.family) issues.push({level: 'err', key: 'radio.family',
+    msg: `radio.family is ${cfg.radio.family} but the ${module.name || module.id} is a ${module.family} module: the fox would boot silent (fatal hardware). Re-select the board to reset the radio section.`});
+  if (cfg.id.callmessage.includes(cfg.id.placeholder)) issues.push({level: 'err', key: 'id.callmessage',
+    msg: `callsign not set (still contains ${cfg.id.placeholder})`});
   const unsendable = [...new Set(cfg.id.callmessage.toLowerCase().split('').filter(c => c !== ' ' && !(c in morseTable)))];
-  if (unsendable.length) issues.push({ level: 'warn', key: 'id.callmessage', msg: `not in the Morse table, will be skipped: ${unsendable.join(' ')}` });
+  if (unsendable.length) issues.push({level: 'warn', key: 'id.callmessage',
+    msg: `not in the Morse table, will be skipped: ${unsendable.join(' ')}`});
   if (cfg.payload.kind === 'none' && cfg.payload.message && cfg.payload.message.includes(cfg.id.placeholder)) issues.push({ level: 'err', key: 'payload.message', msg: 'QRSS message contains the placeholder' });
   const regionBands = bands?.[region] || {};
   for (const f of cfg.plan.frequencies_mhz) {
     const inBand = Object.values(regionBands).some(([lo, hi]) => f >= lo && f <= hi);
-    if (!inBand) issues.push({ level: 'err', blocking: false, key: 'plan.frequencies_mhz', msg: `${f} MHz is outside the ${region} amateur bands — deploying will ask you to confirm` });
+    if (!inBand) issues.push({level: 'err', blocking: false, key: 'plan.frequencies_mhz',
+      msg: `${f} MHz is outside the ${region} amateur bands — deploying will ask you to confirm`});
   }
-  if (module?.bandwidths_khz && !module.bandwidths_khz.includes(cfg.radio.bandwidth_khz)) issues.push({ level: 'warn', key: 'radio.bandwidth_khz', msg: `${cfg.radio.bandwidth_khz} kHz is not a width the ${module.name} offers (${module.bandwidths_khz.join(' / ')}); the firmware will use the nearest` });
-  if (cfg.plan.frequencies_mhz.length > 1 && !cfg.plan.announce_qsy) issues.push({ level: 'info', key: 'plan.announce_qsy', msg: 'silent rotation: hunters must find each new frequency themselves' });
+  if (module?.bandwidths_khz && !module.bandwidths_khz.includes(cfg.radio.bandwidth_khz)) issues.push({level: 'warn',
+    key: 'radio.bandwidth_khz',
+    msg: `${cfg.radio.bandwidth_khz} kHz is not a width the ${module.name} offers (${module.bandwidths_khz.join(' / ')}); the firmware will use the nearest`});
+  if (cfg.plan.frequencies_mhz.length > 1 && !cfg.plan.announce_qsy) issues.push({level: 'info', key: 'plan.announce_qsy',
+    msg: 'silent rotation: hunters must find each new frequency themselves'});
   if (templateManifest?.pins && !pinless) for (const role of templateManifest.pins.required) if (!cfg.pins[role]) issues.push({ level: 'err', key: `pins.${role}`, msg: `${role} is required by ${templateManifest.id}` });
-  if (cfg.id.telemetry.includes('batt') && !pinless && !cfg.pins.batt_sense) issues.push({ level: 'info', key: 'id.telemetry', msg: 'battery telemetry requested but no batt_sense pin — ignored by the firmware' });
-  if (cfg.id.telemetry.includes('chg') && !pinless) issues.push({ level: 'info', key: 'id.telemetry', msg: 'this board has no charger sense; "chg" telemetry is ignored' });
+  if (cfg.id.telemetry.includes('batt') && !pinless && !cfg.pins.batt_sense) issues.push({level: 'info', key: 'id.telemetry',
+    msg: 'battery telemetry requested but no batt_sense pin — ignored by the firmware'});
+  if (cfg.id.telemetry.includes('chg') && !pinless) issues.push({level: 'info', key: 'id.telemetry',
+    msg: 'this board has no charger sense; "chg" telemetry is ignored'});
   if (pinless) {
-    if (cfg.id.telemetry.includes('batt')) issues.push({ level: 'info', key: 'id.telemetry', msg: 'this board has no battery voltage sense; "batt" telemetry is ignored (it can send "chg": the word CHG while the charger is active)' });
+    if (cfg.id.telemetry.includes('batt')) issues.push({level: 'info', key: 'id.telemetry',
+      msg: 'this board has no battery voltage sense; "batt" telemetry is ignored (it can send "chg": the word CHG while the charger is active)'});
     const maxTone = Math.floor((cfg.radio.sample_rate || 8000) / 2) - 100;
-    if (cfg.id.tone_hz > maxTone) issues.push({ level: 'warn', key: 'id.tone_hz', msg: `${cfg.id.tone_hz} Hz is above what ${cfg.radio.sample_rate || 8000} samples/s can carry (${maxTone} Hz); the firmware folds it down an octave` });
-    if ((cfg.radio.id_deviation_hz || 0) > 5000 || (cfg.radio.audio_deviation_hz || 0) > 5000) issues.push({ level: 'warn', key: 'radio.id_deviation_hz', msg: 'deviation above ±5 kHz is wider than a 12.5 kHz channel; receivers will distort' });
+    if (cfg.id.tone_hz > maxTone) issues.push({level: 'warn', key: 'id.tone_hz',
+      msg: `${cfg.id.tone_hz} Hz is above what ${cfg.radio.sample_rate || 8000} samples/s can carry (${maxTone} Hz); the firmware folds it down an octave`});
+    if ((cfg.radio.id_deviation_hz || 0) > 5000 || (cfg.radio.audio_deviation_hz || 0) > 5000) issues.push({level: 'warn',
+      key: 'radio.id_deviation_hz', msg: 'deviation above ±5 kHz is wider than a 12.5 kHz channel; receivers will distort'});
     const margin = 0.02, zoneHi = cfg.radio.itu_zone === 1 ? 146.0 : 148.0;
-    for (const f of cfg.plan.frequencies_mhz) if (f < 144.0 + margin || f > zoneHi - margin) issues.push({ level: 'err', key: 'plan.frequencies_mhz', msg: `${f} MHz is within 20 kHz of the band edge for ITU zone ${cfg.radio.itu_zone} (144–${zoneHi} MHz)` });
+    for (const f of cfg.plan.frequencies_mhz) if (f < 144.0 + margin || f > zoneHi - margin) issues.push({level: 'err',
+      key: 'plan.frequencies_mhz', msg: `${f} MHz is within 20 kHz of the band edge for ITU zone ${cfg.radio.itu_zone} (144–${zoneHi} MHz)`});
     issues.push(...foxlibcLimitIssues(cfg));   // what the C firmware's fixed pools can hold
   }
   return issues;

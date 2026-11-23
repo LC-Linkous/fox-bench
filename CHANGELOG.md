@@ -32,6 +32,14 @@ the checkers' one-line rule tables — is left alone.
   `bench` (`finds_readback`), then `restore`, `finish`; `parse_args` and
   `portal_only` on their own. Every REPL exchange and every printed line is
   as before: all three bench recordings replay with every exchange used.
+- The page's UI files (`js/ui/*.js`, `js/main.js`, `schema.js`,
+  `netschema.js`, `vendor/picofox.js`): 766 lines longer than 140
+  characters wrapped at the commas of their widest bracket group, packed to
+  the width — the files' own hand style, not a formatter's (Prettier at the
+  same width turned 317 lines into 1,439). Lines over 200 characters go
+  from 575 to 233; what is left is method chains and long strings, which
+  this does not touch. The parsed AST of every file is identical before
+  and after; lint, unit and smoke agree.
 
 ### Page 0.18.21 — the bench laptop runs Windows
 

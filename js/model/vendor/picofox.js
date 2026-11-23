@@ -78,7 +78,9 @@ export const idEvents = cfg => morse.events(cfg.id.callmessage, { wpm: cfg.id.wp
 export function audioEvents(cfg) {
   const p = cfg.payload, pad = [0, cfg.schedule.pad_ms ?? 2000], out = [];
   if (p.kind === 'songs') for (const s of p.playlist) out.push(...melody.events(s, p.articulation), pad);
-  else if (p.kind === 'none') out.push(...morse.events(p.message || cfg.id.callmessage, { wpm: cfg.id.wpm, toneHz: cfg.id.tone_hz, ditMs: p.dit_s ? p.dit_s * 1000 : null }), pad);
+  else if (p.kind === 'none') out.push(...morse.events(p.message || cfg.id.callmessage,
+    { wpm: cfg.id.wpm, toneHz: cfg.id.tone_hz, ditMs: p.dit_s ? p.dit_s * 1000 : null }),
+    pad);
   if (!out.length) out.push([0, 1000]);     // the firmware needs some audio; a second of carrier
   return out;
 }
@@ -123,7 +125,8 @@ export function validate(user, defaults, board) {
   if ('power_dbm' in r) cfg.radio.power_dbm = r.power_dbm === null || num(r.power_dbm, -40, 40) ? r.power_dbm : (bad('radio.power_dbm', 'null or dBm'), null);
   const p = u.plan || {};
   if ('frequencies_mhz' in p) { if (Array.isArray(p.frequencies_mhz) && p.frequencies_mhz.length && p.frequencies_mhz.every(f => num(f, 1, 1000))) cfg.plan.frequencies_mhz = [p.frequencies_mhz[0]]; else bad('plan.frequencies_mhz', 'one frequency'); }
-  if (Array.isArray(p.frequencies_mhz) && p.frequencies_mhz.length > 1) issues.push({ level: 'warn', key: 'plan.frequencies_mhz', msg: 'the PicoFox transmits on one frequency; only the first entry is used' });
+  if (Array.isArray(p.frequencies_mhz) && p.frequencies_mhz.length > 1) issues.push({level: 'warn', key: 'plan.frequencies_mhz',
+    msg: 'the PicoFox transmits on one frequency; only the first entry is used'});
   const d = u.id || {};
   if ('callmessage' in d) { if (typeof d.callmessage === 'string' && d.callmessage.length >= 1 && d.callmessage.length <= 64) cfg.id.callmessage = d.callmessage; else bad('id.callmessage', '1–64 chars'); }
   if ('placeholder' in d && typeof d.placeholder === 'string' && d.placeholder) cfg.id.placeholder = d.placeholder;
@@ -134,14 +137,19 @@ export function validate(user, defaults, board) {
   if (pl && typeof pl === 'object') {
     if (pl.kind === 'songs') {
       const songs = Array.isArray(pl.playlist) ? pl.playlist.filter((s, i) => { const ok = s && typeof s.name === 'string' && num(s.tempo, 40, 300) && Array.isArray(s.notes) && s.notes.length; if (!ok) bad(`payload.playlist[${i}]`, 'bad song'); return ok; }) : [];
-      cfg.payload = { kind: 'songs', articulation: num(pl.articulation, 0.5, 1) ? pl.articulation : 0.875, skip_on_low_battery: false, playlist: songs.length ? songs : (bad('payload.playlist', 'empty'), defaults.payload.playlist) };
+      cfg.payload = {kind: 'songs', articulation: num(pl.articulation, 0.5, 1) ? pl.articulation : 0.875, skip_on_low_battery: false,
+        playlist: songs.length ? songs : (bad('payload.playlist', 'empty'), defaults.payload.playlist)};
     } else if (pl.kind === 'none') {
-      cfg.payload = { kind: 'none', dit_s: pl.dit_s == null ? null : num(pl.dit_s, 0.05, 30) ? pl.dit_s : (bad('payload.dit_s', '0.05–30'), null), message: typeof pl.message === 'string' ? pl.message : null };
+      cfg.payload = {kind: 'none',
+        dit_s: pl.dit_s == null ? null : num(pl.dit_s, 0.05, 30) ? pl.dit_s : (bad('payload.dit_s', '0.05–30'), null),
+        message: typeof pl.message === 'string' ? pl.message : null};
     } else bad('payload.kind', 'songs | none (the PicoFox plays audio; no SSTV at 5 kHz sampling)');
   }
   const s = u.schedule;
   if (s && typeof s === 'object') {
-    if (s.kind === 'duty') cfg.schedule = { kind: 'duty', duty_percent: Number.isInteger(s.duty_percent) && num(s.duty_percent, 0, 100) ? s.duty_percent : (bad('schedule.duty_percent', '0–100'), 100), pad_ms: Number.isInteger(s.pad_ms) && num(s.pad_ms, 0, 60000) ? s.pad_ms : 2000 };
+    if (s.kind === 'duty') cfg.schedule = {kind: 'duty',
+      duty_percent: Number.isInteger(s.duty_percent) && num(s.duty_percent, 0, 100) ? s.duty_percent : (bad('schedule.duty_percent', '0–100'), 100),
+      pad_ms: Number.isInteger(s.pad_ms) && num(s.pad_ms, 0, 60000) ? s.pad_ms : 2000};
     else { bad('schedule.kind', 'duty (the PicoFox firmware has one schedule: a duty cycle)'); }
   }
   if (u.fleet && typeof u.fleet === 'object') cfg.fleet = { ...cfg.fleet, ...u.fleet };
@@ -150,19 +158,28 @@ export function validate(user, defaults, board) {
 
   // ---- page checks: what the firmware would do with this, silently
   const f = cfg.plan.frequencies_mhz[0], [lo, hi] = allowedRange(cfg.radio.itu_zone);
-  if (f < lo || f > hi) issues.push({ level: 'err', key: 'plan.frequencies_mhz', msg: `${f} MHz is outside what the firmware allows for ITU zone ${cfg.radio.itu_zone} (${lo}–${hi} MHz, 20 kHz inside the band edges). The fox would stay silent.` });
-  if (cfg.id.callmessage.includes(cfg.id.placeholder)) issues.push({ level: 'err', key: 'id.callmessage', msg: `callsign not set (still contains ${cfg.id.placeholder})` });
+  if (f < lo || f > hi) issues.push({level: 'err', key: 'plan.frequencies_mhz',
+    msg: `${f} MHz is outside what the firmware allows for ITU zone ${cfg.radio.itu_zone} (${lo}–${hi} MHz, 20 kHz inside the band edges). The fox would stay silent.`});
+  if (cfg.id.callmessage.includes(cfg.id.placeholder)) issues.push({level: 'err', key: 'id.callmessage',
+    msg: `callsign not set (still contains ${cfg.id.placeholder})`});
   const cs = firmwareCallsign(cfg.id.callmessage.trim().split(/\s+/)[0]);
-  if (!cs) issues.push({ level: 'err', key: 'id.callmessage', msg: 'the first word of the ID has no A–Z/0–9 characters; the firmware needs a non-empty CALLSIGN or it stays silent' });
+  if (!cs) issues.push({level: 'err', key: 'id.callmessage',
+    msg: 'the first word of the ID has no A–Z/0–9 characters; the firmware needs a non-empty CALLSIGN or it stays silent'});
   const dr = dropped(cfg.id.callmessage.trim().split(/\s+/)[0]);
-  if (dr.length) issues.push({ level: 'info', key: 'id.callmessage', msg: `CALLSIGN setting becomes "${cs}": the firmware keeps only A–Z and 0–9 (dropped: ${dr.join(' ')}). Your full ID "${cfg.id.callmessage}" is still sent, from the audio the page writes.` });
-  const un = morse.unsendable(cfg.id.callmessage); if (un.length) issues.push({ level: 'warn', key: 'id.callmessage', msg: `not in the Morse table, will be skipped: ${un.join(' ')}` });
-  if (cfg.schedule.duty_percent === 0) issues.push({ level: 'err', key: 'schedule.duty_percent', msg: 'duty cycle 0 %: the firmware never transmits' });
-  if (cfg.radio.revision === 'r2' && cfg.radio.attenuation) issues.push({ level: 'warn', key: 'radio.attenuation', msg: 'rev 2 boards have no attenuator; ATTENUATION is ignored' });
-  if (cfg.radio.id_deviation_hz > 5000 || cfg.radio.audio_deviation_hz > 5000) issues.push({ level: 'warn', key: 'radio.id_deviation_hz', msg: 'deviation above ±5 kHz is wider than a 12.5/25 kHz FM channel expects; receivers may distort and neighbours will notice' });
+  if (dr.length) issues.push({level: 'info', key: 'id.callmessage',
+    msg: `CALLSIGN setting becomes "${cs}": the firmware keeps only A–Z and 0–9 (dropped: ${dr.join(' ')}). Your full ID "${cfg.id.callmessage}" is still sent, from the audio the page writes.`});
+  const un = morse.unsendable(cfg.id.callmessage); if (un.length) issues.push({level: 'warn', key: 'id.callmessage',
+    msg: `not in the Morse table, will be skipped: ${un.join(' ')}`});
+  if (cfg.schedule.duty_percent === 0) issues.push({level: 'err', key: 'schedule.duty_percent',
+    msg: 'duty cycle 0 %: the firmware never transmits'});
+  if (cfg.radio.revision === 'r2' && cfg.radio.attenuation) issues.push({level: 'warn', key: 'radio.attenuation',
+    msg: 'rev 2 boards have no attenuator; ATTENUATION is ignored'});
+  if (cfg.radio.id_deviation_hz > 5000 || cfg.radio.audio_deviation_hz > 5000) issues.push({level: 'warn', key: 'radio.id_deviation_hz',
+    msg: 'deviation above ±5 kHz is wider than a 12.5/25 kHz FM channel expects; receivers may distort and neighbours will notice'});
   if (cfg.payload.kind === 'songs') {
     const high = cfg.payload.playlist.flatMap(s => s.notes.filter(n => n[0] && melody.midiHz(n[0]) > MAX_AUDIO_HZ - 100).map(n => melody.noteName(n[0])));
-    if (high.length) issues.push({ level: 'warn', key: 'payload.playlist', msg: `notes above the 5 kHz sample rate's reach are dropped an octave: ${[...new Set(high)].join(' ')}` });
+    if (high.length) issues.push({level: 'warn', key: 'payload.playlist',
+      msg: `notes above the 5 kHz sample rate's reach are dropped an octave: ${[...new Set(high)].join(' ')}`});
   }
   if (cfg.payload.kind === 'none' && cfg.payload.message && cfg.payload.message.includes(cfg.id.placeholder)) issues.push({ level: 'err', key: 'payload.message', msg: 'message contains the placeholder' });
   const status = report.length ? `partial(${report.map(x => x.key).join(',')})` : 'ok';
@@ -173,12 +190,16 @@ export function validate(user, defaults, board) {
 export function files(cfg) {
   const settings = serializeSettings(settingsFromCfg(cfg));
   const tone = { shape: cfg.radio.tone_shape || 'sine', preemphasis: cfg.radio.preemphasis !== false };
-  const idPcm = renderPcm(idEvents(cfg), { sampleRate: SAMPLE_RATE, level: (cfg.radio.id_deviation_hz || 5000) / MAX_DEVIATION_HZ, maxHz: MAX_AUDIO_HZ - 100, ...tone });
-  const auPcm = renderPcm(audioEvents(cfg), { sampleRate: SAMPLE_RATE, level: (cfg.radio.audio_deviation_hz || 5000) / MAX_DEVIATION_HZ, maxHz: MAX_AUDIO_HZ - 100, ...tone });
+  const idPcm = renderPcm(idEvents(cfg),
+    { sampleRate: SAMPLE_RATE, level: (cfg.radio.id_deviation_hz || 5000) / MAX_DEVIATION_HZ, maxHz: MAX_AUDIO_HZ - 100, ...tone });
+  const auPcm = renderPcm(audioEvents(cfg),
+    { sampleRate: SAMPLE_RATE, level: (cfg.radio.audio_deviation_hz || 5000) / MAX_DEVIATION_HZ, maxHz: MAX_AUDIO_HZ - 100, ...tone });
   return [
     { path: FILES.settings, data: settings, why: 'frequency, zone, duty, attenuation, callsign' },
-    { path: FILES.audio, data: wavBytes(auPcm, SAMPLE_RATE), why: `payload audio, ${(auPcm.length / SAMPLE_RATE).toFixed(1)} s, ±${cfg.radio.audio_deviation_hz || 5000} Hz, ${tone.shape}${tone.preemphasis ? ' + pre-emphasis' : ''}` },
-    { path: FILES.id, data: wavBytes(idPcm, SAMPLE_RATE), why: `Morse ID "${cfg.id.callmessage}", ${(idPcm.length / SAMPLE_RATE).toFixed(1)} s, ±${cfg.radio.id_deviation_hz || 5000} Hz` },
+    {path: FILES.audio, data: wavBytes(auPcm, SAMPLE_RATE),
+      why: `payload audio, ${(auPcm.length / SAMPLE_RATE).toFixed(1)} s, ±${cfg.radio.audio_deviation_hz || 5000} Hz, ${tone.shape}${tone.preemphasis ? ' + pre-emphasis' : ''}`},
+    {path: FILES.id, data: wavBytes(idPcm, SAMPLE_RATE),
+      why: `Morse ID "${cfg.id.callmessage}", ${(idPcm.length / SAMPLE_RATE).toFixed(1)} s, ±${cfg.radio.id_deviation_hz || 5000} Hz`},
     { path: FILES.marker, data: markerBytes(byteSum(settings)), why: 'byte-sum of settings.txt so the firmware keeps our ID audio' },
   ];
 }

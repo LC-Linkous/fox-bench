@@ -15,7 +15,8 @@ export function h(tag, attrs = {}, ...children) {
   if (classes.length) el.className = classes.join(' ');
   for (const [k, v] of Object.entries(attrs || {})) {
     if (v == null || v === false) continue;
-    if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2), ev => { let r; try { r = v(ev); } catch (e) { reportHandlerError(e); return; } if (r && typeof r.then === 'function') r.catch(reportHandlerError); });
+    if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2),
+      ev => { let r; try { r = v(ev); } catch (e) { reportHandlerError(e); return; } if (r && typeof r.then === 'function') r.catch(reportHandlerError); });
     else if (k === 'html') el.innerHTML = v;
     else if (k === 'value') el.value = v;
     else if (k === 'checked' || k === 'disabled' || k === 'hidden' || k === 'selected') el[k] = !!v;
@@ -39,7 +40,8 @@ export function numInput(value, { min, max, step = 'any', onchange, width } = {}
   return el;
 }
 export function select(options, value, onchange) {
-  const el = h('select', {}, options.map(o => { const [v, label] = Array.isArray(o) ? o : [o, o]; return h('option', { value: v, selected: v === value }, label); }));
+  const el = h('select', {},
+    options.map(o => { const [v, label] = Array.isArray(o) ? o : [o, o]; return h('option', { value: v, selected: v === value }, label); }));
   el.addEventListener('change', () => onchange(el.value));
   return el;
 }

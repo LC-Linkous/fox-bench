@@ -18,7 +18,8 @@ function audit(noteIn) {
   const row = auditRow(obs, m, (noteIn?.value || '').trim());
   fleet.append(row);
   lastAudit = { obs, m, row, at: new Date().toISOString() };
-  app.console.line(`audit: ${m.result}${m.row ? ` — board #${m.row.board_number || '?'}${m.row.profile ? ' · ' + m.row.profile : ''}` : ''}`, m.result === 'match' ? 'ok' : m.result === 'mismatch' ? 'err' : 'dim');
+  app.console.line(`audit: ${m.result}${m.row ? ` — board #${m.row.board_number || '?'}${m.row.profile ? ' · ' + m.row.profile : ''}` : ''}`,
+    m.result === 'match' ? 'ok' : m.result === 'mismatch' ? 'err' : 'dim');
   render();
 }
 
@@ -31,12 +32,16 @@ function auditCard() {
     : 'No UID this way (drive only): matched by board. Listen only gives the UID.';
   const la = lastAudit;
   return h('div.card', {}, h('h3', {}, 'Audit the connected fox'),
-    h('p.hint', {}, 'Is this fox what the log says it is? Reads its identity and configuration and compares them with the last deploy recorded for it (template, callsign, frequencies, and the banner\'s cfg/radio/id when there is one), then appends an ', h('code', {}, 'audit'), ' row. ', how),
+    h('p.hint', {},
+      'Is this fox what the log says it is? Reads its identity and configuration and compares them with the last deploy recorded for it (template, callsign, frequencies, and the banner\'s cfg/radio/id when there is one), then appends an ',
+      h('code', {}, 'audit'), ' row. ', how),
     h('div.tools', {}, h('button.btn.primary', { disabled: !connected, onclick: () => audit(noteIn) }, 'Audit'), noteIn),
     la ? h('div', { style: 'margin-top:10px' },
       h('p', {}, la.m.result === 'match' ? badge('match', 'ok') : la.m.result === 'mismatch' ? badge('mismatch', 'err') : badge(la.m.result, 'warn'), ' ',
         la.m.row ? `board #${la.m.row.board_number || '?'}${la.m.row.profile ? ` · profile "${la.m.row.profile}"` : ''} · deployed ${String(la.m.row.timestamp).slice(0, 16).replace('T', ' ')} (matched by ${la.m.by})` : 'no deploy on record for this fox in this browser\'s log'),
-      la.m.checks.length ? h('ul.diff', {}, la.m.checks.map(c => h('li', {}, h('span', {}, c.key), h('span.from', {}, String(c.expected)), h('span' + (c.ok ? '.to' : '.err'), {}, String(c.actual) + (c.ok ? ' ✓' : ' ✗'))))) : null) : null);
+      la.m.checks.length ? h('ul.diff', {},
+        la.m.checks.map(c => h('li', {}, h('span', {}, c.key), h('span.from', {}, String(c.expected)),
+          h('span' + (c.ok ? '.to' : '.err'), {}, String(c.actual) + (c.ok ? ' ✓' : ' ✗'))))) : null) : null);
 }
 
 let sheetEvent = null;          // the event filter on the sheet; null = the current form's fleet.event
@@ -47,13 +52,22 @@ function sheetCard(log) {
   const stamp = () => new Date().toISOString().slice(0, 10);
   const open = () => { const w = window.open('', '_blank'); if (!w) { app.console.err('the browser blocked the print window'); return; } w.document.write(sheetHtml(rows, { event: ev })); w.document.close(); };
   return h('div.card', {}, h('h3', {}, 'Event sheet ', badge(rows.length + (rows.length === 1 ? ' fox' : ' foxes'))),
-    h('p.hint', {}, 'What is deployed and what each fox shows on the air — the latest deploy per chip uid, one line each, from the fleet log alone. The field document for the day; the fleet log above stays the audit trail. Nothing secret is on it beyond the portal codes.'),
+    h('p.hint', {},
+      'What is deployed and what each fox shows on the air — the latest deploy per chip uid, one line each, from the fleet log alone. The field document for the day; the fleet log above stays the audit trail. Nothing secret is on it beyond the portal codes.'),
     h('div.row', { style: 'gap:8px;align-items:center;flex-wrap:wrap' },
-      field('Event', select([['', 'all events'], ...events.map(e => [e, e])], ev, v => { sheetEvent = v; render(); }), events.length ? '' : 'set fleet.event on the Fleet section of each fox to filter'),
-      h('div.tools', {}, h('button.btn.small', { disabled: !rows.length, onclick: () => download(`event-sheet-${(ev || 'all').replace(/[^\w-]+/g, '_')}-${stamp()}.csv`, sheetCsv(rows), 'text/csv') }, 'Export CSV'),
+      field('Event', select([['', 'all events'], ...events.map(e => [e, e])], ev, v => { sheetEvent = v; render(); }),
+        events.length ? '' : 'set fleet.event on the Fleet section of each fox to filter'),
+      h('div.tools', {}, h('button.btn.small',
+        {disabled: !rows.length,
+          onclick: () => download(`event-sheet-${(ev || 'all').replace(/[^\w-]+/g, '_')}-${stamp()}.csv`, sheetCsv(rows), 'text/csv')},
+        'Export CSV'),
         h('button.btn.small', { disabled: !rows.length, onclick: open }, 'Print view'))),
-    rows.length ? h('div.grid-wrap', {}, h('table.grid', { id: 'event-sheet' }, h('thead', {}, h('tr', {}, ['#', 'fox', 'template', 'uid', 'operator', 'on the air', 'deployed'].map(f => h('th', {}, f)))),
-      h('tbody', {}, rows.map(r => h('tr', {}, h('td.mono', {}, r.board_number || ''), h('td', {}, r.profile || ''), h('td.mono', {}, r.template || ''), h('td.mono', {}, String(r.uid || '').slice(-8)), h('td', {}, r.owner || r.callsign || ''), h('td', { style: 'font-size:12px' }, r.on_air || ''), h('td.mono', {}, String(r.timestamp || '').slice(0, 16).replace('T', ' '))))))) : h('p.hint', {}, 'No deploys in the log yet' + (ev ? ` for "${ev}"` : '') + '.'));
+    rows.length ? h('div.grid-wrap', {}, h('table.grid', { id: 'event-sheet' }, h('thead', {},
+      h('tr', {}, ['#', 'fox', 'template', 'uid', 'operator', 'on the air', 'deployed'].map(f => h('th', {}, f)))),
+      h('tbody', {},
+        rows.map(r => h('tr', {}, h('td.mono', {}, r.board_number || ''), h('td', {}, r.profile || ''), h('td.mono', {}, r.template || ''),
+          h('td.mono', {}, String(r.uid || '').slice(-8)), h('td', {}, r.owner || r.callsign || ''),
+          h('td', { style: 'font-size:12px' }, r.on_air || ''), h('td.mono', {}, String(r.timestamp || '').slice(0, 16).replace('T', ' '))))))) : h('p.hint', {}, 'No deploys in the log yet' + (ev ? ` for "${ev}"` : '') + '.'));
 }
 
 /** Phase H: the shell game — several saved network foxes share one identity list and trade names on a schedule. */
@@ -68,7 +82,8 @@ function shellGameCard(list) {
   const ok = ids.length >= 2 && ids.length <= 8 && picked.length >= 2 && picked.length <= ids.length && shell.period >= 60 && shell.period <= 86400;
   const apply = () => {
     picked.forEach((p, seat) => {
-      const c = p.cfg; c.stealth = { ...(c.stealth || {}), enabled: true, shell_game: { identities: ids, period_s: shell.period, index: seat } };
+      const c = p.cfg; c.stealth = {...(c.stealth || {}), enabled: true,
+        shell_game: { identities: ids, period_s: shell.period, index: seat }};
       if (c.stealth.rotate_mac) c.stealth.rotate_mac = false; if (c.stealth.rotate_name) c.stealth.rotate_name = false;
       profiles.save(p);
       if (app.cfg.fleet?.profile === p.name) { app.cfg.stealth = structuredClone(c.stealth); }
@@ -77,20 +92,37 @@ function shellGameCard(list) {
   };
   const leave = () => { for (const p of picked) { if (p.cfg.stealth) { p.cfg.stealth.shell_game = null; profiles.save(p); if (app.cfg.fleet?.profile === p.name) app.cfg.stealth.shell_game = null; } } app.changed('fleet'); render(); };
   const inGame = net.filter(p => p.cfg.stealth?.shell_game);
-  const ta = h('textarea', { rows: 4, style: 'width:100%;font-family:var(--mono)', spellcheck: 'false', placeholder: 'FOX-A\nFOX-B\nFOX-C' }, shell.names);
+  const ta = h('textarea', { rows: 4, style: 'width:100%;font-family:var(--mono)', spellcheck: 'false', placeholder: 'FOX-A\nFOX-B\nFOX-C' },
+    shell.names);
   ta.addEventListener('change', () => { shell.names = ta.value; render(); });
   const seats = picked.map((_, i) => i);
   return h('div.card', {}, h('h3', {}, 'Shell game ', inGame.length ? badge(inGame.length + ' in a game') : null),
-    h('p.hint', {}, 'The picked foxes carry the same list of identities (a name and a MAC each) and trade them every period, following the board clock: seat i shows identity (i + elapsed periods) mod n, so no two show the same name at once and every fox wears every name in turn. "I found FOX-7" means a different box an hour later. Needs "Set the board clock" ticked at deploy for every fox in the game.'),
+    h('p.hint', {},
+      'The picked foxes carry the same list of identities (a name and a MAC each) and trade them every period, following the board clock: seat i shows identity (i + elapsed periods) mod n, so no two show the same name at once and every fox wears every name in turn. "I found FOX-7" means a different box an hour later. Needs "Set the board clock" ticked at deploy for every fox in the game.'),
     h('div.two-col', {},
-      field('Foxes in the game', h('div', {}, ...net.map(p => check((p.cfg.fleet?.number != null && p.cfg.fleet.number !== '' ? `#${p.cfg.fleet.number} ` : '') + p.name, shell.picked.has(p.name), v => { if (v) shell.picked.add(p.name); else shell.picked.delete(p.name); render(); }, p.cfg.stealth?.shell_game ? `in a game: seat ${p.cfg.stealth.shell_game.index + 1}` : ''))), 'saved network-fox profiles; seats are given in this order'),
-      h('div', {}, field('Identities', ta, `one name per line (${ids.length}; 2–8, at least as many as foxes); MACs are generated: ` + (ids.length ? ids.map(i => i.mac).join(' · ') : '—')),
+      field('Foxes in the game',
+        h('div', {},
+          ...net.map(p => check((p.cfg.fleet?.number != null && p.cfg.fleet.number !== '' ? `#${p.cfg.fleet.number} ` : '') + p.name,
+            shell.picked.has(p.name), v => { if (v) shell.picked.add(p.name); else shell.picked.delete(p.name); render(); },
+            p.cfg.stealth?.shell_game ? `in a game: seat ${p.cfg.stealth.shell_game.index + 1}` : ''))),
+        'saved network-fox profiles; seats are given in this order'),
+      h('div', {}, field('Identities', ta,
+        `one name per line (${ids.length}; 2–8, at least as many as foxes); MACs are generated: ` + (ids.length ? ids.map(i => i.mac).join(' · ') : '—')),
         h('div.row', {}, h('button.btn.small', { onclick: () => { shell.macs = []; render(); } }, 'New MACs'),
-          field('Every', h('div.row', {}, numInput(shell.period, { min: 60, max: 86400, step: 60, width: '110px', onchange: v => { shell.period = Math.round(v); render(); } }), h('span.suffix', {}, 's')), `${shell.period >= 3600 ? (shell.period / 3600).toFixed(1).replace(/\.0$/, '') + ' h' : (shell.period / 60) + ' min'}`)))),
-    ok ? h('div.grid-wrap', {}, h('table.grid', { id: 'shell-table' }, h('thead', {}, h('tr', {}, h('th', {}, 'period'), ...picked.map((p, i) => h('th', {}, `seat ${i + 1}: ${p.name}`)))),
-      h('tbody', {}, ...shellTable(ids, shell.period, seats).map(row => h('tr', {}, h('td.mono', {}, `+${row.period}`), ...row.names.map(nm => h('td', {}, nm))))))) : null,
+          field('Every',
+            h('div.row', {},
+              numInput(shell.period,
+                { min: 60, max: 86400, step: 60, width: '110px', onchange: v => { shell.period = Math.round(v); render(); } }),
+              h('span.suffix', {}, 's')),
+            `${shell.period >= 3600 ? (shell.period / 3600).toFixed(1).replace(/\.0$/, '') + ' h' : (shell.period / 60) + ' min'}`)))),
+    ok ? h('div.grid-wrap', {}, h('table.grid', { id: 'shell-table' }, h('thead', {},
+      h('tr', {}, h('th', {}, 'period'), ...picked.map((p, i) => h('th', {}, `seat ${i + 1}: ${p.name}`)))),
+      h('tbody', {},
+        ...shellTable(ids, shell.period, seats).map(row => h('tr', {}, h('td.mono', {}, `+${row.period}`),
+          ...row.names.map(nm => h('td', {}, nm))))))) : null,
     ok && !collisionFree(ids, seats) ? h('p.hint.warn', {}, 'two seats would share a name') : null,
-    h('div.tools', {}, h('button.btn.primary', { disabled: !ok, onclick: apply }, 'Apply to the picked foxes'), inGame.length ? h('button.btn.small', { disabled: !picked.length, onclick: leave }, 'Take the picked foxes out') : null));
+    h('div.tools', {}, h('button.btn.primary', { disabled: !ok, onclick: apply }, 'Apply to the picked foxes'),
+      inGame.length ? h('button.btn.small', { disabled: !picked.length, onclick: leave }, 'Take the picked foxes out') : null));
 }
 
 /** Phase J: which saved fox leads to which. */
@@ -98,23 +130,29 @@ function chainCard(list) {
   const c = chain(list);
   if (!c.links.length && !c.problems.length) return null;
   return h('div.card', {}, h('h3', {}, 'Handoff chain ', badge(c.links.length + (c.links.length === 1 ? ' link' : ' links'))),
-    h('p.hint', {}, 'From each profile\'s Fleet record → Points to. The text that names the next fox is filled in at deploy ({{to.freq}}, {{to.name}}, …).'),
-    h('ul.list', {}, ...c.links.map(l => h('li', {}, l.text, l.unresolved ? badge(`${l.unresolved} placeholder${l.unresolved === 1 ? '' : 's'} unresolved`, 'warn') : null))),
+    h('p.hint', {},
+      'From each profile\'s Fleet record → Points to. The text that names the next fox is filled in at deploy ({{to.freq}}, {{to.name}}, …).'),
+    h('ul.list', {},
+      ...c.links.map(l => h('li', {}, l.text,
+        l.unresolved ? badge(`${l.unresolved} placeholder${l.unresolved === 1 ? '' : 's'} unresolved`, 'warn') : null))),
     c.problems.length ? h('ul.list', {}, ...c.problems.map(p => h('li', {}, badge('check', 'warn'), ' ', p))) : null);
 }
 
 function render() {
   const list = profiles.all(), log = fleet.all();
-  const nameIn = h('input', { type: 'text', value: app.cfg.fleet?.profile || '', placeholder: 'Fox 3 — 146.565 — W1ABC/3', style: 'width:100%' });
+  const nameIn = h('input',
+    { type: 'text', value: app.cfg.fleet?.profile || '', placeholder: 'Fox 3 — 146.565 — W1ABC/3', style: 'width:100%' });
   const save = () => app.saveProfile(nameIn.value);
   const fileIn = h('input', { type: 'file', accept: 'application/json', hidden: true });
-  fileIn.addEventListener('change', async () => { try { const n = profiles.importJson(await fileIn.files[0].text()); app.console.dim(`imported ${n} profile(s)`); render(); } catch (e) { app.console.err('import failed: ' + e.message); } fileIn.value = ''; });
+  fileIn.addEventListener('change',
+    async () => { try { const n = profiles.importJson(await fileIn.files[0].text()); app.console.dim(`imported ${n} profile(s)`); render(); } catch (e) { app.console.err('import failed: ' + e.message); } fileIn.value = ''; });
   const csvIn = h('input', { type: 'file', accept: '.csv,text/csv', hidden: true, id: 'fleet-csv-in' });
   csvIn.addEventListener('change', async () => {
     try {
       const r = fleet.importCsv(await csvIn.files[0].text());
       const why = r.rejected.length ? ` (${r.rejected.slice(0, 3).map(x => `line ${x.line}: ${x.why}`).join('; ')}${r.rejected.length > 3 ? '; …' : ''})` : '';
-      app.console.line(`fleet CSV: ${r.added} added, ${r.present} already present, ${r.rejected.length} rejected${why}`, r.added ? 'dim' : undefined);
+      app.console.line(`fleet CSV: ${r.added} added, ${r.present} already present, ${r.rejected.length} rejected${why}`,
+        r.added ? 'dim' : undefined);
       render();
     } catch (e) { app.console.err('fleet CSV import failed: ' + e.message); }
     csvIn.value = '';
@@ -122,21 +160,47 @@ function render() {
   root.replaceChildren(
     h('div.cols', {},
       h('div.card', {}, h('h3', {}, 'Profiles ', badge(list.length + ' saved')),
-        h('p.hint', {}, 'A profile is the whole form (and any SSTV images) under a name. Programming ten foxes the night before: connect → pick profile → deploy → next.'),
+        h('p.hint', {},
+          'A profile is the whole form (and any SSTV images) under a name. Programming ten foxes the night before: connect → pick profile → deploy → next.'),
         field('Save current form as', h('div.row', {}, nameIn, h('button.btn', { onclick: save }, 'Save'))),
         h('ul.list', {}, list.map(p => h('li', {},
-          h('span.name', {}, p.name), h('span.meta', {}, `${p.template} · ${p.cfg?.id?.callmessage} · ${(p.cfg?.plan?.frequencies_mhz || []).join('/')}`),
-          h('button.btn.small', { onclick: async () => { try { app.images = unpackProfileImages(p.images); await app.loadCfg(p.cfg, { source: 'profile' }); app.console.dim(`profile "${p.name}" loaded into the form`); } catch (e) { app.console.err(`profile "${p.name}" could not be loaded: ${e.message || e}`); } } }, 'Load'),
-          h('button', { title: 'delete', onclick: () => { if (confirm(`Delete profile "${p.name}"?`)) { profiles.remove(p.name); render(); } } }, '✕')))),
-        h('div.tools', {}, h('button.btn.small', { disabled: !list.length, onclick: () => download('fox-bench-profiles.json', profiles.exportJson(), 'application/json') }, 'Export all'), h('button.btn.small', { onclick: () => fileIn.click() }, 'Import'), fileIn)),
+          h('span.name', {}, p.name), h('span.meta', {},
+            `${p.template} · ${p.cfg?.id?.callmessage} · ${(p.cfg?.plan?.frequencies_mhz || []).join('/')}`),
+          h('button.btn.small',
+            { onclick: async () => { try { app.images = unpackProfileImages(p.images); await app.loadCfg(p.cfg, { source: 'profile' }); app.console.dim(`profile "${p.name}" loaded into the form`); } catch (e) { app.console.err(`profile "${p.name}" could not be loaded: ${e.message || e}`); } } },
+            'Load'),
+          h('button',
+            { title: 'delete', onclick: () => { if (confirm(`Delete profile "${p.name}"?`)) { profiles.remove(p.name); render(); } } }, '✕')))),
+        h('div.tools', {},
+          h('button.btn.small',
+            { disabled: !list.length, onclick: () => download('fox-bench-profiles.json', profiles.exportJson(), 'application/json') },
+            'Export all'),
+          h('button.btn.small', { onclick: () => fileIn.click() }, 'Import'), fileIn)),
       batchCard(app)),
     auditCard(),
     chainCard(list) || h('span'),
     shellGameCard(list) || h('span'),
     sheetCard(log),
     h('div.card', {}, h('h3', {}, 'Fleet log ', badge(log.length + ' rows')),
-      h('p.hint', {}, 'Every deploy, flash, export and audit appends a row keyed on the chip UID, which survives reflashing. Same columns as the batch flasher\'s CSV so the two merge.'),
-      log.length ? h('div.grid-wrap', {}, h('table.grid', { id: 'fleet-log' }, h('thead', {}, h('tr', {}, ['timestamp', '#', 'uid', 'action', 'template', 'profile', 'callsign', 'owner', 'event', 'freq', 'power', 'chip_type', 'result', 'notes'].map(f => h('th', {}, f)))),
-        h('tbody', {}, log.slice(-50).reverse().map(r => h('tr', {}, ['timestamp', 'board_number', 'uid', 'action', 'template', 'profile', 'callsign', 'owner', 'event', 'freq', 'power', 'chip_type', 'result', 'notes'].map(f => h('td.mono', {}, f === 'timestamp' ? String(r[f]).slice(0, 19).replace('T', ' ') : f === 'uid' ? String(r[f] || '').slice(-8) : r[f] ?? ''))))))) : null,
-      h('div.tools', { style: 'margin-top:8px' }, h('button.btn.small', { disabled: !log.length, onclick: () => download('flash_log.csv', fleet.toCsv(), 'text/csv') }, 'Download CSV'), h('button.btn.small', { title: 'Merge rows from a CSV this page or the batch flasher wrote; a row already here (same uid and timestamp) is left alone', onclick: () => csvIn.click() }, 'Import CSV'), csvIn, h('button.btn.small', { disabled: !log.length, onclick: () => { if (confirm('Clear the fleet log in this browser?')) { fleet.clear(); render(); } } }, 'Clear'), h('span.hint', {}, FLEET_FIELDS.length + ' columns in the CSV'))));
+      h('p.hint', {},
+        'Every deploy, flash, export and audit appends a row keyed on the chip UID, which survives reflashing. Same columns as the batch flasher\'s CSV so the two merge.'),
+      log.length ? h('div.grid-wrap', {}, h('table.grid', { id: 'fleet-log' }, h('thead', {},
+        h('tr', {},
+          ['timestamp', '#', 'uid', 'action', 'template', 'profile', 'callsign', 'owner', 'event', 'freq', 'power', 'chip_type', 'result',
+            'notes'].map(f => h('th', {}, f)))),
+        h('tbody', {},
+          log.slice(-50).reverse().map(r => h('tr', {},
+            ['timestamp', 'board_number', 'uid', 'action', 'template', 'profile', 'callsign', 'owner', 'event', 'freq', 'power', 'chip_type',
+              'result', 'notes'].map(f => h('td.mono', {}, f === 'timestamp' ? String(r[f]).slice(0, 19).replace('T', ' ') : f === 'uid' ? String(r[f] || '').slice(-8) : r[f] ?? ''))))))) : null,
+      h('div.tools', { style: 'margin-top:8px' },
+        h('button.btn.small', { disabled: !log.length, onclick: () => download('flash_log.csv', fleet.toCsv(), 'text/csv') }, 'Download CSV'),
+        h('button.btn.small',
+          {title: 'Merge rows from a CSV this page or the batch flasher wrote; a row already here (same uid and timestamp) is left alone',
+            onclick: () => csvIn.click()},
+          'Import CSV'),
+        csvIn,
+        h('button.btn.small',
+          { disabled: !log.length, onclick: () => { if (confirm('Clear the fleet log in this browser?')) { fleet.clear(); render(); } } },
+          'Clear'),
+        h('span.hint', {}, FLEET_FIELDS.length + ' columns in the CSV'))));
 }
