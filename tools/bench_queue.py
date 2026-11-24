@@ -70,6 +70,8 @@ def main():
             if fam == "foxlib" and chip_target and has_module: continue         # a row with the radio module belongs to the FM combo
             if fam == "foxlib" and not chip_target and not has_module: continue # and a bare-board row to the chip target
             rs.append(r)
+        # the latest row by its date, not by its place in the file: a row "recorded late" sits where it was added
+        rs.sort(key=lambda r: r["date"][:10])
         return rs
 
     bad = 0

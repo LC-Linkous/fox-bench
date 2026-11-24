@@ -55,7 +55,7 @@ function mpyRow(r) {
   return h('div', {},
     check('Precompiled (.mpy)', on, v => { Object.assign(r, { mpy: v }); saveRecovery(r); app.changed('deploy'); },
       m.set ? `foxlib ${m.set.foxlib} as bytecode built with CircuitPython ${m.set.circuitpython}'s mpy-cross: no compile on the board (that peak is what the ESP32-C3 ran out of), about a third of the source size. Untick to write the sources again; either way the other form is removed as stale.` : m.why, { disabled: !m.set }),
-    on ? h('span.hint', {}, `on: the ${m.major}.x set; the board imports .mpy (a .py beside one would win, so none is left)`) : r.mpy && !m.set ? h('span.hint.warn', {}, `off: ${m.why}`) : null);
+    on ? h('span.hint', {}, `on: the ${m.major}.x set; the board imports .mpy (a .py beside one would win, so none is left)`) : null);   // without a set the checkbox's own text is the reason (it was shown twice until 0.18.25)
 }
 function loadClock() { try { return { enabled: false, source: 'browser', fixed: '', ...JSON.parse(localStorage.getItem(CLOCK_KEY) || '{}') }; } catch { return { enabled: false, source: 'browser', fixed: '' }; } }
 function saveClock(c) { try { localStorage.setItem(CLOCK_KEY, JSON.stringify(c)); } catch {} }

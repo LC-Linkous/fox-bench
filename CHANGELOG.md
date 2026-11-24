@@ -14,6 +14,26 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.18.25 — the C6 leaves experimental
+
+- **`esp32c6` is stable**: hardware-log row of 2026-11-23 (XIAO ESP32C6,
+  CircuitPython 10.3.2, foxlib 1.11.1 as `.mpy`): all five network
+  templates with 114–156 KB free after init — the C6 is an S3-class board
+  on memory, not a C3-class one — `--payload` and `--checkpoint` end to end
+  from the Debian laptop. The five templates list it in `boards_tested`.
+- Deploy's *Precompiled (.mpy)* row said its reason twice when no set was
+  on the site (the checkbox's own text and an "off: …" hint); once now.
+- The two bench reports committed at the repo root (`c3-ble.json`,
+  `c6.json`) are removed from the tree: a report carries the board's uid
+  and the names of the networks around the bench, and the runbook sends
+  them to the maintainer, not the repo. `.gitignore` takes `/reports/` and
+  `/hw_smoke-*.json` so the next ones cannot land by accident.
+- `bench_queue.py` takes a target's latest row by date, not by its place
+  in the file: the "recorded late" C5/C6 row of October sat last and
+  shadowed tonight's C6 row.
+- Page VERSION bump for 0164's descriptor change (`hardware/` is served to
+  the browser; CI's `--since` check asked for it).
+
 ### Page 0.18.24 — the S3 and the C3 leave experimental
 
 - **`esp32s3` is stable**: hardware-log row of 2026-11-23 (XIAO ESP32S3

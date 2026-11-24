@@ -9,6 +9,9 @@ firmware/foxlib-c/picofox/foxbench-picofox.json
 # foxlib precompiled to .mpy: CI builds it into the site (tools/build_mpy.py); a checkout builds it on demand
 firmware/mpy/*/
 firmware/mpy/index.json
+# bench reports (hw_smoke --report) carry a board's uid and the networks around the bench: they go to the maintainer, not the repo (docs/bench-runbook.md)
+/reports/
+/hw_smoke-*.json
 _shots/
 firmware/foxlib-c/tests/build/
 build/

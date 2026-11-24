@@ -34,5 +34,5 @@
     "rssi",
     "finds"
   ],
-  "boards_tested": ["esp32s3"]
+  "boards_tested": ["esp32s3", "esp32c6"]
 }
