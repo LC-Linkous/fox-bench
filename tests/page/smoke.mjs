@@ -765,8 +765,8 @@ try {
   check(/runs this build/.test(await text('#tab-board')), 'Board tab explains the id');
   eq(await app(() => JSON.stringify(window.foxbench.resolveBoardId('arduino_nano_33_ble_rev2'))), '{"target":"nrf52840","variant":"arduino_nano_33_ble"}', 'the Nano 33 BLE Rev2 build maps to the nRF52840 target');
   eq(await app(() => JSON.stringify(window.foxbench.resolveBoardId('espressif_esp32c5_devkitc_1_n8r8'))), '{"target":"esp32c5","variant":"seeed_xiao_esp32c5"}', 'the shared C5 build maps to the ESP32-C5 target, first variant when none is selected');
-  await app(() => window.foxbench.setBoard('esp32c5', { variant: 'dfrobot_firebeetle2_esp32c5' }));
-  eq(await app(() => JSON.stringify(window.foxbench.resolveBoardId('espressif_esp32c5_devkitc_1_n8r8'))), '{"target":"esp32c5","variant":"dfrobot_firebeetle2_esp32c5"}', 'with the FireBeetle selected, the shared build keeps it');
+  await app(() => window.foxbench.setBoard('esp32s3', { variant: 'waveshare_esp32s3_nano' }));
+  eq(await app(() => JSON.stringify(window.foxbench.resolveBoardId('seeed_xiao_esp32_s3_sense'))), '{"target":"esp32s3","variant":"seeed_xiao_esp32s3"}', 'an id of its own picks its variant whichever was selected');
   eq(await app(() => window.foxbench.targetForBoardId('seeed_xiao_esp32c3')), 'seeed_xiao_esp32c3', 'a target of its own keeps its id');
   eq(await app(() => window.foxbench.targetForBoardId('no_such_board')), null, 'an unknown id stays unknown');
   await app(() => window.foxbench.disconnect()); await settle(200);

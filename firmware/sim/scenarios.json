@@ -2435,6 +2435,78 @@
    }
   },
   {
+   "name": "c5-5ghz-channel-refused-by-the-build-falls-back-to-1",
+   "_doc": "the C5 is dual-band and netcfg accepts channel 36 for it; CircuitPython 10.3.2's start_ap takes 1-13 only, so the fox says so once and goes on the air on channel 1 rather than staying silent",
+   "board_id": "esp32c5",
+   "cp_board_id": "espressif_esp32c5_devkitc_1_n8r8",
+   "radios": [
+    "wifi24",
+    "wifi5",
+    "ble"
+   ],
+   "stop_after_unkeys": 2,
+   "cap_ms": 90000,
+   "fox": {
+    "net": {
+     "channel": 36
+    },
+    "id": {
+     "callmessage": "W1ABC FOX"
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "ok",
+     "radio": "ok"
+    },
+    "keyed_min": 2,
+    "prints_contain": [
+     "note: channel 36 refused (ValueError): this CircuitPython or its country setting cannot start a 5 GHz access point (10.3.2 accepts 1-13); on channel 1 instead"
+    ],
+    "prints_count_max": {
+     "channel 36 refused": 1
+    },
+    "net_contains": [
+     "ch=1 "
+    ]
+   }
+  },
+  {
+   "name": "c5-5ghz-channel-on-a-build-that-has-it",
+   "_doc": "a build whose start_ap takes 5 GHz channels (newer than 10.3.2): the access point is on channel 36, no note",
+   "board_id": "esp32c5",
+   "cp_board_id": "espressif_esp32c5_devkitc_1_n8r8",
+   "radios": [
+    "wifi24",
+    "wifi5",
+    "ble"
+   ],
+   "ap_5ghz": true,
+   "stop_after_unkeys": 2,
+   "cap_ms": 90000,
+   "fox": {
+    "net": {
+     "channel": 36
+    },
+    "id": {
+     "callmessage": "W1ABC FOX"
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "ok",
+     "radio": "ok"
+    },
+    "keyed_min": 2,
+    "net_contains": [
+     "ch=36 "
+    ],
+    "prints_count_max": {
+     "refused": 0
+    }
+   }
+  },
+  {
    "name": "sense-tag-named-in-the-advertisement",
    "_doc": "a tag whose name is in the advertisement itself (not the scan response) is matched too, once",
    "cap_ms": 120000,

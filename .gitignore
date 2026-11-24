@@ -12,6 +12,7 @@ firmware/mpy/index.json
 # bench reports (hw_smoke --report) carry a board's uid and the networks around the bench: they go to the maintainer, not the repo (docs/bench-runbook.md)
 /reports/
 /hw_smoke-*.json
+/c*.json
 _shots/
 firmware/foxlib-c/tests/build/
 build/

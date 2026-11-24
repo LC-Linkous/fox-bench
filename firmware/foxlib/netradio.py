@@ -86,7 +86,21 @@ class WifiAp(Base):
 
     def _start(self):
         c = self.cfg
-        kw = {"channel": c["channel"], "max_connections": c["max_clients"]}
+        try:
+            self._start_on(c["channel"])
+        except ValueError as e:
+            if c["channel"] <= 14:
+                raise
+            # a 5 GHz channel the build or the radio will not start an access point on: CircuitPython 10.3.2 accepts
+            # 1-13 only (ValueError before the radio is touched); newer builds raise the same for a channel the
+            # country setting forbids. The fox goes on the air on channel 1 rather than staying silent.
+            self.notes.append("channel %d refused (%s): this CircuitPython or its country setting cannot start a 5 GHz access point (10.3.2 accepts 1-13); on channel 1 instead" % (c["channel"], e.__class__.__name__))
+            c["channel"] = 1
+            self._start_on(1)
+
+    def _start_on(self, channel):
+        c = self.cfg
+        kw = {"channel": channel, "max_connections": c["max_clients"]}
         if c["psk"]:
             self.wifi.radio.start_ap(self.name, c["psk"], **kw)
         else:

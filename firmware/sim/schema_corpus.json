@@ -1650,11 +1650,11 @@
    }
   },
   {
-   "name": "net-pins-other-variants-pin-rejected@esp32c5",
+   "name": "net-pins-other-variants-pin-rejected@esp32s3",
    "template": "wifi-probe",
-   "board": "esp32c5",
+   "board": "esp32s3",
    "user": {
-    "variant": "dfrobot_firebeetle2_esp32c5",
+    "variant": "waveshare_esp32s3_nano",
     "pins": {
      "led": "D13"
     },

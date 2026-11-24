@@ -14,6 +14,44 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### foxlib 1.11.2 — the C5 knows its 5 GHz band
+
+- `NetFox._radios()` adds `wifi5` when the board id names an `esp32c5`: the
+  validator accepted channel 36 on the page (the descriptor lists `wifi5`)
+  and refused it on the board (`net.channel: 1-13`), since the firmware
+  found its radios by import alone. Now both sides agree.
+- `WifiAp`: a 5 GHz channel the build will not start an access point on
+  (CircuitPython 10.3.2's `start_ap` takes 1–13 and raises `ValueError`;
+  newer builds raise it for a channel the country setting forbids) is said
+  once — `note: channel 36 refused (ValueError): … on channel 1 instead` —
+  and the fox goes on the air on channel 1 rather than staying silent. Two
+  sim scenarios: the fallback, and a build that has the band (`ap_5ghz`).
+
+### Page 0.18.28 — board audit after the C5/C6 sessions
+
+- DFRobot FireBeetle 2 ESP32-C5 removed from the catalog: it is a 4 MB part
+  with no PSRAM (ESP32-C5-WROOM-1-N4), which the only C5 build CircuitPython
+  has (DevKitC-1-N8R8, 8 MB) does not fit — a flash would not mount a
+  filesystem. `esp32c5` has the XIAO as its one variant.
+- XIAO ESP32C5 descriptor: `IO27` lost its wrong `D0` alias (D0 is GPIO1);
+  the eleven XIAO footprint pins added as `IOxx` with their `D`/`A`/bus
+  aliases (the DevKit build has no D-names); U.FL-only antenna noted; the
+  "to be confirmed" lines resolved with the 2026-11-24 session.
+- XIAO ESP32C6 descriptor: it has a charger (`charger: true`, BAT pads; a
+  200 k pair to A0 for a reading, as the C3); the RF switch (GPIO3 low, then
+  GPIO14: low = ceramic antenna, high = U.FL); `latest_known` 10.3.2; the
+  Zigbee line dropped (a different configuration, listed on its own if ever).
+- XIAO ESP32S3 descriptor: the flash note no longer says "not yet flashed
+  from this page" beside the line saying it was (2026-11-17).
+- `tools/hw_smoke.py --channel N` sets the access-point channel (and
+  `wifi-probe`'s one channel); with `--payload` it reports "on channel N as
+  asked" or the fallback. `tools/replay_check.py` passes it through. The
+  runbook's C5 notes describe the 5 GHz test and what 10.3.2 can and cannot
+  do.
+- Three bench reports that had been committed to the repo root are removed
+  and `.gitignore` covers `/c*.json`; reports go to the maintainer, not the
+  repo.
+
 ### Page 0.18.27 — the C5 leaves experimental
 
 - `boards/esp32c5.json` is **stable**: the XIAO ESP32C5 ran all five network

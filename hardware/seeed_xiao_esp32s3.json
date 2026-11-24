@@ -18,7 +18,7 @@
     "offset": "0x0",
     "flash_mb": 8,
     "bootloader_instructions": "Hold B (BOOT) while plugging in USB-C; release after a second. The chip's USB-JTAG-serial port (303a:1001) appears.",
-    "note": "8 MB flash, 8 MB PSRAM; u.FL antenna connector (the supplied antenna must be fitted). Not yet flashed from this page."
+    "note": "8 MB flash, 8 MB PSRAM; u.FL antenna connector (the supplied antenna must be fitted). Flashed from this page 2026-11-17 (10.3.2)."
   },
   "has_usb_drive": true,
   "usb": [

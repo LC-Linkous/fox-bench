@@ -33,6 +33,7 @@ def main():
     if args.get("freq"): cmd += ["--freq", str(args["freq"])]
     if args.get("module"): cmd += ["--module", args["module"]]
     if args.get("variant"): cmd += ["--variant", args["variant"]]
+    if args.get("channel"): cmd += ["--channel", str(args["channel"])]
     # the flags that change which REPL exchanges happen: without them the replay issues different commands than the
     # recording has (the C3's BLE recording of 2026-11-23 replayed as .py writes and no settings.toml, 19 unused)
     if args.get("mpy"): cmd += ["--mpy"]            # needs firmware/mpy/<major>/ built (CI's sim job builds it first)

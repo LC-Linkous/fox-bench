@@ -621,7 +621,8 @@ def parse_args():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0], formatter_class=argparse.RawDescriptionHelpFormatter, epilog=__doc__)
     ap.add_argument("--port")
     ap.add_argument("--board", default="seeed_xiao_esp32c3", help="target id: the defaults file to use (seeed_xiao_esp32c3 for the C3 + SA868; esp32c3, esp32c6, esp32c5, esp32s3, nrf52840 for the bare boards)")
-    ap.add_argument("--variant", help="network foxes: the physical board (hardware id, e.g. dfrobot_firebeetle2_esp32c5) when the chip target has several; sets fox.json variant and its LED pin")
+    ap.add_argument("--channel", type=int, help="network foxes: the Wi-Fi channel for the access-point templates (net.channel) and the one channel wifi-probe uses (net.channels); 36 and up only on a dual-band target (the C5), and only a build newer than CircuitPython 10.3.2 starts a 5 GHz access point — on 10.3.2 the fox says so and falls back to channel 1, which --payload reports")
+    ap.add_argument("--variant", help="network foxes: the physical board (hardware id, e.g. waveshare_esp32s3_nano) when the chip target has several; sets fox.json variant and its LED pin")
     ap.add_argument("--templates", default="all", help="comma list or all")
     ap.add_argument("--call", default="N0CALL DECOY DECOY N0CALL", help="callmessage; with the placeholder the fox stays silent (id=unset)")
     ap.add_argument("--freq", type=float, help="frequency in MHz (default: the template default)")
@@ -833,6 +834,9 @@ class Run:
             fox["radio"]["family"] = mod["family"]
             fox["radio"]["ranges_mhz"] = mod["ranges_mhz"]
         if a.freq and not net: fox["plan"]["frequencies_mhz"] = [a.freq]
+        if a.channel and net and (fox.get("net") or {}).get("kind", "").startswith("wifi"):
+            if fox["net"]["kind"] == "wifi-probe": fox["net"]["channels"] = [a.channel]
+            else: fox["net"]["channel"] = a.channel
         fox.setdefault("fleet", {})["notes"] = "hw_smoke"
         res["template_version"] = manifest["version"]
         cp_cfg = fox.get("checkpoint") or {}
@@ -917,6 +921,10 @@ class Run:
             if seen["seen"]:
                 print("  on the air: %r from %s, signal %s, channel %s (%d networks around, %d scan%s)%s" % (name, seen["bssid"], seen["signal"], seen["chan"], seen["networks"], seen["scans"], "" if seen["scans"] == 1 else "s",
                       "" if not mac or mac == "?" or seen["bssid"] == mac.upper() else " · NOTE: BSSID is not the %s fox.json asked for (bench-runbook Q12)" % mac.upper()))
+                if a.channel and fox["net"].get("kind") != "wifi-probe" and str(seen["chan"]) not in ("", "None"):
+                    res["channel_asked"] = a.channel
+                    if str(seen["chan"]) == str(a.channel): print("  on channel %d as asked" % a.channel)
+                    else: print("  NOTE: asked for channel %d, on the air on channel %s — the fox fell back (its boot log has the note) or the host adapter cannot hear that band" % (a.channel, seen["chan"]))
             else:
                 print("  NOT on the air: %r not in %d scan(s) of %d network(s) in %.0f s — the fox never started its AP, or the host adapter is on another band" % (name, seen["scans"], seen["networks"], max(a.observe, 20)))
         if t["portal_on"]:

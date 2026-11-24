@@ -20,7 +20,7 @@ point, a Wi-Fi probing station or a BLE iBeacon on a duty cycle, with the
 callsign or a configured name as the SSID / device name and a chosen MAC —
 on bare boards with no radio module, listed by chip (ESP32-C3, -C6, -C5,
 -S3, nRF52840: the XIAO C3 / C6 / C5 / S3, the Waveshare ESP32-S3-Nano,
-the FireBeetle 2 ESP32-C5, the Arduino Nano 33 BLE). On top of the three
+the Arduino Nano 33 BLE). On top of the three
 beacons, the network foxes carry contest features configured per fox on
 the Payload tab — what the fox says (rotating names, codes, Eddystone
 frames, split clues), what it serves (a captive sign-in page with a code
@@ -75,7 +75,6 @@ what the next session has to show):
 | Seeed XIAO ESP32-C3 (bare) | `esp32c3` (stable, BLE only) | BLE (the chip's Wi-Fi is not offered) | 2026-11 | boots a network fox from `.mpy` with ~36 KB free, then the CircuitPython core hard-faults while the Wi-Fi AP runs; the BLE beacon and puzzle beacon hold their wakes with 27–31 KB free |
 | Seeed XIAO ESP32C6 | `esp32c6` (stable) | Wi-Fi, BLE | 2026-11 | all five network templates from `.mpy`, 114–156 KB free after init; found by the laptop, the sign-in page and find log read back |
 | Seeed XIAO ESP32C5 | `esp32c5` (stable) | Wi-Fi 2.4/5, BLE | 2026-11 | all five network templates from `.mpy`, 8.2 MB free (PSRAM); found by the laptop, the sign-in page and find log read back; 5 GHz receive seen, a 5 GHz AP not yet tried |
-| DFRobot FireBeetle 2 ESP32-C5 | `esp32c5` | Wi-Fi 2.4/5, BLE | — | described (same chip target); nothing run |
 | Waveshare ESP32-S3-Nano | `esp32s3` | Wi-Fi, BLE | — | described from the Arduino Nano ESP32 build; nothing run |
 | Arduino Nano 33 BLE | `nrf52840` | BLE | — | described; CircuitPython needs `bossac`; nothing run |
 

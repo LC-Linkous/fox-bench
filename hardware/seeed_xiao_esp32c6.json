@@ -47,11 +47,11 @@
     "note": "yellow LED on GPIO15 (a single digital LED: on/off, no colours)"
   },
   "battery": {
-    "charger": false,
-    "divider_note": "Powered from USB or a 5 V pack. The pack must not have a low-current cut-off, or the board never wakes from deep sleep."
+    "charger": true,
+    "divider_note": "charge-management chip and BAT pads on board (3.7 V cell); no divider to an ADC pin by default — as the XIAO C3, a 200 k pair from BAT+ to A0 reads the cell, and roles.batt_sense stays null until one is fitted. A USB pack must not have a low-current cut-off, or the board never wakes from deep sleep."
   },
   "notes": [
-    "Adds a second 802.15.4 radio to the bench: a partner for the C5 Zigbee coordinator.",
+    "Antenna: an onboard ceramic antenna, and a U.FL connector for an external one. GPIO14 selects it (low: ceramic, the default; high: U.FL) once GPIO3 is driven low to enable the RF switch — the C6's range knob; CircuitPython's build leaves the ceramic antenna selected and foxlib does not touch the switch.",
     "Power: a fox sleeps between transmissions; a USB power bank with a low-current auto-off cuts power during the sleep and the fox never wakes. Use a pack without auto-off.",
     "Serial: native USB — the console port disappears while the chip sleeps and returns when it wakes. 'serial port dropped' each cycle is expected."
   ],
@@ -62,7 +62,7 @@
   "circuitpython": {
     "board_id": "seeed_xiao_esp32c6",
     "download": "https://circuitpython.org/board/seeed_xiao_esp32c6/",
-    "latest_known": "10.3.1",
-    "note": "board.LED is the yellow user LED (GPIO15, active low). Battery: the XIAO C6 has a charger but no divider on an ADC pin by default."
+    "latest_known": "10.3.2",
+    "note": "board.LED is the yellow user LED (GPIO15, active low). 10.3.2 on the bench 2026-11-23. Battery: the XIAO C6 has a charger but no divider on an ADC pin by default."
   }
 }

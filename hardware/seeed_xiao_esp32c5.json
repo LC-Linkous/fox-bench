@@ -20,7 +20,7 @@
     "offset": "0x0",
     "flash_mb": 8,
     "bootloader_instructions": "Hold BOOT while plugging in USB; release after a second. The chip's USB-JTAG-serial port appears.",
-    "note": "CircuitPython's downloadable .bin is a merged image (bootloader, partition table and app at their own offsets inside it) and is written at 0x0 on every Espressif chip, as Adafruit's web flasher does; the C5's bootloader address of 0x2000 is already inside the image. 8 MB flash and 8 MB PSRAM per Seeed's spec table (2026-11-23): the same parts as the ESP32-C5-DevKitC-1-N8R8, so that build's partition table fits. To be confirmed with the first board.",
+    "note": "CircuitPython's downloadable .bin is a merged image (bootloader, partition table and app at their own offsets inside it) and is written at 0x0 on every Espressif chip, as Adafruit's web flasher does; the C5's bootloader address of 0x2000 is already inside the image. 8 MB flash and 8 MB PSRAM (Seeed's spec table): the same parts as the ESP32-C5-DevKitC-1-N8R8, whose build's partition table fits — confirmed on the bench 2026-11-24 (10.3.2 at 0x0 boots, reports espressif_esp32c5_devkitc_1_n8r8, 8.2 MB free). Antenna: a U.FL connector only (LNA_IN), no onboard antenna — fit the supplied antenna or nothing is on the air.",
     "psram_mb": 8
   },
   "has_usb_drive": false,
@@ -35,10 +35,7 @@
     {
       "name": "IO27",
       "gpio": 27,
-      "aliases": [
-        "D0"
-      ],
-      "note": "yellow user LED; IO27 in the DevKitC-1 CircuitPython build's pin names"
+      "note": "yellow user LED (Seeed: USER_LED); IO27 in the DevKitC-1 CircuitPython build's pin names (the build has no D-names)"
     },
     {
       "name": "IO6",
@@ -54,6 +51,104 @@
       "name": "IO28",
       "gpio": 28,
       "note": "the BOOT button (hold at power-up for the ROM bootloader)"
+    },
+    {
+      "name": "IO1",
+      "gpio": 1,
+      "aliases": [
+        "D0",
+        "A0"
+      ],
+      "note": "XIAO footprint D0; the build names it IO1"
+    },
+    {
+      "name": "IO0",
+      "gpio": 0,
+      "aliases": [
+        "D1",
+        "A1"
+      ],
+      "note": "XIAO footprint D1; the build names it IO0"
+    },
+    {
+      "name": "IO25",
+      "gpio": 25,
+      "aliases": [
+        "D2",
+        "A2"
+      ],
+      "note": "XIAO footprint D2; the build names it IO25"
+    },
+    {
+      "name": "IO7",
+      "gpio": 7,
+      "aliases": [
+        "D3"
+      ],
+      "note": "XIAO footprint D3; the build names it IO7"
+    },
+    {
+      "name": "IO23",
+      "gpio": 23,
+      "aliases": [
+        "D4",
+        "SDA"
+      ],
+      "note": "XIAO footprint D4; the build names it IO23"
+    },
+    {
+      "name": "IO24",
+      "gpio": 24,
+      "aliases": [
+        "D5",
+        "SCL"
+      ],
+      "note": "XIAO footprint D5; the build names it IO24"
+    },
+    {
+      "name": "IO11",
+      "gpio": 11,
+      "aliases": [
+        "D6",
+        "TX"
+      ],
+      "note": "XIAO footprint D6; the build names it IO11"
+    },
+    {
+      "name": "IO12",
+      "gpio": 12,
+      "aliases": [
+        "D7",
+        "RX"
+      ],
+      "note": "XIAO footprint D7; the build names it IO12"
+    },
+    {
+      "name": "IO8",
+      "gpio": 8,
+      "aliases": [
+        "D8",
+        "SCK"
+      ],
+      "note": "XIAO footprint D8; the build names it IO8"
+    },
+    {
+      "name": "IO9",
+      "gpio": 9,
+      "aliases": [
+        "D9",
+        "MISO"
+      ],
+      "note": "XIAO footprint D9; the build names it IO9"
+    },
+    {
+      "name": "IO10",
+      "gpio": 10,
+      "aliases": [
+        "D10",
+        "MOSI"
+      ],
+      "note": "XIAO footprint D10; the build names it IO10"
     }
   ],
   "roles": {
@@ -64,7 +159,7 @@
     "kind": "single",
     "pin": 27,
     "active_low": true,
-    "note": "one yellow user LED on GPIO27 (Seeed: USER_LED). Seeed's example drives the pin LOW for on, so active-low is the expectation; confirm the blink direction on the bench (the firmware does not honour active_low yet)"
+    "note": "one yellow user LED on GPIO27 (Seeed: USER_LED). Seeed's example drives the pin LOW for on, so active-low is the expectation; 'led on' ran on the bench 2026-11-24 (the pin is right), the blink direction was not noted and the firmware does not honour active_low yet"
   },
   "battery": {
     "charger": true,
@@ -73,7 +168,7 @@
     "divider_note": "the network foxes do not read a battery yet and the gate pin is not driven, so roles.batt_sense stays null; a 3.7 V cell on the pads charges from USB. A USB pack must not have a low-current cut-off, or the board never wakes from deep sleep."
   },
   "notes": [
-    "5 GHz Wi-Fi and an 802.15.4 radio beside the 2.4 GHz Wi-Fi and BLE. 8 MB PSRAM: expect a mem= in the megabytes, as on the S3 (the C3's 36 KB is not this board's problem). Reset is CHIP_EN (the R button), Boot is GPIO28 (the B button).",
+    "5 GHz Wi-Fi and an 802.15.4 radio beside the 2.4 GHz Wi-Fi and BLE. 8 MB PSRAM: mem= in the megabytes on the bench (8.2 MB free, 2026-11-24). Reset is CHIP_EN (the R button), Boot is GPIO28 (the B button). The fox's own scan lists 5 GHz networks; a 5 GHz access point needs a CircuitPython newer than 10.3.2 (its start_ap takes channels 1-13), and foxlib falls back to channel 1 with a note until then.",
     "Power: a fox sleeps between transmissions; a USB power bank with a low-current auto-off cuts power during the sleep and the fox never wakes. Use a pack without auto-off.",
     "Serial: native USB — the console port disappears while the chip sleeps and returns when it wakes. 'serial port dropped' each cycle is expected."
   ],
@@ -86,9 +181,9 @@
     "board_ids": [
       "espressif_esp32c5_devkitc_1_n8r8"
     ],
-    "shared_build": true,
+    "shared_build": false,
     "download": "https://circuitpython.org/board/espressif_esp32c5_devkitc_1_n8r8/",
     "latest_known": "10.3.2",
-    "note": "CircuitPython has no XIAO ESP32C5 build (checked 2026-10-24 and again 2026-11-23: only the DevKitC-1-N8R8 and a Waveshare display board); the ESP32-C5-DevKitC-1-N8R8 build is the same chip with the same 8 MB flash and 8 MB PSRAM and runs here, reporting espressif_esp32c5_devkitc_1_n8r8 — the same id the FireBeetle 2 ESP32-C5 reports, so the page keeps whichever of the two is selected. Pin names are the DevKit's IOxx. To verify on the board."
+    "note": "CircuitPython has no XIAO ESP32C5 build (checked 2026-10-24 and 2026-11-23: only the DevKitC-1-N8R8 and a Waveshare display board); the ESP32-C5-DevKitC-1-N8R8 build is the same chip with the same 8 MB flash and 8 MB PSRAM and runs here, reporting espressif_esp32c5_devkitc_1_n8r8 (bench 2026-11-24). Pin names are the DevKit's IOxx: no D0..D10 in dir(board), the aliases above are the XIAO silkscreen. The build is the DevKit's, not shared with another board in the catalog."
   }
 }

@@ -153,7 +153,7 @@ class NetFox:
         t("start %s" % self.board_id)
         self.workflow_note = self._quiet_workflow()      # CircuitPython's own BLE advertising off while the fox runs
         t("ble workflow %s" % ("switched off" if self.workflow_note else "already off"))
-        self.radios = self._radios()
+        self.radios = self._radios(self.board_id)
         t("radios %s" % ",".join(self.radios))
         self.cfg, self.report = netcfg.load(path, defaults, self.board_id, self.radios, dir(board))
         t("config %s" % (self.report.fatal or "ok"))
@@ -232,12 +232,15 @@ class NetFox:
         return "CircuitPython's own BLE advertising (CIRCUITPYxxxx) is off while the fox runs"
 
     @staticmethod
-    def _radios():
-        """What this chip has, by what imports: the validator uses it for channel/band checks."""
+    def _radios(board_id=""):
+        """What this chip has, by what imports: the validator uses it for channel/band checks. The 5 GHz band is
+        known by the chip's name in the board id (the C5 is the only dual-band chip CircuitPython runs on)."""
         out = []
         try:
             import wifi  # noqa: F401
             out.append("wifi24")
+            if "esp32c5" in board_id.lower():
+                out.append("wifi5")
         except ImportError:
             pass
         try:

@@ -401,8 +401,8 @@ when the chip has more than one; the LED pin is the descriptor's default.
 11. **Hardware-log row**: date · board (variant) · firmware (foxlib version,
     CircuitPython version, build id) · checked (which of 2–10) · how (phone
     apps) · result. A chip target goes `stable` once every one of its
-    variants has a clean row for 2–9 (the C5 needs both boards; the S3 both
-    boards); the templates list the chip in `boards_tested` then.
+    variants has a clean row for 2–9 (the S3 needs both boards); the
+    templates list the chip in `boards_tested` then.
 
 ### Payloads (phase B, foxlib 1.4.0) — on any board that passed 2–9
 
@@ -609,20 +609,30 @@ when the chip has more than one; the LED pin is the descriptor's default.
   wrongly, note which way it blinks. Run one board radio-off and the other
   deep-sleep for a side-by-side of USB behaviour.
 - **XIAO ESP32S3** (`esp32s3` → XIAO ESP32S3): own build; fit the antenna.
-- **XIAO ESP32C5** and **FireBeetle 2 ESP32-C5** (`esp32c5`): both run the
-  DevKitC-1-N8R8 build (10.3.2) and report the same id, so pick the Board
-  dropdown by hand before connecting; the console says "a build shared by
-  …". The XIAO has the DevKit's 8 MB flash and 8 MB PSRAM, so expect a
-  `mem=` in the megabytes like the S3; its buttons are R = reset (CHIP_EN)
-  and B = boot (GPIO28), its LED GPIO27, probably active-low (note the
-  blink direction). The pin names (`IO27`, `IO15`) follow the DevKit's
-  naming — confirm from `dir(board)`. 5 GHz: channel 36 appears in the
-  channel list; a 5 GHz-capable phone sees it, a 2.4-only one does not
-  (CircuitPython's 5 GHz AP support on the C5 is the open question; the
-  laptop's `--payload` scan sees 5 GHz if its adapter does). If both boards
-  pass, the DevKit build is good for the chip; if one fails, the difference
-  is the board. The same `hw_smoke` line as the C6 with `--board esp32c5`,
-  and `--variant dfrobot_firebeetle2_esp32c5` for the FireBeetle.
+- **XIAO ESP32C5** (`esp32c5`): runs the DevKitC-1-N8R8 build (10.3.2) and
+  reports its id, `espressif_esp32c5_devkitc_1_n8r8`. 8 MB flash and 8 MB
+  PSRAM: `mem=` in the megabytes like the S3 (8.2 MB free, 2026-11-24). Its
+  buttons are R = reset (CHIP_EN) and B = boot (GPIO28), its LED `IO27`
+  (`led on` ran; Seeed's example drives it LOW for on, so note the blink
+  direction). The pin names follow the DevKit's `IOxx` naming — no `D0` in
+  `dir(board)`; the descriptor's aliases are the XIAO silkscreen. Antenna:
+  U.FL only, fit the supplied one. The same `hw_smoke` line as the C6 with
+  `--board esp32c5`. DFRobot's FireBeetle 2 ESP32-C5 is not a variant: a
+  4 MB part with no PSRAM, which the 8 MB build does not fit.
+- **5 GHz on the C5** (`--channel 36`): the fox's own scan lists 5 GHz
+  networks on 10.3.2, and a receive-side check needs nothing more. An
+  access point on channel 36 is another matter: 10.3.2's `start_ap` takes
+  channels 1–13 only (`ValueError`), so foxlib 1.11.2 says
+  `note: channel 36 refused … on channel 1 instead` once and the fox goes on
+  the air on channel 1 — `--payload` then prints `NOTE: asked for channel
+  36, on the air on channel 1`. Newer builds (CircuitPython `main` after
+  10.3.2) take 5 GHz channels and raise `ValueError` only for a channel the
+  country setting forbids; the test proper is the same line with one of
+  those builds flashed, a laptop adapter that hears 5 GHz (`nmcli dev wifi
+  list` shows CHAN above 14 for some network around), and the expectation
+  `on channel 36 as asked`. `wifi-probe` takes `--channel` as its one
+  channel (`net.channels`); a probe on 36 needs a sniffer that listens
+  there.
 - **Waveshare ESP32-S3-Nano** (`esp32s3` → Waveshare): the Arduino Nano
   ESP32 build. `board.LED` is the descriptor's guess (the Nano's GPIO48
   builtin); the RGB trio is `LED_RED/GREEN/BLUE` — switch the LED pin on the
@@ -632,10 +642,10 @@ when the chip has more than one; the LED pin is the descriptor's default.
   circuitpython.org page has the command); the page then deploys over the
   REPL as for any board. Reports `arduino_nano_33_ble_rev2`.
 
-## 4 onward: C6 ×2, S3, C5 pair, nRF52840
+## 4 onward: C6 ×2, S3, C5, nRF52840
 
 Same shape as 3 with `--board esp32c6` etc. and `--variant` where the chip
-has several boards (`--variant dfrobot_firebeetle2_esp32c5`). The per-board
+has several boards (`--variant waveshare_esp32s3_nano`). The per-board
 gotchas (inverted LED on the C6, DevKit pin names on the C5, `bossac` for the
 Nano 33) are in the network-fox tick-list below under *Per-board notes*. A chip
 target flips to stable only when every variant has its row.

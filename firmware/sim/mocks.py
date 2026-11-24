@@ -377,6 +377,8 @@ def _mock_wifi(env):
                 if self._pending_stop is not None:
                     self._pending_stop = None; net_event("ap_down")
             def start_ap(self, ssid, password="", *, channel=1, max_connections=4, authmode=None):
+                if channel > 13 and not scenario.get("ap_5ghz"):   # 10.3.2: mp_arg_validate_int_range(channel, 1, 13)
+                    raise ValueError("channel must be 1-13")
                 if scenario.get("ap_fail_at_s") is not None and clock.ns / 1e9 >= scenario["ap_fail_at_s"]:
                     scenario["ap_fail_at_s"] = None; raise RuntimeError("AP could not be started")     # once
                 self._ap_mode = True

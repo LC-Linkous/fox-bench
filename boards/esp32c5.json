@@ -3,13 +3,12 @@
   "name": "ESP32-C5",
   "hardware": "seeed_xiao_esp32c5",
   "variants": [
-    "seeed_xiao_esp32c5",
-    "dfrobot_firebeetle2_esp32c5"
+    "seeed_xiao_esp32c5"
   ],
   "family": "foxlib",
   "status": "stable",
   "firmware": {
     "kind": "circuitpython+foxlib",
-    "note": "CircuitPython on the board, fox-bench's foxlib and a network-fox template (Wi-Fi beacon, Wi-Fi probe, BLE beacon) deployed over the REPL. The SoC's own radio: no module. The board variant sets the CircuitPython build and the LED / battery pins; a connected board's reported id picks it (the XIAO C5 ships on the DevKitC-1-N8R8 build; the merged image is written at 0x0). On the bench 2026-11-24: all five network templates from .mpy with 8.2 MB free; 5 GHz receive seen in the fox's own scan, a 5 GHz AP (channel 36) not yet tried."
+    "note": "CircuitPython on the board, fox-bench's foxlib and a network-fox template (Wi-Fi beacon, Wi-Fi probe, BLE beacon) deployed over the REPL. The SoC's own radio: no module. The XIAO ESP32C5 runs the ESP32-C5-DevKitC-1-N8R8 build (the merged image is written at 0x0); the only other C5 board CircuitPython could go on, DFRobot's FireBeetle 2 ESP32-C5, is a 4 MB part with no PSRAM that this 8 MB build does not fit, so it is not listed. On the bench 2026-11-24: all five network templates from .mpy with 8.2 MB free; 5 GHz receive seen in the fox's own scan, a 5 GHz AP (channel 36) not yet tried."
   }
 }
