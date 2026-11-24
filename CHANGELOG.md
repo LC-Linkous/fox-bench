@@ -35,6 +35,19 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
   banner gave before any row with the fox's name; NetworkManager keeps the
   previous template's entry under the same name for a while (the S3's
   checkpoint run reported the wifi-beacon's `…:01` for a fox on `…:C0`).
+- `hw_smoke` gets a board out of safe mode by itself. A hard fault in
+  CircuitPython's core (the XIAO ESP32-C3 running a Wi-Fi AP, 2026-11-23)
+  leaves the board in safe mode until a reset, and a soft reboot stays
+  there: three templates were lost to one crash. The boot capture now
+  recognises the safe-mode text, records its reason in the report
+  (`safe_mode`), sends `microcontroller.reset()`, waits for the port to
+  come back and boots again; a template that lands in safe mode twice is
+  the failure (`safe_mode_again`). The chip's ROM-bootloader lines seen
+  *while a fox runs* are reported as "the board RESET during the run"
+  (`reset_during_run`) rather than left as noise. The path is a replay
+  fixture (`sim-esp32c3-fm-safemode.json`).
+- README: a table of the three families and a table of every board the
+  catalog knows with what has been shown on it.
 
 ### Page 0.18.22 — readability
 

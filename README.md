@@ -49,6 +49,36 @@ after all three passed, carrying the UF2 that run built
 (`.github/workflows/ci.yml`). See `tests/README.md`; releases are tags
 (`CONTRIBUTING.md`, `CHANGELOG.md`).
 
+### Families and boards
+
+Three **families** — what the fox's program is and how it reaches the board:
+
+| family | the fox's program | what the page writes | boards |
+|---|---|---|---|
+| `foxlib` | CircuitPython: `firmware/foxlib/` + a template's `code.py`, as source or precompiled `.mpy` | `code.py`, `fox.json`, `defaults.json`, `foxlib/`, `safemode.py` over the REPL | an ESP32 or nRF52840 running CircuitPython — bare, for the network foxes; with an SA868/SA818 module, for FM |
+| `foxlib-c` | C: `firmware/foxlib-c/`, built by CI to a UF2 | the UF2 onto the BOOTSEL drive; `fox.json` + `defaults.json` onto the `FOXBENCH` drive | the AI6YM PicoFox (RP2040 + SI5351, 2 m FM) |
+| `drive` | the vendor's own firmware, not ours | `settings.txt`, the audio and Morse-ID `.wav` files, onto its drive | the AI6YM PicoFox with its vendor firmware |
+
+What has been on a bench (`docs/hardware-log.md` has the rows; `python3
+tools/bench_queue.py` derives this table's last column from them and says
+what the next session has to show):
+
+| board | target(s) | radios | tested | what was shown |
+|---|---|---|---|---|
+| Seeed XIAO ESP32-C3 + SA868 | `seeed_xiao_esp32c3` (stable) | FM via the module | 2026-10 | all seven FM templates on the air, 2 m and 70 cm; last row on foxlib 1.2.0 — re-run due |
+| AI6YM PicoFox rev 3 | `picofox-vendor`, `picofox-foxlibc` (stable) | 2 m FM | 2026-10 | vendor firmware driven from the page; fox-bench firmware on the air (Morse + songs, Morse + SSTV) |
+| Seeed XIAO ESP32S3 (Sense) | `esp32s3` | Wi-Fi, BLE | 2026-11 | all five network templates; a phone and the laptop found them; the captive sign-in page and its find log read back |
+| Seeed XIAO ESP32-C3 (bare) | `esp32c3` | BLE (Wi-Fi: no) | 2026-11 | boots a network fox from `.mpy` with ~36 KB free, then the CircuitPython core hard-faults while the Wi-Fi AP runs: not a Wi-Fi fox; BLE under test |
+| Seeed XIAO ESP32C6 | `esp32c6` | Wi-Fi, BLE | — | enumerates; first session pending |
+| Seeed XIAO ESP32C5, DFRobot FireBeetle 2 ESP32-C5 | `esp32c5` | Wi-Fi 2.4/5, BLE | — | enumerates; first session pending |
+| Waveshare ESP32-S3-Nano | `esp32s3` | Wi-Fi, BLE | — | described from the Arduino Nano ESP32 build; nothing run |
+| Arduino Nano 33 BLE | `nrf52840` | BLE | — | described; CircuitPython needs `bossac`; nothing run |
+
+A target is **stable** when a hardware-log row backs it and
+**experimental** until then; the page hides experimental targets behind a
+checkbox. A row that is older than the firmware the catalog ships is a
+re-run the queue asks for, not a verification.
+
 | | |
 |---|---|
 | `DESIGN.md` | architecture: descriptors, templates, foxlib, tabs |

@@ -175,6 +175,37 @@ class Repl:
             if re.search(until, buf, re.M):
                 time.sleep(0.3); buf += self.s.read(4096); break
             if re.search(rb"Traceback|Error:", buf) and re.search(rb"Press any key|Code done running", buf): break
+            if re.search(rb"You are in safe mode", buf) and re.search(rb"Press any key", buf): break   # code.py did not run
+        text = ANSI.sub(b"", buf).replace(b"\r", b"").decode(errors="replace")
+        self._rec("reboot", out=text)
+        return text
+
+    def hard_reset(self, until=rb"^FOX ", timeout=20):
+        """microcontroller.reset() -- the way out of safe mode (a soft reboot stays in it) -- then the port back (it
+        re-enumerates on most boards) and the boot captured like reboot_and_capture. The reset is one exec that never
+        answers; the capture after it is a recorded reboot, so a replay serves it."""
+        port = self.s.port
+        self.interrupt()              # the safe-mode prompt gives the REPL on any key
+        self.enter_raw(); self.s.write(b"import microcontroller\nmicrocontroller.reset()\x04"); self.s.flush()
+        self._rec("exec", cmd="import microcontroller\nmicrocontroller.reset()", out="", err="")
+        time.sleep(0.8)
+        try: self.s.close()
+        except Exception: pass
+        t0 = time.monotonic()
+        while True:
+            try:
+                self.s = serial.Serial(port, 115200, timeout=0.05); break
+            except (serial.SerialException, OSError):
+                if time.monotonic() - t0 > timeout: sys.exit("the port did not come back within %d s of the reset (%s): replug the board and run again" % (timeout, port))
+                time.sleep(0.5)
+        self.in_raw = False; self.buf = b""
+        self.s.write(b"\x02\x04")    # nothing to a board already running code.py; a replay's pty board (still in raw mode) boots on it
+        buf = b""; t0 = time.monotonic()
+        while time.monotonic() - t0 < timeout:
+            buf += self.s.read(1024)
+            if re.search(until, buf, re.M):
+                time.sleep(0.3); buf += self.s.read(4096); break
+            if re.search(rb"Press any key|Code done running", buf) and re.search(rb"Traceback|Error:|safe mode", buf): break
         text = ANSI.sub(b"", buf).replace(b"\r", b"").decode(errors="replace")
         self._rec("reboot", out=text)
         return text
@@ -547,6 +578,15 @@ def portal_visit(host, code, call, timeout=6):
     return r
 
 
+ROM_BOOT = re.compile(r"ESP-ROM:|rst:0x|entry 0x[0-9a-f]+|load:0x[0-9a-f]+,len:")   # an Espressif chip's ROM bootloader; the nRF/RP2040 print nothing
+
+
+def safe_mode_reason(text):
+    """The line after 'You are in safe mode because:' (CircuitPython's own wording), or the whole block's first words."""
+    m = re.search(r"You are in safe mode because:\s*\n\s*(.+)", text)
+    return m.group(1).strip() if m else "unknown reason"
+
+
 def finds_rows(csv_text, call):
     """The finds.csv rows (dicts) whose callsign is `call`."""
     lines = [l for l in csv_text.replace("\r", "").split("\n") if l.strip()]
@@ -806,6 +846,14 @@ class Run:
             r.write_file(fox["payload"]["images_file"], b"")      # firmware falls back to its built-in test card
         t0 = time.monotonic()
         boot = r.reboot_and_capture()
+        if "You are in safe mode" in boot:
+            # the previous template's crash (a hard fault stays in safe mode until a reset): say why, reset, try once more
+            res["safe_mode"] = safe_mode_reason(boot)
+            print("  the board was in safe mode (%s) — resetting it and booting again" % res["safe_mode"])
+            boot = r.hard_reset()
+            if "You are in safe mode" in boot:
+                res["ok"] = False; res["safe_mode_again"] = safe_mode_reason(boot); res["error"] = "safe mode: " + res["safe_mode_again"]
+                print("  safe mode again after a reset (%s): this template's boot itself crashes the core" % res["safe_mode_again"]); return False
         res["boot_s"] = round(time.monotonic() - t0, 2)
         b = t["banner"] = parse_banner(boot)
         res["banner"] = b["_raw"] if b else None
@@ -838,6 +886,11 @@ class Run:
             run = r.listen(a.observe)
         res["observed"] = run.strip()[-1500:]
         if run.strip(): print("  while running: " + " | ".join(run.strip().splitlines()[-3:])[:200])
+        if ROM_BOOT.search(run):
+            # the chip's ROM bootloader talks only at a reset: the board went down while the fox ran (a hard fault in
+            # the core, a brownout, the watchdog). What it says on the way back up is the next template's boot text.
+            res["reset_during_run"] = True; res["ok"] = False
+            print("  the board RESET during the run (bootloader output seen): a crash in CircuitPython's core, a brownout or the watchdog — the next boot's safe-mode line says which")
         res["ok"] = b.get("cfg") == "ok" and b.get("radio") == "ok" and (b.get("id") == "set" or a.call.startswith("N0CALL"))
         if res.get("sniffer") is not None and res["sniffer"]["with_ssid"] < 1:
             res["ok"] = False; print("  no probe request from the fox with its SSID reached the sniffer in %.1f s — nothing went over the air, or the sniffer is on the wrong channels" % a.observe)

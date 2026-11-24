@@ -1,0 +1,597 @@
+{
+"format": "fox-bench-bench-recording/2",
+"generated": "2026-11-19T22:11:38",
+"board_id": "seeed_xiao_esp32c3",
+"uid": "85c818eae840",
+"circuitpython": "6.18.44-fc-v726",
+"foxlib": "1.10.11",
+"args": {
+"board": "seeed_xiao_esp32c3",
+"variant": null,
+"templates": "morse-songs,morse-sstv,morse-qrss,freq-rotator,popcorn,resurrection,composite",
+"call": "W1ABC FOX DE W1ABC",
+"freq": null,
+"module": null,
+"observe": "0.5",
+"key_seconds": "1",
+"yes_antenna": true,
+"no_restore": false,
+"sniffer": null,
+"mpy": false,
+"trace": false,
+"verbose": false
+},
+"exchanges": [
+{
+"t": 0.167,
+"kind": "exec",
+"cmd": "import board, microcontroller, os, sys\nprint(board.board_id)\nprint(''.join('%02x' % b for b in microcontroller.cpu.uid))\nprint(os.uname().release)\nprint(os.uname().version)\n",
+"out": "seeed_xiao_esp32c3\n85c818eae840\n6.18.44-fc-v726\n#1 SMP PREEMPT_DYNAMIC @0\n",
+"err": ""
+},
+{
+"t": 0.237,
+"kind": "exec",
+"cmd": "try:\n import storage\n ro = storage.getmount('/').readonly\nexcept Exception:\n ro = False\nif not ro:\n print('rw')\nelse:\n try:\n  storage.remount('/', False)\n  print('remounted')\n except Exception as e:\n  print('usb', e)\n",
+"out": "rw\n",
+"err": ""
+},
+{
+"t": 0.304,
+"kind": "exec",
+"cmd": "try:\n f=open('code.py','rb')\nexcept OSError:\n print('__MISSING__')\nelse:\n while True:\n  b=f.read(512)\n  if not b: break\n  print(''.join('%02x'%c for c in b), end='')\n f.close()\n",
+"out": "__MISSING__\n",
+"err": ""
+},
+{
+"t": 0.371,
+"kind": "exec",
+"cmd": "try:\n f=open('fox.json','rb')\nexcept OSError:\n print('__MISSING__')\nelse:\n while True:\n  b=f.read(512)\n  if not b: break\n  print(''.join('%02x'%c for c in b), end='')\n f.close()\n",
+"out": "__MISSING__\n",
+"err": ""
+},
+{
+"t": 0.438,
+"kind": "exec",
+"cmd": "try:\n f=open('defaults.json','rb')\nexcept OSError:\n print('__MISSING__')\nelse:\n while True:\n  b=f.read(512)\n  if not b: break\n  print(''.join('%02x'%c for c in b), end='')\n f.close()\n",
+"out": "__MISSING__\n",
+"err": ""
+},
+{
+"t": 0.497,
+"kind": "exec",
+"cmd": "import os\ntry:\n os.mkdir('foxlib')\nexcept OSError:\n pass\n",
+"out": "",
+"err": ""
+},
+{
+"t": 0.739,
+"kind": "write",
+"path": "foxlib/VERSION",
+"size": 8,
+"crc": "9e0c1bc3"
+},
+{
+"t": 2.239,
+"kind": "write",
+"path": "foxlib/__init__.py",
+"size": 5914,
+"crc": "a7f066ac"
+},
+{
+"t": 2.747,
+"kind": "write",
+"path": "foxlib/battery.py",
+"size": 1448,
+"crc": "57a3af32"
+},
+{
+"t": 6.402,
+"kind": "write",
+"path": "foxlib/cfg.py",
+"size": 15847,
+"crc": "9c9f4293"
+},
+{
+"t": 8.557,
+"kind": "write",
+"path": "foxlib/cycle.py",
+"size": 8882,
+"crc": "e79c8ddd"
+},
+{
+"t": 9.557,
+"kind": "write",
+"path": "foxlib/guard.py",
+"size": 3674,
+"crc": "602e7513"
+},
+{
+"t": 10.381,
+"kind": "write",
+"path": "foxlib/led.py",
+"size": 2740,
+"crc": "d9c6917f"
+},
+{
+"t": 10.889,
+"kind": "write",
+"path": "foxlib/melody.py",
+"size": 1465,
+"crc": "0d4059fc"
+},
+{
+"t": 11.555,
+"kind": "write",
+"path": "foxlib/morse.py",
+"size": 2111,
+"crc": "75d99d74"
+},
+{
+"t": 12.961,
+"kind": "write",
+"path": "foxlib/radio.py",
+"size": 5416,
+"crc": "4acb13e0"
+},
+{
+"t": 13.477,
+"kind": "write",
+"path": "foxlib/report.py",
+"size": 1527,
+"crc": "4316fadb"
+},
+{
+"t": 14.309,
+"kind": "write",
+"path": "foxlib/schedule.py",
+"size": 2872,
+"crc": "828d4f05"
+},
+{
+"t": 15.391,
+"kind": "write",
+"path": "foxlib/sstv.py",
+"size": 4042,
+"crc": "d590ec49"
+},
+{
+"t": 16.057,
+"kind": "write",
+"path": "foxlib/tones.py",
+"size": 2058,
+"crc": "df37ed08"
+},
+{
+"t": 16.989,
+"kind": "write",
+"path": "safemode.py",
+"size": 3449,
+"crc": "9d683dd8"
+},
+{
+"t": 17.056,
+"kind": "exec",
+"cmd": "import os\nfor n in os.listdir('foxlib'):\n try:\n  s=os.stat('foxlib/'+n); print(n, s[6], 'd' if s[0] & 0x4000 else 'f')\n except Exception:\n  print(n, -1, '?')\n",
+"out": "cycle.py 8882 f\nradio.py 5416 f\nreport.py 1527 f\nbattery.py 1448 f\n__init__.py 5914 f\nschedule.py 2872 f\nguard.py 3674 f\nmorse.py 2111 f\nsstv.py 4042 f\nled.py 2740 f\ncfg.py 15847 f\ntones.py 2058 f\nVERSION 8 f\nmelody.py 1465 f\n",
+"err": ""
+},
+{
+"t": 22.592,
+"kind": "write",
+"path": "code.py",
+"size": 840,
+"crc": "477d0d1e"
+},
+{
+"t": 23.092,
+"kind": "write",
+"path": "defaults.json",
+"size": 1338,
+"crc": "64189f09"
+},
+{
+"t": 23.775,
+"kind": "write",
+"path": "fox.json",
+"size": 2273,
+"crc": "e35663c4"
+},
+{
+"t": 24.276,
+"kind": "reboot",
+"out": "\nsoft reboot\n\nYou are in safe mode because:\nCircuitPython core code crashed hard. Whoops!\nHard fault: memory access or instruction error.\nPlease file an issue with your program at github.com/adafruit/circuitpython/issues.\nPress reset to exit safe mode.\n\nPress any key to enter the REPL. Use CTRL-D to reload.\n"
+},
+{
+"t": 24.276,
+"kind": "exec",
+"cmd": "import microcontroller\nmicrocontroller.reset()",
+"out": "",
+"err": ""
+},
+{
+"t": 24.276,
+"kind": "reboot",
+"out": "\nsoft reboot\n\nAuto-reload is on. Simply save files over USB to run them or enter REPL to disable.\ncode.py output:\ninitializing system ... \nFOX template=morse-songs/1.1.2 foxlib=1.10.11 board=seeed_xiao_esp32c3 uid=1011121314151617 cfg=ok radio=ok id=set freq=146.565\nwatchdog 90s\nmorse: W1ABC FOX DE W1ABC\n"
+},
+{
+"t": 24.779,
+"kind": "listen",
+"seconds": 0.5,
+"out": ""
+},
+{
+"t": 24.939,
+"kind": "exec",
+"cmd": "import gc, time\ngc.collect()\na=gc.mem_free()\nt=time.monotonic()\nimport foxlib\nprint(a, gc.mem_free(), time.monotonic()-t)\n",
+"out": "120000 120000 0.0020200440000053277\n",
+"err": ""
+},
+{
+"t": 25.013,
+"kind": "exec",
+"cmd": "import foxlib, gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfox = foxlib.Fox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(gc.mem_free())\nprint(fox.radio.probe((146.5, 433.5)))\nprint(fox.radio.rssi())\nprint(fox.batt.read() if fox.batt else None)\n",
+"out": "120000\n{'146.5': True, '433.5': False}\n72\nNone\n",
+"err": ""
+},
+{
+"t": 25.08,
+"kind": "exec",
+"cmd": "import foxlib, gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfox = foxlib.Fox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(fox.radio.key_for(1))\n",
+"out": "ok\n",
+"err": ""
+},
+{
+"t": 30.539,
+"kind": "write",
+"path": "code.py",
+"size": 621,
+"crc": "39078fa1"
+},
+{
+"t": 30.964,
+"kind": "write",
+"path": "defaults.json",
+"size": 1014,
+"crc": "6be9b7a6"
+},
+{
+"t": 31.455,
+"kind": "write",
+"path": "fox.json",
+"size": 1175,
+"crc": "af546eb4"
+},
+{
+"t": 31.639,
+"kind": "write",
+"path": "images.bin",
+"size": 0,
+"crc": "00000000"
+},
+{
+"t": 32.14,
+"kind": "reboot",
+"out": "\nsoft reboot\n\nAuto-reload is on. Simply save files over USB to run them or enter REPL to disable.\ncode.py output:\ninitializing system ... \nFOX template=morse-sstv/1.1.2 foxlib=1.10.11 board=seeed_xiao_esp32c3 uid=1011121314151617 cfg=ok radio=ok id=set freq=146.565\nwatchdog 90s\nmorse: W1ABC FOX DE W1ABC\n"
+},
+{
+"t": 32.643,
+"kind": "listen",
+"seconds": 0.5,
+"out": ""
+},
+{
+"t": 32.803,
+"kind": "exec",
+"cmd": "import gc, time\ngc.collect()\na=gc.mem_free()\nt=time.monotonic()\nimport foxlib\nprint(a, gc.mem_free(), time.monotonic()-t)\n",
+"out": "120000 120000 0.0021688729999596035\n",
+"err": ""
+},
+{
+"t": 32.877,
+"kind": "exec",
+"cmd": "import foxlib, gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfox = foxlib.Fox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(gc.mem_free())\nprint(fox.radio.probe((146.5, 433.5)))\nprint(fox.radio.rssi())\nprint(fox.batt.read() if fox.batt else None)\n",
+"out": "120000\n{'146.5': True, '433.5': False}\n72\nNone\n",
+"err": ""
+},
+{
+"t": 32.944,
+"kind": "exec",
+"cmd": "import foxlib, gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfox = foxlib.Fox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(fox.radio.key_for(1))\n",
+"out": "ok\n",
+"err": ""
+},
+{
+"t": 38.408,
+"kind": "write",
+"path": "code.py",
+"size": 576,
+"crc": "6662e77d"
+},
+{
+"t": 38.825,
+"kind": "write",
+"path": "defaults.json",
+"size": 963,
+"crc": "438eaecb"
+},
+{
+"t": 39.258,
+"kind": "write",
+"path": "fox.json",
+"size": 1122,
+"crc": "93fc156c"
+},
+{
+"t": 39.759,
+"kind": "reboot",
+"out": "\nsoft reboot\n\nAuto-reload is on. Simply save files over USB to run them or enter REPL to disable.\ncode.py output:\ninitializing system ... \nFOX template=morse-qrss/1.1.2 foxlib=1.10.11 board=seeed_xiao_esp32c3 uid=1011121314151617 cfg=ok radio=ok id=set freq=146.565\nwatchdog 90s\nmorse: W1ABC FOX DE W1ABC\n"
+},
+{
+"t": 40.262,
+"kind": "listen",
+"seconds": 0.5,
+"out": ""
+},
+{
+"t": 40.421,
+"kind": "exec",
+"cmd": "import gc, time\ngc.collect()\na=gc.mem_free()\nt=time.monotonic()\nimport foxlib\nprint(a, gc.mem_free(), time.monotonic()-t)\n",
+"out": "120000 120000 0.00253808399997979\n",
+"err": ""
+},
+{
+"t": 40.496,
+"kind": "exec",
+"cmd": "import foxlib, gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfox = foxlib.Fox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(gc.mem_free())\nprint(fox.radio.probe((146.5, 433.5)))\nprint(fox.radio.rssi())\nprint(fox.batt.read() if fox.batt else None)\n",
+"out": "120000\n{'146.5': True, '433.5': False}\n72\nNone\n",
+"err": ""
+},
+{
+"t": 40.563,
+"kind": "exec",
+"cmd": "import foxlib, gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfox = foxlib.Fox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(fox.radio.key_for(1))\n",
+"out": "ok\n",
+"err": ""
+},
+{
+"t": 46.031,
+"kind": "write",
+"path": "code.py",
+"size": 684,
+"crc": "8d184d9b"
+},
+{
+"t": 46.53,
+"kind": "write",
+"path": "defaults.json",
+"size": 1355,
+"crc": "c615b38b"
+},
+{
+"t": 47.214,
+"kind": "write",
+"path": "fox.json",
+"size": 2296,
+"crc": "56577aa2"
+},
+{
+"t": 47.716,
+"kind": "reboot",
+"out": "\nsoft reboot\n\nAuto-reload is on. Simply save files over USB to run them or enter REPL to disable.\ncode.py output:\ninitializing system ... \nFOX template=freq-rotator/1.1.2 foxlib=1.10.11 board=seeed_xiao_esp32c3 uid=1011121314151617 cfg=ok radio=ok id=set freq=146.565,147.42,147.445\nwatchdog 90s\nmorse: W1ABC FOX DE W1ABC\n"
+},
+{
+"t": 48.218,
+"kind": "listen",
+"seconds": 0.5,
+"out": ""
+},
+{
+"t": 48.378,
+"kind": "exec",
+"cmd": "import gc, time\ngc.collect()\na=gc.mem_free()\nt=time.monotonic()\nimport foxlib\nprint(a, gc.mem_free(), time.monotonic()-t)\n",
+"out": "120000 120000 0.002097316000003957\n",
+"err": ""
+},
+{
+"t": 48.453,
+"kind": "exec",
+"cmd": "import foxlib, gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfox = foxlib.Fox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(gc.mem_free())\nprint(fox.radio.probe((146.5, 433.5)))\nprint(fox.radio.rssi())\nprint(fox.batt.read() if fox.batt else None)\n",
+"out": "120000\n{'146.5': True, '433.5': False}\n72\nNone\n",
+"err": ""
+},
+{
+"t": 48.52,
+"kind": "exec",
+"cmd": "import foxlib, gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfox = foxlib.Fox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(fox.radio.key_for(1))\n",
+"out": "ok\n",
+"err": ""
+},
+{
+"t": 53.989,
+"kind": "write",
+"path": "code.py",
+"size": 675,
+"crc": "579a3af6"
+},
+{
+"t": 54.497,
+"kind": "write",
+"path": "defaults.json",
+"size": 1412,
+"crc": "4277d12b"
+},
+{
+"t": 55.238,
+"kind": "write",
+"path": "fox.json",
+"size": 2355,
+"crc": "9d566bcc"
+},
+{
+"t": 55.739,
+"kind": "reboot",
+"out": "\nsoft reboot\n\nAuto-reload is on. Simply save files over USB to run them or enter REPL to disable.\ncode.py output:\ninitializing system ... \nFOX template=popcorn/1.1.2 foxlib=1.10.11 board=seeed_xiao_esp32c3 uid=1011121314151617 cfg=ok radio=ok id=set freq=146.565\nwatchdog 90s\nmorse: W1ABC FOX DE W1ABC\n"
+},
+{
+"t": 56.241,
+"kind": "listen",
+"seconds": 0.5,
+"out": ""
+},
+{
+"t": 56.401,
+"kind": "exec",
+"cmd": "import gc, time\ngc.collect()\na=gc.mem_free()\nt=time.monotonic()\nimport foxlib\nprint(a, gc.mem_free(), time.monotonic()-t)\n",
+"out": "120000 120000 0.0020241139999370716\n",
+"err": ""
+},
+{
+"t": 56.476,
+"kind": "exec",
+"cmd": "import foxlib, gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfox = foxlib.Fox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(gc.mem_free())\nprint(fox.radio.probe((146.5, 433.5)))\nprint(fox.radio.rssi())\nprint(fox.batt.read() if fox.batt else None)\n",
+"out": "120000\n{'146.5': True, '433.5': False}\n72\nNone\n",
+"err": ""
+},
+{
+"t": 56.542,
+"kind": "exec",
+"cmd": "import foxlib, gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfox = foxlib.Fox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(fox.radio.key_for(1))\n",
+"out": "ok\n",
+"err": ""
+},
+{
+"t": 62.011,
+"kind": "write",
+"path": "code.py",
+"size": 679,
+"crc": "da7c1569"
+},
+{
+"t": 62.519,
+"kind": "write",
+"path": "defaults.json",
+"size": 1506,
+"crc": "39d693f4"
+},
+{
+"t": 63.268,
+"kind": "write",
+"path": "fox.json",
+"size": 2457,
+"crc": "ba86444b"
+},
+{
+"t": 63.77,
+"kind": "reboot",
+"out": "\nsoft reboot\n\nAuto-reload is on. Simply save files over USB to run them or enter REPL to disable.\ncode.py output:\ninitializing system ... \nFOX template=resurrection/1.1.2 foxlib=1.10.11 board=seeed_xiao_esp32c3 uid=1011121314151617 cfg=ok radio=ok id=set freq=146.565\nwatchdog 90s\nmorse: W1ABC FOX DE W1ABC\n"
+},
+{
+"t": 64.272,
+"kind": "listen",
+"seconds": 0.5,
+"out": ""
+},
+{
+"t": 64.431,
+"kind": "exec",
+"cmd": "import gc, time\ngc.collect()\na=gc.mem_free()\nt=time.monotonic()\nimport foxlib\nprint(a, gc.mem_free(), time.monotonic()-t)\n",
+"out": "120000 120000 0.0028269099999533864\n",
+"err": ""
+},
+{
+"t": 64.506,
+"kind": "exec",
+"cmd": "import foxlib, gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfox = foxlib.Fox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(gc.mem_free())\nprint(fox.radio.probe((146.5, 433.5)))\nprint(fox.radio.rssi())\nprint(fox.batt.read() if fox.batt else None)\n",
+"out": "120000\n{'146.5': True, '433.5': False}\n72\nNone\n",
+"err": ""
+},
+{
+"t": 64.573,
+"kind": "exec",
+"cmd": "import foxlib, gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfox = foxlib.Fox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(fox.radio.key_for(1))\n",
+"out": "ok\n",
+"err": ""
+},
+{
+"t": 70.109,
+"kind": "write",
+"path": "code.py",
+"size": 854,
+"crc": "9162e054"
+},
+{
+"t": 70.609,
+"kind": "write",
+"path": "defaults.json",
+"size": 1336,
+"crc": "692d83c8"
+},
+{
+"t": 71.291,
+"kind": "write",
+"path": "fox.json",
+"size": 2271,
+"crc": "7a6e6d2c"
+},
+{
+"t": 71.793,
+"kind": "reboot",
+"out": "\nsoft reboot\n\nAuto-reload is on. Simply save files over USB to run them or enter REPL to disable.\ncode.py output:\ninitializing system ... \nFOX template=composite/0.2.2 foxlib=1.10.11 board=seeed_xiao_esp32c3 uid=1011121314151617 cfg=ok radio=ok id=set freq=146.565\nwatchdog 90s\nmorse: W1ABC FOX DE W1ABC\n"
+},
+{
+"t": 72.295,
+"kind": "listen",
+"seconds": 0.5,
+"out": ""
+},
+{
+"t": 72.454,
+"kind": "exec",
+"cmd": "import gc, time\ngc.collect()\na=gc.mem_free()\nt=time.monotonic()\nimport foxlib\nprint(a, gc.mem_free(), time.monotonic()-t)\n",
+"out": "120000 120000 0.0021932110000761895\n",
+"err": ""
+},
+{
+"t": 72.529,
+"kind": "exec",
+"cmd": "import foxlib, gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfox = foxlib.Fox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(gc.mem_free())\nprint(fox.radio.probe((146.5, 433.5)))\nprint(fox.radio.rssi())\nprint(fox.batt.read() if fox.batt else None)\n",
+"out": "120000\n{'146.5': True, '433.5': False}\n72\nNone\n",
+"err": ""
+},
+{
+"t": 72.596,
+"kind": "exec",
+"cmd": "import foxlib, gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfox = foxlib.Fox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(fox.radio.key_for(1))\n",
+"out": "ok\n",
+"err": ""
+},
+{
+"t": 77.779,
+"kind": "exec",
+"cmd": "import os\ntry:\n os.remove('code.py')\nexcept OSError:\n pass\n",
+"out": "",
+"err": ""
+},
+{
+"t": 77.837,
+"kind": "exec",
+"cmd": "import os\ntry:\n os.remove('fox.json')\nexcept OSError:\n pass\n",
+"out": "",
+"err": ""
+},
+{
+"t": 77.896,
+"kind": "exec",
+"cmd": "import os\ntry:\n os.remove('defaults.json')\nexcept OSError:\n pass\n",
+"out": "",
+"err": ""
+},
+{
+"t": 77.996,
+"kind": "reboot",
+"out": "\nsoft reboot\n\nAuto-reload is on. Simply save files over USB to run them or enter REPL to disable.\ncode.py output:\nFileNotFoundError: [Errno 2] No such file or directory: '/tmp/pty-flash-rhk0item/defaults.json'\n\nCode done running.\n\nPress any key to enter the REPL. Use CTRL-D to reload.\n"
+}
+],
+"_": "sim-esp32c3-fm.json with a safe-mode boot spliced before the first template (the text CircuitPython prints after a hard fault, as the XIAO ESP32-C3 did on 2026-11-23 running a Wi-Fi fox), then the reset hw_smoke sends and the real boot: replays the safe-mode recovery path (hw_smoke.Repl.hard_reset)"
+}
