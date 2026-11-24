@@ -58,6 +58,8 @@ jobs:
         with: { python-version: '3.12' }
       - uses: actions/setup-node@v4
         with: { node-version: '20' }
+      - name: Python packages the bench tools import (pyserial for hw_smoke, so test_hostclient and the replays; pyyaml for check_ci)
+        run: pip install --quiet pyserial pyyaml
       - name: Syntax check (CircuitPython-compatible subset is not enforced here; the sim is)
         run: python3 -m py_compile firmware/foxlib/*.py firmware/templates/*/code.py
       - name: Catalog lint (descriptors, defaults through the firmware validator, index files, version bumps)
@@ -76,9 +78,7 @@ jobs:
       - name: The asset stamper finds the links it will rewrite at deploy
         run: mkdir -p /tmp/stamp && cp index.html /tmp/stamp/ && python3 tools/stamp_assets.py /tmp/stamp && python3 tools/stamp_assets.py --check /tmp/stamp
       - name: Workflow file parses strictly (duplicate keys), job graph
-        run: |
-          pip install --quiet pyyaml
-          python3 tools/check_ci.py
+        run: python3 tools/check_ci.py
       - name: Simulator — every template, every scenario
         run: python3 firmware/sim/run.py
       - name: Sniffer's 802.11 parser (tools/sniffer/code.py) against hand-built frames
@@ -92,9 +92,7 @@ jobs:
       - name: Precompiled foxlib (firmware/mpy) — built here with the pinned CircuitPython's mpy-cross (Adafruit's S3), served from the site like the UF2, never committed
         run: python3 tools/build_mpy.py && python3 tools/build_mpy.py --check
       - name: Bench recordings replay clean (tools/hw_smoke.py against firmware/sim/pty_board.py --replay; a recording made with --mpy writes the set built above)
-        run: |
-          pip install --quiet pyserial
-          for f in tests/fixtures/bench/*.json; do python3 tools/replay_check.py "$f" || exit 1; done
+        run: for f in tests/fixtures/bench/*.json; do python3 tools/replay_check.py "$f" || exit 1; done
       - uses: actions/upload-artifact@v4
         with:
           name: foxlib-mpy
