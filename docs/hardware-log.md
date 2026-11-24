@@ -35,6 +35,11 @@ each time.
 | 2026-11-23 | XIAO ESP32-C3 | foxlib 1.11.1, page 0.18.23, CircuitPython 10.3.2 on 2026-11-11 | 2/2 templates deployed from the REPL, booted to banner, keyed: ble-beacon, puzzle-beacon | `tools/hw_smoke.py` end to end; recording `seeed_xiao_esp32c3-ble-2026-11-23.json` | ok. BLE only. Earlier the same evening, wifi-beacon from .mpy booted with 36 KB free and the CircuitPython core hard-faulted while the AP ran (safe mode: hard fault); wifi-probe never got to boot. Both BLE templates hold their wakes with 27-31 KB free. The esp32c3 target is BLE (+FM with a module), not Wi-Fi |
 | 2026-11-23 | Seeed XIAO ESP32C6 | foxlib 1.11.1, page 0.18.25, CircuitPython 10.3.2 on 2026-11-11 | 5/5 templates deployed from the REPL, booted to banner, keyed: wifi-beacon, wifi-probe, ble-beacon, puzzle-beacon, checkpoint; not offered on this board: 8 | `tools/hw_smoke.py` end to end; recording `seeed_xiao_esp32c6-net-2026-11-23.json` | ok. first session, from a Debian laptop: all five network templates from .mpy with 114-156 KB free after init (S3-class, not C3-class); --payload saw each Wi-Fi fox on the air (signal 90-100), --checkpoint joined, captive DNS, the page with the code, posted W1XYZ, finds.csv row read back; the LED's blink direction not noted (descriptor says active-low) |
 | 2026-11-24 | Seeed XIAO ESP32C5 | foxlib 1.11.1, page 0.18.27, CircuitPython 10.3.2 on 2026-11-11 | 5/5 templates deployed from the REPL, booted to banner, keyed: wifi-beacon, wifi-probe, ble-beacon, puzzle-beacon, checkpoint; not offered on this board: 8 | `tools/hw_smoke.py` end to end; recording `seeed_xiao_esp32c5-net-2026-11-24.json` | ok. XIAO ESP32C5 on the DevKitC-1-N8R8 build, flashed at 0x0; first session from the Debian laptop: all five network templates from .mpy with 8.2 MB free (PSRAM), led on IO27, --payload saw each Wi-Fi fox on the air, --checkpoint joined, captive DNS, the page with the code, posted W1XYZ, finds.csv row read back. The fox's own scan lists a 5 GHz network, so 5 GHz receive works; an AP on channel 36 and monitor mode (Q1) not yet tried |
+| 2026-11-24 | Seeed XIAO ESP32S3 | foxlib 1.11.2, page 0.18.28, CircuitPython 10.3.2 on 2026-11-11 | 5/5 templates deployed from the REPL, booted to banner, keyed: wifi-beacon, wifi-probe, ble-beacon, puzzle-beacon, checkpoint | `tools/hw_smoke.py` end to end; recording `seeed_xiao_esp32s3-net-2026-11-24.json` | ok. re-run on foxlib 1.11.2 from the Debian laptop: all five network templates from .mpy, 8.13 MB free; --payload saw each Wi-Fi fox, --checkpoint joined, captive DNS, sign-in page, W1XYZ posted, finds.csv row read back. No change from 11-23 |
+| 2026-11-24 | Seeed XIAO ESP32C6 | foxlib 1.11.2, page 0.18.28, CircuitPython 10.3.2 on 2026-11-11 | 5/5 templates deployed from the REPL, booted to banner, keyed: wifi-beacon, wifi-probe, ble-beacon, puzzle-beacon, checkpoint | `tools/hw_smoke.py` end to end; recording `seeed_xiao_esp32c6-net-2026-11-24.json` | ok. re-run on foxlib 1.11.2: all five from .mpy, 110-123 KB free with the fox (checkpoint lowest); --payload and --checkpoint end to end, finds.csv row read back. The board still carried foxlib's .py files from an earlier page deploy beside the .mpy set; hw_smoke removed the duplicates |
+| 2026-11-24 | Seeed XIAO ESP32C5 | foxlib 1.11.2, page 0.18.28, CircuitPython 10.3.2 on 2026-11-11 | 5/5 templates deployed from the REPL, booted to banner, keyed: wifi-beacon, wifi-probe, ble-beacon, puzzle-beacon, checkpoint | `tools/hw_smoke.py` end to end; recording `seeed_xiao_esp32c5-net-2026-11-24b.json` | ok. re-run on foxlib 1.11.2: all five from .mpy, 8.13-8.27 MB free; --payload and --checkpoint end to end, finds.csv row read back; the fox's scan lists a 5 GHz network again |
+| 2026-11-24 | Seeed XIAO ESP32C5 | foxlib 1.11.2, page 0.18.28, CircuitPython 10.3.2 on 2026-11-11 | 1/1 templates deployed from the REPL, booted to banner, keyed: wifi-beacon | `tools/hw_smoke.py` end to end; recording `seeed_xiao_esp32c5-ch36-2026-11-24.json` | ok. wifi-beacon with --channel 36 on CircuitPython 10.3.2: the fox printed 'note: channel 36 refused (ValueError) ... on channel 1 instead' and went on the air on channel 1, which --payload saw (channel_asked 36). The 1.11.2 fallback verified; a 5 GHz access point waits for a build newer than 10.3.2 (start_ap takes 1-13 there) |
+| 2026-11-24 | XIAO ESP32-C3 | foxlib 1.11.2, page 0.18.28, CircuitPython 10.3.2 on 2026-11-11 | 2/2 templates deployed from the REPL, booted to banner, keyed: ble-beacon, puzzle-beacon | `tools/hw_smoke.py` end to end; recording `seeed_xiao_esp32c3-ble-2026-11-24.json` | ok. re-run on foxlib 1.11.2, BLE only: ble-beacon and puzzle-beacon from .mpy with 27-31 KB free, as on 11-23 |
 | 2026-10-22 (recorded late) | Seeed XIAO ESP32C6, XIAO ESP32C5 | ROM boot lines | serial over native USB after a reset (`ESP-ROM:esp32c5-eco2-…`, the C6's hello) | Listen only | both enumerate and print; no firmware of ours on them yet (CHANGELOG 0.7.13). No status change |
 
 ## Not yet verified on hardware
@@ -48,25 +53,12 @@ each time.
   seen to fire; watchdog timeout path (a hang has not been provoked).
 - Templates on the PicoFox other than morse-songs and morse-sstv: the
   firmware runs them in the host simulation, not yet on air.
-- The network foxes (`wifi-beacon`, `wifi-probe`, `ble-beacon`,
-  `puzzle-beacon`; foxlib 1.5.0) on every chip target: run only in the simulator (`firmware/sim/`,
-  mocked `wifi`/`_bleio`/`alarm`) and on the page's demo board. The bench
-  list per board is `docs/bench-runbook.md`. Boards on the bench and the
-  CircuitPython build each runs (checked against circuitpython.org
-  2026-10-24):
-
-  | chip target | board (variant) | CircuitPython build | notes |
-  |---|---|---|---|
-  | `esp32c3` | Seeed XIAO ESP32C3 | its own (`seeed_xiao_esp32c3`) | no user LED on the bare board; the same board as the FM combo, without the module |
-  | `esp32c6` | Seeed XIAO ESP32C6 (×2) | its own (`seeed_xiao_esp32c6`) | yellow LED `board.LED`; two boards: one radio-off, one deep-sleep side by side |
-  | `esp32c5` | Seeed XIAO ESP32C5 | ESP32-C5-DevKitC-1-N8R8 (`espressif_esp32c5_devkitc_1_n8r8`), no build of its own | LED `IO27` |
-  | `esp32c5` | DFRobot FireBeetle 2 ESP32-C5 | the same DevKitC-1 build (shared) | LED `IO15`; the two C5s report the same id — the page keeps the one selected |
-  | `esp32s3` | Seeed XIAO ESP32S3 | shared with the Sense (`seeed_xiao_esp32_s3_sense`; CircuitPython has no plain-S3 build) | LED `board.LED` (GPIO21) |
-  | `esp32s3` | Waveshare ESP32-S3-Nano | Arduino Nano ESP32 (`arduino_nano_esp32s3`), no build of its own | `board.LED` to verify; RGB `LED_RED/GREEN/BLUE` |
-  | `nrf52840` | Arduino Nano 33 BLE Rev2 | `arduino_nano_33_ble_rev2` (Rev1: `arduino_nano_33_ble`) | BLE only; CircuitPython by `bossac`, not from the page |
-
-  Whether the sibling builds (C5s, S3-Nano) run right is what the first
-  session has to show; the pin names in `hardware/*.json` for those three
-  follow the sibling build's naming and are to be confirmed from `dir(board)`.
-- The ESP32-C5 bootloader offset `0x2000` is the chip's convention, to be
-  confirmed on the first C5 session.
+- The network foxes on the chip targets still without a row: the Waveshare
+  ESP32-S3-Nano (`esp32s3`, the Arduino Nano ESP32 build; `board.LED` to
+  verify, RGB `LED_RED/GREEN/BLUE`) and the Arduino Nano 33 BLE Rev2
+  (`nrf52840`, `arduino_nano_33_ble_rev2`; BLE only, CircuitPython by
+  `bossac`). The XIAO C3 (BLE), C6, C5 and S3 have their rows above; the
+  C5's pin names follow the DevKitC-1 build's `IOxx` naming, confirmed
+  2026-11-24. Deep sleep across a wake, a 5 GHz access point (needs a build
+  newer than 10.3.2) and the LED's blink direction on the C5/C6
+  (`active_low`) are the open items on the boards that have run.

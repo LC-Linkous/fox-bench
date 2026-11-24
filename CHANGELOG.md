@@ -14,6 +14,19 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Tools — a page-built configuration on the bench
+
+- `tools/hw_smoke.py --fox FILE`: a `fox.json` (the page's Deploy → export,
+  or an overlay) merged over the template's defaults, so every setting the
+  page offers — payload, stealth, sense, a PSK, a hidden SSID, deep sleep, a
+  start time — runs on the bench with the same scan, portal and recording
+  machinery. `--checkpoint` joins with `net.psk` (nmcli `password`, a
+  WPA2-PSK netsh profile); deep sleep skips the REPL bench phase and waits
+  for the port at the next wake; the recording keeps the overlay and
+  `tools/replay_check.py` hands it back to the replay. `--call` now defaults
+  to the file's callsign, then the placeholder. Runbook section *A page-built
+  configuration on the bench*.
+
 ### foxlib 1.11.2 — the C5 knows its 5 GHz band
 
 - `NetFox._radios()` adds `wifi5` when the board id names an `esp32c5`: the

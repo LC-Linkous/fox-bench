@@ -52,8 +52,17 @@ except ImportError:
     sys.exit("pip install pyserial")
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+PLACEHOLDER_CALL = "N0CALL DECOY DECOY N0CALL"   # nobody's callsign: the fox stays silent (id=unset)
 RECORD_CALL = "W1ABC FOX DE W1ABC"     # what a recording carries instead of the run's callsign (tests/fixtures are public)
 _SCAN_ITEM = re.compile(r"^(-\d+) (\S.*)$")   # one radio.scan() entry: "-38 name" / "-42 AA:BB:CC:DD:EE:FF"; a line is " | "-joined
+
+
+def deep_merge(base, over):
+    """`over` on top of `base`, dict by dict (a list or scalar in `over` replaces); neither is changed."""
+    out = json.loads(json.dumps(base))
+    for k, v in over.items():
+        out[k] = deep_merge(out[k], v) if isinstance(v, dict) and isinstance(out.get(k), dict) else json.loads(json.dumps(v))
+    return out
 
 
 def scrub_recording(exchanges, args, call):
@@ -87,6 +96,8 @@ def scrub_recording(exchanges, args, call):
                 e[k] = scrub_text(e[k])
     if call and args.get("call") and args["call"] != RECORD_CALL:
         args["call"] = RECORD_CALL
+    if call and isinstance(args.get("fox"), dict):
+        args["fox"] = json.loads(scrub_text(json.dumps(args["fox"])))
     return "%d callsign mention(s) replaced, %d scan neighbour(s) renamed" % (n_call, n_scan)
 
 
@@ -124,6 +135,26 @@ class Repl:
 
     def _flush(self):
         self.buf = b""; self.s.reset_input_buffer()
+
+    def wait_port(self, timeout=60):
+        """A board that deep-sleeps takes its console port away and brings it back at the next wake: wait for it, then
+        reopen. Nothing to do while the port still answers."""
+        port = self.s.port
+        try:
+            self.s.write(b"\x03"); self.s.read(1); return
+        except (serial.SerialException, OSError):
+            pass
+        try: self.s.close()
+        except Exception: pass
+        t0 = time.monotonic()
+        while True:
+            try:
+                self.s = serial.Serial(port, 115200, timeout=0.05); break
+            except (serial.SerialException, OSError):
+                if time.monotonic() - t0 > timeout: sys.exit("the port did not come back within %d s (%s): the fox is still asleep, or the pack cut its power -- replug and run again" % (timeout, port))
+                time.sleep(0.5)
+        self.in_raw = False; self.buf = b""
+        time.sleep(0.5)
 
     def interrupt(self):
         self._flush()
@@ -343,10 +374,11 @@ class HostWifi:
             if time.monotonic() - t0 > seconds: return self._rec("scan", r)
             time.sleep(1)
 
-    def join(self, ssid, timeout=30):
-        """Joins the open network `ssid`; returns the gateway the fox's DHCP handed out (the portal's address)."""
+    def join(self, ssid, timeout=30, psk=""):
+        """Joins the network `ssid` (open, or WPA2 with `psk`); returns the gateway the fox's DHCP handed out (the
+        portal's address)."""
         try:
-            self.be.connect(ssid, timeout)
+            self.be.connect(ssid, timeout, psk)
         except RuntimeError as e:
             self._rec("join", {"error": str(e)[-160:]}); raise
         self.joined = True
@@ -393,8 +425,8 @@ class _Nmcli:
             out = ""
         return parse_nmcli_list(out)
 
-    def connect(self, ssid, timeout):
-        _run(["nmcli", "dev", "wifi", "connect", ssid, "ifname", self.iface, "name", SMOKE_CON], timeout=timeout + 10)
+    def connect(self, ssid, timeout, psk=""):
+        _run(["nmcli", "dev", "wifi", "connect", ssid] + (["password", psk] if psk else []) + ["ifname", self.iface, "name", SMOKE_CON], timeout=timeout + 10)
 
     def gateway(self):
         gw = ""
@@ -435,9 +467,9 @@ class _Netsh:
     def scan_rows(self):
         return parse_netsh_networks(_run(["netsh", "wlan", "show", "networks", "mode=bssid", "interface=" + self.iface]))
 
-    def connect(self, ssid, timeout):
+    def connect(self, ssid, timeout, psk=""):
         import tempfile
-        xml = netsh_open_profile(SMOKE_CON, ssid)
+        xml = netsh_open_profile(SMOKE_CON, ssid, psk)
         with tempfile.NamedTemporaryFile("w", suffix=".xml", delete=False, encoding="utf-8") as f:
             f.write(xml); path = f.name
         try:
@@ -483,14 +515,18 @@ def parse_netsh_networks(out):
     return rows
 
 
-def netsh_open_profile(name, ssid):
-    """A WLAN profile for an open network, as `netsh wlan add profile` takes it (manual connection: never joined on its own)."""
+def netsh_open_profile(name, ssid, psk=""):
+    """A WLAN profile as `netsh wlan add profile` takes it (manual connection: never joined on its own): an open network,
+    or WPA2-PSK/AES when `psk` is given."""
     from xml.sax.saxutils import escape
+    sec = ("<authEncryption><authentication>WPA2PSK</authentication><encryption>AES</encryption><useOneX>false</useOneX></authEncryption>"
+           "<sharedKey><keyType>passPhrase</keyType><protected>false</protected><keyMaterial>%s</keyMaterial></sharedKey>" % escape(psk)) if psk else \
+          "<authEncryption><authentication>open</authentication><encryption>none</encryption><useOneX>false</useOneX></authEncryption>"
     return ('<?xml version="1.0"?>\n<WLANProfile xmlns="http://www.microsoft.com/networking/WLAN/profile/v1">'
             "<name>%s</name><SSIDConfig><SSID><hex>%s</hex><name>%s</name></SSID><nonBroadcast>false</nonBroadcast></SSIDConfig>"
             "<connectionType>ESS</connectionType><connectionMode>manual</connectionMode>"
-            "<MSM><security><authEncryption><authentication>open</authentication><encryption>none</encryption><useOneX>false</useOneX></authEncryption></security></MSM>"
-            "</WLANProfile>\n") % (escape(name), ssid.encode("utf-8").hex().upper(), escape(ssid))
+            "<MSM><security>%s</security></MSM>"
+            "</WLANProfile>\n") % (escape(name), ssid.encode("utf-8").hex().upper(), escape(ssid), sec)
 
 
 class ReplayHost:
@@ -510,7 +546,7 @@ class ReplayHost:
     def scan(self, seconds, ssid=None, bssid=None):
         return self._take("scan")
 
-    def join(self, ssid, timeout=30):
+    def join(self, ssid, timeout=30, psk=""):
         r = self._take("join")
         if isinstance(r, dict) and r.get("error"): raise RuntimeError(r["error"])
         self.joined = True; return r
@@ -624,7 +660,8 @@ def parse_args():
     ap.add_argument("--channel", type=int, help="network foxes: the Wi-Fi channel for the access-point templates (net.channel) and the one channel wifi-probe uses (net.channels); 36 and up only on a dual-band target (the C5), and only a build newer than CircuitPython 10.3.2 starts a 5 GHz access point — on 10.3.2 the fox says so and falls back to channel 1, which --payload reports")
     ap.add_argument("--variant", help="network foxes: the physical board (hardware id, e.g. waveshare_esp32s3_nano) when the chip target has several; sets fox.json variant and its LED pin")
     ap.add_argument("--templates", default="all", help="comma list or all")
-    ap.add_argument("--call", default="N0CALL DECOY DECOY N0CALL", help="callmessage; with the placeholder the fox stays silent (id=unset)")
+    ap.add_argument("--call", help="callmessage; default the placeholder N0CALL DECOY DECOY N0CALL, with which the fox stays silent (id=unset); with --fox, the file's id.callmessage")
+    ap.add_argument("--fox", metavar="FILE", help="a fox.json to run instead of the template's bare defaults: the page's Deploy -> export (or a hand-written overlay) merged over the defaults, so every setting the page offers -- payload, stealth, sense, a PSK, a hidden SSID, deep sleep, a start time -- is tested on the bench with the same scan, portal and recording machinery. Its \"template\" picks the template when --templates is not given; the recording keeps the overlay, so a replay has it")
     ap.add_argument("--freq", type=float, help="frequency in MHz (default: the template default)")
     ap.add_argument("--module", help="radio module id from modules/ (e.g. sa868_dual); sets radio.family and ranges_mhz so --freq on the other band is allowed")
     ap.add_argument("--observe", type=float, default=8, help="seconds to watch each template run after its banner")
@@ -643,7 +680,14 @@ def parse_args():
     ap.add_argument("--host-from", metavar="RECORDING", help="replay: take the host side of --payload/--checkpoint (scan, join, DNS, portal) from this recording's 'host' lines instead of the computer's Wi-Fi (tools/replay_check.py)")
     ap.add_argument("--portal-only", nargs="?", const=PORTAL_IP, metavar="HOST", help="no board: this computer is already on a checkpoint fox's network (joined by hand); run the DNS and portal checks against HOST (default %s) and exit. Needs neither nmcli nor netsh" % PORTAL_IP)
     ap.add_argument("-v", "--verbose", action="store_true")
-    return ap.parse_args()
+    a = ap.parse_args()
+    a.fox_overlay = None
+    if a.fox:
+        a.fox_overlay = json.load(open(a.fox))
+        if not isinstance(a.fox_overlay, dict): sys.exit("--fox %s: not a JSON object" % a.fox)
+        if a.templates == "all" and a.fox_overlay.get("template"): a.templates = a.fox_overlay["template"]
+    a.call = a.call or ((a.fox_overlay or {}).get("id") or {}).get("callmessage") or PLACEHOLDER_CALL
+    return a
 
 
 def portal_only(a):
@@ -797,6 +841,11 @@ class Run:
             if not self.boot_template(t, res):
                 return
             self.watch(t, res)
+            if t["deep"]:
+                res["bench"] = "skipped: deep sleep (the REPL is gone while the fox sleeps)"
+                self.deep_last = True
+                return
+            self.deep_last = False
             self.bench(t, res)
         except Exception as e:
             res["ok"] = False; res["error"] = str(e); print("  ERROR:", e)
@@ -820,6 +869,20 @@ class Run:
         defaults = json.load(open(dpath))
         net = manifest.get("contract") == "net"          # a network fox: no module, no plan, no payload
         fox = json.loads(json.dumps(defaults))
+        ov = a.fox_overlay
+        if ov is not None:
+            if ov.get("template") and ov["template"] != tid:
+                print("  --fox is for %s: this template runs its bare defaults" % ov["template"])
+            else:
+                if ov.get("board") and ov["board"] != a.board:
+                    print("  NOTE: --fox was built for %s, deploying it on %s" % (ov["board"], a.board))
+                skip = {"schema", "template", "board"}            # the run's own; everything else is the page's form
+                fox = deep_merge(fox, {k: v for k, v in ov.items() if k not in skip})
+                if ov.get("variant") and not a.variant: a.variant = ov["variant"]
+                res["fox_file"] = os.path.basename(a.fox)
+                on = [k for k in ("payload", "checkpoint", "stealth", "sense") if (fox.get(k) or {}).get("enabled")]
+                sch = fox.get("schedule") or {}
+                print("  fox.json from %s: net %s, schedule %s/%s%s" % (a.fox, (fox.get("net") or {}).get("kind", "?"), sch.get("kind"), sch.get("sleep"), (", features " + "+".join(on)) if on else ""))
         fox["id"]["callmessage"] = a.call
         if net:
             fox["id"]["use_callsign_as_name"] = True        # what a hunter's phone shows is the callsign
@@ -837,13 +900,15 @@ class Run:
         if a.channel and net and (fox.get("net") or {}).get("kind", "").startswith("wifi"):
             if fox["net"]["kind"] == "wifi-probe": fox["net"]["channels"] = [a.channel]
             else: fox["net"]["channel"] = a.channel
-        fox.setdefault("fleet", {})["notes"] = "hw_smoke"
+        fox.setdefault("fleet", {})["notes"] = "hw_smoke" + (" --fox " + os.path.basename(a.fox) if a.fox else "")
         res["template_version"] = manifest["version"]
         cp_cfg = fox.get("checkpoint") or {}
         portal = (cp_cfg.get("portal") or {}) if cp_cfg.get("enabled") else {}
         portal_on = bool(self.host and a.checkpoint and net and portal.get("enabled"))
+        deep = bool(net and (fox.get("schedule") or {}).get("sleep") == "deep")
+        if deep: print("  deep sleep: the console port is gone while the fox sleeps -- the host side runs, the REPL bench phase is skipped, and the restore waits for a wake")
         return {"tid": tid, "tdir": tdir, "manifest": manifest, "defaults": defaults, "fox": fox, "net": net, "portal": portal, "portal_on": portal_on,
-                "finds_before": None, "banner": None}
+                "finds_before": None, "banner": None, "deep": deep}
 
     def boot_template(self, t, res):
         """Write code.py / defaults.json / fox.json, reboot, wait for the banner. False when none came."""
@@ -892,7 +957,9 @@ class Run:
             print("  sniffer: %d probe(s) from %s, %d with SSID %r, %d from others%s" % (seen["from_fox"], mac, seen["with_ssid"], ssid, seen["others"], " · " + json.dumps(seen["sample"][0]) if seen["sample"] else ""))
         elif host and net and (fox["net"].get("kind") or "").startswith("wifi") and fox["net"].get("kind") != "wifi-probe":
             self.watch_as_phone(t, res)
-            run = r.listen(2)
+            run = "" if t["deep"] else r.listen(2)
+        elif t["deep"]:
+            run = ""
         else:
             run = r.listen(a.observe)
         res["observed"] = run.strip()[-1500:]
@@ -930,7 +997,7 @@ class Run:
         if t["portal_on"]:
             pv = res["portal"] = {"joined": False}
             try:
-                gw = host.join(name)
+                gw = host.join(name, psk=fox["net"].get("psk") or "")
                 pv["joined"] = True; pv["host"] = gw
                 pv["dns"] = host.dns(gw) if portal.get("captive_dns") else None
                 pv.update(host.portal(gw, portal.get("code") or None, a.find_call))
@@ -1006,6 +1073,7 @@ class Run:
     def restore(self):
         """Put back what was on the board (and take the trace settings.toml away), or leave the last template running."""
         a, r = self.a, self.r
+        if getattr(self, "deep_last", False): r.wait_port(timeout=180)   # the last fox deep-sleeps: the port comes back at its next wake
         if not a.no_restore:
             r.interrupt()
             if a.trace:
@@ -1028,6 +1096,8 @@ class Run:
         json.dump(report, open(path, "w"), indent=1)
         if a.record:
             args_rec = {k: (_num(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else v) for k, v in vars(a).items() if k not in ("port", "record", "report")}
+            args_rec.pop("fox_overlay", None)
+            if a.fox_overlay is not None: args_rec["fox"] = a.fox_overlay      # the overlay itself, not a path: a replay writes it back to a file
             scrubbed = scrub_recording(self.recording, args_rec, a.call)
             rec = {"format": "fox-bench-bench-recording/2", "generated": report["generated"], "board_id": self.board_id, "uid": self.uid,
                    "circuitpython": self.cp_release, "foxlib": self.foxlib_version, "args": args_rec, "exchanges": self.recording,

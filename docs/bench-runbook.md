@@ -404,6 +404,38 @@ when the chip has more than one; the LED pin is the descriptor's default.
     variants has a clean row for 2–9 (the S3 needs both boards); the
     templates list the chip in `boards_tested` then.
 
+### A page-built configuration on the bench (`--fox`)
+
+`hw_smoke` deploys each template's bare defaults; everything the page lets
+you set is otherwise tested only in the simulator. `--fox FILE` closes that:
+the file is a `fox.json` — the page's Deploy → **export** (`fox.json` in the
+zip), or a hand-written overlay with just the sections to change — merged
+over the template's defaults and run with the same scan, portal, bench and
+recording machinery. Its `template` picks the template when `--templates` is
+not given; its `id.callmessage` is the callsign unless `--call` says
+otherwise; `net.psk` makes `--checkpoint` join with the key (nmcli and
+netsh both). A config the firmware disagrees with shows as
+`cfg=partial(…)` and fails the template, which is the point.
+
+```bash
+python3 tools/hw_smoke.py --port /dev/ttyACM0 --board esp32c6 --yes-antenna --mpy \
+  --fox fox.json --payload --checkpoint --record seeed_xiao_esp32c6-fox-2026-11-24.json --report c6-fox.json
+```
+
+What to know:
+- **Deep sleep** (`schedule.sleep: deep`): the console port is gone while
+  the fox sleeps. The host side (`--payload` scan, `--checkpoint` visit)
+  still runs during the wake; the REPL bench phase is skipped (`bench:
+  skipped`), and the restore waits up to 3 minutes for the port to return
+  at a wake. Keep `wake_s` long enough for the portal visit (60 s+).
+- **Recordings carry the overlay** (`args.fox`), callsign scrubbed, so a
+  replay deploys the same config. A PSK in the overlay is in the recording
+  too: use a throwaway key in anything you will commit.
+- A `board` in the file that is not `--board` is deployed anyway with a
+  NOTE; a `variant` in the file is used when `--variant` is not given.
+- One overlay, one template: for several configs run `hw_smoke` once per
+  file (each run writes its own report and recording).
+
 ### Payloads (phase B, foxlib 1.4.0) — on any board that passed 2–9
 
 12. **Rotating names** (wifi-beacon, Payload tab → *What the fox says* →

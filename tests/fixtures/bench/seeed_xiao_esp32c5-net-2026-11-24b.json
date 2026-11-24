@@ -1,0 +1,615 @@
+{
+"format": "fox-bench-bench-recording/2",
+"generated": "2026-11-24T11:29:46",
+"board_id": "espressif_esp32c5_devkitc_1_n8r8",
+"uid": "01db3aecc98c",
+"circuitpython": "10.3.2",
+"foxlib": "1.11.2",
+"args": {
+"board": "esp32c5",
+"channel": null,
+"variant": null,
+"templates": "wifi-beacon,wifi-probe,ble-beacon,puzzle-beacon,checkpoint",
+"call": "W1ABC FOX DE W1ABC",
+"freq": null,
+"module": null,
+"observe": "8",
+"key_seconds": "1",
+"yes_antenna": true,
+"no_restore": false,
+"sniffer": null,
+"mpy": true,
+"trace": false,
+"payload": true,
+"checkpoint": true,
+"find_call": "W1XYZ",
+"wifi": null,
+"host_from": null,
+"portal_only": null,
+"verbose": false
+},
+"exchanges": [
+{
+"t": 0.219,
+"kind": "exec",
+"cmd": "import board, microcontroller, os, sys\nprint(board.board_id)\nprint(''.join('%02x' % b for b in microcontroller.cpu.uid))\nprint(os.uname().release)\nprint(os.uname().version)\n",
+"out": "espressif_esp32c5_devkitc_1_n8r8\n01db3aecc98c\n10.3.2\n10.3.2 on 2026-11-11\n",
+"err": ""
+},
+{
+"t": 0.287,
+"kind": "exec",
+"cmd": "try:\n import storage\n ro = storage.getmount('/').readonly\nexcept Exception:\n ro = False\nif not ro:\n print('rw')\nelse:\n try:\n  storage.remount('/', False)\n  print('remounted')\n except Exception as e:\n  print('usb', e)\n",
+"out": "rw\n",
+"err": ""
+},
+{
+"t": 0.355,
+"kind": "exec",
+"cmd": "try:\n f=open('code.py','rb')\nexcept OSError:\n print('__MISSING__')\nelse:\n while True:\n  b=f.read(512)\n  if not b: break\n  print(''.join('%02x'%c for c in b), end='')\n f.close()\n",
+"out": "7072696e74282248656c6c6f20576f726c642122290a",
+"err": ""
+},
+{
+"t": 0.423,
+"kind": "exec",
+"cmd": "try:\n f=open('fox.json','rb')\nexcept OSError:\n print('__MISSING__')\nelse:\n while True:\n  b=f.read(512)\n  if not b: break\n  print(''.join('%02x'%c for c in b), end='')\n f.close()\n",
+"out": "__MISSING__\n",
+"err": ""
+},
+{
+"t": 0.491,
+"kind": "exec",
+"cmd": "try:\n f=open('defaults.json','rb')\nexcept OSError:\n print('__MISSING__')\nelse:\n while True:\n  b=f.read(512)\n  if not b: break\n  print(''.join('%02x'%c for c in b), end='')\n f.close()\n",
+"out": "__MISSING__\n",
+"err": ""
+},
+{
+"t": 0.551,
+"kind": "exec",
+"cmd": "import os\ntry:\n os.mkdir('foxlib')\nexcept OSError:\n pass\n",
+"out": "",
+"err": ""
+},
+{
+"t": 2.049,
+"kind": "write",
+"path": "foxlib/__init__.mpy",
+"size": 2552,
+"crc": "7afae432"
+},
+{
+"t": 2.755,
+"kind": "write",
+"path": "foxlib/guard.mpy",
+"size": 690,
+"crc": "30411ea7"
+},
+{
+"t": 3.574,
+"kind": "write",
+"path": "foxlib/led.mpy",
+"size": 958,
+"crc": "a06bd90f"
+},
+{
+"t": 4.506,
+"kind": "write",
+"path": "foxlib/morse.mpy",
+"size": 1098,
+"crc": "13a19001"
+},
+{
+"t": 10.161,
+"kind": "write",
+"path": "foxlib/netcfg.mpy",
+"size": 11795,
+"crc": "a379162f"
+},
+{
+"t": 14.041,
+"kind": "write",
+"path": "foxlib/netcheckpoint.mpy",
+"size": 7948,
+"crc": "a6051c26"
+},
+{
+"t": 14.658,
+"kind": "write",
+"path": "foxlib/netfeatures.mpy",
+"size": 436,
+"crc": "6b5c5036"
+},
+{
+"t": 18.18,
+"kind": "write",
+"path": "foxlib/netfox.mpy",
+"size": 7082,
+"crc": "8cf3da14"
+},
+{
+"t": 19.365,
+"kind": "write",
+"path": "foxlib/netmodes.mpy",
+"size": 1721,
+"crc": "606dc519"
+},
+{
+"t": 21.287,
+"kind": "write",
+"path": "foxlib/netpayload.mpy",
+"size": 3391,
+"crc": "e31f9af9"
+},
+{
+"t": 24.158,
+"kind": "write",
+"path": "foxlib/netradio.mpy",
+"size": 5403,
+"crc": "6f5f08a4"
+},
+{
+"t": 26.799,
+"kind": "write",
+"path": "foxlib/netsense.mpy",
+"size": 5013,
+"crc": "8bb8f224"
+},
+{
+"t": 28.875,
+"kind": "write",
+"path": "foxlib/netstealth.mpy",
+"size": 3823,
+"crc": "43306fde"
+},
+{
+"t": 30.105,
+"kind": "write",
+"path": "foxlib/netvary.mpy",
+"size": 1847,
+"crc": "6f545c99"
+},
+{
+"t": 30.829,
+"kind": "write",
+"path": "foxlib/report.mpy",
+"size": 736,
+"crc": "d14017cc"
+},
+{
+"t": 31.328,
+"kind": "write",
+"path": "foxlib/VERSION",
+"size": 7,
+"crc": "457ecda9"
+},
+{
+"t": 32.994,
+"kind": "write",
+"path": "safemode.py",
+"size": 3449,
+"crc": "9d683dd8"
+},
+{
+"t": 33.08,
+"kind": "exec",
+"cmd": "import os\nfor n in os.listdir('foxlib'):\n try:\n  s=os.stat('foxlib/'+n); print(n, s[6], 'd' if s[0] & 0x4000 else 'f')\n except Exception:\n  print(n, -1, '?')\n",
+"out": "__init__.mpy 2552 f\nbattery.mpy 627 f\ncfg.mpy 7721 f\ncycle.mpy 2638 f\nguard.mpy 690 f\nled.mpy 958 f\nmelody.mpy 531 f\nmorse.mpy 1098 f\nnetcfg.mpy 11795 f\nnetcheckpoint.mpy 7948 f\nnetfeatures.mpy 436 f\nnetfox.mpy 7082 f\nnetmodes.mpy 1721 f\nnetpayload.mpy 3391 f\nnetradio.mpy 5403 f\nnetsense.mpy 5013 f\nnetstealth.mpy 3823 f\nnetvary.mpy 1847 f\nradio.mpy 2018 f\nreport.mpy 736 f\nschedule.mpy 1167 f\nsstv.mpy 1698 f\ntones.mpy 637 f\nVERSION 7 f\n",
+"err": ""
+},
+{
+"t": 33.24,
+"kind": "exec",
+"cmd": "import os\nos.remove('foxlib/battery.mpy')",
+"out": "",
+"err": ""
+},
+{
+"t": 33.4,
+"kind": "exec",
+"cmd": "import os\nos.remove('foxlib/cfg.mpy')",
+"out": "",
+"err": ""
+},
+{
+"t": 33.56,
+"kind": "exec",
+"cmd": "import os\nos.remove('foxlib/cycle.mpy')",
+"out": "",
+"err": ""
+},
+{
+"t": 33.72,
+"kind": "exec",
+"cmd": "import os\nos.remove('foxlib/melody.mpy')",
+"out": "",
+"err": ""
+},
+{
+"t": 33.88,
+"kind": "exec",
+"cmd": "import os\nos.remove('foxlib/radio.mpy')",
+"out": "",
+"err": ""
+},
+{
+"t": 34.039,
+"kind": "exec",
+"cmd": "import os\nos.remove('foxlib/schedule.mpy')",
+"out": "",
+"err": ""
+},
+{
+"t": 34.199,
+"kind": "exec",
+"cmd": "import os\nos.remove('foxlib/sstv.mpy')",
+"out": "",
+"err": ""
+},
+{
+"t": 34.359,
+"kind": "exec",
+"cmd": "import os\nos.remove('foxlib/tones.mpy')",
+"out": "",
+"err": ""
+},
+{
+"t": 40.337,
+"kind": "write",
+"path": "code.py",
+"size": 589,
+"crc": "130e9f39"
+},
+{
+"t": 40.931,
+"kind": "write",
+"path": "defaults.json",
+"size": 557,
+"crc": "5d5cff59"
+},
+{
+"t": 41.532,
+"kind": "write",
+"path": "fox.json",
+"size": 629,
+"crc": "4fae2901"
+},
+{
+"t": 42.388,
+"kind": "reboot",
+"out": "\nsoft reboot\ncode.py output:\ninitializing system ... \nFOX template=wifi-beacon/1.0.0 foxlib=1.11.2 board=espressif_esp32c5_devkitc_1_n8r8 uid=01db3aecc98c cfg=ok radio=ok id=set freq=none net=wifi-ap name=\"W1ABC FOX DE W1ABC\" mac=F2:B0:00:00:00:01 clock=unset mem=8265088\n  note: CircuitPython's own BLE advertising (CIRCUITPYxxxx) is off while the fox runs\nwatchdog 90s\ncycle 0\nwifi-ap up: W1ABC FOX DE W1ABC (F2:B0:00:00:00:01) for 15 s\n"
+},
+{
+"kind": "host",
+"op": "scan",
+"result": {
+"seen": true,
+"bssid": "F2:B0:00:00:00:01",
+"signal": 95,
+"chan": "1",
+"networks": 3,
+"scans": 1
+}
+},
+{
+"t": 48.778,
+"kind": "listen",
+"seconds": 2,
+"out": ""
+},
+{
+"t": 51.506,
+"kind": "exec",
+"cmd": "import gc, time\ngc.collect()\na=gc.mem_free()\nt=time.monotonic()\nimport foxlib\nprint(a, gc.mem_free(), time.monotonic()-t)\n",
+"out": "8133664 8128816 0.01501465\n",
+"err": ""
+},
+{
+"t": 55.356,
+"kind": "exec",
+"cmd": "import gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfrom foxlib.netfox import NetFox\nfox = NetFox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(gc.mem_free())\nprint(fox.radio.status)\nprint(fox.rssi())\nprint(fox.radio.mac())\n",
+"out": "8134128\nok\n-56 neighbour-1 | -65 neighbour-2 | -87 neighbour-3 | -97 neighbour-4 | -98 neighbour-5\n10:BD:A3:CE:9C:C9\n",
+"err": ""
+},
+{
+"t": 56.481,
+"kind": "exec",
+"cmd": "import gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfrom foxlib.netfox import NetFox\nfox = NetFox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(fox.key_for(1))\n",
+"out": "ok wifi-ap W1ABC FOX DE W1ABC (F2:B0:00:00:00:01) for 1.0 s\n",
+"err": ""
+},
+{
+"t": 62.348,
+"kind": "write",
+"path": "code.py",
+"size": 491,
+"crc": "82c4d47d"
+},
+{
+"t": 62.932,
+"kind": "write",
+"path": "defaults.json",
+"size": 498,
+"crc": "c62c264e"
+},
+{
+"t": 63.574,
+"kind": "write",
+"path": "fox.json",
+"size": 562,
+"crc": "6e206772"
+},
+{
+"t": 64.378,
+"kind": "reboot",
+"out": "\nsoft reboot\ncode.py output:\ninitializing system ... \nFOX template=wifi-probe/1.0.0 foxlib=1.11.2 board=espressif_esp32c5_devkitc_1_n8r8 uid=01db3aecc98c cfg=ok radio=ok id=set freq=none net=wifi-probe name=\"W1ABC FOX DE W1ABC\" mac=F2:B0:00:00:00:05 clock=unset mem=8134064\nwatchdog 90s\ncycle 0\n"
+},
+{
+"t": 72.427,
+"kind": "listen",
+"seconds": 8,
+"out": ""
+},
+{
+"t": 75.154,
+"kind": "exec",
+"cmd": "import gc, time\ngc.collect()\na=gc.mem_free()\nt=time.monotonic()\nimport foxlib\nprint(a, gc.mem_free(), time.monotonic()-t)\n",
+"out": "8264800 8259952 0.01500702\n",
+"err": ""
+},
+{
+"t": 79.002,
+"kind": "exec",
+"cmd": "import gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfrom foxlib.netfox import NetFox\nfox = NetFox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(gc.mem_free())\nprint(fox.radio.status)\nprint(fox.rssi())\nprint(fox.radio.mac())\n",
+"out": "8265776\nok\n-57 neighbour-1 | -65 neighbour-2 | -90 neighbour-3 | -97 neighbour-4 | -99 neighbour-5\n10:BD:A3:CE:9C:C8\n",
+"err": ""
+},
+{
+"t": 89.787,
+"kind": "exec",
+"cmd": "import gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfrom foxlib.netfox import NetFox\nfox = NetFox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(fox.key_for(1))\n",
+"out": "ok wifi-probe W1ABC FOX DE W1ABC (F2:B0:00:00:00:05) for 1.0 s\n",
+"err": ""
+},
+{
+"t": 95.655,
+"kind": "write",
+"path": "code.py",
+"size": 391,
+"crc": "8d88e656"
+},
+{
+"t": 96.298,
+"kind": "write",
+"path": "defaults.json",
+"size": 615,
+"crc": "f45e8202"
+},
+{
+"t": 96.952,
+"kind": "write",
+"path": "fox.json",
+"size": 691,
+"crc": "f1321e8a"
+},
+{
+"t": 97.756,
+"kind": "reboot",
+"out": "\nsoft reboot\ncode.py output:\ninitializing system ... \nFOX template=ble-beacon/1.0.0 foxlib=1.11.2 board=espressif_esp32c5_devkitc_1_n8r8 uid=01db3aecc98c cfg=ok radio=ok id=set freq=none net=ble name=\"W1ABC FOX DE W1ABC\" mac=F2:B0:00:00:00:07 clock=unset mem=8265568\nwatchdog 90s\ncycle 0\nble up: W1ABC FOX DE W1ABC (F2:B0:00:00:00:07) for 15 s\n"
+},
+{
+"t": 105.805,
+"kind": "listen",
+"seconds": 8,
+"out": ""
+},
+{
+"t": 108.535,
+"kind": "exec",
+"cmd": "import gc, time\ngc.collect()\na=gc.mem_free()\nt=time.monotonic()\nimport foxlib\nprint(a, gc.mem_free(), time.monotonic()-t)\n",
+"out": "8264800 8259808 0.01500702\n",
+"err": ""
+},
+{
+"t": 110.876,
+"kind": "exec",
+"cmd": "import gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfrom foxlib.netfox import NetFox\nfox = NetFox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(gc.mem_free())\nprint(fox.radio.status)\nprint(fox.rssi())\nprint(fox.radio.mac())\n",
+"out": "8265664\nok\n-71 neighbour-1 | -71 neighbour-2 | -78 neighbour-3\nF2:B0:00:00:00:07\n",
+"err": ""
+},
+{
+"t": 112.001,
+"kind": "exec",
+"cmd": "import gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfrom foxlib.netfox import NetFox\nfox = NetFox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(fox.key_for(1))\n",
+"out": "ok ble W1ABC FOX DE W1ABC (F2:B0:00:00:00:07) for 1.0 s\n",
+"err": ""
+},
+{
+"t": 117.876,
+"kind": "write",
+"path": "code.py",
+"size": 509,
+"crc": "8f8bc75d"
+},
+{
+"t": 118.597,
+"kind": "write",
+"path": "defaults.json",
+"size": 865,
+"crc": "2ac5f957"
+},
+{
+"t": 119.335,
+"kind": "write",
+"path": "fox.json",
+"size": 1004,
+"crc": "6a43185e"
+},
+{
+"t": 120.19,
+"kind": "reboot",
+"out": "\nsoft reboot\ncode.py output:\ninitializing system ... \nFOX template=puzzle-beacon/1.0.0 foxlib=1.11.2 board=espressif_esp32c5_devkitc_1_n8r8 uid=01db3aecc98c cfg=ok radio=ok id=set freq=none net=ble name=\"W1ABC FOX DE W1ABC\" mac=F2:B0:00:00:00:07 features=payload clock=unset mem=8191104\nwatchdog 90s\ncycle 0\npayload: name this cycle \"FOXBENCH Puzzle\"\npayload: 2 BLE frames, every 1000 ms\nble up: FOXBENCH Puzzle (F2:B0:00:00:00:07) for 15 s\n"
+},
+{
+"t": 128.238,
+"kind": "listen",
+"seconds": 8,
+"out": ""
+},
+{
+"t": 130.966,
+"kind": "exec",
+"cmd": "import gc, time\ngc.collect()\na=gc.mem_free()\nt=time.monotonic()\nimport foxlib\nprint(a, gc.mem_free(), time.monotonic()-t)\n",
+"out": "8264736 8259888 0.01602173\n",
+"err": ""
+},
+{
+"t": 133.357,
+"kind": "exec",
+"cmd": "import gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfrom foxlib.netfox import NetFox\nfox = NetFox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(gc.mem_free())\nprint(fox.radio.status)\nprint(fox.rssi())\nprint(fox.radio.mac())\n",
+"out": "8190336\nok\n-70 neighbour-1 | -71 neighbour-2 | -79 neighbour-3\nF2:B0:00:00:00:07\n",
+"err": ""
+},
+{
+"t": 134.48,
+"kind": "exec",
+"cmd": "import gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfrom foxlib.netfox import NetFox\nfox = NetFox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(fox.key_for(1))\n",
+"out": "ok ble W1ABC FOX DE W1ABC (F2:B0:00:00:00:07) for 1.0 s\n",
+"err": ""
+},
+{
+"t": 139.831,
+"kind": "exec",
+"cmd": "try:\n f=open('finds.csv','rb')\nexcept OSError:\n print('__MISSING__')\nelse:\n while True:\n  b=f.read(512)\n  if not b: break\n  print(''.join('%02x'%c for c in b), end='')\n f.close()\n",
+"out": "__MISSING__\n",
+"err": ""
+},
+{
+"t": 140.424,
+"kind": "write",
+"path": "code.py",
+"size": 507,
+"crc": "69498826"
+},
+{
+"t": 141.155,
+"kind": "write",
+"path": "defaults.json",
+"size": 951,
+"crc": "db35b5d4"
+},
+{
+"t": 141.994,
+"kind": "write",
+"path": "fox.json",
+"size": 1071,
+"crc": "b25a0b55"
+},
+{
+"t": 142.849,
+"kind": "reboot",
+"out": "\nsoft reboot\ncode.py output:\ninitializing system ... \nFOX template=checkpoint/1.0.0 foxlib=1.11.2 board=espressif_esp32c5_devkitc_1_n8r8 uid=01db3aecc98c cfg=ok radio=ok id=set freq=none net=wifi-ap name=\"W1ABC FOX DE W1ABC\" mac=F2:B0:00:00:00:C0 features=checkpoint clock=unset mem=8185200\nwatchdog 90s\ncycle 0\nwifi-ap up: W1ABC FOX DE W1ABC (F2:B0:00:00:00:C0) for 120 s\ncheckpoint: portal at http://192.168.4.1/ with captive DNS\n"
+},
+{
+"kind": "host",
+"op": "scan",
+"result": {
+"seen": true,
+"bssid": "F2:B0:00:00:00:C0",
+"signal": 100,
+"chan": "1",
+"networks": 6,
+"scans": 1
+}
+},
+{
+"kind": "host",
+"op": "join",
+"result": "192.168.4.1"
+},
+{
+"kind": "host",
+"op": "dns",
+"result": "192.168.4.1"
+},
+{
+"kind": "host",
+"op": "portal",
+"result": {
+"get": 200,
+"code_seen": true,
+"form_seen": true,
+"post": 200,
+"logged": true
+}
+},
+{
+"t": 151.418,
+"kind": "listen",
+"seconds": 2,
+"out": "checkpoint: find W1XYZ\n"
+},
+{
+"t": 154.152,
+"kind": "exec",
+"cmd": "try:\n f=open('finds.csv','rb')\nexcept OSError:\n print('__MISSING__')\nelse:\n while True:\n  b=f.read(512)\n  if not b: break\n  print(''.join('%02x'%c for c in b), end='')\n f.close()\n",
+"out": "666f785f7569642c74656d706c6174652c6379636c652c6d735f73696e63655f626f6f742c63616c6c7369676e2c7669610a3031646233616563633938632c636865636b706f696e742c302c3136363638302c573158595a2c706f7274616c0a",
+"err": ""
+},
+{
+"t": 154.311,
+"kind": "exec",
+"cmd": "import os\nos.remove('finds.csv')",
+"out": "",
+"err": ""
+},
+{
+"t": 154.371,
+"kind": "exec",
+"cmd": "import gc, time\ngc.collect()\na=gc.mem_free()\nt=time.monotonic()\nimport foxlib\nprint(a, gc.mem_free(), time.monotonic()-t)\n",
+"out": "8264512 8259664 0.01602173\n",
+"err": ""
+},
+{
+"t": 158.267,
+"kind": "exec",
+"cmd": "import gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfrom foxlib.netfox import NetFox\nfox = NetFox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(gc.mem_free())\nprint(fox.radio.status)\nprint(fox.rssi())\nprint(fox.radio.mac())\n",
+"out": "8186160\nok\n-56 neighbour-1 | -65 neighbour-2 | -90 neighbour-3 | -94 neighbour-4 | -97 neighbour-5\n10:BD:A3:CE:9C:C9\n",
+"err": ""
+},
+{
+"t": 159.441,
+"kind": "exec",
+"cmd": "import gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfrom foxlib.netfox import NetFox\nfox = NetFox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(fox.key_for(1))\n",
+"out": "ok wifi-ap W1ABC FOX DE W1ABC (F2:B0:00:00:00:C0) for 1.0 s\n",
+"err": ""
+},
+{
+"t": 165.223,
+"kind": "write",
+"path": "code.py",
+"size": 22,
+"crc": "f590d8f0"
+},
+{
+"t": 165.383,
+"kind": "exec",
+"cmd": "import os\ntry:\n os.remove('fox.json')\nexcept OSError:\n pass\n",
+"out": "",
+"err": ""
+},
+{
+"t": 165.543,
+"kind": "exec",
+"cmd": "import os\ntry:\n os.remove('defaults.json')\nexcept OSError:\n pass\n",
+"out": "",
+"err": ""
+},
+{
+"t": 175.666,
+"kind": "reboot",
+"out": "\nsoft reboot\ncode.py output:\nHello World!\n\nCode done running.\nAuto-reload is on. Simply save files over USB to run them or enter REPL to disable.\n\nPress any key to enter the REPL. Use CTRL-D to reload.\n"
+}
+],
+"_": "format 2: one 'write' line per file (path, size, crc) instead of its bytes; the callsign replaced by W1ABC FOX DE W1ABC; scan results scrubbed (0 callsign mention(s) replaced, 21 scan neighbour(s) renamed)"
+}

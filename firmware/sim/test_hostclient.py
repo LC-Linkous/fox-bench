@@ -160,6 +160,13 @@ import xml.dom.minidom
 try: xml_ok = bool(xml.dom.minidom.parseString(hw.netsh_open_profile("fox-bench-smoke", "FOXBENCH Checkpoint")))
 except Exception as e: xml_ok = str(e)
 check("netsh profile: well-formed XML", xml_ok, True)
+psk = hw.netsh_open_profile("fox-bench-smoke", "W1ABC FOX DE W1ABC", "hunt-2026 <go>")
+check("netsh profile with a PSK: WPA2PSK/AES, the key escaped", all(t in psk for t in ("<authentication>WPA2PSK</authentication>", "<encryption>AES</encryption>", "<keyMaterial>hunt-2026 &lt;go&gt;</keyMaterial>")), True)
+try: xml_ok = bool(xml.dom.minidom.parseString(psk))
+except Exception as e: xml_ok = str(e)
+check("netsh profile with a PSK: well-formed XML", xml_ok, True)
+m = hw.deep_merge({"net": {"kind": "wifi-ap", "psk": "", "channel": 1}, "id": {"callmessage": "N0CALL"}, "led": {"enabled": True}}, {"net": {"psk": "x", "channels": [6]}, "payload": {"enabled": True}})
+check("--fox overlay: dicts merge, lists and scalars replace, untouched keys stay", m, {"net": {"kind": "wifi-ap", "psk": "x", "channel": 1, "channels": [6]}, "id": {"callmessage": "N0CALL"}, "led": {"enabled": True}, "payload": {"enabled": True}})
 
 http.close(); dns.close()
 print("%d check(s) failed" % fails if fails else "hostclient: all checks passed")
