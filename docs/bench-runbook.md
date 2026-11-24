@@ -610,13 +610,19 @@ when the chip has more than one; the LED pin is the descriptor's default.
   deep-sleep for a side-by-side of USB behaviour.
 - **XIAO ESP32S3** (`esp32s3` → XIAO ESP32S3): own build; fit the antenna.
 - **XIAO ESP32C5** and **FireBeetle 2 ESP32-C5** (`esp32c5`): both run the
-  DevKitC-1-N8R8 build and report the same id, so pick the Board dropdown
-  by hand before connecting; the console says "a build shared by …". The
-  pin names (`IO27`, `IO15`) follow the DevKit's naming — confirm from
-  `dir(board)`. 5 GHz: channel 36 appears in the channel list; a 5 GHz-
-  capable phone sees it, a 2.4-only one does not (CircuitPython's 5 GHz AP
-  support on the C5 is the open question). If both boards pass, the DevKit
-  build is good for the chip; if one fails, the difference is the board.
+  DevKitC-1-N8R8 build (10.3.2) and report the same id, so pick the Board
+  dropdown by hand before connecting; the console says "a build shared by
+  …". The XIAO has the DevKit's 8 MB flash and 8 MB PSRAM, so expect a
+  `mem=` in the megabytes like the S3; its buttons are R = reset (CHIP_EN)
+  and B = boot (GPIO28), its LED GPIO27, probably active-low (note the
+  blink direction). The pin names (`IO27`, `IO15`) follow the DevKit's
+  naming — confirm from `dir(board)`. 5 GHz: channel 36 appears in the
+  channel list; a 5 GHz-capable phone sees it, a 2.4-only one does not
+  (CircuitPython's 5 GHz AP support on the C5 is the open question; the
+  laptop's `--payload` scan sees 5 GHz if its adapter does). If both boards
+  pass, the DevKit build is good for the chip; if one fails, the difference
+  is the board. The same `hw_smoke` line as the C6 with `--board esp32c5`,
+  and `--variant dfrobot_firebeetle2_esp32c5` for the FireBeetle.
 - **Waveshare ESP32-S3-Nano** (`esp32s3` → Waveshare): the Arduino Nano
   ESP32 build. `board.LED` is the descriptor's guess (the Nano's GPIO48
   builtin); the RGB trio is `LED_RED/GREEN/BLUE` — switch the LED pin on the

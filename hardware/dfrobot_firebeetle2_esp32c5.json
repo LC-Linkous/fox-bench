@@ -75,7 +75,7 @@
   "circuitpython": {
     "board_id": "espressif_esp32c5_devkitc_1_n8r8",
     "download": "https://circuitpython.org/board/espressif_esp32c5_devkitc_1_n8r8/",
-    "latest_known": "10.3.1",
+    "latest_known": "10.3.2",
     "note": "CircuitPython has no FireBeetle 2 ESP32-C5 build (checked 2026-10-24); the ESP32-C5-DevKitC-1-N8R8 build is the same module class and runs here, reporting espressif_esp32c5_devkitc_1_n8r8 — the same id the XIAO ESP32C5 reports, so the page keeps whichever of the two is selected. Pin names are the DevKit's IOxx. To verify on the board.",
     "board_ids": [
       "espressif_esp32c5_devkitc_1_n8r8"

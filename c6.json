@@ -1,0 +1,164 @@
+{
+ "generated": "2026-11-23T23:59:53",
+ "board_id": "seeed_xiao_esp32c6",
+ "uid": "01db3a0bb6c7",
+ "circuitpython": "10.3.2",
+ "cp_version": "10.3.2 on 2026-11-11",
+ "foxlib": "1.11.1",
+ "call": "N0CALL DECOY DECOY N0CALL",
+ "freq": null,
+ "module": null,
+ "sniffer": "not used",
+ "templates": {
+  "morse-songs": {
+   "ok": null
+  },
+  "morse-sstv": {
+   "ok": null
+  },
+  "morse-qrss": {
+   "ok": null
+  },
+  "popcorn": {
+   "ok": null
+  },
+  "freq-rotator": {
+   "ok": null
+  },
+  "resurrection": {
+   "ok": null
+  },
+  "composite": {
+   "ok": null
+  },
+  "picofox": {
+   "ok": null
+  },
+  "wifi-beacon": {
+   "template_version": "1.0.0",
+   "boot_s": 0.65,
+   "banner": "FOX template=wifi-beacon/1.0.0 foxlib=1.11.1 board=seeed_xiao_esp32c6 uid=01db3a0bb6c7 cfg=ok radio=ok id=unset freq=none net=wifi-ap name=\"N0CALL DECOY DECOY N0CALL\" mac=F2:B0:00:00:00:01 clock=unset mem=155088",
+   "mem_free": 155088,
+   "boot_log": "\nsoft reboot\ncode.py output:\ninit: start seeed_xiao_esp32c6 (free 157616)\ninit: ble workflow switched off (free 157488)\ninit: radios wifi24,ble (free 157280)\ninit: config ok (free 151056)\ninit: alarm cold (free 150864)\ninit: led on (free 150016)\ninit: radio wifi-ap setup (free 149904)\ninit: radio ok (free 149680)\ninit: features  (free 149584)\ninit: features attached (free 149376)\ninitializing system ... \nFOX template=wifi-beacon/1.0.0 foxlib=1.11.1 board=seeed_xiao_esp32c6 uid=01db3a0bb6c7 cfg=ok radio=ok id=unset freq=none net=wifi-ap name=\"N0CALL DECOY DECOY N0CALL\" mac=F2:B0:00:00:00:01 clock=unset mem=155088\n  note: CircuitPython's own BLE advertising (CIRCUITPYxxxx) is off while the fox runs\nwatchdog 90s\ncycle 0\nwifi-ap up: N0CALL DECOY DECOY N0CALL (F2:B0:00:00:00:01) for 15 s\n",
+   "on_air": {
+    "seen": true,
+    "bssid": "F2:B0:00:00:00:01",
+    "signal": 90,
+    "chan": "1",
+    "networks": 11,
+    "scans": 1
+   },
+   "observed": "",
+   "ok": true,
+   "mem_free_before": 203872,
+   "mem_free_after_import": 199024,
+   "import_s": 0.01,
+   "mem_free_with_fox": 156000,
+   "probe": "ok",
+   "rssi": "-73 NETGEAR28 | -93 HP-Print-26-ENVY 4500 series",
+   "batt_v": null,
+   "key": "ok wifi-ap N0CALL DECOY DECOY N0CALL (F2:B0:00:00:00:01) for 1.0 s",
+   "mac_on_air": "F2:B0:00:00:00:01"
+  },
+  "wifi-probe": {
+   "template_version": "1.0.0",
+   "boot_s": 0.65,
+   "banner": "FOX template=wifi-probe/1.0.0 foxlib=1.11.1 board=seeed_xiao_esp32c6 uid=01db3a0bb6c7 cfg=ok radio=ok id=unset freq=none net=wifi-probe name=\"N0CALL DECOY DECOY N0CALL\" mac=F2:B0:00:00:00:05 clock=unset mem=155840",
+   "mem_free": 155840,
+   "boot_log": "\nsoft reboot\ncode.py output:\ninit: start seeed_xiao_esp32c6 (free 158144)\ninit: ble workflow already off (free 158016)\ninit: radios wifi24,ble (free 157808)\ninit: config ok (free 152032)\ninit: alarm cold (free 151840)\ninit: led on (free 150992)\ninit: radio wifi-probe setup (free 150880)\ninit: radio ok (free 150656)\ninit: features  (free 150560)\ninit: features attached (free 150352)\ninitializing system ... \nFOX template=wifi-probe/1.0.0 foxlib=1.11.1 board=seeed_xiao_esp32c6 uid=01db3a0bb6c7 cfg=ok radio=ok id=unset freq=none net=wifi-probe name=\"N0CALL DECOY DECOY N0CALL\" mac=F2:B0:00:00:00:05 clock=unset mem=155840\nwatchdog 90s\ncycle 0\n",
+   "observed": "wifi-probe up: N0CALL DECOY DECOY N0CALL (F2:B0:00:00:00:05) for 15 s",
+   "ok": true,
+   "mem_free_before": 203872,
+   "mem_free_after_import": 199024,
+   "import_s": 0.02,
+   "mem_free_with_fox": 156096,
+   "probe": "ok",
+   "rssi": "-66 NETGEAR28 | -93 HP-Print-26-ENVY 4500 series",
+   "batt_v": null,
+   "key": "ok wifi-probe N0CALL DECOY DECOY N0CALL (F2:B0:00:00:00:05) for 1.0 s",
+   "mac_on_air": "F2:B0:00:00:00:05"
+  },
+  "ble-beacon": {
+   "template_version": "1.0.0",
+   "boot_s": 0.7,
+   "banner": "FOX template=ble-beacon/1.0.0 foxlib=1.11.1 board=seeed_xiao_esp32c6 uid=01db3a0bb6c7 cfg=ok radio=ok id=unset freq=none net=ble name=\"N0CALL DECOY DECOY N0CALL\" mac=F2:B0:00:00:00:07 clock=unset mem=155744",
+   "mem_free": 155744,
+   "boot_log": "\nsoft reboot\ncode.py output:\ninit: start seeed_xiao_esp32c6 (free 158144)\ninit: ble workflow already off (free 158016)\ninit: radios wifi24,ble (free 157808)\ninit: config ok (free 150784)\ninit: alarm cold (free 150592)\ninit: led on (free 149744)\ninit: radio ble setup (free 149648)\ninit: radio ok (free 147568)\ninit: features  (free 147472)\ninit: features attached (free 156032)\ninitializing system ... \nFOX template=ble-beacon/1.0.0 foxlib=1.11.1 board=seeed_xiao_esp32c6 uid=01db3a0bb6c7 cfg=ok radio=ok id=unset freq=none net=ble name=\"N0CALL DECOY DECOY N0CALL\" mac=F2:B0:00:00:00:07 clock=unset mem=155744\nwatchdog 90s\ncycle 0\nble up: N0CALL DECOY DECOY N0CALL (F2:B0:00:00:00:07) for 15 s\n",
+   "observed": "",
+   "ok": true,
+   "mem_free_before": 121952,
+   "mem_free_after_import": 117104,
+   "import_s": 0.02,
+   "mem_free_with_fox": 123184,
+   "probe": "ok",
+   "rssi": "-75 Galaxy Watch (6568) LE EC:00:D6:F3:4A:D0 | -78 07:40:1B:AE:85:3E | -84 2A:45:4D:35:E2:98",
+   "batt_v": null,
+   "key": "ok ble N0CALL DECOY DECOY N0CALL (F2:B0:00:00:00:07) for 1.0 s",
+   "mac_on_air": "F2:B0:00:00:00:07"
+  },
+  "puzzle-beacon": {
+   "template_version": "1.0.0",
+   "boot_s": 0.75,
+   "banner": "FOX template=puzzle-beacon/1.0.0 foxlib=1.11.1 board=seeed_xiao_esp32c6 uid=01db3a0bb6c7 cfg=ok radio=ok id=unset freq=none net=ble name=\"N0CALL DECOY DECOY N0CALL\" mac=F2:B0:00:00:00:07 features=payload clock=unset mem=113920",
+   "mem_free": 113920,
+   "boot_log": "\nsoft reboot\ncode.py output:\ninit: start seeed_xiao_esp32c6 (free 125360)\ninit: ble workflow already off (free 125232)\ninit: radios wifi24,ble (free 125024)\ninit: config ok (free 117616)\ninit: alarm cold (free 117424)\ninit: led on (free 116576)\ninit: radio ble setup (free 116480)\ninit: radio ok (free 114832)\ninit: features payload (free 114720)\ninit: features attached (free 114304)\ninitializing system ... \nFOX template=puzzle-beacon/1.0.0 foxlib=1.11.1 board=seeed_xiao_esp32c6 uid=01db3a0bb6c7 cfg=ok radio=ok id=unset freq=none net=ble name=\"N0CALL DECOY DECOY N0CALL\" mac=F2:B0:00:00:00:07 features=payload clock=unset mem=113920\nwatchdog 90s\ncycle 0\npayload: name this cycle \"FOXBENCH Puzzle\"\npayload: 2 BLE frames, every 1000 ms\nble up: FOXBENCH Puzzle (F2:B0:00:00:00:07) for 15 s\n",
+   "observed": "",
+   "ok": true,
+   "mem_free_before": 171104,
+   "mem_free_after_import": 166256,
+   "import_s": 0.01,
+   "mem_free_with_fox": 130800,
+   "probe": "ok",
+   "rssi": "-77 Galaxy Watch (6568) LE EC:00:D6:F3:4A:D0 | -78 07:40:1B:AE:85:3E | -83 2A:45:4D:35:E2:98",
+   "batt_v": null,
+   "key": "ok ble N0CALL DECOY DECOY N0CALL (F2:B0:00:00:00:07) for 1.0 s",
+   "mac_on_air": "F2:B0:00:00:00:07"
+  },
+  "checkpoint": {
+   "template_version": "1.0.0",
+   "boot_s": 0.7,
+   "banner": "FOX template=checkpoint/1.0.0 foxlib=1.11.1 board=seeed_xiao_esp32c6 uid=01db3a0bb6c7 cfg=ok radio=ok id=unset freq=none net=wifi-ap name=\"N0CALL DECOY DECOY N0CALL\" mac=F2:B0:00:00:00:C0 features=checkpoint clock=unset mem=125552",
+   "mem_free": 125552,
+   "boot_log": "\nsoft reboot\ncode.py output:\ninit: start seeed_xiao_esp32c6 (free 141744)\ninit: ble workflow already off (free 141616)\ninit: radios wifi24,ble (free 141408)\ninit: config ok (free 133792)\ninit: alarm cold (free 133600)\ninit: led on (free 132752)\ninit: radio wifi-ap setup (free 132640)\ninit: radio ok (free 132416)\ninit: features checkpoint (free 132304)\ninit: features attached (free 125904)\ninitializing system ... \nFOX template=checkpoint/1.0.0 foxlib=1.11.1 board=seeed_xiao_esp32c6 uid=01db3a0bb6c7 cfg=ok radio=ok id=unset freq=none net=wifi-ap name=\"N0CALL DECOY DECOY N0CALL\" mac=F2:B0:00:00:00:C0 features=checkpoint clock=unset mem=125552\nwatchdog 90s\ncycle 0\nwifi-ap up: N0CALL DECOY DECOY N0CALL (F2:B0:00:00:00:C0) for 120 s\ncheckpoint: portal at http://192.168.4.1/ with captive DNS\n",
+   "on_air": {
+    "seen": true,
+    "bssid": "F2:B0:00:00:00:C0",
+    "signal": 100,
+    "chan": "1",
+    "networks": 12,
+    "scans": 1
+   },
+   "portal": {
+    "joined": true,
+    "host": "192.168.4.1",
+    "dns": "192.168.4.1",
+    "get": 200,
+    "code_seen": true,
+    "form_seen": true,
+    "post": 200,
+    "logged": true,
+    "finds_rows": 1,
+    "find": {
+     "fox_uid": "01db3a0bb6c7",
+     "template": "checkpoint",
+     "cycle": "0",
+     "ms_since_boot": "135005",
+     "callsign": "W1XYZ",
+     "via": "portal"
+    },
+    "ok": true
+   },
+   "observed": "checkpoint: find W1XYZ",
+   "ok": true,
+   "mem_free_before": 191296,
+   "mem_free_after_import": 186448,
+   "import_s": 0.01,
+   "mem_free_with_fox": 129728,
+   "probe": "ok",
+   "rssi": "-59 NETGEAR28 | -90 HP-Print-26-ENVY 4500 series",
+   "batt_v": null,
+   "key": "ok wifi-ap N0CALL DECOY DECOY N0CALL (F2:B0:00:00:00:C0) for 1.0 s",
+   "mac_on_air": "F2:B0:00:00:00:C0"
+  }
+ }
+}

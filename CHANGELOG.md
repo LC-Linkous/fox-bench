@@ -32,6 +32,13 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
   note required; `boards_tested` may not name a target without the radio)
   and `hw_smoke` (skips the template, `ok: null`) all read it. The Wi-Fi
   defaults for `esp32c3` stay as the simulator's config shape.
+- XIAO ESP32C5 descriptor corrected from Seeed's page (2026-11-23): 8 MB
+  flash **and 8 MB PSRAM** (the DevKit N8R8 build is a true match; expect
+  an S3-class `mem=`), a charger (SGM40567) and a battery sense on GPIO6
+  through a 1:2 divider gated by GPIO26 — `batt_sense` stays null because
+  the network foxes do not read a battery yet and the gate is not driven;
+  Boot is GPIO28; the LED is probably active-low. Latest CircuitPython for
+  the shared build 10.3.2 (still no XIAO build). Runbook notes updated.
 - `replay_check.py` passes `--mpy` and `--trace` through to the replay —
   without them a recording made with either flag replayed as different
   commands (the C3's BLE recording: `.py` writes, no `settings.toml`, 19

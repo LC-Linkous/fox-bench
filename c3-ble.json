@@ -1,0 +1,50 @@
+{
+ "generated": "2026-11-24T00:02:48",
+ "board_id": "seeed_xiao_esp32c3",
+ "uid": "89d3eacac803",
+ "circuitpython": "10.3.2",
+ "cp_version": "10.3.2 on 2026-11-11",
+ "foxlib": "1.11.1",
+ "call": "N0CALL DECOY DECOY N0CALL",
+ "freq": null,
+ "module": null,
+ "sniffer": "not used",
+ "templates": {
+  "ble-beacon": {
+   "template_version": "1.0.0",
+   "boot_s": 0.7,
+   "banner": "FOX template=ble-beacon/1.0.0 foxlib=1.11.1 board=seeed_xiao_esp32c3 uid=89d3eacac803 cfg=ok radio=ok id=unset freq=none net=ble name=\"N0CALL DECOY DECOY N0CALL\" mac=F2:B0:00:00:00:07 clock=unset mem=27120",
+   "mem_free": 27120,
+   "boot_log": "\nsoft reboot\ncode.py output:\ninit: start seeed_xiao_esp32c3 (free 29616)\ninit: ble workflow already off (free 29488)\ninit: radios wifi24,ble (free 29280)\ninit: config ok (free 22384)\ninit: alarm cold (free 22192)\ninit: led none (free 21360)\ninit: radio ble setup (free 21264)\ninit: radio ok (free 19616)\ninit: features  (free 19520)\ninit: features attached (free 27456)\ninitializing system ... \nFOX template=ble-beacon/1.0.0 foxlib=1.11.1 board=seeed_xiao_esp32c3 uid=89d3eacac803 cfg=ok radio=ok id=unset freq=none net=ble name=\"N0CALL DECOY DECOY N0CALL\" mac=F2:B0:00:00:00:07 clock=unset mem=27120\nwatchdog 90s\ncycle 0\nble up: N0CALL DECOY DECOY N0CALL (F2:B0:00:00:00:07) for 15 s\n",
+   "observed": "",
+   "ok": true,
+   "mem_free_before": 58400,
+   "mem_free_after_import": 53552,
+   "import_s": 0.02,
+   "mem_free_with_fox": 27456,
+   "probe": "ok",
+   "rssi": "-60 07:40:1B:AE:85:3E | -67 Galaxy Watch (6568) LE EC:00:D6:F3:4A:D0 | -71 2A:45:4D:35:E2:98 | -93 2E:DC:18:C1:55:EC | -97 43:91:83:D0:E6:85",
+   "batt_v": null,
+   "key": "ok ble N0CALL DECOY DECOY N0CALL (F2:B0:00:00:00:07) for 1.0 s",
+   "mac_on_air": "F2:B0:00:00:00:07"
+  },
+  "puzzle-beacon": {
+   "template_version": "1.0.0",
+   "boot_s": 0.75,
+   "banner": "FOX template=puzzle-beacon/1.0.0 foxlib=1.11.1 board=seeed_xiao_esp32c3 uid=89d3eacac803 cfg=ok radio=ok id=unset freq=none net=ble name=\"N0CALL DECOY DECOY N0CALL\" mac=F2:B0:00:00:00:07 features=payload clock=unset mem=31232",
+   "mem_free": 31232,
+   "boot_log": "\nsoft reboot\ncode.py output:\ninit: start seeed_xiao_esp32c3 (free 29616)\ninit: ble workflow already off (free 29488)\ninit: radios wifi24,ble (free 29280)\ninit: config ok (free 21728)\ninit: alarm cold (free 21536)\ninit: led none (free 20704)\ninit: radio ble setup (free 20608)\ninit: radio ok (free 25040)\ninit: features payload (free 24928)\ninit: features attached (free 31568)\ninitializing system ... \nFOX template=puzzle-beacon/1.0.0 foxlib=1.11.1 board=seeed_xiao_esp32c3 uid=89d3eacac803 cfg=ok radio=ok id=unset freq=none net=ble name=\"N0CALL DECOY DECOY N0CALL\" mac=F2:B0:00:00:00:07 features=payload clock=unset mem=31232\nwatchdog 90s\ncycle 0\npayload: name this cycle \"FOXBENCH Puzzle\"\npayload: 2 BLE frames, every 1000 ms\nble up: FOXBENCH Puzzle (F2:B0:00:00:00:07) for 15 s\n",
+   "observed": "",
+   "ok": true,
+   "mem_free_before": 58400,
+   "mem_free_after_import": 53552,
+   "import_s": 0.02,
+   "mem_free_with_fox": 31296,
+   "probe": "ok",
+   "rssi": "-66 Galaxy Watch (6568) LE EC:00:D6:F3:4A:D0 | -68 2A:45:4D:35:E2:98 | -99 43:91:83:D0:E6:85",
+   "batt_v": null,
+   "key": "ok ble N0CALL DECOY DECOY N0CALL (F2:B0:00:00:00:07) for 1.0 s",
+   "mac_on_air": "F2:B0:00:00:00:07"
+  }
+ }
+}

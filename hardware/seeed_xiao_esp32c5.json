@@ -20,7 +20,8 @@
     "offset": "0x2000",
     "flash_mb": 8,
     "bootloader_instructions": "Hold BOOT while plugging in USB; release after a second. The chip's USB-JTAG-serial port appears.",
-    "note": "Values from public documentation; not yet verified on a board of this kind (the target is experimental until then)."
+    "note": "8 MB flash and 8 MB PSRAM per Seeed's spec table (2026-11-23): the same parts as the ESP32-C5-DevKitC-1-N8R8, so that build's partition table fits. Offset 0x2000 is the ESP32-C5 convention; to be confirmed with the first board.",
+    "psram_mb": 8
   },
   "has_usb_drive": false,
   "usb": [
@@ -38,6 +39,21 @@
         "D0"
       ],
       "note": "yellow user LED; IO27 in the DevKitC-1 CircuitPython build's pin names"
+    },
+    {
+      "name": "IO6",
+      "gpio": 6,
+      "note": "battery voltage through the 1:2 divider (BAT_VOLT_PIN); read only with IO26 high"
+    },
+    {
+      "name": "IO26",
+      "gpio": 26,
+      "note": "battery sense enable (BAT_VOLT_PIN_EN)"
+    },
+    {
+      "name": "IO28",
+      "gpio": 28,
+      "note": "the BOOT button (hold at power-up for the ROM bootloader)"
     }
   ],
   "roles": {
@@ -48,14 +64,16 @@
     "kind": "single",
     "pin": 27,
     "active_low": true,
-    "note": "one yellow LED on GPIO27"
+    "note": "one yellow user LED on GPIO27 (Seeed: USER_LED). Seeed's example drives the pin LOW for on, so active-low is the expectation; confirm the blink direction on the bench (the firmware does not honour active_low yet)"
   },
   "battery": {
-    "charger": false,
-    "divider_note": "Powered from USB or a 5 V pack. The pack must not have a low-current cut-off, or the board never wakes from deep sleep."
+    "charger": true,
+    "charger_chip": "SGM40567",
+    "sense": "GPIO6 through a 1:2 divider (two 100 k), gated by GPIO26 (BAT_VOLT_PIN_EN must be high to read)",
+    "divider_note": "the network foxes do not read a battery yet and the gate pin is not driven, so roles.batt_sense stays null; a 3.7 V cell on the pads charges from USB. A USB pack must not have a low-current cut-off, or the board never wakes from deep sleep."
   },
   "notes": [
-    "5 GHz Wi-Fi and an 802.15.4 radio beside the 2.4 GHz Wi-Fi and BLE. Bootloader offset 0x2000 is the ESP32-C5 convention; to be confirmed with the first board.",
+    "5 GHz Wi-Fi and an 802.15.4 radio beside the 2.4 GHz Wi-Fi and BLE. 8 MB PSRAM: expect a mem= in the megabytes, as on the S3 (the C3's 36 KB is not this board's problem). Reset is CHIP_EN (the R button), Boot is GPIO28 (the B button).",
     "Power: a fox sleeps between transmissions; a USB power bank with a low-current auto-off cuts power during the sleep and the fox never wakes. Use a pack without auto-off.",
     "Serial: native USB — the console port disappears while the chip sleeps and returns when it wakes. 'serial port dropped' each cycle is expected."
   ],
@@ -70,7 +88,7 @@
     ],
     "shared_build": true,
     "download": "https://circuitpython.org/board/espressif_esp32c5_devkitc_1_n8r8/",
-    "latest_known": "10.3.1",
-    "note": "CircuitPython has no XIAO ESP32C5 build (checked 2026-10-24); the ESP32-C5-DevKitC-1-N8R8 build is the same chip and runs here, reporting espressif_esp32c5_devkitc_1_n8r8 — the same id the FireBeetle 2 ESP32-C5 reports, so the page keeps whichever of the two is selected. Pin names are the DevKit's IOxx. To verify on the board."
+    "latest_known": "10.3.2",
+    "note": "CircuitPython has no XIAO ESP32C5 build (checked 2026-10-24 and again 2026-11-23: only the DevKitC-1-N8R8 and a Waveshare display board); the ESP32-C5-DevKitC-1-N8R8 build is the same chip with the same 8 MB flash and 8 MB PSRAM and runs here, reporting espressif_esp32c5_devkitc_1_n8r8 — the same id the FireBeetle 2 ESP32-C5 reports, so the page keeps whichever of the two is selected. Pin names are the DevKit's IOxx. To verify on the board."
   }
 }
