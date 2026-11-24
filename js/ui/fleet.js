@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 import { h, badge, field, select, check, numInput } from './dom.js';
 import { profiles, fleet, download, FLEET_FIELDS, unpackProfileImages } from '../model/profiles.js';
-import { sheetRows, sheetCsv, sheetHtml } from '../model/sheet.js';
+import { sheetRows, sheetCsv, sheetHtml, onAir } from '../model/sheet.js';
 import { chain } from '../model/handoff.js';
 import { table as shellTable, collisionFree, randomMac } from '../model/shellgame.js';
 import { batchCard, onChange as onFlashChange } from './flash.js';
@@ -165,7 +165,7 @@ function render() {
         field('Save current form as', h('div.row', {}, nameIn, h('button.btn', { onclick: save }, 'Save'))),
         h('ul.list', {}, list.map(p => h('li', {},
           h('span.name', {}, p.name), h('span.meta', {},
-            `${p.template} · ${p.cfg?.id?.callmessage} · ${(p.cfg?.plan?.frequencies_mhz || []).join('/')}`),
+            [p.template, p.cfg?.id?.callmessage, p.cfg?.net ? onAir(p.cfg, { template: p.template }).split(' · ').slice(0, 2).join(' · ') : (p.cfg?.plan?.frequencies_mhz || []).join('/')].filter(Boolean).join(' · ')),
           h('button.btn.small',
             { onclick: async () => { try { app.images = unpackProfileImages(p.images); await app.loadCfg(p.cfg, { source: 'profile' }); app.console.dim(`profile "${p.name}" loaded into the form`); } catch (e) { app.console.err(`profile "${p.name}" could not be loaded: ${e.message || e}`); } } },
             'Load'),

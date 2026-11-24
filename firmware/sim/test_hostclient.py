@@ -165,6 +165,11 @@ check("netsh profile with a PSK: WPA2PSK/AES, the key escaped", all(t in psk for
 try: xml_ok = bool(xml.dom.minidom.parseString(psk))
 except Exception as e: xml_ok = str(e)
 check("netsh profile with a PSK: well-formed XML", xml_ok, True)
+ex = [{"cmd": "print(fox.rssi())", "out": "-56 ch1 NETGEAR28 | -65 ch36 NETGEAR28-5G | -62 Galaxy Watch EC:00:D6:F3:4A:D0\n", "err": ""},
+      {"cmd": "x", "out": "ok wifi-ap W1ABC FOX DE W1ABC (F2:B0:00:00:00:01) for 1.0 s; note: channel 36 refused (ValueError)\n", "err": ""}]
+hw.scrub_recording(ex, {"call": "W1ABC FOX DE W1ABC"}, "W1ABC FOX DE W1ABC")
+check("scrub: scan neighbours renamed, the channel kept (which band), BLE entry renamed", ex[0]["out"], "-56 ch1 neighbour-1 | -65 ch36 neighbour-2 | -62 neighbour-3\n")
+check("scrub: a key line with a radio note is not a scan line", ex[1]["out"].startswith("ok wifi-ap W1ABC FOX DE W1ABC (F2:B0:00:00:00:01) for 1.0 s; note:"), True)
 m = hw.deep_merge({"net": {"kind": "wifi-ap", "psk": "", "channel": 1}, "id": {"callmessage": "N0CALL"}, "led": {"enabled": True}}, {"net": {"psk": "x", "channels": [6]}, "payload": {"enabled": True}})
 check("--fox overlay: dicts merge, lists and scalars replace, untouched keys stay", m, {"net": {"kind": "wifi-ap", "psk": "x", "channel": 1, "channels": [6]}, "id": {"callmessage": "N0CALL"}, "led": {"enabled": True}, "payload": {"enabled": True}})
 

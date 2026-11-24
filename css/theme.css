@@ -24,6 +24,12 @@
   --tx:      #e45a50;   /* keyed / on the air */
   --ok: #43b05c; --warn: #e0a634; --err: #e45a50; --info: #5c8df0;
   --tone:    #f2cf3a;   /* preview trace */
+  /* the three kinds of fox, one hue each (body[data-kind] picks --kind): FM foxes keep the amber; network foxes (a bare
+     board's Wi-Fi / BLE) are teal; the PicoFox (configured through its drive, either firmware) is violet. Used lightly --
+     the rail's active tab, the top bar's rule, the kind badge -- so "which kind of fox is this" reads at a glance. */
+  --kind-fm:    #e0a634;
+  --kind-net:   #3fb8b0;
+  --kind-drive: #a98bf0;
 }
 :root[data-theme="light"] {
   --paper:   #f4f6f8;
@@ -42,4 +48,13 @@
   --tx:      #c2342a;
   --ok: #2f8a3f; --warn: #b8700a; --err: #c2342a; --info: #2f5fc4;
   --tone:    #9c7205;
+  --kind-fm:    #b8700a;
+  --kind-net:   #0f7f7a;
+  --kind-drive: #6a4fc4;
 }
+
+/* ---- the kind of fox colours the chrome ---- */
+:root { --kind: var(--accent); }
+body[data-kind="fm"]    { --kind: var(--kind-fm); }
+body[data-kind="net"]   { --kind: var(--kind-net); }
+body[data-kind="drive"] { --kind: var(--kind-drive); }

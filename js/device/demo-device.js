@@ -119,10 +119,11 @@ export class DemoDevice extends Device {
     await sleep(300);
     switch (action) {
       case 'probe': return JSON.stringify(Object.fromEntries((args.freqs || [146.5, 433.5]).map(f => [f, this.moduleRanges.some(([lo, hi]) => f >= lo && f <= hi)])));
-      case 'key': if (args.net) { this.log(`demo: ${this.lastCfg?.net?.kind || 'wifi-ap'} up for ${args.seconds}s`, 'dim'); await sleep((args.seconds || 3) * 1000); return `ok ${this.lastCfg?.net?.kind || 'wifi-ap'} ${this.lastCfg?.net?.ssid || this.lastCfg?.net?.name || 'demo'} for ${(args.seconds || 3).toFixed(1)} s`; }
+      case 'key': if (args.net) { this.log(`demo: ${this.lastCfg?.net?.kind || 'wifi-ap'} up for ${args.seconds}s`, 'dim'); await sleep((args.seconds || 3) * 1000); return `ok ${this.lastCfg?.net?.kind || 'wifi-ap'} ${this.lastCfg?.net?.ssid || this.lastCfg?.net?.name || 'demo'} (${this.lastCfg?.net?.mac || 'F2:B0:00:00:00:01'}) for ${(args.seconds || 3).toFixed(1)} s`; }
         this.log(`demo: keyed ${args.seconds}s into the dummy load`, 'dim'); await sleep((args.seconds || 3) * 1000); return 'ok';
       case 'rssi': return args.net ? '-55 Neighbour | -70 AnotherAP' : String(Math.round(60 + Math.random() * 20));
       case 'batt': this.battV = Math.max(3.2, this.battV - 0.005); return this.battV.toFixed(3);
+      case 'health': return JSON.stringify({ free: 120000, after_import: 115200, import_s: 0.012, with_fox: 98400, foxlib: (this.fs.get('foxlib/VERSION') ? this.dec.decode(this.fs.get('foxlib/VERSION')).trim() : 'demo'), fatal: null });
     }
     throw new Error('unknown bench action');
   }

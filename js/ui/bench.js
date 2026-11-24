@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-2.0-only
 import { h, badge, field, numInput } from './dom.js';
 import { download, fleet } from '../model/profiles.js';
+import { name as nameOnAir } from '../model/sheet.js';
+import { bleMac } from '../model/netschema.js';
 
 let app, root, busy = false; const events = [];
 export function init(a, el) { app = a; root = el; app.benchEvents = events; app.listeners.add(render); render(); }
@@ -28,8 +30,8 @@ async function collectFinds(btn) {
         if (seen.has(key(r))) { present++; continue; }
         seen.add(key(r)); added++;
         fleet.append({board_number: '', uid: r.fox_uid, board: app.info?.boardId || '', action: 'find', template: r.template,
-          profile: app.cfg.fleet?.profile || '', callsign: r.callsign, freq: app.cfg.net ? app.cfg.net.kind : '', result: 'find',
-          notes: `cycle ${r.cycle}, +${r.ms_since_boot} ms after boot, via ${r.via || '?'}`});
+          profile: app.cfg.fleet?.profile || '', callsign: r.callsign, freq: '', result: 'find',
+          notes: `cycle ${r.cycle}, +${r.ms_since_boot} ms after boot, via ${r.via || '?'}${app.cfg.net ? ', ' + app.cfg.net.kind : ''}`});
       }
       lastFinds = { rows, text, added, present };
       note('finds', `${rows.length} find${rows.length === 1 ? '' : 's'} on the fox: ${added} new in the fleet log, ${present} already there`);
@@ -86,11 +88,39 @@ async function run(action, args, btn, label) {
   busy = true; const prev = btn.textContent; btn.textContent = label || 'Running…'; btn.classList.add('running');
   root.querySelectorAll('button').forEach(b => { if (b !== btn) b.disabled = true; });
   note(action + ':start', JSON.stringify(args));
-  try { const out = await app.device.bench(action, args); note(action, out); }
+  try { const out = await app.device.bench(action, args); note(action, out); if (action === 'key' && args.net) keyVerdict(out); }
   catch (e) { note(action + ':error', String(e.message || e)); }
   busy = false; btn.textContent = prev; btn.classList.remove('running');
   render();
 }
+
+/** What Radio up says beyond "ok": the address the radio was on the air with against fox.json's, and the radio's notes
+ *  (foxlib 1.11.3 appends "; note: …" to the key line: a refused channel or power, a hidden SSID it cannot hide). */
+let lastKey = null;
+function keyVerdict(out) {
+  const [line, ...notes] = String(out).split('; note: ');
+  const got = line.match(/\(([0-9A-Fa-f:?]+)\) for [0-9.]+ s/)?.[1]?.toUpperCase() || null;
+  const want = app.cfg.net?.mac ? (app.cfg.net.kind === 'ble' ? bleMac(app.cfg.net.mac) : app.cfg.net.mac).toUpperCase() : null;
+  lastKey = { ok: line.startsWith('ok'), got, want, macOk: !want || !got || got === want, notes };
+  if (want && got && got !== want) note('key:mac', `on the air as ${got}, fox.json asked for ${want} (bench-runbook Q12)`);
+  for (const n of notes) note('key:note', n);
+}
+
+/** Board health: the numbers hw_smoke puts in every hardware-log row, read the same way. */
+let lastHealth = null;
+async function health(btn) {
+  if (busy) return;
+  busy = true; const prev = btn.textContent; btn.textContent = 'Reading…'; btn.classList.add('running');
+  note('health:start', '');
+  try {
+    const h = JSON.parse(await app.device.bench('health', { net: app.isNet }));
+    lastHealth = h;
+    note('health', `free ${h.free} → ${h.after_import} after import (${h.import_s} s) → ${h.with_fox} B with the fox · foxlib ${h.foxlib}${h.fatal ? ' · fox not usable: ' + h.fatal : ''}`);
+  } catch (e) { note('health:error', String(e.message || e)); }
+  busy = false; btn.textContent = prev; btn.classList.remove('running');
+  render();
+}
+const kB = n => (n >= 1048576 ? (n / 1048576).toFixed(2) + ' MB' : (n / 1024).toFixed(0) + ' KB');
 
 function render() {
   if (app.family === 'foxlib-c') return renderConsole();
@@ -109,12 +139,16 @@ function render() {
     h('div.cols', {},
       caps.has('keytest') && app.isNet ? h('div.card', {}, h('h3', {}, 'Radio up'),
         h('p.hint', {},
-          `Brings the ${app.cfg.net.kind === 'ble' ? 'beacon' : 'network'} up for a few seconds, then down: "${app.cfg.net.ssid || app.cfg.net.name}" should appear on a phone and go away. No antenna question: the SoC's own radio at Part 15 power.`),
+          `Brings the ${app.cfg.net.kind === 'ble' ? 'beacon' : 'network'} up for a few seconds, then down: "${nameOnAir(app.cfg)}" should appear on a phone and go away. No antenna question: the SoC's own radio at Part 15 power.`),
         field('Seconds', numInput(keySecs, { min: 1, max: 30, step: 1, width: '100px', onchange: v => { keySecs = v; } })),
         h('div.tools', {},
           h('button.btn.primary',
             { disabled: !ready, onclick: e => run('key', { seconds: keySecs, net: true }, e.currentTarget, 'ON THE AIR') }, 'Radio up'),
-          last('key') ? badge('last: ' + last('key'), 'info') : null)) :
+          last('key') ? badge('last: ' + String(last('key')).split('; note: ')[0], lastKey?.ok === false ? 'err' : 'info') : null),
+        lastKey ? h('div', { style: 'margin-top:8px' },
+          lastKey.want && lastKey.got ? h('p.hint' + (lastKey.macOk ? '' : '.warn'), {},
+            lastKey.macOk ? `on the air as ${lastKey.got}, as fox.json asks` : `on the air as ${lastKey.got} — fox.json asked for ${lastKey.want} (the chip refused the address; bench-runbook Q12)`) : null,
+          ...lastKey.notes.map(n => h('p.hint.warn', {}, 'radio: ' + n))) : null) :
       caps.has('keytest') ? h('div.card', {}, h('h3', {}, 'Key test'),
         h('p.hint', {},
           'Keys the transmitter, unmodulated, on the first plan frequency for a few seconds, then releases. Confirms the module accepts the frequency and keys. Dummy load or antenna required.'),
@@ -124,7 +158,7 @@ function render() {
           last('key') ? badge('last: ' + last('key'), last('key') === 'ok' ? 'ok' : 'warn') : null)) : null,
       caps.has('rssi') && app.isNet ? h('div.card', {}, h('h3', {}, 'Scan'),
         h('p.hint', {},
-          'What this radio hears nearby, strongest first — a sanity check that it is alive, and a crude way to find another fox with this one.'),
+          'What this radio hears nearby, strongest first — a sanity check that it is alive, and a crude way to find another fox with this one. Wi-Fi entries carry the channel (ch 36 and up: 5 GHz, which only the C5 hears).'),
         h('div.tools', {}, h('button.btn', { disabled: !ready, onclick: e => run('rssi', { net: true }, e.currentTarget) }, 'Scan'),
           last('rssi') ? h('span.mono', { style: 'font-size:.85rem' }, last('rssi')) : null)) :
       caps.has('rssi') ? h('div.card', {}, h('h3', {}, 'Receive / RSSI'),
@@ -146,7 +180,7 @@ function render() {
           lastFinds.rows.slice(-12).map(r => `${r.callsign.padEnd(12)} cycle ${r.cycle}  +${(r.ms_since_boot / 1000).toFixed(0)} s  ${r.via || ''}`).join('\n')) : null) : null,
       caps.has('near') ? h('div.card', {}, h('h3', {}, 'Who is near'),
         h('p.hint', {}, 'Reads ', h('code', {}, 'near.csv'),
-          ' from the fox — hunter tags heard, stations that joined, probe requests for its names. Shown here and downloadable; it is about the people near the fox, so it is not merged into the fleet log.'),
+          ' from the fox — hunter tags heard, stations that joined, probe requests for its names: a kind, a signal level and a name per line, no addresses (foxlib 1.11.1 stopped logging them). Shown here and downloadable; it is about the people near the fox, so it is not merged into the fleet log.'),
         h('div.tools', {}, h('button.btn.primary', { disabled: !ready, onclick: e => whoIsNear(e.currentTarget) }, 'Who is near'),
           lastNear?.rows.length ? h('button.btn.small',
             { onclick: () => download(`near-${(app.info?.uid || 'fox').slice(-6)}-${Date.now()}.csv`, lastNear.text, 'text/csv') },
@@ -154,16 +188,24 @@ function render() {
           lastNear?.rows.length ? h('button.btn.small', { disabled: !ready, onclick: e => clearNear(e.currentTarget) }, 'Clear on fox') : null,
           last('near') ? badge(last('near'), 'info') : null),
         lastNear?.rows.length ? h('pre.out', { style: 'margin-top:8px;max-height:160px;overflow:auto' },
-          lastNear.rows.slice(-14).map(r => `${(r.kind || '').padEnd(6)} ${(r.mac || '').padEnd(18)} ${String(r.rssi || '').padStart(4)} dBm  ${r.name || ''}  cycle ${r.cycle}  +${Math.round((+r.ms_since_boot || 0) / 1000)} s`).join('\n')) : null) : null,
+          lastNear.rows.slice(-14).map(r => `${(r.kind || '').padEnd(6)} ${String(r.rssi || '').padStart(4)} dBm  ${(r.name || '').padEnd(24)}  cycle ${r.cycle}  +${Math.round((+r.ms_since_boot || 0) / 1000)} s`).join('\n')) : null) : null,
+      h('div.card', {}, h('h3', {}, 'Board health'),
+        h('p.hint', {},
+          'What the board says about itself, read the way the bench script reads it for the hardware log: free heap on a fresh VM, after importing foxlib (an import in hundredths of a second is the precompiled set; whole seconds is source), and with the fox built — the ',
+          h('code', {}, 'mem='), ' of the banner. The C3 lives at ~30 KB with a BLE fox; the C6 above 100 KB; the S3 and C5 in the megabytes.'),
+        h('div.tools', {}, h('button.btn', { disabled: !ready, onclick: e => health(e.currentTarget) }, 'Read'),
+          lastHealth ? h('span.mono', { style: 'font-size:.85rem' },
+            `${kB(lastHealth.free)} → ${kB(lastHealth.after_import)} after import (${lastHealth.import_s} s) → ${kB(lastHealth.with_fox)} with the fox · foxlib ${lastHealth.foxlib}`) : null),
+        lastHealth?.fatal ? h('p.hint.warn', {}, 'the fox is not usable on this board: ' + lastHealth.fatal) : null),
       caps.has('batt') ? h('div.card', {}, h('h3', {}, 'Battery'),
         app.cfg.pins?.batt_sense ? h('p.hint', {},
           `Averaged ADC read on ${app.cfg.pins.batt_sense} through the divider, with the calibration from fox.json.`) : h('p.hint.warn', {}, 'No batt_sense pin configured; the firmware has no battery monitor.'),
         h('div.tools', {},
           h('button.btn', { disabled: !ready || !app.cfg.pins?.batt_sense, onclick: e => run('batt', {}, e.currentTarget) }, 'Read voltage'),
           last('batt') ? h('span.big', {}, last('batt'), h('span.unit', {}, 'V')) : null)) : null),
-    ready ? h('p.hint', {},
-      'Bench actions stop the running fox and talk to the firmware directly; one at a time, and the first one after a reboot takes ~10 s longer while CircuitPython compiles foxlib. ',
-      h('button.btn.small', { onclick: () => app.restartFox() }, 'Restart fox'), ' when you are done.') : null,
+    ready ? h('div.tools', { style: 'margin:4px 0 14px' },
+      h('button.btn.primary', { onclick: () => app.restartFox() }, 'Restart fox'),
+      h('span.hint', {}, 'Bench actions stop the running fox and talk to the firmware directly, one at a time; restart it when you are done. With foxlib deployed as source (not .mpy) the first action after a reboot takes several seconds longer while CircuitPython compiles it.')) : null,
     h('div.card', {}, h('h3', {}, 'Event log ', badge(events.length + ' events')),
       h('p.hint', {},
         'Every bench action with a timestamp and the board UID, so an external test procedure can be lined up against it later.'),

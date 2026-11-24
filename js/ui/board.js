@@ -21,7 +21,7 @@ function pickerCard() {
   // Targets not yet verified on hardware (status experimental) stay out
   // of the list unless asked for — a release is what the hardware log vouches for. The selected target is always listed.
   const hidden = Object.values(app.catalog.boards).filter(b => b.status === 'experimental' && !app.showExperimental && b.id !== app.boardId);
-  const groupOf = b => { const fam = b.family || 'foxlib'; return fam === 'foxlib' ? (b.variants ? 'chip' : 'combo') : fam === 'foxlib-c' ? 'drive' : fam; };
+  const groupOf = b => ({ fm: 'combo', net: 'chip', drive: 'drive' })[app.kindOf(b)];
   for (const b of Object.values(app.catalog.boards)) if (!hidden.includes(b)) (groups[groupOf(b)] ??= []).push(b);
   if (groups.drive) groups.drive.sort((a, b) => (a.family === 'drive' ? 0 : 1) - (b.family === 'drive' ? 0 : 1));   // vendor firmware first
   if (groups.chip) groups.chip.sort((a, b) => a.name.localeCompare(b.name));

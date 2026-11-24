@@ -54,7 +54,7 @@ except ImportError:
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PLACEHOLDER_CALL = "N0CALL DECOY DECOY N0CALL"   # nobody's callsign: the fox stays silent (id=unset)
 RECORD_CALL = "W1ABC FOX DE W1ABC"     # what a recording carries instead of the run's callsign (tests/fixtures are public)
-_SCAN_ITEM = re.compile(r"^(-\d+) (\S.*)$")   # one radio.scan() entry: "-38 name" / "-42 AA:BB:CC:DD:EE:FF"; a line is " | "-joined
+_SCAN_ITEM = re.compile(r"^(-\d+)( ch\d+)? (\S.*)$")   # one radio.scan() entry: "-38 name" / "-65 ch36 name" (foxlib 1.11.3, Wi-Fi) / "-42 AA:BB:CC:DD:EE:FF"; a line is " | "-joined
 
 
 def deep_merge(base, over):
@@ -81,7 +81,7 @@ def scrub_recording(exchanges, args, call):
         if not items or not all(ms):
             return line
         n_scan += len(items)
-        return " | ".join("%s neighbour-%d" % (m.group(1), k + 1) for k, m in enumerate(ms))
+        return " | ".join("%s%s neighbour-%d" % (m.group(1), m.group(2) or "", k + 1) for k, m in enumerate(ms))   # the channel stays: it says which band
 
     def scrub_text(t):
         nonlocal n_call
@@ -1030,7 +1030,8 @@ class Run:
                 res["key"] = r.exec(pre + "print(fox.key_for(%s))\n" % _num(a.key_seconds), timeout=60 + a.key_seconds).strip()
                 print("  radio up %ss: %s" % (a.key_seconds, res["key"]))
                 want = (fox.get("net") or {}).get("mac")
-                got = re.search(r"\(([0-9A-Fa-f:?]+)\) for [0-9.]+ s$", res["key"])
+                got = re.search(r"\(([0-9A-Fa-f:?]+)\) for [0-9.]+ s(?:;|$)", res["key"])     # 1.11.3 appends "; note: …" when the radio did something differently
+                if "; note: " in res["key"]: print("  radio notes: " + " · ".join(res["key"].split("; note: ")[1:]))
                 if want and got:
                     res["mac_on_air"] = got.group(1).upper()
                     if fox["net"].get("kind") == "ble":          # a static random address: the two top bits set

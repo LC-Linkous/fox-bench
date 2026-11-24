@@ -30,7 +30,8 @@ import * as tabFleet from './ui/fleet.js';
 import * as tabAbout from './ui/about.js';
 import { state as flashState } from './ui/flash.js';
 
-const VERSION = '0.18.28';
+const KIND_LABEL = { fm: 'FM fox', net: 'Network fox', drive: 'PicoFox' };   // the kind badge in the top bar (body[data-kind] carries the colour)
+const VERSION = '0.18.30';
 /** Tab subtitles that read differently per device family (null = the page's original text). */
 const LEDES = { drive: {
   board: 'Which fox is on the bench, open its USB drive (or use the simulated one). The vendor firmware stays; the page writes its files.',
@@ -77,6 +78,10 @@ export const app = {
   /** Device family of the selected board: 'foxlib' (CircuitPython + our firmware, REPL), 'drive' (vendor firmware, files on a USB
    *  drive) or 'foxlib-c' (fox-bench's native firmware: fox.json on its FOXBENCH drive, banner and bench on its serial console). */
   get family() { return this.board.family || 'foxlib'; },
+  /** What kind of fox a target is, as the picker groups them and the page colours them: 'fm' (a board + radio module),
+   *  'net' (a bare board, its own Wi-Fi / BLE), 'drive' (a fox configured through its USB drive: the PicoFox, either firmware). */
+  kindOf(t) { const fam = t.family || 'foxlib'; return fam === 'foxlib' ? (t.variants ? 'net' : 'fm') : 'drive'; },
+  get kind() { return this.kindOf(this.catalog.boards[this.boardId]); },
   /** Null when the connected device can take a deploy for the selected board; otherwise the reason, in words
    *  (js/model/transport.js). Deploy modules refuse anything else, whatever the top bar says. */
   deployBlocker() { return deployBlocker({ device: this.device, board: this.board, onBoard: this.onBoard }); },
@@ -236,6 +241,9 @@ export const app = {
     for (const fn of this.listeners) fn(source);
     $('#tmplBadge').textContent = `${this.template.name}${this.template.status === 'experimental' ? ' · experimental' : ''}`;
     $('#tmplBadge').className = 'badge ' + (this.template.status === 'experimental' ? 'warn' : 'info'); $('#tmplBadge').hidden = false;
+    // the kind of fox colours the chrome (css/theme.css --kind): the rail's active tab, the top bar's rule, the kind badge
+    document.body.dataset.kind = this.kind;
+    $('#kindBadge').textContent = KIND_LABEL[this.kind]; $('#kindBadge').hidden = false;
   },
 
   /** Switch template: new defaults, carry over the sections that still apply. */

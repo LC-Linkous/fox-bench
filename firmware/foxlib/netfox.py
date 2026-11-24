@@ -406,13 +406,16 @@ class NetFox:
         mac = self.radio.mac()               # read back while up: the address this radio is on the air with
         time.sleep(seconds)
         self.radio.down()
-        return "ok %s %s (%s) for %.1f s" % (self.radio.kind, self.name, mac, seconds)
+        notes = self.radio.take_notes()      # what the radio did differently from the config (a refused channel or power, a
+        return "ok %s %s (%s) for %.1f s" % (self.radio.kind, self.name, mac, seconds) + \
+            ("; note: " + "; note: ".join(notes) if notes else "")        # hidden SSID): on the key line, so the bench shows it
 
     def rssi(self):
-        """Not a receiver's RSSI: the strongest neighbours this radio can see, as a sanity check that it is alive."""
+        """Not a receiver's RSSI: the strongest neighbours this radio can see, as a sanity check that it is alive.
+        Wi-Fi entries carry the channel ("-65 ch36 name": the C5 hears 5 GHz); BLE entries are "-60 name address"."""
         if not self.radio:
             return "err: no radio"
-        return " | ".join("%d %s" % (x[0], x[1]) for x in self.radio.scan()) or "nothing heard"
+        return " | ".join(("%d ch%s %s" % (x[0], x[2], x[1]) if len(x) > 2 and x[2] else "%d %s" % (x[0], x[1])) for x in self.radio.scan()) or "nothing heard"
 
 
 def clock_text():

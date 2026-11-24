@@ -69,7 +69,7 @@ export function onAir(cfg, { family = 'foxlib', template = '' } = {}) {
   return parts.join(' · ');
 }
 
-function name(cfg) {
+export function name(cfg) {
   if (cfg.id?.use_callsign_as_name) return cfg.id.callmessage;
   return cfg.net.kind === 'ble' ? cfg.net.name : cfg.net.ssid;
 }

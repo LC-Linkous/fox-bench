@@ -14,6 +14,49 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### foxlib 1.11.3 — the bench entry points say more
+
+- `NetFox.key_for()` appends the radio's notes to its line (`…for 3.0 s;
+  note: channel 36 refused …`): what the radio did differently from the
+  config was boot-log only; now the page's Radio up and `hw_smoke` show it.
+- `NetFox.rssi()` carries the channel on Wi-Fi entries (`-65 ch36 name`):
+  which band each neighbour is on, the C5's 5 GHz receive made visible.
+  `hw_smoke`'s recording scrub keeps the channel and renames the rest.
+
+### Page 0.18.30 — Bench and Fleet after the sessions (eval items A + B)
+
+- Bench: a **Board health** card — free heap on a fresh VM, after importing
+  foxlib (the import time says .mpy or source), with the fox built, and
+  foxlib's version — the numbers `hw_smoke` puts in every hardware-log row,
+  read the same way (`bench('health')` on the REPL and demo devices).
+- Bench: Radio up's result compares the address on the air with fox.json's
+  (the Q12 note the bench script prints) and shows the radio's notes.
+- Bench: **Restart fox** is a button, not a link in a sentence; the footer no
+  longer says the first action compiles foxlib for ~10 s (true of a source
+  deploy only). Scan's hint says what the channel means. Who is near drops
+  the address column `near.csv` has not had since foxlib 1.11.1, and says so.
+- Bench: Radio up's hint names what is on the air (the callsign when
+  *use callsign as name* is on), not the SSID field.
+- Fleet: a network-fox profile's line reads `wifi-beacon · W1ABC · AP "…" ·
+  ch 1` instead of ending in a dangling separator; `find` rows no longer
+  carry the network kind in the `freq` column (it is in the notes).
+- Noted, not changed: network templates have no `batt` capability, so the
+  Battery card never shows for one (the REPL's net branch has no battery
+  read; fine until a divider is fitted and a template gains the capability).
+
+### Page 0.18.29 — a colour per kind of fox
+
+- The three kinds of fox the picker already groups — a board + radio module
+  (FM), a bare board on its own Wi-Fi / BLE (network), a fox configured
+  through its drive (the PicoFox, either firmware) — each get a hue:
+  the FM foxes keep the amber, network foxes are teal, the PicoFox violet
+  (`--kind-fm`, `--kind-net`, `--kind-drive`; `body[data-kind]` picks
+  `--kind`). It is used lightly, where "which kind of fox is this" should
+  read at a glance: the rail's active tab, the top bar's rule, and a new
+  kind badge beside the status (`FM fox` / `Network fox` / `PicoFox`).
+  Nothing else in the palette changes. `app.kindOf(target)` / `app.kind`
+  name the kind; the picker's groups use it too.
+
 ### Tools — a page-built configuration on the bench
 
 - `tools/hw_smoke.py --fox FILE`: a `fox.json` (the page's Deploy → export,

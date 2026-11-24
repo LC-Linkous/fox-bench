@@ -161,6 +161,7 @@ try {
   check(/start the demo again/.test(await app(() => window.foxbench.deployBlocker() || '')), 'the demo C3 is not a C6: Deploy says to start the demo again');
   await page.click('#demoBtn'); await settle(400); await page.click('#demoBtn'); await until(() => window.foxbench.connected, 'the demo C6', 10000); await settle(400);
   eq((await app(() => window.foxbench.templatesFor('foxlib').map(t => t.id).sort())).join(), 'ble-beacon,checkpoint,puzzle-beacon,wifi-beacon,wifi-probe', 'the bare ESP32-C6 offers all five network templates');
+  eq(await page.$eval('body', b => b.dataset.kind + '|' + document.querySelector('#kindBadge').textContent + '|' + getComputedStyle(b).getPropertyValue('--kind').trim()), 'net|Network fox|#3fb8b0', 'the kind badge and body[data-kind] say Network fox; --kind is the teal');
   await tab('behavior'); await page.selectOption('#tab-behavior select', 'wifi-beacon'); await settle(300);
   eq(await app(() => window.foxbench.cfg.pins.led), 'LED', 'XIAO C6 LED pin from the variant');
   await tab('radio');
@@ -275,6 +276,10 @@ try {
   check(/-55 Neighbour/.test(await text('#tab-bench')), 'Scan reports what the radio hears');
   await page.click('#tab-bench button:has-text("Radio up")'); await untilTextArgs('#tab-bench pre.out', /ok wifi-ap .* for 3\.0 s/, 20000);
   check(/ok wifi-ap .* for 3\.0 s/.test(await text('#tab-bench pre.out')), 'Radio up logged');
+  check(/on the air as [0-9A-F:]{17}, as fox.json asks/.test(await text('#tab-bench')), 'Radio up: the address on the air matches fox.json');
+  await page.click('#tab-bench button:has-text("Read")'); await settle(600);
+  check(/117 KB → 113 KB after import \(0\.012 s\) → 96 KB with the fox · foxlib/.test(await text('#tab-bench')), 'Board health reads free heap, import time and the fox build');
+  check(/health\s+free 120000/.test(await text('#tab-bench pre.out')), 'health logged');
   await tab('behavior'); await page.selectOption('#tab-behavior select', 'ble-beacon'); await settle(300);
   await tab('radio');
   check(/BLE beacon/.test(await text('#tab-radio')) && /iBeacon UUID/.test(await text('#tab-radio')), 'Radio tab shows the BLE form');
@@ -467,6 +472,7 @@ try {
   eq(await app(() => window.foxbench.connected), false, 'selecting a board of another family disconnects the old device');
   check(/different kind of board/.test(await text('#log')), 'the console says why it disconnected');
   eq(await app(() => window.foxbench.family), 'drive', 'family switches with the board');
+  eq(await page.$eval('body', b => b.dataset.kind + '|' + document.querySelector('#kindBadge').textContent), 'drive|PicoFox', 'the kind badge and body[data-kind] say PicoFox');
   eq(await app(() => window.foxbench.templateId), 'picofox', 'template switched to the board\'s only template');
   eq(await app(() => window.foxbench.cfg.id.callmessage), 'W1ABC FOX DE W1ABC', 'callsign carried across the board switch');
   check(/does not run CircuitPython/.test(await text('#tab-board')), 'Board tab says no CircuitPython');
@@ -632,6 +638,7 @@ try {
   await page.click('#demoBtn'); await settle(300);
   await tab('board'); await page.selectOption('#tab-board select', 'seeed_xiao_esp32c3'); await settle(400);
   eq(await app(() => window.foxbench.family), 'foxlib', 'back to the C3: family foxlib');
+  eq(await page.$eval('body', b => b.dataset.kind + '|' + document.querySelector('#kindBadge').textContent), 'fm|FM fox', 'the kind badge and body[data-kind] say FM fox again');
   check(await page.isVisible('.rail button[data-tab="bench"]'), 'Bench tab back');
   // the bench finding of 2026-10-25: a config carried from the PicoFox kept radio.family si5351fm and the XIAO booted fatal(hardware)
   eq(await app(() => window.foxbench.cfg.radio.family + '/' + window.foxbench.cfg.module), 'dmo/sa868_vhf', 'PicoFox → XIAO: the radio section and module are the XIAO\'s, not the PicoFox\'s si5351fm');

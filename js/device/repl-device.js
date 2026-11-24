@@ -150,6 +150,16 @@ export class ReplDevice extends Device {
   async bench(action, args = {}) { return this._run(() => this._bench(action, args)); }
   async _bench(action, args = {}) {
     await this.repl.interrupt();
+    if (action === 'health') {
+      // what the board says about itself, the numbers hw_smoke puts in every hardware-log row: free heap on a fresh VM,
+      // after importing foxlib (the import time says .mpy or source), with the fox built; foxlib's version on the board
+      const build = args.net
+        ? "from foxlib.netfox import NetFox\nfox = NetFox('fox.json', defaults='defaults.json', quiet=True)\n"
+        : "fox = foxlib.Fox('fox.json', defaults='defaults.json', quiet=True)\n";
+      const script = "import gc, time, json\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfox = None\ngc.collect()\na = gc.mem_free()\nt = time.monotonic()\nimport foxlib\nb = gc.mem_free()\ndt = time.monotonic() - t\n"
+        + build + "gc.collect()\nprint(json.dumps({'free': a, 'after_import': b, 'import_s': round(dt, 3), 'with_fox': gc.mem_free(), 'foxlib': foxlib.__version__, 'fatal': fox.fatal}))\n";
+      return (await this._exec(script, { timeout: 45000 })).trim();
+    }
     // a network fox (args.net) is a NetFox: the same two bench entry points live on the fox itself
     const pre = args.net
       ? "from foxlib.netfox import NetFox\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfox = NetFox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\n"
