@@ -264,7 +264,8 @@ async function deploy(btn) {
       error: String(e.message || e) + (/HTTP 404/.test(e.message || '') ? ' — a firmware file is missing from the site; the repo needs a .nojekyll marker so GitHub Pages serves foxlib/__init__.py' : '')}); log.err(lastResult.error);
     // the board is in an unknown state between what was written and what was not: the next plan must not trust the
     // last read (a foxlib/ half written would otherwise read as current). The next Deploy rewrites the whole set.
-    if (app.onBoard) { app.onBoard = { ...app.onBoard, foxlibVersion: null, foxlibComplete: false, libFiles: {}, template: null }; log.dim('the board\'s state is unknown after this; the next Deploy writes everything (or Re-read board)'); }
+    // (not after the read-only-drive stop: nothing was written yet, the board is as it was)
+    if (app.onBoard && !e.usbDrive) { app.onBoard = { ...app.onBoard, foxlibVersion: null, foxlibComplete: false, libFiles: {}, template: null }; log.dim('the board\'s state is unknown after this; the next Deploy writes everything (or Re-read board)'); }
   }
   busy = false; app.deployBusy = false; gateOk = false; app.changed('deploy');
 }

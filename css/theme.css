@@ -15,7 +15,7 @@
   --grid:    #232b36;
   --ink:     #e8ecf1;
   --ink-2:   #a9b3bf;
-  --ink-3:   #6c7784;
+  --ink-3:   #8b96a3;   /* hints and metadata: 5.8:1 on the panel (was #6c7784, 3.8:1 — grey on grey; page 0.18.23) */
   --accent:  #e0a634;   /* fox amber: primary actions, active tab */
   --accent-2:#c48f22;
   --field:   #0f1318;
@@ -33,7 +33,7 @@
   --grid:    #e6eaef;
   --ink:     #1a2028;
   --ink-2:   #4d5866;
-  --ink-3:   #8a94a1;
+  --ink-3:   #697482;   /* 4.8:1 on white (was #8a94a1, 3.1:1) */
   --accent:  #b8700a;
   --accent-2:#955a06;
   --field:   #ffffff;

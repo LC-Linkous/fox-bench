@@ -14,6 +14,21 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.18.23 — less grey on grey
+
+- The hint colour (`--ink-3`) goes from #6c7784 to #8b96a3 in the dark
+  theme (3.8:1 → 5.8:1 on a panel) and from #8a94a1 to #697482 in the
+  light one (3.1:1 → 4.8:1): every hint, note and metadata line on the
+  page. Hints are a size larger (.82 → .9rem). The template tag in the top
+  bar ("Wi-Fi beacon (access point) · experimental") is larger (.78 →
+  .88rem, medium weight) on a faintly tinted background.
+- Deploy no longer says "the board's state is unknown" after the
+  read-only-drive stop (nothing was written; the board is as it was).
+- `hw_smoke.py` no longer warns "board reports seeed_xiao_esp32_s3_sense,
+  deploying defaults for esp32s3": a target's known board ids now come from
+  `boards/<target>.json`'s hardware and variants (a chip target lists
+  several physical boards), not from a `target` field no descriptor has.
+
 ### Page 0.18.22 — readability
 
 From the readability review of 2026-11-22: five changes, none of which

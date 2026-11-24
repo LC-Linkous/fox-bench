@@ -651,18 +651,23 @@ class Run:
         ident = r.exec("import board, microcontroller, os, sys\nprint(board.board_id)\nprint(''.join('%02x' % b for b in microcontroller.cpu.uid))\nprint(os.uname().release)\nprint(os.uname().version)\n").strip().splitlines()
         self.board_id, self.uid, self.cp_release, self.cp_version = (ident + ["", "", "", ""])[:4]
         print("board %s  uid %s  CircuitPython %s" % (self.board_id, self.uid, self.cp_release))
-        # the ids a catalog entry answers to: its own, its CircuitPython build's, and the builds it shares (board_ids)
+        # the ids a target answers to: its hardware's and its variants' CircuitPython board ids (boards/<target>.json
+        # names them; a chip target such as esp32s3 lists several physical boards), plus --variant's
+        hw_ids = {a.board, a.variant}
+        try:
+            t = json.load(open(os.path.join(ROOT, "boards", a.board + ".json")))
+            hw_ids.add(t.get("hardware")); hw_ids.update(t.get("variants") or [])
+        except (OSError, ValueError):
+            pass
         known = {a.board}
-        for hw in glob.glob(os.path.join(ROOT, "hardware", "*.json")):
+        for hw_id in hw_ids:
+            if not hw_id: continue
             try:
-                h = json.load(open(hw))
-            except Exception:
+                h = json.load(open(os.path.join(ROOT, "hardware", hw_id + ".json")))
+            except (OSError, ValueError):
                 continue
-            if not isinstance(h, dict):
-                continue
-            if h.get("id") in (a.board, a.variant) or h.get("target") == a.board:
-                cp = h.get("circuitpython") or {}
-                known.add(cp.get("board_id")); known.update(cp.get("board_ids") or [])
+            cp = h.get("circuitpython") or {}
+            known.add(cp.get("board_id")); known.update(cp.get("board_ids") or [])
         if self.board_id not in known:
             print("WARNING: board reports %s, deploying defaults for %s" % (self.board_id, a.board))
         self.report = {"generated": datetime.now().isoformat(timespec="seconds"), "board_id": self.board_id, "uid": self.uid, "circuitpython": self.cp_release, "cp_version": self.cp_version,
