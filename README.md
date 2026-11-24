@@ -30,9 +30,12 @@ name rotation, channel and power varying per wake, mode rotation, a
 shell game across the fleet, scheduled start and stop) — plus an event
 sheet of what every fox shows on the air and a handoff from one fox to the
 next, FM or network (`docs/network-fox-payloads-plan.md`). These five
-templates (three beacons, `puzzle-beacon`, `checkpoint`) and the five chip
-targets are **experimental** until a hardware-log row says a phone has
-found them. The
+templates (three beacons, `puzzle-beacon`, `checkpoint`) are on the bench
+on the XIAO ESP32S3 — found by a phone and by the laptop, the checkpoint's
+sign-in page and find log read back — and the XIAO ESP32-C3 runs the two
+BLE ones (its CircuitPython core cannot hold a Wi-Fi fox: `boards/esp32c3.json`
+says why); the C5, C6, S3-Nano and Nano 33 BLE chip targets stay
+**experimental** until their own hardware-log row. The
 AI6YM PicoFox is supported two ways: with its **vendor firmware** (the page
 writes its settings, renders its audio and Morse-ID files, and draws the
 cycle that firmware runs — verified on air, `docs/picofox.md`), and
@@ -67,8 +70,8 @@ what the next session has to show):
 |---|---|---|---|---|
 | Seeed XIAO ESP32-C3 + SA868 | `seeed_xiao_esp32c3` (stable) | FM via the module | 2026-10 | all seven FM templates on the air, 2 m and 70 cm; last row on foxlib 1.2.0 — re-run due |
 | AI6YM PicoFox rev 3 | `picofox-vendor`, `picofox-foxlibc` (stable) | 2 m FM | 2026-10 | vendor firmware driven from the page; fox-bench firmware on the air (Morse + songs, Morse + SSTV) |
-| Seeed XIAO ESP32S3 (Sense) | `esp32s3` | Wi-Fi, BLE | 2026-11 | all five network templates; a phone and the laptop found them; the captive sign-in page and its find log read back |
-| Seeed XIAO ESP32-C3 (bare) | `esp32c3` | BLE (Wi-Fi: no) | 2026-11 | boots a network fox from `.mpy` with ~36 KB free, then the CircuitPython core hard-faults while the Wi-Fi AP runs: not a Wi-Fi fox; BLE under test |
+| Seeed XIAO ESP32S3 (Sense) | `esp32s3` (stable) | Wi-Fi, BLE | 2026-11 | all five network templates; a phone and the laptop found them; the captive sign-in page and its find log read back |
+| Seeed XIAO ESP32-C3 (bare) | `esp32c3` (stable, BLE only) | BLE (the chip's Wi-Fi is not offered) | 2026-11 | boots a network fox from `.mpy` with ~36 KB free, then the CircuitPython core hard-faults while the Wi-Fi AP runs; the BLE beacon and puzzle beacon hold their wakes with 27–31 KB free |
 | Seeed XIAO ESP32C6 | `esp32c6` | Wi-Fi, BLE | — | enumerates; first session pending |
 | Seeed XIAO ESP32C5, DFRobot FireBeetle 2 ESP32-C5 | `esp32c5` | Wi-Fi 2.4/5, BLE | — | enumerates; first session pending |
 | Waveshare ESP32-S3-Nano | `esp32s3` | Wi-Fi, BLE | — | described from the Arduino Nano ESP32 build; nothing run |

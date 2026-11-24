@@ -30,7 +30,7 @@ import * as tabFleet from './ui/fleet.js';
 import * as tabAbout from './ui/about.js';
 import { state as flashState } from './ui/flash.js';
 
-const VERSION = '0.18.23';
+const VERSION = '0.18.24';
 /** Tab subtitles that read differently per device family (null = the page's original text). */
 const LEDES = { drive: {
   board: 'Which fox is on the bench, open its USB drive (or use the simulated one). The vendor firmware stays; the page writes its files.',
@@ -158,7 +158,7 @@ export const app = {
     const chip = !!board?.variants;      // a chip target (a bare board, no module) runs the network foxes only; a board + module combo the FM foxes only
     return Object.values(this.catalog.templates).filter(t => (t.families || ['foxlib']).includes(family)
       && (family !== 'foxlib' || !board || (t.contract === 'net') === chip)
-      && (!t.radios || !hw?.radios || t.radios.every(r => hw.radios.includes(r)))
+      && (!t.radios || !hw?.radios || t.radios.every(r => hw.radios.includes(r) && (!board.radios || board.radios.includes(r))))   // a target may offer fewer radios than its chip has (the C3: BLE only)
       && (family !== 'foxlib' || !t.pins?.required?.length || !hw || t.pins.required.every(r => hw.roles && hw.roles[r] !== undefined)));
   },
 

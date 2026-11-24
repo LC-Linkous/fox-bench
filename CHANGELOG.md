@@ -14,6 +14,29 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.18.24 — the S3 and the C3 leave experimental
+
+- **`esp32s3` is stable**: hardware-log row of 2026-11-23 (XIAO ESP32S3
+  Sense, CircuitPython 10.3.2, foxlib 1.11.1 as `.mpy`): all five network
+  templates; `--payload` saw each Wi-Fi fox on the air, `--checkpoint`
+  joined the checkpoint AP, got the captive-DNS answer, the page with the
+  code, posted a callsign and read the `finds.csv` row back. The five
+  network templates are stable too (`boards_tested: esp32s3`; the 17th's
+  session had the phone, this one the laptop).
+- **`esp32c3` is stable as a BLE-only target.** A target may now name
+  `radios` narrower than its chip's, with a `radios_note`: the C3 boots a
+  Wi-Fi fox from `.mpy` with ~36 KB of heap left and CircuitPython's core
+  hard-faults while the access point runs (safe mode: hard fault); the BLE
+  beacon and puzzle beacon hold their wakes with 27–31 KB free. The page
+  (`templatesFor`), `check_catalog` (subset of the hardware's radios; a
+  note required; `boards_tested` may not name a target without the radio)
+  and `hw_smoke` (skips the template, `ok: null`) all read it. The Wi-Fi
+  defaults for `esp32c3` stay as the simulator's config shape.
+- `replay_check.py` passes `--mpy` and `--trace` through to the replay —
+  without them a recording made with either flag replayed as different
+  commands (the C3's BLE recording: `.py` writes, no `settings.toml`, 19
+  unused). CI builds the `.mpy` set before the replays for the same reason.
+
 ### Page 0.18.23 — less grey on grey
 
 - The hint colour (`--ink-3`) goes from #6c7784 to #8b96a3 in the dark

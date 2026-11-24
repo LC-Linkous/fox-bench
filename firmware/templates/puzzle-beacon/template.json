@@ -6,7 +6,7 @@
     "foxlib"
   ],
   "contract": "net",
-  "status": "experimental",
+  "status": "stable",
   "description": "A BLE fox for a contest: an iBeacon code (major/minor) as the checkpoint number, an Eddystone URL the phone offers to open, telemetry (battery, uptime), and a name that changes each cycle — the puzzle is in what the scanner shows. The payload section on the Payload tab is where the puzzle is written.",
   "foxlib": ">=1.5.0 <2.0.0",
   "radios": [
@@ -31,5 +31,5 @@
     "keytest",
     "rssi"
   ],
-  "boards_tested": []
+  "boards_tested": ["esp32s3", "esp32c3"]
 }

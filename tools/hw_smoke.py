@@ -809,6 +809,13 @@ class Run:
         dpath = os.path.join(tdir, "defaults", a.board + ".json")
         if not os.path.exists(dpath):
             res["ok"] = None; print("  no defaults for %s: not offered on this board, skipped" % a.board); return None
+        try:
+            tr = json.load(open(os.path.join(ROOT, "boards", a.board + ".json"))).get("radios")
+        except (OSError, ValueError):
+            tr = None
+        if tr is not None and manifest.get("radios") and not set(manifest["radios"]) <= set(tr):
+            # the target offers fewer radios than its chip has (the C3: BLE only, the core cannot run a Wi-Fi fox)
+            res["ok"] = None; print("  needs %s, %s offers %s: not offered on this target, skipped" % ("+".join(manifest["radios"]), a.board, "+".join(tr))); return None
         defaults = json.load(open(dpath))
         net = manifest.get("contract") == "net"          # a network fox: no module, no plan, no payload
         fox = json.loads(json.dumps(defaults))

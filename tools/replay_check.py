@@ -33,6 +33,10 @@ def main():
     if args.get("freq"): cmd += ["--freq", str(args["freq"])]
     if args.get("module"): cmd += ["--module", args["module"]]
     if args.get("variant"): cmd += ["--variant", args["variant"]]
+    # the flags that change which REPL exchanges happen: without them the replay issues different commands than the
+    # recording has (the C3's BLE recording of 2026-11-23 replayed as .py writes and no settings.toml, 19 unused)
+    if args.get("mpy"): cmd += ["--mpy"]            # needs firmware/mpy/<major>/ built (CI's sim job builds it first)
+    if args.get("trace"): cmd += ["--trace"]
     if args.get("payload") or args.get("checkpoint"):      # the host side (scan, join, DNS, portal) replays from the recording's "host" lines
         cmd += [f for f, on in (("--payload", args.get("payload")), ("--checkpoint", args.get("checkpoint"))) if on] + ["--find-call", args.get("find_call", "W1XYZ"), "--host-from", rec_path]
     p = subprocess.run(cmd, capture_output=True, text=True)

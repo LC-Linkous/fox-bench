@@ -6,7 +6,7 @@
     "foxlib"
   ],
   "contract": "net",
-  "status": "experimental",
+  "status": "stable",
   "description": "An open Wi-Fi network whose sign-in page is the checkpoint: a title, a few lines of text, a code, and a callsign box. Phones that join pop the page by themselves (captive DNS). Each callsign handed in goes into finds.csv on the fox; Collect finds on the Bench tab gathers them into the fleet log. The page content is the checkpoint section on the Payload tab.",
   "foxlib": ">=1.7.0 <2.0.0",
   "radios": [
@@ -34,5 +34,5 @@
     "rssi",
     "finds"
   ],
-  "boards_tested": []
+  "boards_tested": ["esp32s3"]
 }

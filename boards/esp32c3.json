@@ -1,14 +1,18 @@
 {
   "id": "esp32c3",
-  "name": "ESP32-C3",
+  "name": "ESP32-C3 (BLE beacon)",
   "hardware": "seeed_xiao_esp32c3",
   "variants": [
     "seeed_xiao_esp32c3"
   ],
   "family": "foxlib",
-  "status": "experimental",
+  "status": "stable",
   "firmware": {
     "kind": "circuitpython+foxlib",
-    "note": "CircuitPython on the board, fox-bench's foxlib and a network-fox template (Wi-Fi beacon, Wi-Fi probe, BLE beacon) deployed over the REPL. The SoC's own radio: no module. The board variant sets the CircuitPython build and the LED / battery pins; a connected board's reported id picks it. Not yet on the bench."
-  }
+    "note": "CircuitPython on the board, fox-bench's foxlib and a BLE template (BLE beacon, puzzle beacon) deployed over the REPL as precompiled .mpy (the sources do not fit: MemoryError compiling netcfg.py). The SoC's own radio: no module. On the bench 2026-11-23 (docs/hardware-log.md); Wi-Fi templates are not offered on this target \u2014 see radios_note."
+  },
+  "radios": [
+    "ble"
+  ],
+  "radios_note": "The chip has Wi-Fi too, and a Wi-Fi fox boots on it from the precompiled set with ~36 KB of heap left \u2014 then CircuitPython's core hard-faults while the access point runs (XIAO ESP32C3, CircuitPython 10.3.2, 2026-11-23: safe mode, 'hard fault: memory access or instruction error'). Below what foxlib can do anything about, so this target offers BLE only; the BLE beacon and puzzle beacon hold their wakes with 27\u201331 KB free. For Wi-Fi foxes use the C6 or the S3; the same board with an SA868 is the FM fox (seeed_xiao_esp32c3)."
 }

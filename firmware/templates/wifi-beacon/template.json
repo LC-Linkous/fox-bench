@@ -6,7 +6,7 @@
     "foxlib"
   ],
   "contract": "net",
-  "status": "experimental",
+  "status": "stable",
   "description": "A Wi-Fi access point that appears for wake_s and disappears for sleep_s: SSID (or the callsign), spoofed BSSID, channel, TX power. Visible to any phone's Wi-Fi list; the BSSID is the fox's fingerprint. The SoC's own radio: no module, no pins. This firmware cannot hide the SSID.",
   "foxlib": ">=1.5.0 <2.0.0",
   "radios": [
@@ -30,5 +30,5 @@
     "keytest",
     "rssi"
   ],
-  "boards_tested": []
+  "boards_tested": ["esp32s3"]
 }

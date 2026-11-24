@@ -243,8 +243,12 @@ battery pins and the CircuitPython build, and a connected board's reported
 id picks it; two variants may share a build when both say so). "AI6YM PicoFox (vendor
 firmware)" and "AI6YM PicoFox (fox-bench firmware)" share
 `hardware/picofox.json`; the XIAO ESP32-C3 is both the combo target and a
-variant of the `esp32c3` chip target. A target with `"status": "planned"`
-is listed greyed out. The loader merges hardware under target (for a chip
+variant of the `esp32c3` chip target. A target may name `radios` narrower
+than its chip's, with a `radios_note` saying what was seen and when: the
+`esp32c3` target offers BLE only, because CircuitPython's core hard-faults
+on that board while a Wi-Fi access point runs; the page, `check_catalog`
+and `hw_smoke` offer a template only when the target has its radio. A
+target with `"status": "planned"` is listed greyed out. The loader merges hardware under target (for a chip
 target, the selected variant's), so the page reads one object. Templates
 list the families they apply to, and the two foxlib contracts do not mix:
 `contract: net` templates run on chip targets, the FM templates on

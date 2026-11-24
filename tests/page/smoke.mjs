@@ -134,16 +134,16 @@ try {
   const rows = await app(() => JSON.parse(localStorage.getItem('fox-bench.fleet') || '[]').filter(r => r.action === 'deploy').length);
   eq(rows, templates.length, 'fleet log has one row per deploy');
 
-  section('network foxes (wifi-beacon / wifi-probe / ble-beacon) on the ESP32-C3 chip target: forms, deploy, bench on the demo');
+  section('network foxes (wifi-beacon / wifi-probe / ble-beacon) on the ESP32-C3 (BLE only) and ESP32-C6 chip targets: forms, deploy, bench on the demo');
   const fmTemplates = await app(() => window.foxbench.templatesFor('foxlib').map(t => t.id));
   check(fmTemplates.length === 7 && !fmTemplates.includes('wifi-beacon'), 'the XIAO C3 + SA868 combo offers the seven FM templates and no network one');
   await app(() => window.foxbench.setBoard('esp32c3')); await settle(400);     // the chip target (experimental: not in the picker yet, reachable by id)
   eq(await app(() => window.foxbench.connected), true, 'the demo REPL stays connected across a switch within the foxlib family');
   const netTemplates = await app(() => window.foxbench.templatesFor('foxlib').map(t => t.id).sort());
-  eq(netTemplates.join(), 'ble-beacon,checkpoint,puzzle-beacon,wifi-beacon,wifi-probe', 'the bare ESP32-C3 offers the network templates only (the three beacons, the puzzle beacon, the checkpoint)');
+  eq(netTemplates.join(), 'ble-beacon,puzzle-beacon', 'the bare ESP32-C3 offers the two BLE templates only: the target names radios ["ble"], its core cannot hold a Wi-Fi fox (bench 2026-11-23)');
   eq(await app(() => window.foxbench.variantId), 'seeed_xiao_esp32c3', 'its one variant is selected');
-  await tab('behavior'); await page.selectOption('#tab-behavior select', 'wifi-beacon'); await settle(300);
-  eq(await app(() => window.foxbench.isNet), true, 'wifi-beacon is a network-contract template');
+  await tab('behavior'); await page.selectOption('#tab-behavior select', 'ble-beacon'); await settle(300);
+  eq(await app(() => window.foxbench.isNet), true, 'ble-beacon is a network-contract template');
   eq(await app(() => JSON.stringify(window.foxbench.cfg.pins)), '{"led":null,"batt_sense":null}', 'the bare XIAO C3 has no LED: pins from the variant');
   // the callsign gate on a network fox (bench finding 2026-11-14): the placeholder blocks only when it would be the name on the air
   { const saved = await app(() => window.foxbench.cfg.id.callmessage);
@@ -155,9 +155,17 @@ try {
   eq(await app(() => window.foxbench.cfg.variant), 'seeed_xiao_esp32c3', 'fox.json records the variant');
   check(await page.isHidden('.rail button[data-tab="plan"]') && await page.isVisible('.rail button[data-tab="payload"]'), 'Plan tab hidden for a network fox; Payload tab shown (the contest features)');
   eq(await app(() => window.foxbench.cfg.id.callmessage), 'W1ABC FOX DE W1ABC', 'the callsign carried from the FM template');
+  // the Wi-Fi templates on a chip that offers them: the ESP32-C6 (one variant, an LED). The demo simulates a physical
+  // board, so the C3 demo board cannot be deployed as a C6: restart the demo for it, as a person would
+  await app(() => window.foxbench.setBoard('esp32c6')); await settle(400);
+  check(/start the demo again/.test(await app(() => window.foxbench.deployBlocker() || '')), 'the demo C3 is not a C6: Deploy says to start the demo again');
+  await page.click('#demoBtn'); await settle(400); await page.click('#demoBtn'); await until(() => window.foxbench.connected, 'the demo C6', 10000); await settle(400);
+  eq((await app(() => window.foxbench.templatesFor('foxlib').map(t => t.id).sort())).join(), 'ble-beacon,checkpoint,puzzle-beacon,wifi-beacon,wifi-probe', 'the bare ESP32-C6 offers all five network templates');
+  await tab('behavior'); await page.selectOption('#tab-behavior select', 'wifi-beacon'); await settle(300);
+  eq(await app(() => window.foxbench.cfg.pins.led), 'LED', 'XIAO C6 LED pin from the variant');
   await tab('radio');
   check(/Wi-Fi access point/.test(await text('#tab-radio')) && /SSID/.test(await text('#tab-radio')) && /MAC address/.test(await text('#tab-radio')), 'Radio tab shows the Wi-Fi AP form');
-  check(/Wiring: Seeed Studio XIAO ESP32-C3/.test(await text('#tab-radio')) && /seeed_xiao_esp32c3\) \+ foxlib/.test(await text('#tab-radio')), 'wiring card names the board and its CircuitPython build');
+  check(/Wiring: Seeed XIAO ESP32C6/.test(await text('#tab-radio')) && /seeed_xiao_esp32c6\) \+ foxlib/.test(await text('#tab-radio')), 'wiring card names the board and its CircuitPython build');
   check(!/Board/.test((await page.$$eval('#tab-radio label', els => els.map(e => e.textContent))).join('|')), 'one variant: no board dropdown');
   // the ESP32-S3 chip has two variants with different LEDs: the dropdown appears and switches pins + build
   await app(() => window.foxbench.setBoard('esp32s3')); await settle(400); await tab('radio');
@@ -172,7 +180,7 @@ try {
   await page.selectOption('#tab-radio select:has(option[value="LED_RED"])', 'LED_RED'); await settle(200);
   eq(await app(() => window.foxbench.cfg.pins.led), 'LED_RED', 'a pin can be changed by hand');
   check(/reset/.test(await text('#tab-radio')), 'and the reset button appears against the default');
-  await app(() => window.foxbench.setBoard('esp32c3')); await settle(400); await tab('radio');
+  await app(() => window.foxbench.setBoard('esp32c6')); await settle(400); await tab('radio');
   await page.click('#tab-radio button:has-text("Random")'); await settle(200);
   check(/^F2(:[0-9A-F]{2}){5}$/.test(await app(() => window.foxbench.cfg.net.mac)), 'Random gives a locally administered unicast MAC: ' + (await app(() => window.foxbench.cfg.net.mac)));
   await tab('id');
@@ -284,6 +292,7 @@ try {
   await tab('payload'); await page.locator('#tab-payload .card', { hasText: 'What the fox says' }).locator('label.check input').first().uncheck(); await settle(200);
   eq(await app(() => 'payload' in window.foxbench.cfg), false, 'and the section can be switched off even on this template');
   await app(() => window.foxbench.setBoard('seeed_xiao_esp32c3')); await settle(400);
+  await page.click('#demoBtn'); await settle(400); await page.click('#demoBtn'); await until(() => window.foxbench.connected, 'the demo combo again', 10000); await settle(400);   // the demo is a C6 now: a C3 again
   await tab('behavior'); await page.selectOption('#tab-behavior select', 'morse-songs'); await settle(300);
   eq(await app(() => window.foxbench.isNet), false, 'back to the combo and an FM template');
   check(await page.isVisible('.rail button[data-tab="plan"]'), 'Plan tab back');
@@ -642,13 +651,13 @@ try {
   section('experimental targets in the picker');
   await tab('board');
   const optsDefault = await page.$$eval('#tab-board select option', els => els.map(e => e.value));
-  check(optsDefault.includes('picofox-foxlibc') && optsDefault.includes('seeed_xiao_esp32c3') && !optsDefault.includes('nrf52840'), 'experimental targets are hidden from the picker by default; the stable ones are listed');
+  check(optsDefault.includes('picofox-foxlibc') && optsDefault.includes('seeed_xiao_esp32c3') && optsDefault.includes('esp32s3') && optsDefault.includes('esp32c3') && !optsDefault.includes('nrf52840') && !optsDefault.includes('esp32c6'), 'experimental targets are hidden from the picker by default; the stable ones are listed (the S3 and the C3 chip targets since 0.18.24)');
   const nExp = await app(() => Object.values(window.foxbench.catalog.boards).filter(b => b.status === 'experimental').length);
   check(/Show experimental targets/.test(await text('#tab-board')) && new RegExp(nExp + ' hidden').test(await text('#tab-board')), `the picker says how many targets are hidden (${nExp})`);
   await page.check('#tab-board .card:first-child input[type=checkbox]'); await settle(300);   // the picker card's checkbox, not the flash card's erase box
   const optsAll = await page.$$eval('#tab-board select option', els => els.map(e => e.value));
   const nNet = optsAll.filter(v => ['esp32c3', 'esp32c6', 'esp32c5', 'esp32s3', 'nrf52840'].includes(v)).length;
-  check(nNet === nExp && nNet === 5, `the checkbox lists the ${nExp} experimental targets: the ${nNet} chip targets`);
+  check(nNet === 5 && optsAll.length === optsDefault.length + nExp && nExp === 3, `the checkbox adds the ${nExp} experimental targets (C5, C6, nRF52840); all five chip targets listed`);
   const groupsAll = await page.$$eval('#tab-board select optgroup', els => els.map(e => [e.label, [...e.querySelectorAll('option')].map(o => o.value)]));
   const chipGroup = groupsAll.find(([l]) => l === 'CircuitPython board'), fmGroup = groupsAll.find(([l]) => /\+ radio module/.test(l)), driveGroup = groupsAll.find(([l]) => l === 'Drive-configured fox');
   check(chipGroup && chipGroup[1].join() === 'esp32c3,esp32c5,esp32c6,esp32s3,nrf52840' && fmGroup && fmGroup[1].join() === 'seeed_xiao_esp32c3', 'picker groups: the five chips under "CircuitPython board", the XIAO + SA868 under "+ radio module"');

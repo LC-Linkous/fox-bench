@@ -7,9 +7,9 @@
     "waveshare_esp32s3_nano"
   ],
   "family": "foxlib",
-  "status": "experimental",
+  "status": "stable",
   "firmware": {
     "kind": "circuitpython+foxlib",
-    "note": "CircuitPython on the board, fox-bench's foxlib and a network-fox template (Wi-Fi beacon, Wi-Fi probe, BLE beacon) deployed over the REPL. The SoC's own radio: no module. The board variant sets the CircuitPython build and the LED / battery pins; a connected board's reported id picks it. Not yet on the bench."
+    "note": "CircuitPython on the board, fox-bench's foxlib and a network-fox template (Wi-Fi beacon, Wi-Fi probe, BLE beacon, puzzle beacon, checkpoint) deployed over the REPL, as source or precompiled .mpy. The SoC's own radio: no module. The board variant sets the CircuitPython build and the LED / battery pins; a connected board's reported id picks it. All five templates on the bench on the XIAO ESP32S3 (Sense) 2026-11-17/23, found by a phone and by the laptop, the checkpoint's sign-in page and find log included (docs/hardware-log.md). The S3-Nano variant is described from the Arduino Nano ESP32 build and not yet run."
   }
 }

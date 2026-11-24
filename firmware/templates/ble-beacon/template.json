@@ -6,7 +6,7 @@
     "foxlib"
   ],
   "contract": "net",
-  "status": "experimental",
+  "status": "stable",
   "description": "An iBeacon advertisement \u2014 UUID, major, minor, measured power \u2014 with a name (or the callsign), on a duty cycle. Any BLE scanner app sees it. The SoC's own radio; also the nRF52 boards.",
   "foxlib": ">=1.5.0 <2.0.0",
   "radios": [
@@ -30,5 +30,5 @@
     "keytest",
     "rssi"
   ],
-  "boards_tested": []
+  "boards_tested": ["esp32s3", "esp32c3"]
 }

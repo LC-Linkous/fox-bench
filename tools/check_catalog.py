@@ -160,6 +160,10 @@ for bid in board_ids:
             for vid in variants or []:
                 if vid not in hardware: bad(rel, f"variant {vid!r}: no such hardware")
             radios0 = set((hw or {}).get("radios") or [])
+            if t.get("radios") is not None:
+                # the radios a fox may use on this target: a subset of the chip's (the C3 has Wi-Fi the core cannot run a fox on)
+                if not isinstance(t["radios"], list) or not t["radios"] or not set(t["radios"]) <= radios0: bad(rel, f"radios {t.get('radios')!r} must be a non-empty subset of the hardware's {sorted(radios0)}")
+                if not t.get("radios_note"): bad(rel, "radios narrower than the hardware's needs a radios_note saying why (what was seen, when)")
             for vid in variants or []:
                 vhw = hardware.get(vid) or {}
                 if vid in CHIP_OF and CHIP_OF[vid] != bid: bad(rel, f"variant {vid!r} already belongs to chip target {CHIP_OF[vid]!r}")
@@ -297,7 +301,10 @@ for tid in fw["templates"]:
     for c in t.get("capabilities", []):
         if c not in ("keytest", "rssi", "batt", "finds"): bad(rel, f"unknown capability {c}")
     for b in t.get("boards_tested", []):
-        if b not in boards: bad(rel, f"boards_tested names unknown board {b}")
+        if b not in boards: bad(rel, f"boards_tested names unknown board {b}"); continue
+        tr = boards[b].get("radios")
+        if tr is not None and t.get("radios") and not set(t["radios"]) <= set(tr):
+            bad(rel, f"boards_tested names {b!r}, which offers radios {tr} and not the {t['radios']} this template needs")
     if is_fw and "code.py" not in t.get("files", []): bad(rel, "files must include code.py")
     for f in t.get("files", []):
         if not exists(f"{base}/{f}"): bad(rel, f"file {f} missing")

@@ -1,6 +1,6 @@
 {
 "format": "fox-bench-bench-recording/2",
-"generated": "2026-11-23T23:06:05",
+"generated": "2026-11-23T23:28:20",
 "board_id": "seeed_xiao_esp32c3",
 "uid": "89d3eacac803",
 "circuitpython": "10.3.2",
@@ -29,335 +29,333 @@
 },
 "exchanges": [
 {
-"t": 0.168,
+"t": 2.696,
 "kind": "exec",
 "cmd": "import board, microcontroller, os, sys\nprint(board.board_id)\nprint(''.join('%02x' % b for b in microcontroller.cpu.uid))\nprint(os.uname().release)\nprint(os.uname().version)\n",
 "out": "seeed_xiao_esp32c3\n89d3eacac803\n10.3.2\n10.3.2 on 2026-11-11\n",
 "err": ""
 },
 {
-"t": 0.236,
+"t": 2.764,
 "kind": "exec",
 "cmd": "try:\n import storage\n ro = storage.getmount('/').readonly\nexcept Exception:\n ro = False\nif not ro:\n print('rw')\nelse:\n try:\n  storage.remount('/', False)\n  print('remounted')\n except Exception as e:\n  print('usb', e)\n",
 "out": "rw\n",
 "err": ""
 },
 {
-"t": 0.338,
+"t": 2.861,
 "kind": "exec",
 "cmd": "try:\n f=open('code.py','rb')\nexcept OSError:\n print('__MISSING__')\nelse:\n while True:\n  b=f.read(512)\n  if not b: break\n  print(''.join('%02x'%c for c in b), end='')\n f.close()\n",
-"out": "2320535044582d4c6963656e73652d4964656e7469666965723a2047504c2d332e302d6f722d6c617465720a2320666f782d62656e63682074656d706c6174653a2070757a7a6c652d626561636f6e202d2d206120424c4520666f782077686f7365206164766572746973656d656e74206973207468652070757a7a6c653a20616e2069426561636f6e20636f64652c20616e204564647973746f6e652055524c2c0a232074656c656d657472792c2061206e616d652074686174206368616e6765732065616368206379636c652028746865207061796c6f61642073656374696f6e292e2053616d652072756e6e657220617320626c652d626561636f6e3b207468652073656374696f6e20646f65732074686520726573742e0a2320446973747269627574656420756e6465722047504c2d332e302d6f722d6c617465722c20574954484f555420414e592057415252414e54593b20736565206669726d776172652f4c4943454e53452e0a0a66726f6d20666f786c69622e6e6574666f7820696d706f7274204e6574466f780a0a666f78203d204e6574466f782822666f782e6a736f6e222c2064656661756c74733d2264656661756c74732e6a736f6e222c2076657273696f6e3d22312e302e3022290a666f7220747820696e20666f782e6379636c657328293a0a2020202074782e626561636f6e28290a",
+"out": "2320535044582d4c6963656e73652d4964656e7469666965723a2047504c2d332e302d6f722d6c617465720a2320666f782d62656e63682074656d706c6174653a20626c652d626561636f6e202d2d20616e2069426561636f6e206164766572746973656d656e74202855554944202f206d616a6f72202f206d696e6f72202f20706f7765722920776974682061206e616d652c206f6e20612064757479206379636c652e0a2320446973747269627574656420756e6465722047504c2d332e302d6f722d6c617465722c20574954484f555420414e592057415252414e54593b20736565206669726d776172652f4c4943454e53452e0a0a66726f6d20666f786c69622e6e6574666f7820696d706f7274204e6574466f780a0a666f78203d204e6574466f782822666f782e6a736f6e222c2064656661756c74733d2264656661756c74732e6a736f6e222c2076657273696f6e3d22312e302e3022290a666f7220747820696e20666f782e6379636c657328293a0a2020202074782e626561636f6e28290a",
 "err": ""
 },
 {
-"t": 0.46,
+"t": 2.969,
 "kind": "exec",
 "cmd": "try:\n f=open('fox.json','rb')\nexcept OSError:\n print('__MISSING__')\nelse:\n while True:\n  b=f.read(512)\n  if not b: break\n  print(''.join('%02x'%c for c in b), end='')\n f.close()\n",
-"out": "7b0a2022736368656d61223a20312c0a202274656d706c617465223a202270757a7a6c652d626561636f6e222c0a2022626f617264223a202265737033326333222c0a202276617269616e74223a202273656565645f7869616f5f65737033326333222c0a202270696e73223a207b0a2020226c6564223a206e756c6c2c0a202022626174745f73656e7365223a206e756c6c0a207d2c0a20226e6574223a207b0a2020226b696e64223a2022626c65222c0a2020226e616d65223a2022464f5842454e43482050757a7a6c65222c0a20202275756964223a202246304230463042302d303030302d343030302d383030302d303030303030303030304231222c0a2020226d616a6f72223a20312c0a2020226d696e6f72223a20312c0a2020227369676e616c5f706f7765725f64626d223a202d35392c0a2020226164765f6d696e223a203130302c0a2020226164765f6d6178223a203130302c0a20202274785f706f7765725f64626d223a20302c0a2020226d6163223a202246323a42303a30303a30303a30303a3037220a207d2c0a20227061796c6f6164223a207b0a202022656e61626c6564223a20747275652c0a2020226b696e64223a2022726f74617465222c0a2020226e616d6573223a205b0a20202022464f5842454e43482050757a7a6c65222c0a2020202246494e44204d45222c0a2020202257484f20414d2049220a20205d2c0a2020226d6f7273655f6f66223a2022222c0a202022636f6465223a207b0a202020226d616a6f72223a20312c0a202020226d696e6f72223a20310a20207d2c0a2020226564647973746f6e65223a207b0a2020202275726c223a2022222c0a20202022746c6d223a20747275650a20207d2c0a20202273706c6974223a207b0a2020202277696669223a2022222c0a20202022626c65223a2022220a20207d2c0a202022696e7465726c656176655f6d73223a20313030300a207d2c0a20226964223a207b0a20202263616c6c6d657373616765223a20224e3043414c4c204445434f59204445434f59204e3043414c4c222c0a2020227573655f63616c6c7369676e5f61735f6e616d65223a20747275650a207d2c0a20227363686564756c65223a207b0a2020226b696e64223a202264757479222c0a20202277616b655f73223a2031352c0a202022736c6565705f73223a20352c0a202022736c656570223a20226f6666220a207d2c0a20226c6564223a207b0a202022656e61626c6564223a20747275650a207d2c0a2022666c656574223a207b0a20202270726f66696c65223a2022222c0a2020226e756d626572223a206e756c6c2c0a2020226576656e74223a2022222c0a2020226e6f746573223a202268775f736d6f6b65220a207d0a7d",
+"out": "7b0a2022736368656d61223a20312c0a202274656d706c617465223a2022626c652d626561636f6e222c0a2022626f617264223a202265737033326333222c0a202276617269616e74223a202273656565645f7869616f5f65737033326333222c0a202270696e73223a207b0a2020226c6564223a206e756c6c2c0a202022626174745f73656e7365223a206e756c6c0a207d2c0a20226e6574223a207b0a2020226b696e64223a2022626c65222c0a2020226e616d65223a2022464f5842454e434820426561636f6e222c0a20202275756964223a202246304230463042302d303030302d343030302d383030302d303030303030303030303031222c0a2020226d616a6f72223a20312c0a2020226d696e6f72223a20312c0a2020227369676e616c5f706f7765725f64626d223a202d35392c0a2020226164765f6d696e223a203130302c0a2020226164765f6d6178223a203130302c0a20202274785f706f7765725f64626d223a20302c0a2020226d6163223a202246323a42303a30303a30303a30303a3037220a207d2c0a20226964223a207b0a20202263616c6c6d657373616765223a20224e3043414c4c204445434f59204445434f59204e3043414c4c222c0a2020227573655f63616c6c7369676e5f61735f6e616d65223a20747275650a207d2c0a20227363686564756c65223a207b0a2020226b696e64223a202264757479222c0a20202277616b655f73223a2031352c0a202022736c6565705f73223a20352c0a202022736c656570223a20226f6666220a207d2c0a20226c6564223a207b0a202022656e61626c6564223a20747275650a207d2c0a2022666c656574223a207b0a20202270726f66696c65223a2022222c0a2020226e756d626572223a206e756c6c2c0a2020226576656e74223a2022222c0a2020226e6f746573223a202268775f736d6f6b65220a207d0a7d",
 "err": ""
 },
 {
-"t": 0.575,
+"t": 3.068,
 "kind": "exec",
 "cmd": "try:\n f=open('defaults.json','rb')\nexcept OSError:\n print('__MISSING__')\nelse:\n while True:\n  b=f.read(512)\n  if not b: break\n  print(''.join('%02x'%c for c in b), end='')\n f.close()\n",
-"out": "7b22736368656d61223a20312c202274656d706c617465223a202270757a7a6c652d626561636f6e222c2022626f617264223a202265737033326333222c202276617269616e74223a202273656565645f7869616f5f65737033326333222c202270696e73223a207b226c6564223a206e756c6c2c2022626174745f73656e7365223a206e756c6c7d2c20226e6574223a207b226b696e64223a2022626c65222c20226e616d65223a2022464f5842454e43482050757a7a6c65222c202275756964223a202246304230463042302d303030302d343030302d383030302d303030303030303030304231222c20226d616a6f72223a20312c20226d696e6f72223a20312c20227369676e616c5f706f7765725f64626d223a202d35392c20226164765f6d696e223a203130302c20226164765f6d6178223a203130302c202274785f706f7765725f64626d223a20302c20226d6163223a202246323a42303a30303a30303a30303a3037227d2c20227061796c6f6164223a207b22656e61626c6564223a20747275652c20226b696e64223a2022726f74617465222c20226e616d6573223a205b22464f5842454e43482050757a7a6c65222c202246494e44204d45222c202257484f20414d2049225d2c20226d6f7273655f6f66223a2022222c2022636f6465223a207b226d616a6f72223a20312c20226d696e6f72223a20317d2c20226564647973746f6e65223a207b2275726c223a2022222c2022746c6d223a20747275657d2c202273706c6974223a207b2277696669223a2022222c2022626c65223a2022227d2c2022696e7465726c656176655f6d73223a20313030307d2c20226964223a207b2263616c6c6d657373616765223a20224e3043414c4c204445434f59204445434f59204e3043414c4c222c20227573655f63616c6c7369676e5f61735f6e616d65223a2066616c73657d2c20227363686564756c65223a207b226b696e64223a202264757479222c202277616b655f73223a2031352c2022736c6565705f73223a20352c2022736c656570223a20226f6666227d2c20226c6564223a207b22656e61626c6564223a20747275657d2c2022666c656574223a207b2270726f66696c65223a2022222c20226e756d626572223a206e756c6c2c20226576656e74223a2022222c20226e6f746573223a2022227d7d",
+"out": "7b22736368656d61223a20312c202274656d706c617465223a2022626c652d626561636f6e222c2022626f617264223a202265737033326333222c202276617269616e74223a202273656565645f7869616f5f65737033326333222c202270696e73223a207b226c6564223a206e756c6c2c2022626174745f73656e7365223a206e756c6c7d2c20226e6574223a207b226b696e64223a2022626c65222c20226e616d65223a2022464f5842454e434820426561636f6e222c202275756964223a202246304230463042302d303030302d343030302d383030302d303030303030303030303031222c20226d616a6f72223a20312c20226d696e6f72223a20312c20227369676e616c5f706f7765725f64626d223a202d35392c20226164765f6d696e223a203130302c20226164765f6d6178223a203130302c202274785f706f7765725f64626d223a20302c20226d6163223a202246323a42303a30303a30303a30303a3037227d2c20226964223a207b2263616c6c6d657373616765223a20224e3043414c4c204445434f59204445434f59204e3043414c4c222c20227573655f63616c6c7369676e5f61735f6e616d65223a2066616c73657d2c20227363686564756c65223a207b226b696e64223a202264757479222c202277616b655f73223a2031352c2022736c6565705f73223a20352c2022736c656570223a20226f6666227d2c20226c6564223a207b22656e61626c6564223a20747275657d2c2022666c656574223a207b2270726f66696c65223a2022222c20226e756d626572223a206e756c6c2c20226576656e74223a2022222c20226e6f746573223a2022227d7d",
 "err": ""
 },
 {
-"t": 0.635,
+"t": 3.128,
 "kind": "exec",
 "cmd": "import os\ntry:\n os.mkdir('foxlib')\nexcept OSError:\n pass\n",
 "out": "",
 "err": ""
 },
 {
-"t": 2.232,
+"t": 4.73,
 "kind": "write",
 "path": "foxlib/__init__.mpy",
 "size": 2552,
 "crc": "7afae432"
 },
 {
-"t": 2.937,
+"t": 5.434,
 "kind": "write",
 "path": "foxlib/guard.mpy",
 "size": 690,
 "crc": "30411ea7"
 },
 {
-"t": 3.754,
+"t": 6.302,
 "kind": "write",
 "path": "foxlib/led.mpy",
 "size": 958,
 "crc": "a06bd90f"
 },
 {
-"t": 4.732,
+"t": 7.23,
 "kind": "write",
 "path": "foxlib/morse.mpy",
 "size": 1098,
 "crc": "13a19001"
 },
 {
-"t": 10.949,
+"t": 13.442,
 "kind": "write",
 "path": "foxlib/netcfg.mpy",
 "size": 11795,
 "crc": "a379162f"
 },
 {
-"t": 15.165,
+"t": 17.73,
 "kind": "write",
 "path": "foxlib/netcheckpoint.mpy",
 "size": 7948,
 "crc": "a6051c26"
 },
 {
-"t": 15.734,
+"t": 18.3,
 "kind": "write",
 "path": "foxlib/netfeatures.mpy",
 "size": 436,
 "crc": "6b5c5036"
 },
 {
-"t": 19.514,
+"t": 22.086,
 "kind": "write",
 "path": "foxlib/netfox.mpy",
 "size": 7030,
 "crc": "7b3fff4a"
 },
 {
-"t": 20.742,
+"t": 23.321,
 "kind": "write",
 "path": "foxlib/netmodes.mpy",
 "size": 1721,
 "crc": "606dc519"
 },
 {
-"t": 22.756,
+"t": 25.344,
 "kind": "write",
 "path": "foxlib/netpayload.mpy",
 "size": 3391,
 "crc": "e31f9af9"
 },
 {
-"t": 25.71,
+"t": 28.31,
 "kind": "write",
 "path": "foxlib/netradio.mpy",
 "size": 5136,
 "crc": "c407e150"
 },
 {
-"t": 28.552,
+"t": 31.154,
 "kind": "write",
 "path": "foxlib/netsense.mpy",
 "size": 5013,
 "crc": "8bb8f224"
 },
 {
-"t": 30.825,
+"t": 33.436,
 "kind": "write",
 "path": "foxlib/netstealth.mpy",
 "size": 3823,
 "crc": "43306fde"
 },
 {
-"t": 32.103,
+"t": 34.716,
 "kind": "write",
 "path": "foxlib/netvary.mpy",
 "size": 1847,
 "crc": "6f545c99"
 },
 {
-"t": 32.827,
+"t": 35.44,
 "kind": "write",
 "path": "foxlib/report.mpy",
 "size": 736,
 "crc": "d14017cc"
 },
 {
-"t": 33.274,
+"t": 35.888,
 "kind": "write",
 "path": "foxlib/VERSION",
 "size": 7,
 "crc": "6e539e6a"
 },
 {
-"t": 35.035,
+"t": 37.654,
 "kind": "write",
 "path": "safemode.py",
 "size": 3449,
 "crc": "9d683dd8"
 },
 {
-"t": 35.126,
+"t": 37.743,
 "kind": "exec",
 "cmd": "import os\nfor n in os.listdir('foxlib'):\n try:\n  s=os.stat('foxlib/'+n); print(n, s[6], 'd' if s[0] & 0x4000 else 'f')\n except Exception:\n  print(n, -1, '?')\n",
-"out": "__init__.mpy 2552 f\nbattery.mpy 627 f\ncfg.mpy 7721 f\ncycle.mpy 2638 f\nguard.mpy 690 f\nled.mpy 958 f\nmelody.mpy 531 f\nmorse.mpy 1098 f\nnetcfg.mpy 11795 f\nnetcheckpoint.mpy 7948 f\nnetfeatures.mpy 436 f\nnetfox.mpy 7030 f\nnetmodes.mpy 1721 f\nnetpayload.mpy 3391 f\nnetradio.mpy 5136 f\nnetsense.mpy 5013 f\nnetstealth.mpy 3823 f\nnetvary.mpy 1847 f\nradio.mpy 2018 f\nreport.mpy 736 f\nschedule.mpy 1167 f\nsstv.mpy 1698 f\ntones.mpy 637 f\nVERSION 7 f\n",
+"out": "__init__.mpy 2552 f\nguard.mpy 690 f\nled.mpy 958 f\nmorse.mpy 1098 f\nnetcfg.mpy 11795 f\nnetcheckpoint.mpy 7948 f\nnetfeatures.mpy 436 f\nnetfox.mpy 7030 f\nnetmodes.mpy 1721 f\nnetpayload.mpy 3391 f\nnetradio.mpy 5136 f\nnetsense.mpy 5013 f\nnetstealth.mpy 3823 f\nnetvary.mpy 1847 f\nreport.mpy 736 f\nVERSION 7 f\n",
 "err": ""
 },
 {
-"t": 35.286,
-"kind": "exec",
-"cmd": "import os\nos.remove('foxlib/battery.mpy')",
-"out": "",
-"err": ""
-},
-{
-"t": 35.445,
-"kind": "exec",
-"cmd": "import os\nos.remove('foxlib/cfg.mpy')",
-"out": "",
-"err": ""
-},
-{
-"t": 35.605,
-"kind": "exec",
-"cmd": "import os\nos.remove('foxlib/cycle.mpy')",
-"out": "",
-"err": ""
-},
-{
-"t": 35.765,
-"kind": "exec",
-"cmd": "import os\nos.remove('foxlib/melody.mpy')",
-"out": "",
-"err": ""
-},
-{
-"t": 35.925,
-"kind": "exec",
-"cmd": "import os\nos.remove('foxlib/radio.mpy')",
-"out": "",
-"err": ""
-},
-{
-"t": 36.085,
-"kind": "exec",
-"cmd": "import os\nos.remove('foxlib/schedule.mpy')",
-"out": "",
-"err": ""
-},
-{
-"t": 36.245,
-"kind": "exec",
-"cmd": "import os\nos.remove('foxlib/sstv.mpy')",
-"out": "",
-"err": ""
-},
-{
-"t": 36.405,
-"kind": "exec",
-"cmd": "import os\nos.remove('foxlib/tones.mpy')",
-"out": "",
-"err": ""
-},
-{
-"t": 36.488,
+"t": 37.827,
 "kind": "exec",
 "cmd": "try:\n f=open('settings.toml','rb')\nexcept OSError:\n print('__MISSING__')\nelse:\n while True:\n  b=f.read(512)\n  if not b: break\n  print(''.join('%02x'%c for c in b), end='')\n f.close()\n",
 "out": "2320666f782d62656e63683a2074726163652074686520626f6f742028666f786c69622f6e6574666f782e7079207072696e747320657665727920696e69742073746570206265666f7265207468652062616e6e6572292e2052656d6f766520746869732066696c652c206f7220756e7469636b202254726163652074686520626f6f7422206f6e204465706c6f792c20746f2073746f702069742e0a464f585f5452414345203d20310a",
 "err": ""
 },
 {
-"t": 36.945,
+"t": 38.283,
 "kind": "write",
 "path": "settings.toml",
 "size": 171,
 "crc": "628a2b0a"
 },
 {
-"t": 42.66,
+"t": 43.946,
 "kind": "write",
 "path": "code.py",
 "size": 391,
 "crc": "8d88e656"
 },
 {
-"t": 43.303,
+"t": 44.589,
 "kind": "write",
 "path": "defaults.json",
 "size": 613,
 "crc": "a54a2b89"
 },
 {
-"t": 43.955,
+"t": 45.241,
 "kind": "write",
 "path": "fox.json",
 "size": 696,
 "crc": "bf9f1cf6"
 },
 {
-"t": 64.048,
+"t": 45.945,
 "kind": "reboot",
-"out": "\nsoft reboot\nAuto-reload is off.\nRunning in safe mode! Not running saved code.\n\nYou are in safe mode because:\nCircuitPython core code crashed hard. Whoops!\nHard fault: memory access or instruction error.\nPlease file an issue with your program at github.com/adafruit/circuitpython/issues.\nPress reset to exit safe mode.\n\nPress any key to enter the REPL. Use CTRL-D to reload.\n"
+"out": "\nsoft reboot\ncode.py output:\ninit: start seeed_xiao_esp32c3 (free 29616)\ninit: ble workflow already off (free 29488)\ninit: radios wifi24,ble (free 29280)\ninit: config ok (free 22384)\ninit: alarm cold (free 22192)\ninit: led none (free 21360)\ninit: radio ble setup (free 21264)\ninit: radio ok (free 19616)\ninit: features  (free 19520)\ninit: features attached (free 27712)\ninitializing system ... \nFOX template=ble-beacon/1.0.0 foxlib=1.11.1 board=seeed_xiao_esp32c3 uid=89d3eacac803 cfg=ok radio=ok id=unset freq=none net=ble name=\"N0CALL DECOY DECOY N0CALL\" mac=F2:B0:00:00:00:07 clock=unset mem=27376\nwatchdog 90s\ncycle 0\nble up: N0CALL DECOY DECOY N0CALL (F2:B0:00:00:00:07) for 15 s\n"
 },
 {
-"t": 64.694,
+"t": 53.992,
+"kind": "listen",
+"seconds": 8,
+"out": ""
+},
+{
+"t": 56.682,
+"kind": "exec",
+"cmd": "import gc, time\ngc.collect()\na=gc.mem_free()\nt=time.monotonic()\nimport foxlib\nprint(a, gc.mem_free(), time.monotonic()-t)\n",
+"out": "58400 53552 0.015010836\n",
+"err": ""
+},
+{
+"t": 57.262,
+"kind": "exec",
+"cmd": "import gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfrom foxlib.netfox import NetFox\nfox = NetFox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(gc.mem_free())\nprint(fox.radio.status)\nprint(fox.rssi())\nprint(fox.radio.mac())\n",
+"out": "27456\nok\n-40 neighbour-1 | -68 neighbour-2\n98:3D:AE:AC:8C:32\n",
+"err": ""
+},
+{
+"t": 58.436,
+"kind": "exec",
+"cmd": "import gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfrom foxlib.netfox import NetFox\nfox = NetFox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(fox.key_for(1))\n",
+"out": "ok ble N0CALL DECOY DECOY N0CALL (F2:B0:00:00:00:07) for 1.0 s\n",
+"err": ""
+},
+{
+"t": 64.111,
 "kind": "write",
 "path": "code.py",
 "size": 509,
 "crc": "8f8bc75d"
 },
 {
-"t": 65.414,
+"t": 64.832,
 "kind": "write",
 "path": "defaults.json",
 "size": 863,
 "crc": "6a1878c0"
 },
 {
-"t": 66.152,
+"t": 65.57,
 "kind": "write",
 "path": "fox.json",
 "size": 1009,
 "crc": "b311f52a"
 },
 {
-"t": 86.228,
+"t": 66.324,
 "kind": "reboot",
-"out": "\nsoft reboot\nAuto-reload is off.\nRunning in safe mode! Not running saved code.\n\nYou are in safe mode because:\nCircuitPython core code crashed hard. Whoops!\nHard fault: memory access or instruction error.\nPlease file an issue with your program at github.com/adafruit/circuitpython/issues.\nPress reset to exit safe mode.\n\nPress any key to enter the REPL. Use CTRL-D to reload.\n"
+"out": "\nsoft reboot\ncode.py output:\ninit: start seeed_xiao_esp32c3 (free 29616)\ninit: ble workflow already off (free 29488)\ninit: radios wifi24,ble (free 29280)\ninit: config ok (free 21760)\ninit: alarm cold (free 21568)\ninit: led none (free 20736)\ninit: radio ble setup (free 20640)\ninit: radio ok (free 25040)\ninit: features payload (free 24928)\ninit: features attached (free 31200)\ninitializing system ... \nFOX template=puzzle-beacon/1.0.0 foxlib=1.11.1 board=seeed_xiao_esp32c3 uid=89d3eacac803 cfg=ok radio=ok id=unset freq=none net=ble name=\"N0CALL DECOY DECOY N0CALL\" mac=F2:B0:00:00:00:07 features=payload clock=unset mem=30912\nwatchdog 90s\ncycle 0\npayload: name this cycle \"FOXBENCH Puzzle\"\npayload: 2 BLE frames, every 1000 ms\nble up: FOXBENCH Puzzle (F2:B0:00:00:00:07) for 15 s\n"
 },
 {
-"t": 86.413,
+"t": 74.369,
+"kind": "listen",
+"seconds": 8,
+"out": ""
+},
+{
+"t": 77.057,
+"kind": "exec",
+"cmd": "import gc, time\ngc.collect()\na=gc.mem_free()\nt=time.monotonic()\nimport foxlib\nprint(a, gc.mem_free(), time.monotonic()-t)\n",
+"out": "58400 53552 0.01501465\n",
+"err": ""
+},
+{
+"t": 77.587,
+"kind": "exec",
+"cmd": "import gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfrom foxlib.netfox import NetFox\nfox = NetFox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(gc.mem_free())\nprint(fox.radio.status)\nprint(fox.rssi())\nprint(fox.radio.mac())\n",
+"out": "31360\nok\n-38 neighbour-1 | -66 neighbour-2\n98:3D:AE:AC:8C:32\n",
+"err": ""
+},
+{
+"t": 78.761,
+"kind": "exec",
+"cmd": "import gc\ntry:\n fox.deinit()\nexcept Exception:\n pass\nfrom foxlib.netfox import NetFox\nfox = NetFox('fox.json', defaults='defaults.json', quiet=True)\nif fox.fatal: raise RuntimeError('fox not usable: ' + fox.fatal)\ngc.collect()\nprint(fox.key_for(1))\n",
+"out": "ok ble N0CALL DECOY DECOY N0CALL (F2:B0:00:00:00:07) for 1.0 s\n",
+"err": ""
+},
+{
+"t": 83.977,
 "kind": "exec",
 "cmd": "try:\n f=open('settings.toml','rb')\nexcept OSError:\n print('__MISSING__')\nelse:\n while True:\n  b=f.read(512)\n  if not b: break\n  print(''.join('%02x'%c for c in b), end='')\n f.close()\n",
 "out": "2320666f782d62656e63683a2074726163652074686520626f6f742028666f786c69622f6e6574666f782e7079207072696e747320657665727920696e69742073746570206265666f7265207468652062616e6e6572292e2052656d6f766520746869732066696c652c206f7220756e7469636b202254726163652074686520626f6f7422206f6e204465706c6f792c20746f2073746f702069742e0a464f585f5452414345203d20310a",
 "err": ""
 },
 {
-"t": 86.573,
+"t": 84.137,
 "kind": "exec",
 "cmd": "import os\nos.remove('settings.toml')",
 "out": "",
 "err": ""
 },
 {
-"t": 87.162,
+"t": 84.67,
 "kind": "write",
 "path": "code.py",
-"size": 509,
-"crc": "8f8bc75d"
+"size": 391,
+"crc": "8d88e656"
 },
 {
-"t": 87.894,
+"t": 85.32,
 "kind": "write",
 "path": "fox.json",
-"size": 1009,
-"crc": "b311f52a"
+"size": 696,
+"crc": "bf9f1cf6"
 },
 {
-"t": 88.609,
+"t": 85.962,
 "kind": "write",
 "path": "defaults.json",
-"size": 863,
-"crc": "6a1878c0"
+"size": 613,
+"crc": "a54a2b89"
 },
 {
-"t": 98.662,
+"t": 86.616,
 "kind": "reboot",
-"out": "\nsoft reboot\nAuto-reload is off.\nRunning in safe mode! Not running saved code.\n\nYou are in safe mode because:\nCircuitPython core code crashed hard. Whoops!\nHard fault: memory access or instruction error.\nPlease file an issue with your program at github.com/adafruit/circuitpython/issues.\nPress reset to exit safe mode.\n\nPress any key to enter the REPL. Use CTRL-D to reload.\n"
+"out": "\nsoft reboot\ncode.py output:\ninitializing system ... \nFOX template=ble-beacon/1.0.0 foxlib=1.11.1 board=seeed_xiao_esp32c3 uid=89d3eacac803 cfg=ok radio=ok id=unset freq=none net=ble name=\"N0CALL DECOY DECOY N0CALL\" mac=F2:B0:00:00:00:07 clock=unset mem=27344\nwatchdog 90s\ncycle 0\nble up: N0CALL DECOY DECOY N0CALL (F2:B0:00:00:00:07) for 15 s\n"
 }
 ],
-"_": "format 2: one 'write' line per file (path, size, crc) instead of its bytes; the callsign replaced by W1ABC FOX DE W1ABC; scan results scrubbed (0 callsign mention(s) replaced, 0 scan neighbour(s) renamed)"
+"_": "format 2: one 'write' line per file (path, size, crc) instead of its bytes; the callsign replaced by W1ABC FOX DE W1ABC; scan results scrubbed (0 callsign mention(s) replaced, 4 scan neighbour(s) renamed)"
 }
