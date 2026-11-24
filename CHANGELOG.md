@@ -14,6 +14,30 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.18.27 — the C5 leaves experimental
+
+- `boards/esp32c5.json` is **stable**: the XIAO ESP32C5 ran all five network
+  templates from `.mpy` on 2026-11-24 with 8.2 MB free (PSRAM), the laptop
+  found each Wi-Fi fox, joined the checkpoint, got the captive sign-in page
+  and read the find back (`docs/hardware-log.md`; the `--record` file goes to
+  `tests/fixtures/bench/` as seeed_xiao_esp32c5-net-2026-11-24.json with the
+  session, where CI replays it). `led on`
+  works on IO27. The fox's own scan lists a 5 GHz network, so 5 GHz receive
+  works under CircuitPython; an AP on channel 36 and monitor mode are not
+  yet tried. The five templates' `boards_tested` gain `esp32c5`.
+- The picker smoke counts hidden targets again: only the nRF52840 is
+  experimental now (the C6 line in 0.18.25 had left the count at three).
+- README: the C5 row in the tested-boards table; the FireBeetle 2 gets its own
+  "described" row.
+- `firmware/sim/schema_parity.mjs` validates against the *hardware's* radios,
+  as the Python side does: a target's narrower `radios` (the C3's `["ble"]`)
+  only filters which templates are offered. The parity step had ten
+  mismatches on the C3 corpus since 0.18.24.
+- CI's sniffer step (`hw_smoke.py --sniffer` on the pty board) deploys
+  `wifi-probe` for the C6 target: on the C3 target both Wi-Fi templates have
+  been skipped since 0.18.24 ("not offered"), which the step's assertion
+  reads as a failure.
+
 ### Page 0.18.26
 
 - The two ESP32-C5 descriptors flash CircuitPython at `0x0`, not `0x2000`:

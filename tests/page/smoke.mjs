@@ -651,13 +651,13 @@ try {
   section('experimental targets in the picker');
   await tab('board');
   const optsDefault = await page.$$eval('#tab-board select option', els => els.map(e => e.value));
-  check(optsDefault.includes('picofox-foxlibc') && optsDefault.includes('seeed_xiao_esp32c3') && optsDefault.includes('esp32s3') && optsDefault.includes('esp32c3') && !optsDefault.includes('nrf52840') && !optsDefault.includes('esp32c6'), 'experimental targets are hidden from the picker by default; the stable ones are listed (the S3 and the C3 chip targets since 0.18.24)');
+  check(optsDefault.includes('picofox-foxlibc') && optsDefault.includes('seeed_xiao_esp32c3') && optsDefault.includes('esp32s3') && optsDefault.includes('esp32c3') && optsDefault.includes('esp32c6') && optsDefault.includes('esp32c5') && !optsDefault.includes('nrf52840'), 'experimental targets are hidden from the picker by default; the stable ones are listed (the four Espressif chip targets since 0.18.27)');
   const nExp = await app(() => Object.values(window.foxbench.catalog.boards).filter(b => b.status === 'experimental').length);
   check(/Show experimental targets/.test(await text('#tab-board')) && new RegExp(nExp + ' hidden').test(await text('#tab-board')), `the picker says how many targets are hidden (${nExp})`);
   await page.check('#tab-board .card:first-child input[type=checkbox]'); await settle(300);   // the picker card's checkbox, not the flash card's erase box
   const optsAll = await page.$$eval('#tab-board select option', els => els.map(e => e.value));
   const nNet = optsAll.filter(v => ['esp32c3', 'esp32c6', 'esp32c5', 'esp32s3', 'nrf52840'].includes(v)).length;
-  check(nNet === 5 && optsAll.length === optsDefault.length + nExp && nExp === 3, `the checkbox adds the ${nExp} experimental targets (C5, C6, nRF52840); all five chip targets listed`);
+  check(nNet === 5 && optsAll.length === optsDefault.length + nExp && nExp === 1, `the checkbox adds the ${nExp} experimental target (nRF52840); all five chip targets listed`);
   const groupsAll = await page.$$eval('#tab-board select optgroup', els => els.map(e => [e.label, [...e.querySelectorAll('option')].map(o => o.value)]));
   const chipGroup = groupsAll.find(([l]) => l === 'CircuitPython board'), fmGroup = groupsAll.find(([l]) => /\+ radio module/.test(l)), driveGroup = groupsAll.find(([l]) => l === 'Drive-configured fox');
   check(chipGroup && chipGroup[1].join() === 'esp32c3,esp32c5,esp32c6,esp32s3,nrf52840' && fmGroup && fmGroup[1].join() === 'seeed_xiao_esp32c3', 'picker groups: the five chips under "CircuitPython board", the XIAO + SA868 under "+ radio module"');

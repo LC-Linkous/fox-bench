@@ -30,7 +30,8 @@ for (const c of corpus.cases) {
   const defaults = JSON.parse(readFileSync(join(root, 'firmware/templates', c.template, 'defaults', c.board + '.json')));
   const target = JSON.parse(readFileSync(join(root, 'boards', c.board + '.json')));
   const hw = target.hardware ? JSON.parse(readFileSync(join(root, 'hardware', target.hardware + '.json'))) : {};
-  const board = { ...hw, ...target };   // a target merged with its hardware, as the page's loader does
+  const board = { ...hw, ...target, radios: hw.radios };   // a target merged with its hardware, as the page's loader does; the validators
+                                                           // judge by the chip's radios (the Python side reads hardware/), a target's narrower list only filters templates
   const r = isNet(c.template) ? net.validate(c.user, defaults, board) : mergeAndValidate(c.user, defaults, board);
   out[c.name] = { status: r.status, cfg: r.cfg };
 }

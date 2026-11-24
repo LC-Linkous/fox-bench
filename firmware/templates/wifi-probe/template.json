@@ -30,5 +30,5 @@
     "keytest",
     "rssi"
   ],
-  "boards_tested": ["esp32s3", "esp32c6"]
+  "boards_tested": ["esp32s3", "esp32c6", "esp32c5"]
 }

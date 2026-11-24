@@ -34,8 +34,9 @@ templates (three beacons, `puzzle-beacon`, `checkpoint`) are on the bench
 on the XIAO ESP32S3 — found by a phone and by the laptop, the checkpoint's
 sign-in page and find log read back — and the XIAO ESP32-C3 runs the two
 BLE ones (its CircuitPython core cannot hold a Wi-Fi fox: `boards/esp32c3.json`
-says why); the XIAO ESP32C6 runs all five as well (2026-11-23); the C5, S3-Nano and Nano
-33 BLE chip targets stay **experimental** until their own hardware-log row. The
+says why); the XIAO ESP32C6 (2026-11-23) and the XIAO ESP32C5 (2026-11-24) run all five
+as well; the S3-Nano and Nano 33 BLE chip targets stay **experimental** until
+their own hardware-log row. The
 AI6YM PicoFox is supported two ways: with its **vendor firmware** (the page
 writes its settings, renders its audio and Morse-ID files, and draws the
 cycle that firmware runs — verified on air, `docs/picofox.md`), and
@@ -73,7 +74,8 @@ what the next session has to show):
 | Seeed XIAO ESP32S3 (Sense) | `esp32s3` (stable) | Wi-Fi, BLE | 2026-11 | all five network templates; a phone and the laptop found them; the captive sign-in page and its find log read back |
 | Seeed XIAO ESP32-C3 (bare) | `esp32c3` (stable, BLE only) | BLE (the chip's Wi-Fi is not offered) | 2026-11 | boots a network fox from `.mpy` with ~36 KB free, then the CircuitPython core hard-faults while the Wi-Fi AP runs; the BLE beacon and puzzle beacon hold their wakes with 27–31 KB free |
 | Seeed XIAO ESP32C6 | `esp32c6` (stable) | Wi-Fi, BLE | 2026-11 | all five network templates from `.mpy`, 114–156 KB free after init; found by the laptop, the sign-in page and find log read back |
-| Seeed XIAO ESP32C5, DFRobot FireBeetle 2 ESP32-C5 | `esp32c5` | Wi-Fi 2.4/5, BLE | — | enumerates; first session pending |
+| Seeed XIAO ESP32C5 | `esp32c5` (stable) | Wi-Fi 2.4/5, BLE | 2026-11 | all five network templates from `.mpy`, 8.2 MB free (PSRAM); found by the laptop, the sign-in page and find log read back; 5 GHz receive seen, a 5 GHz AP not yet tried |
+| DFRobot FireBeetle 2 ESP32-C5 | `esp32c5` | Wi-Fi 2.4/5, BLE | — | described (same chip target); nothing run |
 | Waveshare ESP32-S3-Nano | `esp32s3` | Wi-Fi, BLE | — | described from the Arduino Nano ESP32 build; nothing run |
 | Arduino Nano 33 BLE | `nrf52840` | BLE | — | described; CircuitPython needs `bossac`; nothing run |
 
