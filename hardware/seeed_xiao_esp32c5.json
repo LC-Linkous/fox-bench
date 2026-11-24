@@ -17,10 +17,10 @@
   "flash": {
     "method": "esptool",
     "chip": "esp32c5",
-    "offset": "0x2000",
+    "offset": "0x0",
     "flash_mb": 8,
     "bootloader_instructions": "Hold BOOT while plugging in USB; release after a second. The chip's USB-JTAG-serial port appears.",
-    "note": "8 MB flash and 8 MB PSRAM per Seeed's spec table (2026-11-23): the same parts as the ESP32-C5-DevKitC-1-N8R8, so that build's partition table fits. Offset 0x2000 is the ESP32-C5 convention; to be confirmed with the first board.",
+    "note": "CircuitPython's downloadable .bin is a merged image (bootloader, partition table and app at their own offsets inside it) and is written at 0x0 on every Espressif chip, as Adafruit's web flasher does; the C5's bootloader address of 0x2000 is already inside the image. 8 MB flash and 8 MB PSRAM per Seeed's spec table (2026-11-23): the same parts as the ESP32-C5-DevKitC-1-N8R8, so that build's partition table fits. To be confirmed with the first board.",
     "psram_mb": 8
   },
   "has_usb_drive": false,

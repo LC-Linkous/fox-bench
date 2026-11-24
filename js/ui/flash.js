@@ -75,7 +75,7 @@ export async function runFlash(app, { boardNumber = '' } = {}) {
     }
     facts = await flasher.flash({
       port,
-      // hardware flash.offset is where the chip's bootloader expects a bare CircuitPython image
+      // hardware flash.offset: 0x0 for every Espressif chip, because CircuitPython's .bin is a merged image with the bootloader already at its own offset inside it
       offset: parseInt(b.flash.offset, 16) || 0, eraseAll: state.erase, baud: state.baud, expectChip: b.flash.chip || '',
       impl: demo ? flasher.demoEsptool() : null,
       onLog: t => log.dim(t), onPhase: p => { state.phase = p; notify(); },

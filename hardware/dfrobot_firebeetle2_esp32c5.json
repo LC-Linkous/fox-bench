@@ -17,10 +17,10 @@
   "flash": {
     "method": "esptool",
     "chip": "esp32c5",
-    "offset": "0x2000",
+    "offset": "0x0",
     "flash_mb": 4,
     "bootloader_instructions": "Hold BOOT (GPIO28) while plugging in USB-C, or hold BOOT and tap RST; release after a second. The chip's USB-JTAG-serial port appears.",
-    "note": "Same chip and module class as the XIAO ESP32C5. The bootloader offset 0x2000 is the ESP32-C5 convention, to be confirmed on this board. On the bench at fox-bench since 2026-10-23 (serial over native USB confirmed: the ROM banner 'ESP-ROM:esp32c5-eco2-20250121' prints)."
+    "note": "CircuitPython's downloadable .bin is a merged image (bootloader, partition table and app at their own offsets inside it) and is written at 0x0 on every Espressif chip, as Adafruit's web flasher does; the C5's bootloader address of 0x2000 is already inside the image. To be confirmed with the first board."
   },
   "has_usb_drive": false,
   "usb": [

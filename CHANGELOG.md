@@ -14,6 +14,14 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.18.26
+
+- The two ESP32-C5 descriptors flash CircuitPython at `0x0`, not `0x2000`:
+  the downloadable `.bin` is a merged image with the bootloader already at
+  its own offset inside it, written at `0x0` on every Espressif chip (what
+  Adafruit's web flasher does). `0x2000` would have put the bootloader at
+  `0x4000` and the board would not have booted.
+
 ### Page 0.18.25 — the C6 leaves experimental
 
 - **`esp32c6` is stable**: hardware-log row of 2026-11-23 (XIAO ESP32C6,
