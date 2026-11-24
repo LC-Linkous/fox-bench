@@ -28,6 +28,13 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
   deploying defaults for esp32s3": a target's known board ids now come from
   `boards/<target>.json`'s hardware and variants (a chip target lists
   several physical boards), not from a `target` field no descriptor has.
+- README: a bench-laptop setup example (Debian): pyserial, `dialout`,
+  `tools/build_mpy.py` once per checkout — the `.mpy` set is build output
+  and a fresh clone has none — and the `hw_smoke` line.
+- `hw_smoke --payload`: the scan takes the row whose BSSID is the one the
+  banner gave before any row with the fox's name; NetworkManager keeps the
+  previous template's entry under the same name for a while (the S3's
+  checkpoint run reported the wifi-beacon's `…:01` for a fox on `…:C0`).
 
 ### Page 0.18.22 — readability
 

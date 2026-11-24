@@ -303,9 +303,12 @@ class HostWifi:
             rows = self.be.scan_rows()                      # [(ssid, BSSID upper, signal, channel)]
             r["scans"] += 1
             r["networks"] = max(r["networks"], len(rows))
-            for s, b, sig, ch in rows:
-                if (ssid and s == ssid) or (bssid and b == bssid.upper()):
-                    r.update(seen=True, bssid=b, signal=int(sig) if str(sig).isdigit() else sig, chan=ch); return self._rec("scan", r)
+            # the row whose BSSID is the one the banner gave, else any row with the name: NetworkManager keeps the
+            # previous template's entry under the same name for a while, and that one carries the old MAC
+            hit = next((x for x in rows if bssid and x[1] == bssid.upper()), None) or next((x for x in rows if ssid and x[0] == ssid), None)
+            if hit:
+                s, b, sig, ch = hit
+                r.update(seen=True, bssid=b, signal=int(sig) if str(sig).isdigit() else sig, chan=ch); return self._rec("scan", r)
             if time.monotonic() - t0 > seconds: return self._rec("scan", r)
             time.sleep(1)
 
@@ -850,7 +853,7 @@ class Run:
         a, host, b, fox, portal = self.a, self.host, t["banner"], t["fox"], t["portal"]
         name, mac, hidden = b.get("name", ""), b.get("mac", ""), bool(fox["net"].get("hidden"))
         if a.payload:
-            seen = res["on_air"] = host.scan(max(a.observe, 20), ssid=None if hidden else name, bssid=mac if hidden else None)
+            seen = res["on_air"] = host.scan(max(a.observe, 20), ssid=None if hidden else name, bssid=mac if mac and mac != "?" else None)
             if seen["seen"]:
                 print("  on the air: %r from %s, signal %s, channel %s (%d networks around, %d scan%s)%s" % (name, seen["bssid"], seen["signal"], seen["chan"], seen["networks"], seen["scans"], "" if seen["scans"] == 1 else "s",
                       "" if not mac or mac == "?" or seen["bssid"] == mac.upper() else " · NOTE: BSSID is not the %s fox.json asked for (bench-runbook Q12)" % mac.upper()))

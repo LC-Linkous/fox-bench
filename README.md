@@ -87,6 +87,27 @@ Tests: the full local sequence is in `tests/README.md` (catalog and docs
 lint, the two simulators, the C firmware's host tests, the page's unit and
 smoke suites); CI runs the same.
 
+### A bench laptop (Debian / Ubuntu example)
+
+The page needs nothing but a browser. The bench tools need Python 3 with
+`pyserial`, the serial port, and — once per checkout — the precompiled
+foxlib set, which is build output (gitignored; CI builds it for the hosted
+page) and so is missing from a fresh clone:
+
+```
+sudo apt install python3-serial            # or: pip install pyserial
+sudo usermod -aG dialout $USER             # the serial port; log out and in once
+python3 tools/build_mpy.py                 # fetches CircuitPython's mpy-cross, writes firmware/mpy/<major>/
+python3 tools/hw_smoke.py --port /dev/ttyACM0 --board esp32s3 --yes-antenna --mpy --payload --checkpoint \
+    --record tests/fixtures/bench/seeed_xiao_esp32s3-net-$(date +%F).json --report s3.json
+```
+
+`--mpy` without the set stops with "no precompiled set for CircuitPython
+10.x": run `build_mpy.py` and try again. `--payload` / `--checkpoint` use
+the laptop's Wi-Fi (NetworkManager here, `netsh wlan` on Windows) and take
+it off the network while a checkpoint fox is visited. The whole bench
+procedure is `docs/bench-runbook.md`.
+
 Reading the code: `CONTRIBUTING.md` opens with a map — which three to five
 files to read, in order, for each thing you might have come to do.
 
