@@ -14,6 +14,34 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.18.36 — flash the ESP32 firmware from the Board tab
+
+- A console-configured target's Board tab flashes fox-bench's firmware:
+  "Fetch from this site" takes CI's merged `.bin` and checks it against the
+  fingerprint CI writes beside it (sha256, size; an Espressif image header
+  and a sane size for a loaded file), then the same esptool path as
+  CircuitPython writes it at `0x0`. A loaded image belongs to the target it
+  was loaded for. The result line speaks of fox-bench firmware (Listen only
+  for the banner); the fleet row says `flash` on the C target. The site's
+  fingerprint is cached per target (the PicoFox's was shared before).
+
+### Tools — the bench script on a foxlib-c console
+
+- `tools/hw_smoke.py --board picofox-foxlibc` / `esp32c3-foxlibc` (any
+  foxlib-c target) runs the same phases over the serial console instead of
+  the REPL: `version`/`uid`, the fox's files saved with `get`, each
+  template's defaults.json + fox.json `put` (the fox reloads and prints its
+  banner), watch, bench (`health`/`scan` on the ESP32s, `status`/`batt` on
+  the PicoFox, `key <s>` on both), restore. `--record` keeps the console
+  exchanges; `firmware/sim/pty_board.py` replays a console recording in
+  line mode, and `--console <target>` is a small fake foxlib-c fox for
+  making one without a board. Two such recordings join the replay fixtures
+  (`sim-esp32c3-foxlibc-console.json`, `sim-picofox-foxlibc-console.json`).
+- `bench_queue.py` tells a C-firmware target's rows from the CircuitPython
+  target's on the same XIAO by the firmware column (`foxlib-c`).
+- bench-runbook: the PicoFox re-run and the first C-firmware ESP32 session
+  as script recipes; foxlib-c README: the PicoFox's console file commands.
+
 ### foxlib-c 0.1.14 — the ESP32 image fits the C5
 
 - `netfox.c` keeps one parsed document and one 16 KB text buffer instead of

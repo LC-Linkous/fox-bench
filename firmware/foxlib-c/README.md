@@ -92,9 +92,16 @@ One application, four images: `esp32/` is built once per chip by CI's
 - **Console** (`picofox/console.c`): banner at boot, when a terminal opens and
   after every reload; the fox log (`cycle N @ f`, `morse: …`, `song: …`);
   commands `help status key <s> tone <hz> <s> id freq <mhz> atten <n> batt
-  files reload stop uid version reboot bootsel`, each answered with `ok` or
-  `err: …`. `bootsel` jumps to the UF2 bootloader (the RPI-RP2 drive appears)
-  so the vendor firmware can go back without touching the button.
+  files put <name> <size> get <name> rm <name> reload stop uid version
+  reboot bootsel`, each answered with `ok` or `err: …`. `bootsel` jumps to
+  the UF2 bootloader (the RPI-RP2 drive appears) so the vendor firmware can
+  go back without touching the button. From 0.1.12 the files travel over
+  the console too (`put` / `get` / `rm`, PROTOCOL.md "Files over the
+  console"): a script — `tools/hw_smoke.py --board picofox-foxlibc` — or a
+  terminal can configure the fox without mounting its drive, and a put of
+  `fox.json` or `defaults.json` reloads it like a drive write does. The
+  body lands in the fox's own file buffer (the RP2040 has no room for a
+  second), and a drive write that settles while a put is in flight waits.
 - **No LED, no battery voltage** on this hardware: the log carries the status,
   `batt` reports only whether the charger is active.
 - **`(player late on N samples)`** is printed when more than two of core 1's

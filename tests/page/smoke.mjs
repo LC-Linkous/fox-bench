@@ -693,6 +693,21 @@ try {
   check(await page.isHidden('.rail button[data-tab="plan"]') && await page.isVisible('.rail button[data-tab="payload"]'), 'Plan tab hidden, Payload (contest features) shown: a network fox');
   await tab('board');
   check(/serial console only/.test(await text('#tab-board')) && /Connect/.test(await text('#tab-board')), 'Board tab: the console-configured facts and connection card');
+  check(await page.isDisabled('#tab-board button:has-text("Flash fox-bench firmware")'), 'the firmware flash card: disabled until an image is fetched or loaded');
+  check(/Fetch from this site/.test(await text('#tab-board')) && /Fingerprint of the site/.test(await text('#tab-board')), 'offers the site\'s image and shows its fingerprint line');
+  await page.click('#tab-board button:has-text("Fetch from this site")'); await untilTextArgs('#tab-board', /HTTP 404|fetched|rejected|could not reach/);
+  check(/HTTP 404 for firmware\/foxlib-c\/esp32\/foxbench-esp32c3\.bin/.test(await text('#tab-board')), 'a checkout without a CI build: the fetch says the file is built by CI\'s esp32 job');
+  const badBin = Buffer.alloc(100000); for (let i = 0; i < badBin.length; i++) badBin[i] = (i * 13) & 0xff;
+  await page.setInputFiles('#tab-board input[type=file][accept=".bin"]', { name: 'foxbench-esp32c3.bin', mimeType: 'application/octet-stream', buffer: badBin }); await settle(300);
+  check(!(await page.isDisabled('#tab-board button:has-text("Flash fox-bench firmware")')), 'a loaded .bin enables the flash (demo mode: the simulated esptool)');
+  await app(() => { window.foxbenchFlash.simulate = true; });
+  await page.click('#tab-board button:has-text("Flash fox-bench firmware")'); await untilTextArgs('#tab-board', /Flashed in|Flash failed/);
+  check(/Flashed in .* ESP32-C3/.test(await text('#tab-board')) && /rebooting into fox-bench/.test(await text('#tab-board')), 'the simulated flash ran and the result speaks of fox-bench firmware, not CircuitPython');
+  await app(() => { window.foxbenchFlash.simulate = false; });
+  check(await untilFleet(r => r.action === 'flash' && r.board === 'esp32c3-foxlibc'), 'fleet row: flash on the C3 C-firmware target');
+  await page.selectOption('#tab-board select', 'esp32c6-foxlibc'); await settle(300);
+  check(/no image loaded/.test(await text('#tab-board')), 'switching to the C6 target forgets the C3 image');
+  await page.selectOption('#tab-board select', 'esp32c3-foxlibc'); await settle(300);
   await tab('behavior');
   eq(await page.$$eval('#tab-behavior select option', els => els.map(e => e.value).sort().join()), 'ble-beacon,checkpoint,puzzle-beacon,wifi-beacon,wifi-probe', 'the template dropdown offers the five network templates');
   await page.selectOption('#tab-behavior select', 'wifi-beacon'); await settle(300);
@@ -935,7 +950,7 @@ try {
 } finally {
   section('end');
   const real = [...new Set(errors)].filter(e => !/^error: Failed to load resource/.test(e))   // those are reported with their URL by the response/requestfailed listeners
-    .filter(e => !/http 404 .*(foxbench-picofox\.json|firmware\/mpy\/index\.json)$/.test(e));   // the build fingerprint and the precompiled-foxlib index exist only on a deployed site (CI builds them); the page says so
+    .filter(e => !/http 404 .*(foxbench-picofox\.json|foxbench-esp32[a-z0-9]+\.(json|bin)|firmware\/mpy\/index\.json)$/.test(e));   // the build fingerprints, the ESP32 images and the precompiled-foxlib index exist only on a deployed site (CI builds them); the page says so
   if (real.length) { failures += real.length; console.log('console errors:\n  ' + real.join('\n  ')); } else console.log('  ok   no console errors or warnings');
   await browser.close(); await close();
   const broken = sections.filter(s => s.failures);

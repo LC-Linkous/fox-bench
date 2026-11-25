@@ -48,14 +48,38 @@ decides something in code or in the catalog. Write the answers into
 | Q15 | Where does the bare ESP32-C3 hang when a network template starts? | **Answered 2026-11-19** with the boot trace: `init: ble workflow switched off (free 46704)` was the last line, then the port dropped (a reset). The next step is `import wifi` → `esp_wifi_init`, which could not get its RAM: the Python heap had grown into it (121 kB free at the prompt, 46 kB when `NetFox` started, because `foxlib/__init__.py` imported the whole FM stack on the way to `netfox`). Fixed in foxlib 1.10.7 (FM imports lazy, `wifi`/`_bleio` imported first). The hang was a reboot loop: the crash → safe mode → `safemode.py` reset → crash again, 50 × 5 s; safemode.py now stops after 3 crashes | re-test wifi-beacon on the C3 with 1.10.7 (trace on): the banner, then the four templates |
 | Q13 | Which BLE powers does the nRF52840 take? | ble-beacon at 9 dBm on the Nano 33 BLE: `note: this chip has no 9 dBm BLE step; advertising at 8 dBm` and the beacon is on the air | the BLE power steps the page offers per chip |
 
-## 1. PicoFox re-run (foxlib-c 0.1.11 / page 0.12.0)
+## 1. PicoFox re-run (foxlib-c 0.1.14 / page 0.18.35)
 
-This one is from the page, not the script (foxlib-c is compiled firmware).
-Board tab → connect over the touch → flash `foxbench-picofox-0.1.11.uf2` from
-the site → Behavior tab deploy one template → listen on a handheld. Then write
-its row by hand in the 0.1.10 row's shape (`session_close.py` only reads
-`hw_smoke` reports). Row date, board `AI6YM PicoFox rev 3`, firmware
-`foxlib-c 0.1.11, site build <id from the console>, page 0.12.0`.
+From foxlib-c 0.1.12 the script runs the PicoFox too, over its console
+(the second serial port; no drive involved — PROTOCOL.md "Files over the
+console"). Flash the site's `foxbench-picofox.uf2` from the Board tab first
+if the fox is older, then:
+
+```
+python3 tools/hw_smoke.py --port /dev/ttyACM1 --board picofox-foxlibc \
+    --call "W1ABC FOX DE W1ABC" --yes-antenna \
+    --record tests/fixtures/bench/picofox-foxlibc-0.1.14-<date>.json --report picofox.json
+```
+
+It identifies the fox by `version` / `uid`, saves its fox.json and
+defaults.json with `get`, `put`s each FM template's pair (the fox reloads
+and prints its banner about a second later), listens, runs `status`,
+`batt` and `key 1`, and puts the saved files back. The report goes through
+`session_close.py` like any other. What only this session can show: the
+`put` path writes the flash (the host sim covers the parser), and a drive
+write while a `put` is in flight waits for it (`main.c`, 0.1.13).
+
+## 1a. First session on a C-firmware ESP32 (foxlib-c 0.1.14)
+
+Flash the site's `foxbench-esp32c3.bin` (under `firmware/foxlib-c/esp32/` on the site, from CI) at `0x0`
+(`esptool.py --chip esp32c3 write_flash 0x0 foxbench-esp32c3.bin`; the Board
+tab's card will do this in a later page), open nothing else on the port, then
+the same command with `--board esp32c3-foxlibc --payload` (the computer's
+Wi-Fi sees the beacon). `wifi-beacon` is the one template on the air; the
+other four boot and report `not in this firmware` in their banner notes —
+expected, they still count as ok. The ESP32 console is the flashing port
+(USB-Serial-JTAG), and deep sleep takes it away: `--fox` with `sleep:
+"deep"` is for a later session.
 
 ## 2. XIAO ESP32-C3 + SA868 re-run (foxlib 1.5.0 / page 0.12.0)
 
@@ -925,12 +949,16 @@ the page and the live pty board covers for the script.
 | | |
 |---|---|
 | `tests/fixtures/bench/sim-esp32c3-fm.json` | all seven FM templates against the pty board itself, recording format 2 (so CI has one from day one; a real-board C3 recording should join it after the first session that boots) |
+| `tests/fixtures/bench/sim-esp32c3-foxlibc-console.json`, `sim-picofox-foxlibc-console.json` | the console client against `pty_board.py --console <target>` (a fake foxlib-c console: file store, banner from the fox.json it holds, bench words): `"transport": "console"`, replayed in line mode. From the fake, not a board — the first real recordings replace nothing, they join |
 
 A run made with `--sniffer` records the fox's exchanges only; replaying it
 needs the sniffer side too — start `firmware/sim/pty_sniffer.py --mac … --ssid …`
 on a second pty and pass it as `--sniffer`, the way `ci.yml`'s sniffer step
 does. `replay_check.py` does not do this yet; a `--sniffer` recording is a
 manual replay.
+
+A console recording replays with the same command; `pty_board.py` reads
+`"transport": "console"` from the file and answers in line mode.
 
 Name real-board recordings `<board>-<what>-<date>.json`, e.g.
 `seeed_xiao_esp32c3-all-fm-2026-11-12.json`, and say in

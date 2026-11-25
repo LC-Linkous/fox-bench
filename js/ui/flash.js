@@ -1,7 +1,7 @@
 // flash.js — the Flash CircuitPython card (Board tab) and the batch card (Fleet tab).
 // Both drive flasher/flasher.js (separate Apache-2.0 component) and write the same fleet-log rows as tools/batch_flash.py.
 // SPDX-License-Identifier: GPL-2.0-only
-import { checkImage, foxlibcVersionIn } from '../model/uf2.js';
+import { checkImage, foxlibcVersionIn, sha256hex } from '../model/uf2.js';
 import { cmpVersion } from '../model/compat.js';
 import { h, badge, field, select, check } from './dom.js';
 import { fleet, download } from '../model/profiles.js';
@@ -32,7 +32,7 @@ function imageBadge() {
 /** Why the Flash button is disabled, or '' if it can go. */
 export function blocker(app) {
   if (state.busy) return 'flashing…';
-  if (!flasher.image.bytes) return 'load a CircuitPython .bin first';
+  if (!flasher.image.bytes || (app.family === 'foxlib-c' && !bin.source)) return app.family === 'foxlib-c' ? 'fetch or load the firmware .bin first' : 'load a CircuitPython .bin first';
   if (app.device && app.device.kind !== 'demo' && !canDisconnectFirst(app)) return 'disconnect from the board first (top bar) — the flasher opens the port itself';
   if (!app.device && !('serial' in navigator)) return 'Web Serial is not available in this browser';
   return '';
@@ -68,7 +68,7 @@ export async function runFlash(app, { boardNumber = '' } = {}) {
       port = await navigator.serial.requestPort();
       const info = port.getInfo?.() || {};
       const u = (b.usb || []).find(u => parseInt(u.vid, 16) === info.usbVendorId && parseInt(u.pid, 16) === info.usbProductId);
-      if (u && /CircuitPython running|REPL/.test(u.when || '')) {
+      if (u && app.family !== 'foxlib-c' && /CircuitPython running|REPL/.test(u.when || '')) {
         throw Object.assign(new Error(`the port picked is the board running CircuitPython (USB ${info.usbVendorId.toString(16)}:${info.usbProductId.toString(16)}), not its bootloader. Nothing to flash if CircuitPython is already on it: Connect and Deploy. To reflash, unplug, hold B while plugging in, and pick the new port`),
           { notBootloader: true });
       }
@@ -87,7 +87,7 @@ export async function runFlash(app, { boardNumber = '' } = {}) {
     log.err('flash failed: ' + error);
     state.notBootloader = !!e.notBootloader;
   }
-  state.busy = false; state.phase = ''; state.last = { ok: !error, facts, error, when: new Date().toISOString(), kind: 'circuitpython' };
+  state.busy = false; state.phase = ''; state.last = { ok: !error, facts, error, when: new Date().toISOString(), kind: app.family === 'foxlib-c' ? 'foxlibc' : 'circuitpython' };
   fleet.append({
     board_number: boardNumber, uid: (facts?.mac || '').replace(/:/g, ''), mac: facts?.mac || '', board: b.id,
     chip_type: facts?.chip || '', revision: facts?.revision || '', features: facts?.features || '', crystal: facts?.crystal || '', usb_mode: '',
@@ -109,8 +109,10 @@ export function statusBlock() {
     out.push(l.ok
       ? h('p.hint.ok', {},
         `Flashed in ${l.facts.seconds} s — ${l.facts.chip}, MAC ${l.facts.mac}${l.facts.flash_size ? ', ' + l.facts.flash_size + ' flash' : ''}. `,
-        ['The board is rebooting into CircuitPython; first boot takes ~10 s and it may come back on a different port. Then ',
-          h('b', {}, 'Connect'), '.'])
+        l.kind === 'foxlibc'
+          ? ['The board is rebooting into fox-bench\'s firmware on the same port; ', h('b', {}, 'Listen only'), ' shows its banner, ', h('b', {}, 'Connect'), ' reads its fox.json (a fresh board runs the compiled-in wifi-beacon defaults until one is deployed).']
+          : ['The board is rebooting into CircuitPython; first boot takes ~10 s and it may come back on a different port. Then ',
+            h('b', {}, 'Connect'), '.'])
       : h('p.hint.err', {}, 'Flash failed: ', l.error,
         l.facts?.chip ? ` (reached the chip: ${l.facts.chip})` : state.notBootloader ? '' : ' (never reached the bootloader — hold B while plugging in, pick the port that appears, and check nothing else holds it)'));
   }
@@ -120,16 +122,7 @@ export function statusBlock() {
 /** Board tab: image source, options, one flash. */
 export function flashCard(app) {
   const b = app.board;
-  if (app.family === 'foxlib-c' && app.transport === 'console') {
-    // fox-bench's own firmware for an Espressif chip: CI builds the .bin beside its fingerprint; it goes on with the same
-    // esptool path as CircuitPython, at firmware.flash_offset. Until the build exists (status planned) the card says so.
-    const fw = b.firmware || {};
-    return h('div.card', {}, h('h3', {}, 'Flash fox-bench firmware'),
-      h('p.hint', {}, `${b.name}: fox-bench's C firmware for the ${b.mcu || 'chip'}, flashed over the same USB lead as CircuitPython (esptool, at ${fw.flash_offset || '0x0'}). `,
-        b.status === 'planned' ? 'The firmware source is not in the repository yet, so there is no image to flash: this target is listed ahead of its first build.'
-          : `CI builds ${fw.image?.split('/').pop() || 'the image'} and its fingerprint from each commit; this card fetches and checks it, then flashes it.`),
-      b.status !== 'planned' ? h('p.hint.warn', {}, 'Flashing from this card is not wired yet (the image path exists; the esptool card below CircuitPython\'s is the next patch). Until then: esptool.py --chip ' + (b.flash.chip || 'esp32c3') + ' write_flash ' + (fw.flash_offset || '0x0') + ' <the .bin>.') : null);
-  }
+  if (app.family === 'foxlib-c' && app.transport === 'console') return consoleFlashCard(app);
   if (b.flash.method === 'uf2') return uf2Card(app);
   if (b.flash.method !== 'esptool') {
     return h('div.card', {}, h('h3', {}, 'Flash CircuitPython'),
@@ -174,6 +167,76 @@ export function flashCard(app) {
       h('a', { href: 'https://github.com/espressif/esptool-js', target: '_blank', rel: 'noopener' }, 'esptool-js'),
       ` ${flasher.ESPTOOL_VERSION}. Works offline. From a terminal, `, h('code', {}, 'tools/batch_flash.py'),
       ' does the same with the same log columns.'));
+}
+
+/** A fetched or loaded fox-bench .bin for an ESP32 target: forgotten when the target changes (the C3's image must not
+ *  go onto a C6). The flasher's own image slot is what runFlash writes; this remembers where it came from. */
+let bin = { forBoard: '', source: '', sha256: '', fetching: false, last: null };
+function binFor(app) {
+  if (bin.forBoard !== app.boardId) { bin = { forBoard: app.boardId, source: '', sha256: '', fetching: false, last: null }; flasher.setImage('', null, ''); }   // whatever was loaded (a CircuitPython .bin for another target, say) is not this target's image
+  return bin;
+}
+/** Fetch the site's merged image for this target and check it against CI's fingerprint (sha256, size) before it can
+ *  be flashed; nothing is loaded when the check fails. */
+async function fetchBin(app) {
+  const b = app.board, url = b.firmware?.image;
+  bin.fetching = true; bin.last = null; notify();
+  try {
+    const bi = await loadBuildInfo(app);
+    let r;
+    try { r = await fetch(url, { cache: 'no-cache' }); }
+    catch (e) { throw new Error(`could not reach ${new URL(url, location.href).host} (offline, or the network blocks it): download the file yourself and use Load .bin… — ${e.message || e}`); }
+    if (!r.ok) throw new Error(`HTTP ${r.status} for ${url} — the site builds this file in CI (the esp32 job); a local checkout has it only after an idf.py build, and a chip whose build failed has none`);
+    const bytes = new Uint8Array(await r.arrayBuffer());
+    const sha = await sha256hex(bytes);
+    const problems = [];
+    if (bytes.length < 65536) problems.push(`only ${bytes.length} B: not a merged image`);
+    if (bytes[0] !== 0xE9) problems.push('does not start with an Espressif image header (0xE9) — not an image for 0x0');
+    if (bi?.sha256 && sha !== bi.sha256) problems.push(`sha256 ${sha.slice(0, 12)}… is not the fingerprint's ${bi.sha256.slice(0, 12)}…`);
+    if (bi?.size && bytes.length !== bi.size) problems.push(`${bytes.length} B, the fingerprint says ${bi.size}`);
+    if (problems.length) throw new Error(`${url.split('/').pop()} rejected: ${problems.join('; ')}` + (bi?.sha256 ? ' (the site may be mid-deploy: reload the page and try again)' : ''));
+    flasher.setImage(url.split('/').pop(), bytes, 'fox-bench');
+    bin = { ...bin, source: 'fox-bench', sha256: sha, last: null };
+    app.console.dim(`fetched ${flasher.image.name} (${(bytes.length / 1024).toFixed(0)} kB, sha256 ${sha.slice(0, 12)}…${bi?.sha256 ? ' = fingerprint' : ''}) — fox-bench firmware ${bi?.version ? 'c-' + bi.version : ''}${bi?.commit ? ' at ' + bi.commit.slice(0, 7) : ''}`);
+  } catch (e) { bin.last = { ok: false, text: String(e.message || e) }; app.console.err('firmware fetch failed: ' + bin.last.text); }
+  bin.fetching = false; notify();
+}
+/** Board tab, a console-configured target: the site's image (or a file), its fingerprint, and the same esptool flash
+ *  as CircuitPython's card at 0x0 — the merged image carries the bootloader and partition table. */
+function consoleFlashCard(app) {
+  const b = app.board, fw = b.firmware || {};
+  const st = binFor(app);
+  loadBuildInfo(app);
+  const bi = buildInfoFor === fw.build_info ? buildInfo : undefined;
+  const fileIn = h('input', { type: 'file', accept: '.bin', hidden: true });
+  fileIn.addEventListener('change', async () => {
+    const f = fileIn.files[0]; if (!f) return;
+    const bytes = new Uint8Array(await f.arrayBuffer());
+    flasher.setImage(f.name, bytes, 'file'); bin = { ...bin, source: 'file', sha256: await sha256hex(bytes), last: null }; notify();
+    app.console.dim(`loaded ${f.name} (${f.size} B, sha256 ${bin.sha256.slice(0, 12)}…${bi?.sha256 ? (bin.sha256 === bi.sha256 ? ' = the site\'s fingerprint' : ' — NOT the site\'s current build') : ''})`); fileIn.value = '';
+  });
+  const why = blocker(app);
+  const loaded = flasher.image.bytes && (flasher.image.source === 'fox-bench' || flasher.image.source === 'file');
+  return h('div.card', {}, h('h3', {}, 'Flash fox-bench firmware ', loaded ? badge(`${flasher.image.name} · ${(flasher.image.bytes.length / 1024).toFixed(0)} kB`, bi?.sha256 && bin.sha256 === bi.sha256 ? 'ok' : 'warn') : badge('no image loaded', 'warn')),
+    h('p.hint', {}, `${b.name}: fox-bench's C firmware, flashed over the same USB lead as CircuitPython (esptool, at ${fw.flash_offset || '0x0'}; the merged image carries the bootloader and partition table). `,
+      b.status === 'planned' ? 'The firmware source is not in the repository yet, so there is no image to flash.' : 'A board running CircuitPython or an earlier fox-bench firmware is reset into its bootloader by the flasher itself on this chip; if that fails, ', b.status === 'planned' ? null : h('b', {}, b.flash?.bootloader_instructions || 'hold B while plugging in')),
+    field('Image', h('div.row', {}, h('button.btn.small', { disabled: st.fetching || b.status === 'planned', onclick: () => fetchBin(app) }, st.fetching ? 'Fetching…' : 'Fetch from this site'),
+      h('button.btn.small', { onclick: () => fileIn.click() }, 'Load .bin…'), fileIn,
+      h('span.hint', {}, loaded ? `${flasher.image.name} (${flasher.image.source === 'file' ? 'file' : 'this site'})` : 'nothing loaded')),
+      h('span.hint', {}, 'Fingerprint of the site\'s build: ',
+        bi ? [h('code', {}, `c-${bi.version}`), ` · commit ${(bi.commit || '').slice(0, 7)} · IDF ${bi.idf || '?'} · ${bi.gcc || '?'} · sha256 ${(bi.sha256 || '').slice(0, 12)}… · ${bi.built || ''}`, ' — a fetched image must match it before it can be flashed.']
+          : bi === false ? 'none on this site (a local checkout, or this chip\'s CI build failed): a fetch is checked as an Espressif image only.' : 'loading…')),
+    st.last && !st.last.ok ? h('p.hint.err', {}, st.last.text) : null,
+    h('div.two-col', {},
+      check('Erase the whole flash first', state.erase, v => { state.erase = v; notify(); },
+        'Also wipes the fox\'s files (fox.json, defaults.json in its SPIFFS partition). Off keeps them across a firmware update.'),
+      field('Speed', select([[921600, '921600 baud'], [460800, '460800 baud (default)'], [230400, '230400 baud'], [115200, '115200 baud (safe)']], state.baud, v => { state.baud = +v; }), 'Drop it if the write fails part way.')),
+    h('div.tools', {},
+      h('button.btn.primary', { disabled: !!why, title: why, onclick: () => disconnectAndFlash(app).catch(() => {}) },
+        state.busy ? 'Flashing…' : canDisconnectFirst(app) ? 'Disconnect and flash' : 'Flash fox-bench firmware'),
+      why && !state.busy ? h('span.hint.warn', {}, why) : canDisconnectFirst(app) ? h('span.hint', {}, 'the page is connected to a board; flashing closes that session first and asks for the port to flash') : null),
+    ...statusBlock(),
+    h('p.hint', {}, 'Back to CircuitPython: the card for the ', h('code', {}, b.hardware), ' CircuitPython target flashes its .bin the same way. From a terminal: ', h('code', {}, `esptool.py --chip ${b.flash?.chip || 'esp32c3'} write_flash ${fw.flash_offset || '0x0'} ${fw.image?.split('/').pop() || 'foxbench-<chip>.bin'}`), '.'));
 }
 
 /** Boards that show up as a CIRCUITPY drive (ESP32-S3, nRF52840): CircuitPython gives their files to the computer,
@@ -221,11 +284,15 @@ let uf2 = {name: '', bytes: null, busy: false, last: null, source: '', fetching:
   build: null};
 /** Fingerprint of the hosted fox-bench UF2 (foxbench-picofox.json written by CI beside the file): version, commit,
  * compiler, sha256. null until fetched; false when the site has none (a local checkout without a CI build). */
-let buildInfo;
+let buildInfo, buildInfoFor = '';
+/** The site's fingerprint for this target's image (CI writes it beside the file), cached per target: the PicoFox and
+ *  the four ESP32 targets each have their own. */
 async function loadBuildInfo(app) {
-  if (buildInfo !== undefined || !app.board.firmware?.build_info) return buildInfo;
-  buildInfo = null;
-  try { const r = await fetch(app.board.firmware.build_info, { cache: 'no-cache' }); buildInfo = r.ok ? await r.json() : false; } catch { buildInfo = false; }
+  const url = app.board.firmware?.build_info;
+  if (!url) return undefined;
+  if (buildInfoFor === url && buildInfo !== undefined) return buildInfo;
+  buildInfoFor = url; buildInfo = null;
+  try { const r = await fetch(url, { cache: 'no-cache' }); buildInfo = r.ok ? await r.json() : false; } catch { buildInfo = false; }
   notify(); return buildInfo;
 }
 /** A loaded image belongs to the target it was loaded for: switching targets forgets it, so the vendor target can never

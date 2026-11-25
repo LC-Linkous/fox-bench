@@ -1,0 +1,437 @@
+{
+"format": "fox-bench-bench-recording/2",
+"transport": "console",
+"generated": "2026-11-25T13:58:56",
+"board_id": "picofox-foxlibc",
+"uid": "e66138528b4c1234",
+"circuitpython": "none (foxlib-c)",
+"foxlib": "c-0.1.14",
+"args": {
+"board": "picofox-foxlibc",
+"channel": null,
+"variant": null,
+"templates": "all",
+"call": "W1ABC FOX DE W1ABC",
+"fox": null,
+"freq": null,
+"module": null,
+"observe": "0.5",
+"key_seconds": "1",
+"yes_antenna": true,
+"no_restore": false,
+"sniffer": null,
+"mpy": false,
+"trace": false,
+"payload": false,
+"checkpoint": false,
+"find_call": "W1XYZ",
+"wifi": null,
+"host_from": null,
+"portal_only": null,
+"verbose": false,
+"family": "foxlib-c"
+},
+"exchanges": [
+{
+"t": 0.101,
+"kind": "con",
+"cmd": "version",
+"out": "foxlib-c 0.1.14 board=picofox-foxlibc\nok"
+},
+{
+"t": 0.201,
+"kind": "con",
+"cmd": "uid",
+"out": "uid=e66138528b4c1234\nok"
+},
+{
+"t": 0.302,
+"kind": "con",
+"cmd": "get fox.json",
+"out": "err: no such file"
+},
+{
+"t": 0.402,
+"kind": "con",
+"cmd": "get defaults.json",
+"out": "size=107 crc32=8538ae65\neyJ0ZW1wbGF0ZSI6ICJ3aWZpLWJlYWNvbiIsICJpZCI6IHsiY2FsbG1lc3NhZ2UiOiAiTjBDQUxM\nIERFQ09ZIERFQ09ZIE4wQ0FMTCJ9LCAibmV0IjogeyJraW5kIjogIndpZmktYXAifX0=\n.\nok"
+},
+{
+"t": 0.555,
+"kind": "put",
+"path": "defaults.json",
+"size": 1336,
+"crc": "a39d899f",
+"out": "ok size=1336 crc32=a39d899f"
+},
+{
+"t": 0.706,
+"kind": "put",
+"path": "fox.json",
+"size": 2253,
+"crc": "455b3b64",
+"out": "ok size=2253 crc32=455b3b64"
+},
+{
+"t": 1.208,
+"kind": "banner",
+"out": "reload: console\nFOX template=morse-songs/1.0.0 foxlib=c-0.1.14 board=picofox-foxlibc uid=e66138528b4c1234 cfg=ok radio=ok id=set freq=146.5650 mode=fm\n"
+},
+{
+"t": 1.811,
+"kind": "listen",
+"seconds": 0.5,
+"out": ""
+},
+{
+"t": 1.912,
+"kind": "con",
+"cmd": "status",
+"out": "FOX template=morse-songs/1.0.0 foxlib=c-0.1.14 board=picofox-foxlibc uid=e66138528b4c1234 cfg=ok radio=ok id=set freq=146.5650 mode=fm\nuptime=12s reset=power_on version=0.1.14\nrevision=3 si5351=ok carrier=146565000.0 keyed=0 attenuation=20 i2c_write_us=0 i2c_errors=0 core1=ok correction_ppm=0.0 state=1\nok"
+},
+{
+"t": 2.012,
+"kind": "con",
+"cmd": "batt",
+"out": "batt=4.02 V charging=no\nok"
+},
+{
+"t": 3.067,
+"kind": "con",
+"cmd": "key 1",
+"out": "keyed 1.0 s\nok"
+},
+{
+"t": 3.167,
+"kind": "con",
+"cmd": "stop",
+"out": "ok"
+},
+{
+"t": 3.319,
+"kind": "put",
+"path": "defaults.json",
+"size": 1012,
+"crc": "5e83e535",
+"out": "ok size=1012 crc32=5e83e535"
+},
+{
+"t": 3.469,
+"kind": "put",
+"path": "fox.json",
+"size": 1155,
+"crc": "c48f0051",
+"out": "ok size=1155 crc32=c48f0051"
+},
+{
+"t": 3.921,
+"kind": "banner",
+"out": "reload: console\nFOX template=morse-sstv/1.0.0 foxlib=c-0.1.14 board=picofox-foxlibc uid=e66138528b4c1234 cfg=ok radio=ok id=set freq=146.5650 mode=fm\n"
+},
+{
+"t": 4.524,
+"kind": "listen",
+"seconds": 0.5,
+"out": ""
+},
+{
+"t": 4.624,
+"kind": "con",
+"cmd": "status",
+"out": "FOX template=morse-sstv/1.0.0 foxlib=c-0.1.14 board=picofox-foxlibc uid=e66138528b4c1234 cfg=ok radio=ok id=set freq=146.5650 mode=fm\nuptime=12s reset=power_on version=0.1.14\nrevision=3 si5351=ok carrier=146565000.0 keyed=0 attenuation=20 i2c_write_us=0 i2c_errors=0 core1=ok correction_ppm=0.0 state=1\nok"
+},
+{
+"t": 4.725,
+"kind": "con",
+"cmd": "batt",
+"out": "batt=4.02 V charging=no\nok"
+},
+{
+"t": 5.778,
+"kind": "con",
+"cmd": "key 1",
+"out": "keyed 1.0 s\nok"
+},
+{
+"t": 5.879,
+"kind": "con",
+"cmd": "stop",
+"out": "ok"
+},
+{
+"t": 6.03,
+"kind": "put",
+"path": "defaults.json",
+"size": 961,
+"crc": "ce99ba4e",
+"out": "ok size=961 crc32=ce99ba4e"
+},
+{
+"t": 6.181,
+"kind": "put",
+"path": "fox.json",
+"size": 1102,
+"crc": "595f8f45",
+"out": "ok size=1102 crc32=595f8f45"
+},
+{
+"t": 6.632,
+"kind": "banner",
+"out": "reload: console\nFOX template=morse-qrss/1.0.0 foxlib=c-0.1.14 board=picofox-foxlibc uid=e66138528b4c1234 cfg=ok radio=ok id=set freq=146.5650 mode=fm\n"
+},
+{
+"t": 7.234,
+"kind": "listen",
+"seconds": 0.5,
+"out": ""
+},
+{
+"t": 7.335,
+"kind": "con",
+"cmd": "status",
+"out": "FOX template=morse-qrss/1.0.0 foxlib=c-0.1.14 board=picofox-foxlibc uid=e66138528b4c1234 cfg=ok radio=ok id=set freq=146.5650 mode=fm\nuptime=12s reset=power_on version=0.1.14\nrevision=3 si5351=ok carrier=146565000.0 keyed=0 attenuation=20 i2c_write_us=0 i2c_errors=0 core1=ok correction_ppm=0.0 state=1\nok"
+},
+{
+"t": 7.435,
+"kind": "con",
+"cmd": "batt",
+"out": "batt=4.02 V charging=no\nok"
+},
+{
+"t": 8.489,
+"kind": "con",
+"cmd": "key 1",
+"out": "keyed 1.0 s\nok"
+},
+{
+"t": 8.59,
+"kind": "con",
+"cmd": "stop",
+"out": "ok"
+},
+{
+"t": 8.741,
+"kind": "put",
+"path": "defaults.json",
+"size": 1410,
+"crc": "e4d084df",
+"out": "ok size=1410 crc32=e4d084df"
+},
+{
+"t": 8.892,
+"kind": "put",
+"path": "fox.json",
+"size": 2335,
+"crc": "47025cd8",
+"out": "ok size=2335 crc32=47025cd8"
+},
+{
+"t": 9.344,
+"kind": "banner",
+"out": "reload: console\nFOX template=popcorn/1.0.0 foxlib=c-0.1.14 board=picofox-foxlibc uid=e66138528b4c1234 cfg=ok radio=ok id=set freq=146.5650 mode=fm\n"
+},
+{
+"t": 9.946,
+"kind": "listen",
+"seconds": 0.5,
+"out": ""
+},
+{
+"t": 10.047,
+"kind": "con",
+"cmd": "status",
+"out": "FOX template=popcorn/1.0.0 foxlib=c-0.1.14 board=picofox-foxlibc uid=e66138528b4c1234 cfg=ok radio=ok id=set freq=146.5650 mode=fm\nuptime=12s reset=power_on version=0.1.14\nrevision=3 si5351=ok carrier=146565000.0 keyed=0 attenuation=20 i2c_write_us=0 i2c_errors=0 core1=ok correction_ppm=0.0 state=1\nok"
+},
+{
+"t": 10.148,
+"kind": "con",
+"cmd": "batt",
+"out": "batt=4.02 V charging=no\nok"
+},
+{
+"t": 11.201,
+"kind": "con",
+"cmd": "key 1",
+"out": "keyed 1.0 s\nok"
+},
+{
+"t": 11.301,
+"kind": "con",
+"cmd": "stop",
+"out": "ok"
+},
+{
+"t": 11.452,
+"kind": "put",
+"path": "defaults.json",
+"size": 1353,
+"crc": "882ee78b",
+"out": "ok size=1353 crc32=882ee78b"
+},
+{
+"t": 11.604,
+"kind": "put",
+"path": "fox.json",
+"size": 2276,
+"crc": "85a6324d",
+"out": "ok size=2276 crc32=85a6324d"
+},
+{
+"t": 12.055,
+"kind": "banner",
+"out": "reload: console\nFOX template=freq-rotator/1.0.0 foxlib=c-0.1.14 board=picofox-foxlibc uid=e66138528b4c1234 cfg=ok radio=ok id=set freq=146.5650 mode=fm\n"
+},
+{
+"t": 12.657,
+"kind": "listen",
+"seconds": 0.5,
+"out": ""
+},
+{
+"t": 12.758,
+"kind": "con",
+"cmd": "status",
+"out": "FOX template=freq-rotator/1.0.0 foxlib=c-0.1.14 board=picofox-foxlibc uid=e66138528b4c1234 cfg=ok radio=ok id=set freq=146.5650 mode=fm\nuptime=12s reset=power_on version=0.1.14\nrevision=3 si5351=ok carrier=146565000.0 keyed=0 attenuation=20 i2c_write_us=0 i2c_errors=0 core1=ok correction_ppm=0.0 state=1\nok"
+},
+{
+"t": 12.858,
+"kind": "con",
+"cmd": "batt",
+"out": "batt=4.02 V charging=no\nok"
+},
+{
+"t": 13.913,
+"kind": "con",
+"cmd": "key 1",
+"out": "keyed 1.0 s\nok"
+},
+{
+"t": 14.013,
+"kind": "con",
+"cmd": "stop",
+"out": "ok"
+},
+{
+"t": 14.164,
+"kind": "put",
+"path": "defaults.json",
+"size": 1504,
+"crc": "5ac7767b",
+"out": "ok size=1504 crc32=5ac7767b"
+},
+{
+"t": 14.314,
+"kind": "put",
+"path": "fox.json",
+"size": 2437,
+"crc": "35c170c1",
+"out": "ok size=2437 crc32=35c170c1"
+},
+{
+"t": 14.766,
+"kind": "banner",
+"out": "reload: console\nFOX template=resurrection/1.0.0 foxlib=c-0.1.14 board=picofox-foxlibc uid=e66138528b4c1234 cfg=ok radio=ok id=set freq=146.5650 mode=fm\n"
+},
+{
+"t": 15.369,
+"kind": "listen",
+"seconds": 0.5,
+"out": ""
+},
+{
+"t": 15.47,
+"kind": "con",
+"cmd": "status",
+"out": "FOX template=resurrection/1.0.0 foxlib=c-0.1.14 board=picofox-foxlibc uid=e66138528b4c1234 cfg=ok radio=ok id=set freq=146.5650 mode=fm\nuptime=12s reset=power_on version=0.1.14\nrevision=3 si5351=ok carrier=146565000.0 keyed=0 attenuation=20 i2c_write_us=0 i2c_errors=0 core1=ok correction_ppm=0.0 state=1\nok"
+},
+{
+"t": 15.57,
+"kind": "con",
+"cmd": "batt",
+"out": "batt=4.02 V charging=no\nok"
+},
+{
+"t": 16.623,
+"kind": "con",
+"cmd": "key 1",
+"out": "keyed 1.0 s\nok"
+},
+{
+"t": 16.724,
+"kind": "con",
+"cmd": "stop",
+"out": "ok"
+},
+{
+"t": 16.875,
+"kind": "put",
+"path": "defaults.json",
+"size": 1334,
+"crc": "bd2e12a2",
+"out": "ok size=1334 crc32=bd2e12a2"
+},
+{
+"t": 17.026,
+"kind": "put",
+"path": "fox.json",
+"size": 2251,
+"crc": "77988c81",
+"out": "ok size=2251 crc32=77988c81"
+},
+{
+"t": 17.477,
+"kind": "banner",
+"out": "reload: console\nFOX template=composite/1.0.0 foxlib=c-0.1.14 board=picofox-foxlibc uid=e66138528b4c1234 cfg=ok radio=ok id=set freq=146.5650 mode=fm\n"
+},
+{
+"t": 18.08,
+"kind": "listen",
+"seconds": 0.5,
+"out": ""
+},
+{
+"t": 18.181,
+"kind": "con",
+"cmd": "status",
+"out": "FOX template=composite/1.0.0 foxlib=c-0.1.14 board=picofox-foxlibc uid=e66138528b4c1234 cfg=ok radio=ok id=set freq=146.5650 mode=fm\nuptime=12s reset=power_on version=0.1.14\nrevision=3 si5351=ok carrier=146565000.0 keyed=0 attenuation=20 i2c_write_us=0 i2c_errors=0 core1=ok correction_ppm=0.0 state=1\nok"
+},
+{
+"t": 18.282,
+"kind": "con",
+"cmd": "batt",
+"out": "batt=4.02 V charging=no\nok"
+},
+{
+"t": 19.336,
+"kind": "con",
+"cmd": "key 1",
+"out": "keyed 1.0 s\nok"
+},
+{
+"t": 19.436,
+"kind": "con",
+"cmd": "stop",
+"out": "ok"
+},
+{
+"t": 19.538,
+"kind": "con",
+"cmd": "rm fox.json",
+"out": "ok"
+},
+{
+"t": 19.689,
+"kind": "put",
+"path": "defaults.json",
+"size": 107,
+"crc": "8538ae65",
+"out": "ok size=107 crc32=8538ae65"
+},
+{
+"t": 20.141,
+"kind": "banner",
+"out": "reload: console\nFOX template=wifi-beacon/1.0.0 foxlib=c-0.1.14 board=picofox-foxlibc uid=e66138528b4c1234 cfg=ok radio=ok id=unset freq=146.5650 mode=fm\n"
+}
+],
+"_": "format 2: one 'write' line per file (path, size, crc) instead of its bytes; the callsign replaced by W1ABC FOX DE W1ABC; scan results scrubbed (0 callsign mention(s) replaced, 0 scan neighbour(s) renamed)"
+}

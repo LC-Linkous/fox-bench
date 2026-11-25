@@ -37,6 +37,15 @@ row (a finds.csv that was not there before is removed again). The computer
 has no internet while it is on the fox. On a machine with neither (macOS),
 join the network by hand and run --portal-only.
 
+A foxlib-c board (--board picofox-foxlibc, esp32c3-foxlibc, …) has no REPL:
+the script talks to its serial console instead (PROTOCOL.md, "Files over the
+console"). The phases are the same — identify by `version`/`uid`, save the
+files on the fox with `get`, for each template `put` defaults.json and
+fox.json (the fox reloads by itself and prints its banner), watch, bench
+(`key`, and `scan`/`health` on the ESP32s, `status` on the PicoFox), then
+`put` the saved files back. --record keeps every console exchange, and the
+pty board replays those too. Nothing is installed: the firmware is foxlib.
+
 It transmits (briefly) unless --key-seconds 0, and every template keys
 the module within seconds of its reboot: connect an antenna or a dummy
 load, and pass --yes-antenna to say you did.
@@ -637,6 +646,168 @@ def _num(x):
     return str(int(x)) if float(x) == int(x) else repr(float(x))
 
 
+class Console:
+    """A foxlib-c board's serial console (the PicoFox's second CDC port; the ESP32s' USB-Serial-JTAG port): one command
+    per line, replies end with a line starting `ok` or `err:`; `get` answers `size= crc32=`, base64 lines, `.`, `ok`;
+    `put <name> <size>` answers `send`, takes base64 lines and `.`, answers `ok size= crc32=`. A put of fox.json or
+    defaults.json makes the fox reload and print a fresh FOX banner about a second later. Recorded the way Repl records:
+    {"kind": "con", "cmd", "out"}, {"kind": "put", "path", "size", "crc", "out"}, {"kind": "banner", "out"},
+    {"kind": "listen", "seconds", "out"}; firmware/sim/pty_board.py --replay answers a console recording in line mode."""
+    def __init__(self, port, verbose=False, record=None):
+        self.s = serial.Serial(port, 115200, timeout=0.05)
+        self.verbose = verbose
+        self.buf = b""
+        self.record = record
+        self.t0 = time.monotonic()
+        try: self.s.dtr = True   # the PicoFox prints its banner when a terminal opens (DTR); the ESP32 console needs nothing
+        except OSError: pass     # a pty (the fake) has no modem lines
+
+    def _rec(self, kind, **kw):
+        if self.record is not None:
+            self.record.append({"t": round(time.monotonic() - self.t0, 3), "kind": kind, **kw})
+
+    def _line(self, timeout):
+        """The next line (without its newline), or None after `timeout` s of nothing."""
+        t0 = time.monotonic()
+        while True:
+            i = self.buf.find(b"\n")
+            if i >= 0:
+                line, self.buf = self.buf[:i], self.buf[i + 1:]
+                return ANSI.sub(b"", line).rstrip(b"\r").decode(errors="replace")
+            if time.monotonic() - t0 > timeout: return None
+            self.buf += self.s.read(256)
+
+    def _drain(self, seconds=0.1):
+        """Whatever the fox printed on its own (cycle lines, notes): kept for the listen windows' text."""
+        t0 = time.monotonic(); out = []
+        while time.monotonic() - t0 < seconds:
+            l = self._line(seconds); 
+            if l is None: break
+            out.append(l)
+        return out
+
+    def cmd(self, line, timeout=10):
+        """Send one command, collect the reply up to its `ok…` / `err:…` line; the reply text (lines joined by \\n,
+        the terminal line included). Raises on `err:`."""
+        self._drain(0.05)
+        self.s.write(line.encode() + b"\r\n")
+        lines = []; t0 = time.monotonic()
+        while True:
+            l = self._line(max(0.1, timeout - (time.monotonic() - t0)))
+            if l is None: raise TimeoutError("%r: no ok/err within %s s; got %r" % (line, timeout, lines[-3:]))
+            if l.strip() == line.strip() and not lines: continue      # a console that echoes
+            lines.append(l)
+            if l.startswith("ok") or l.startswith("err:"): break
+        out = "\n".join(lines)
+        self._rec("con", cmd=line, out=out)
+        if self.verbose: print("    >", line[:60], "->", lines[-1][:70])
+        if lines[-1].startswith("err:"): raise RuntimeError("%s: %s" % (line, lines[-1]))
+        return out
+
+    def listen(self, seconds):
+        buf = []; t0 = time.monotonic()
+        while time.monotonic() - t0 < seconds:
+            l = self._line(0.2)
+            if l is not None: buf.append(l)
+        text = "\n".join(buf) + ("\n" if buf else "")
+        self._rec("listen", seconds=seconds, out=text)
+        return text
+
+    def wait_banner(self, timeout=20):
+        """The FOX banner the fox prints after a reload (or at boot); the text up to and a little past it."""
+        buf = []; t0 = time.monotonic(); seen = False
+        while time.monotonic() - t0 < timeout:
+            l = self._line(0.2)
+            if l is None:
+                if seen: break
+                continue
+            buf.append(l)
+            if l.startswith("FOX "): seen = True; t0 = time.monotonic() - timeout + 0.6   # a few more lines (notes, cycle 0), then done
+        text = "\n".join(buf) + ("\n" if buf else "")
+        self._rec("banner", out=text)
+        return text
+
+    def wait_port(self, timeout=60):
+        """An ESP32 fox in deep sleep takes its USB console away; wait for the port to come back and reopen it."""
+        port = self.s.port
+        try:
+            self.s.write(b"\r\n"); self.s.read(1); return
+        except (serial.SerialException, OSError):
+            pass
+        try: self.s.close()
+        except Exception: pass
+        t0 = time.monotonic()
+        while True:
+            try:
+                self.s = serial.Serial(port, 115200, timeout=0.05); break
+            except (serial.SerialException, OSError):
+                if time.monotonic() - t0 > timeout: sys.exit("the port did not come back within %d s (%s): the fox is still asleep, or the pack cut its power -- replug and run again" % (timeout, port))
+                time.sleep(0.5)
+        self.buf = b""; time.sleep(0.5)
+
+    # ---- files over the console
+    def read_file(self, name):
+        """The file's bytes, or None when the fox has no such file."""
+        try:
+            out = self.cmd("get " + name, timeout=30)
+        except RuntimeError as e:
+            if "no such file" in str(e): return None
+            raise
+        lines = out.split("\n")
+        m = re.match(r"size=(\d+) crc32=([0-9a-f]{8})", lines[0])
+        if not m: raise RuntimeError("get %s: unexpected first line %r" % (name, lines[0]))
+        body = lines[1:]
+        if "." in body: body = body[:body.index(".")]
+        import base64
+        data = base64.b64decode("".join(body))
+        if len(data) != int(m.group(1)) or "%08x" % (zlib.crc32(data) & 0xffffffff) != m.group(2):
+            raise RuntimeError("get %s: %d bytes crc %08x, the fox said size=%s crc32=%s" % (name, len(data), zlib.crc32(data) & 0xffffffff, m.group(1), m.group(2)))
+        return data
+
+    def write_file(self, name, data):
+        """`put`: the base64 body in 76-column lines, the fox's `ok size= crc32=` checked against what was sent."""
+        import base64
+        if isinstance(data, str): data = data.encode()
+        data = data.replace(b"\r\n", b"\n")
+        crc = zlib.crc32(data) & 0xffffffff
+        self._drain(0.05)
+        self.s.write(("put %s %d\r\n" % (name, len(data))).encode())
+        l = self._line(5)
+        while l is not None and l.strip() == ("put %s %d" % (name, len(data))): l = self._line(5)
+        if l != "send": raise RuntimeError("put %s: expected 'send', got %r" % (name, l))
+        b64 = base64.b64encode(data).decode()
+        for i in range(0, len(b64), 76):
+            self.s.write(b64[i:i + 76].encode() + b"\r\n")
+        self.s.write(b".\r\n")
+        lines = []; t0 = time.monotonic()
+        while True:
+            l = self._line(max(0.1, 15 - (time.monotonic() - t0)))
+            if l is None: raise TimeoutError("put %s: no ok/err after the body; got %r" % (name, lines[-3:]))
+            if re.match(r"^[A-Za-z0-9+/=]{1,76}$", l) or l == ".": continue   # a console that echoes the body
+            lines.append(l)
+            if l.startswith("ok") or l.startswith("err:"): break
+        self._rec("put", path=name, size=len(data), crc="%08x" % crc, out=lines[-1])
+        if self.verbose: print("    > put", name, len(data), "->", lines[-1][:70])
+        m = re.match(r"ok size=(\d+) crc32=([0-9a-f]{8})", lines[-1])
+        if not m: raise RuntimeError("put %s: %s" % (name, lines[-1]))
+        if int(m.group(1)) != len(data) or m.group(2) != "%08x" % crc:
+            raise RuntimeError("put %s: the fox kept %s bytes crc %s, sent %d crc %08x" % (name, m.group(1), m.group(2), len(data), crc))
+
+    def remove(self, name):
+        try: self.cmd("rm " + name)
+        except RuntimeError as e:
+            if "no such file" not in str(e): raise
+
+    def files(self):
+        """{name: size} from `files`."""
+        out = self.cmd("files")
+        d = {}
+        for tok in re.findall(r"(\S+) \((\d+) B\)|(\S+) (\d+)\b", out.split("\n")[0] if out else ""):
+            n, sz = (tok[0], tok[1]) if tok[0] else (tok[2], tok[3])
+            if n and n not in ("ok",): d[n] = int(sz)
+        return d
+
+
 def parse_banner(text):
     m = re.search(r"^FOX (.*)$", text, re.M)
     if not m: return None
@@ -687,6 +858,11 @@ def parse_args():
         if not isinstance(a.fox_overlay, dict): sys.exit("--fox %s: not a JSON object" % a.fox)
         if a.templates == "all" and a.fox_overlay.get("template"): a.templates = a.fox_overlay["template"]
     a.call = a.call or ((a.fox_overlay or {}).get("id") or {}).get("callmessage") or PLACEHOLDER_CALL
+    # a foxlib-c target (boards/<id>.json family foxlib-c): the console client, not the REPL one
+    try:
+        a.family = json.load(open(os.path.join(ROOT, "boards", a.board + ".json"))).get("family", "foxlib")
+    except (OSError, ValueError):
+        a.family = "foxlib"
     return a
 
 
@@ -724,10 +900,12 @@ class Run:
             print("sniffer on %s: %s" % (a.sniffer, "hello %s" % self.sniffer.hello if self.sniffer.hello else "no hello line in 3 s (is tools/sniffer/code.py running?)"))
         self.host = (ReplayHost(a.host_from) if a.host_from else HostWifi(a.wifi, self.recording)) if (a.payload or a.checkpoint) else None
         if self.host: print("host Wi-Fi: %s (%s)" % (self.host.iface, ", ".join(f for f, on in (("--payload", a.payload), ("--checkpoint", a.checkpoint)) if on)))
-        self.r = Repl(pick_port(a.port), a.verbose, self.recording)
+        self.r = self.open_link(pick_port(a.port))
         self.board_id = self.uid = self.cp_release = self.cp_version = ""
         self.report = None
         self.before = {}
+
+    def open_link(self, port): return Repl(port, self.a.verbose, self.recording)
 
     # -- before the templates --------------------------------------------------------------------------------------
 
@@ -1100,7 +1278,7 @@ class Run:
             args_rec.pop("fox_overlay", None)
             if a.fox_overlay is not None: args_rec["fox"] = a.fox_overlay      # the overlay itself, not a path: a replay writes it back to a file
             scrubbed = scrub_recording(self.recording, args_rec, a.call)
-            rec = {"format": "fox-bench-bench-recording/2", "generated": report["generated"], "board_id": self.board_id, "uid": self.uid,
+            rec = {"format": "fox-bench-bench-recording/2", "transport": "console" if isinstance(self.r, Console) else "repl", "generated": report["generated"], "board_id": self.board_id, "uid": self.uid,
                    "circuitpython": self.cp_release, "foxlib": self.foxlib_version, "args": args_rec, "exchanges": self.recording,
                    "_": "format 2: one 'write' line per file (path, size, crc) instead of its bytes; the callsign replaced by %s; scan results scrubbed (%s)" % (RECORD_CALL, scrubbed)}
             json.dump(rec, open(a.record, "w"), indent=0)
@@ -1117,13 +1295,133 @@ class Run:
         sys.exit(1 if failed else 0)
 
 
+class ConsoleRun(Run):
+    """The same run on a foxlib-c board, over its serial console: no REPL, no code.py, nothing to install — the
+    firmware is foxlib. defaults.json and fox.json go over with `put`, the fox reloads itself and prints its banner,
+    the bench words are the console's own. build_fox, watch and watch_as_phone are the parent's (they do not touch
+    the board)."""
+    def __init__(self, a):
+        Run.__init__(self, a)
+        self.foxlib_version = "c-?"
+        self.picofox = a.board.startswith("picofox")
+
+    def open_link(self, port): return Console(port, self.a.verbose, self.recording)
+
+    def identify(self):
+        a, r = self.a, self.r
+        v = r.cmd("version").split("\n")[0]        # "foxlib-c 0.1.14 board=esp32c3-foxlibc"
+        m = re.match(r"foxlib-c (\S+)(?: board=(\S+))?", v)
+        if not m: sys.exit("not a foxlib-c console on %s: `version` answered %r (a CircuitPython board wants the REPL client: --board <its target>)" % (r.s.port, v))
+        self.foxlib_version = "c-" + m.group(1)
+        self.board_id = m.group(2) or ("picofox-foxlibc" if self.picofox else "?")
+        self.uid = r.cmd("uid").split("\n")[0].split("=")[-1].strip()
+        self.cp_release = self.cp_version = "none (foxlib-c)"
+        print("board %s  uid %s  foxlib-c %s" % (self.board_id, self.uid, m.group(1)))
+        if self.board_id != a.board and not (self.picofox and self.board_id.startswith("picofox")):
+            print("WARNING: the fox says it is %s, deploying defaults for %s" % (self.board_id, a.board))
+        self.report = {"generated": datetime.now().isoformat(timespec="seconds"), "board_id": self.board_id, "uid": self.uid, "circuitpython": self.cp_release, "cp_version": self.cp_version,
+                       "foxlib": self.foxlib_version, "call": a.call, "freq": a.freq, "module": a.module, "sniffer": a.sniffer or "not used", "templates": {}}
+
+    def make_writable(self): pass
+
+    def save_before(self):
+        self.before = {p: self.r.read_file(p) for p in ("fox.json", "defaults.json")}
+        print("saved current fox.json/defaults.json from the fox (%s)" % (", ".join(k for k, v in self.before.items() if v is not None) or "neither there"))
+
+    def install_foxlib(self):
+        print("foxlib-c %s is the firmware: nothing to install" % self.foxlib_version[2:])
+
+    def boot_template(self, t, res):
+        """put defaults.json then fox.json; the fox reloads about a second after the last and prints its banner."""
+        a, r, fox = self.a, self.r, t["fox"]
+        t["finds_before"] = r.read_file("finds.csv") if t["portal_on"] else None
+        r.write_file("defaults.json", json.dumps(t["defaults"]))
+        t0 = time.monotonic()
+        r.write_file("fox.json", json.dumps(fox, indent=1))
+        boot = r.wait_banner(timeout=20)
+        res["boot_s"] = round(time.monotonic() - t0, 2)
+        b = t["banner"] = parse_banner(boot)
+        res["banner"] = b["_raw"] if b else None
+        if b and b.get("mem"): res["mem_free"] = int(b["mem"]) if b["mem"].isdigit() else b["mem"]
+        res["boot_log"] = boot[-2000:]
+        if not b:
+            res["ok"] = False; print("  no FOX banner within 20 s of the put:\n" + "\n".join("    " + l for l in boot.strip().splitlines()[-8:])); return False
+        print("  %s (%.1f s to banner)" % (b["_raw"], res["boot_s"]))
+        for l in boot.splitlines():
+            if "not in this firmware" in l or l.startswith("  cfg:"): print("  " + l.strip())
+        return True
+
+    def bench(self, t, res):
+        """The console's bench words: the ESP32s answer `health` (JSON) and `scan`; the PicoFox `status` and `batt`; both
+        `key <s>` (a carrier on the PicoFox, the radio up on a network fox), which ends with an ok line."""
+        a, r, fox, net = self.a, self.r, t["fox"], t["net"]
+        res["import_s"] = 0; res["mem_free_before"] = res["mem_free_after_import"] = res["mem_free_with_fox"] = res.get("mem_free")
+        if net:
+            try:
+                h = json.loads(r.cmd("health", timeout=10).split("\n")[0])
+                res["health"] = h; res["mem_free_with_fox"] = h.get("with_fox", h.get("free"))
+            except (RuntimeError, ValueError) as e:
+                res["health"] = str(e)
+            try:
+                sc = r.cmd("scan", timeout=30).split("\n"); res["rssi"] = " | ".join(l for l in sc if l and not l.startswith("ok"))[:200]; res["probe"] = "ok"
+            except RuntimeError as e:
+                res["rssi"] = str(e); res["probe"] = "scan failed"
+            print("  health %s · scan %s" % (json.dumps(res["health"])[:100] if isinstance(res["health"], dict) else res["health"], str(res["rssi"])[:100]))
+        else:
+            st = r.cmd("status"); res["probe"] = next((l for l in st.split("\n") if l.startswith("revision=")), st.split("\n")[0])
+            try: res["batt_v"] = r.cmd("batt").split("\n")[0]
+            except RuntimeError: res["batt_v"] = None
+            res["rssi"] = None
+            print("  status %s · batt %s" % (res["probe"][:120], res["batt_v"]))
+        if a.key_seconds > 0 and (net or "keytest" in t["manifest"].get("capabilities", [])):
+            out = r.cmd("key %s" % _num(a.key_seconds), timeout=a.key_seconds + 15).split("\n")
+            res["key"] = next((l for l in out if l.startswith("ok ") or l.startswith("keyed")), out[-1])
+            print("  key %ss: %s" % (a.key_seconds, res["key"]))
+            if net:
+                want = (fox.get("net") or {}).get("mac")
+                got = re.search(r"\(([0-9A-Fa-f:?]+)\) for [0-9.]+ s", res["key"])
+                if want and got:
+                    res["mac_on_air"] = got.group(1).upper()
+                    if fox["net"].get("kind") == "ble": want = "%02X%s" % (int(want[:2], 16) | 0xC0, want[2:])
+                    if res["mac_on_air"] != want.upper(): print("  NOTE: the radio reports %s, fox.json asked for %s (bench-runbook Q12)" % (res["mac_on_air"], want.upper()))
+        r.cmd("stop")
+
+    def finds_readback(self, t, res):
+        """finds.csv over `get`; removed with `rm` when it was not there before."""
+        a, r, portal = self.a, self.r, t["portal"]
+        pv = res["portal"]
+        text = r.read_file("finds.csv") if pv["joined"] else None
+        rows = finds_rows(text.decode(errors="replace"), a.find_call) if text else []
+        pv["finds_rows"] = len(rows)
+        if rows: pv["find"] = rows[-1]
+        if t["finds_before"] is None and text is not None: r.remove("finds.csv")
+        want_log = bool(portal.get("log"))
+        pv["ok"] = bool(pv["joined"] and pv.get("get") == 200 and (pv.get("code_seen") or not portal.get("code")) and pv.get("logged")
+                        and (pv["finds_rows"] >= 1 or not want_log) and (pv.get("dns") == pv.get("host") or not portal.get("captive_dns")))
+        print("  finds.csv: %s" % (("%d row(s) for %s" % (len(rows), a.find_call)) if text else "not on the fox"))
+        if not pv["ok"]: res["ok"] = False; print("  checkpoint FAILED")
+
+    def restore(self):
+        a, r = self.a, self.r
+        if getattr(self, "deep_last", False): r.wait_port(timeout=180)
+        if not a.no_restore:
+            for p, data in self.before.items():
+                if data is not None: r.write_file(p, data)
+                else: r.remove(p)
+            boot = r.wait_banner(timeout=10)
+            b = parse_banner(boot)
+            print("\nrestored what was on the fox before%s" % (": " + b["_raw"] if b else ""))
+        else:
+            print("\nleft %s running" % self.templates[-1])
+
+
 def main():
     a = parse_args()
     if a.portal_only:
         portal_only(a)
     if not a.yes_antenna:
         sys.exit("Every template keys the transmitter within seconds of booting. Connect an antenna or dummy load, then pass --yes-antenna.")
-    run = Run(a)
+    run = ConsoleRun(a) if a.family == "foxlib-c" else Run(a)
     run.identify()
     run.make_writable()
     run.save_before()

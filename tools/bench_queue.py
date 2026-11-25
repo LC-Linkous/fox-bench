@@ -69,6 +69,10 @@ def main():
             has_module = "sa868" in text or "sa818" in text
             if fam == "foxlib" and chip_target and has_module: continue         # a row with the radio module belongs to the FM combo
             if fam == "foxlib" and not chip_target and not has_module: continue # and a bare-board row to the chip target
+            # the same XIAO runs CircuitPython (esp32c3) or fox-bench's C firmware (esp32c3-foxlibc): the row's firmware
+            # column says which — "foxlib-c" belongs to the console-configured target, anything else to the CircuitPython one
+            if t.get("transport") == "console" and "foxlib-c" not in text: continue
+            if fam == "foxlib" and "foxlib-c" in text: continue
             rs.append(r)
         # the latest row by its date, not by its place in the file: a row "recorded late" sits where it was added
         rs.sort(key=lambda r: r["date"][:10])
