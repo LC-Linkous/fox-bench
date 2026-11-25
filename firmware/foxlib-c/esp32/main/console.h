@@ -8,6 +8,7 @@ void con_init(void);                 /* the driver, the reader task */
 void con_puts(const char *s);
 void con_printf(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 void con_flush(void);
-void con_poll(void);                 /* run queued commands on the main task (the radio is driven from there) */
+void con_poll(void);
+bool con_file_busy(void);                    /* a put is in flight: the file buffer is the console's until its `.` line */                 /* run queued commands on the main task (the radio is driven from there) */
 void con_set_reset_reason(const char *why);
 #endif

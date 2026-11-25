@@ -24,8 +24,12 @@
 extern const char builtin_defaults_json_start[] asm("_binary_builtin_defaults_json_start");
 extern const char builtin_defaults_json_end[] asm("_binary_builtin_defaults_json_end");
 
-static json_doc DOC_D, DOC_U;
-static char FILE_D[XFER_MAX_FILE + 1], FILE_U[XFER_MAX_FILE + 1];
+/* One parsed document and one text buffer serve defaults.json and then fox.json in turn (defaults are folded into DEF
+ * before fox.json is read), and the console borrows the text buffer for put/get between loads. A json_doc is ~74 KB and
+ * a second pair put the C5 past its static RAM (the 5 GHz Wi-Fi driver is bigger, and the chip is a preview target). */
+static json_doc DOC;
+static char FILE_BUF[XFER_MAX_FILE + 1];
+char *netfox_filebuf(size_t *cap) { *cap = sizeof FILE_BUF - 1; return FILE_BUF; }
 static net_cfg_t DEF, CFG;
 static cfg_report_t REP;
 static char uid[17];
@@ -79,19 +83,19 @@ static void mac_on_air(char *out, int n) { uint8_t mac[6] = { 0 }; if (wifi_init
 /* ---- configuration */
 static bool load(void) {
     have_cfg = false; cfg_report_init(&REP); radio_status = "skipped";
-    long n = fs_read("defaults.json", FILE_D, sizeof FILE_D);
-    const char *dtext = FILE_D; size_t dlen = n > 0 ? (size_t)n : 0;
+    long n = fs_read("defaults.json", FILE_BUF, sizeof FILE_BUF);
+    const char *dtext = FILE_BUF; size_t dlen = n > 0 ? (size_t)n : 0;
     if (n <= 0) { dtext = builtin_defaults_json_start; dlen = (size_t)(builtin_defaults_json_end - builtin_defaults_json_start); }
-    int droot = json_parse(&DOC_D, dtext, dlen);
-    if (droot < 0 || !net_cfg_load_defaults(&DEF, &DOC_D, droot)) { strcpy(REP.fatal, "defaults"); return false; }
-    long un = fs_read("fox.json", FILE_U, sizeof FILE_U);
-    int uroot = un > 0 ? json_parse(&DOC_U, FILE_U, (size_t)un) : -1;
+    int droot = json_parse(&DOC, dtext, dlen);
+    if (droot < 0 || !net_cfg_load_defaults(&DEF, &DOC, droot)) { strcpy(REP.fatal, "defaults"); return false; }
+    long un = fs_read("fox.json", FILE_BUF, sizeof FILE_BUF);          /* DEF holds the defaults now: the doc and buffer are free */
+    int uroot = un > 0 ? json_parse(&DOC, FILE_BUF, (size_t)un) : -1;
     if (un > 0 && uroot < 0) cfg_report_mode(&REP, "default(json)");
     unsigned radios = RADIO_WIFI24 | RADIO_BLE;
 #if CONFIG_IDF_TARGET_ESP32C5
     radios |= RADIO_WIFI5;
 #endif
-    net_cfg_apply_user(&CFG, &DEF, &DOC_U, uroot, BOARD_ID, radios, NULL, &REP);
+    net_cfg_apply_user(&CFG, &DEF, &DOC, uroot, BOARD_ID, radios, NULL, &REP);
     if (un > 0 && uroot < 0) cfg_report_mode(&REP, "default(json)");
     template_version_lookup(CFG.template_id);
     id_ok = net_cfg_id_ok(&CFG);
@@ -140,7 +144,7 @@ void netfox_schedule_reload(uint32_t in_ms) { reload_at = now_ms() + in_ms; }
 
 void netfox_poll(void) {
     uint32_t t = now_ms();
-    if (reload_at && (int32_t)(t - reload_at) >= 0) { reload_at = 0; netfox_reload("console"); return; }
+    if (reload_at && (int32_t)(t - reload_at) >= 0 && !con_file_busy()) { reload_at = 0; netfox_reload("console"); return; }   /* a put holds the file buffer: next poll */
     switch (state) {
     case WAKE:
         if ((int32_t)(t - phase_until) >= 0) {

@@ -23,7 +23,8 @@
 static QueueHandle_t lines;              /* complete command lines, reader -> main */
 static SemaphoreHandle_t out_lock;
 static const char *reset_reason = "?";
-static xfer_put_t put; static uint8_t put_buf[XFER_MAX_FILE];
+static xfer_put_t put;   /* the body lands in the fox's file buffer (netfox_filebuf): no second 16 KB */
+bool con_file_busy(void) { return put.active; }
 static const char VERSION_TAG[] = "FOXLIBC-VERSION:" FOXLIBC_VERSION;
 
 void con_set_reset_reason(const char *why) { reset_reason = why; }
@@ -62,17 +63,19 @@ static void dispatch(char *cmd) {
     else if (!strcmp(cmd, "reboot")) { con_puts("ok\r\n"); con_flush(); esp_restart(); }
     else if (!strcmp(cmd, "get")) {
         if (!xfer_name_ok(arg ? arg : "")) { con_puts("err: refused name\r\n"); return; }
-        long n = fs_read(arg, (char *)put_buf, sizeof put_buf);
+        size_t cap; char *buf = netfox_filebuf(&cap);
+        long n = fs_read(arg, buf, cap);
         if (n < 0) { con_puts("err: no such file\r\n"); return; }
-        xfer_get_emit(put_buf, (size_t)n, emit, NULL); con_puts("ok\r\n");
+        xfer_get_emit((const uint8_t *)buf, (size_t)n, emit, NULL); con_puts("ok\r\n");
     }
     else if (!strcmp(cmd, "rm")) { if (!xfer_name_ok(arg ? arg : "")) con_puts("err: refused name\r\n"); else if (fs_remove(arg)) { con_puts("ok\r\n"); if (!strcmp(arg, "fox.json") || !strcmp(arg, "defaults.json")) netfox_schedule_reload(1000); } else con_puts("err: no such file\r\n"); }
     else if (!strcmp(cmd, "put")) {
         char *sz = arg ? strchr(arg, ' ') : NULL; if (sz) *sz++ = 0;
         long n = sz ? atol(sz) : -1;
         if (!xfer_name_ok(arg ? arg : "")) { con_puts("err: refused name\r\n"); return; }
-        if (n < 0 || n > (long)sizeof put_buf) { con_printf("err: put <name> <size 0-%u>\r\n", (unsigned)sizeof put_buf); return; }
-        xfer_put_begin(&put, arg, (size_t)n, put_buf, sizeof put_buf);
+        size_t cap; uint8_t *buf = (uint8_t *)netfox_filebuf(&cap); if (cap > XFER_MAX_FILE) cap = XFER_MAX_FILE;
+        if (n < 0 || n > (long)cap) { con_printf("err: put <name> <size 0-%u>\r\n", (unsigned)cap); return; }
+        xfer_put_begin(&put, arg, (size_t)n, buf, cap);
         con_puts("send\r\n");
     }
     else if (*cmd) con_printf("err: unknown command '%s' (help)\r\n", cmd);

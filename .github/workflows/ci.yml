@@ -170,11 +170,15 @@ jobs:
   # fox-bench's C firmware for the Espressif boards (firmware/foxlib-c/esp32): built in Espressif's own IDF container,
   # pinned by tag, one target per matrix row; the merged .bin and its fingerprint are what the site serves. The host
   # syntax check (host_check/) runs in the foxlib-c job without the SDK; this is the real build.
+  # The targets are experimental: one chip failing to build (the C5 is a preview target in this IDF) must not hold the
+  # page and the stable boards' images back, so a red row is a warning here and deploy copies whichever images built.
   esp32:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     container: espressif/idf:v5.4.2
+    continue-on-error: true
     strategy:
+      fail-fast: false
       matrix:
         target: [esp32c3, esp32c6, esp32c5, esp32s3]
     steps:
@@ -236,7 +240,7 @@ jobs:
           cp -r index.html css js flasher hardware boards modules songs bands.json firmware docs DESIGN.md CONFIG.md PROTOCOL.md LICENSES.md LICENSE _site/
           rm -rf _site/firmware/sim _site/firmware/foxlib-c/tests/build _site/firmware/foxlib-c/esp32/build _site/firmware/foxlib-c/esp32/host_check
           cp /tmp/uf2/foxbench-picofox.uf2 /tmp/uf2/foxbench-picofox.json _site/firmware/foxlib-c/picofox/
-          cp /tmp/esp/foxbench-esp32*.bin /tmp/esp/foxbench-esp32*.json _site/firmware/foxlib-c/esp32/
+          cp /tmp/esp/foxbench-esp32*.bin /tmp/esp/foxbench-esp32*.json _site/firmware/foxlib-c/esp32/ 2>/dev/null || echo "no esp32 image built this run"
           cp -r /tmp/mpy/. _site/firmware/mpy/ && test -f _site/firmware/mpy/index.json
           python3 tools/stamp_assets.py _site && python3 tools/stamp_assets.py --check _site   # ?v=<VERSION> on css/js links: a deploy is not served against a cached main.js
           touch _site/.nojekyll   # Jekyll would drop foxlib/__init__.py (leading underscore)

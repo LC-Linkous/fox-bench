@@ -14,6 +14,18 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### foxlib-c 0.1.14 — the ESP32 image fits the C5
+
+- `netfox.c` keeps one parsed document and one 16 KB text buffer instead of
+  two of each (a `json_doc` is ~74 KB of static RAM), and the console's
+  `put`/`get` borrow that buffer as on the PicoFox: ~106 KB less `.bss`.
+  The C5 row overflowed its DRAM by 10 KB (its 5 GHz Wi-Fi driver is
+  bigger, and the chip is a preview target in IDF 5.4); the other three
+  chips had linked.
+- CI: the `esp32` matrix no longer blocks the page — `fail-fast: false`,
+  `continue-on-error`, and deploy copies whichever images built. The
+  PicoFox and page jobs keep their hard failure.
+
 ### foxlib-c 0.1.13 (fix) — the merged ESP32 image
 
 - `idf.py merge-bin` writes relative to `build/`, and the app image already
