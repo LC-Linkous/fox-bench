@@ -7,5 +7,8 @@
   "esp32c5",
   "esp32s3",
   "nrf52840",
-  "esp32c3-foxlibc"
+  "esp32c3-foxlibc",
+  "esp32c6-foxlibc",
+  "esp32c5-foxlibc",
+  "esp32s3-foxlibc"
 ]

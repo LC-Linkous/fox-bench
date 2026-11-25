@@ -669,14 +669,16 @@ try {
   const optsDefault = await page.$$eval('#tab-board select option', els => els.map(e => e.value));
   check(['picofox-foxlibc', 'seeed_xiao_esp32c3', 'esp32s3', 'esp32c3', 'esp32c6', 'esp32c5', 'nrf52840'].every(v => optsDefault.includes(v)), 'all five chip targets, the combo and the PicoFox are listed by default (the nRF52840 went stable in 0.18.32)');
   const nExp = await app(() => Object.values(window.foxbench.catalog.boards).filter(b => b.status === 'experimental').map(b => b.id).join());
-  check(nExp === 'esp32c3-foxlibc' && /Show experimental targets/.test(await text('#tab-board')) && /1 hidden/.test(await text('#tab-board')), 'one experimental target (the C-firmware ESP32-C3), so the picker offers "show experimental" (1 hidden)');
+  check(nExp === 'esp32c3-foxlibc,esp32c6-foxlibc,esp32c5-foxlibc,esp32s3-foxlibc' && /Show experimental targets/.test(await text('#tab-board')) && /4 hidden/.test(await text('#tab-board')), 'four experimental targets (the C-firmware ESP32s), so the picker offers "show experimental" (4 hidden)');
   await page.check('#tab-board .card:first-child input[type=checkbox]'); await settle(300);
   const groupsAll = await page.$$eval('#tab-board select optgroup', els => els.map(e => [e.label, [...e.querySelectorAll('option')].map(o => o.value)]));
   const chipGroup = groupsAll.find(([l]) => l === 'CircuitPython board'), fmGroup = groupsAll.find(([l]) => /\+ radio module/.test(l)), driveGroup = groupsAll.find(([l]) => l === 'Drive-configured fox');
   check(chipGroup && chipGroup[1].join() === 'esp32c3,esp32c5,esp32c6,esp32s3,nrf52840' && fmGroup && fmGroup[1].join() === 'seeed_xiao_esp32c3', 'picker groups: the five chips under "CircuitPython board", the XIAO + SA868 under "+ radio module"');
   check(driveGroup && driveGroup[1].join() === 'picofox-vendor,picofox-foxlibc', 'both PicoFox lines under "Drive-configured fox", vendor first');
   const consoleGroup = groupsAll.find(([l]) => l === 'Console-configured fox');
-  check(consoleGroup && consoleGroup[1].join() === 'esp32c3-foxlibc' && groupsAll[groupsAll.length - 1][0] === 'Console-configured fox', 'the console-configured foxes have their own, last section: the ESP32-C3 on fox-bench\'s C firmware');
+  check(consoleGroup && consoleGroup[1].join() === 'esp32c3-foxlibc,esp32c5-foxlibc,esp32c6-foxlibc,esp32s3-foxlibc' && groupsAll[groupsAll.length - 1][0] === 'Console-configured fox', 'the console-configured foxes have their own, last section: the four ESP32s on fox-bench\'s C firmware');
+  check(await app(() => ['esp32c6-foxlibc', 'esp32c5-foxlibc', 'esp32s3-foxlibc'].every(id => window.foxbench.kindOf(window.foxbench.catalog.boards[id]) === 'net' && window.foxbench.transportOf(window.foxbench.catalog.boards[id]) === 'console')), 'the C6, C5 and S3 targets are network foxes over the console too');
+  check(await app(() => window.foxbench.templatesFor('foxlib-c', window.foxbench.catalog.boards['esp32c5-foxlibc']).map(t => t.id).sort().join()) === 'ble-beacon,checkpoint,puzzle-beacon,wifi-beacon,wifi-probe', 'the five network templates run on the C5 target as well');
   check(await page.$eval('#tab-board select option[value="esp32c3-foxlibc"]', o => !o.disabled && / — experimental$/.test(o.textContent)), 'the C-firmware target is selectable, marked experimental');
   check(await app(() => window.foxbench.kindOf(window.foxbench.catalog.boards['esp32c3-foxlibc']) + '|' + window.foxbench.transportOf(window.foxbench.catalog.boards['esp32c3-foxlibc'])) === 'net|console', 'it is a network fox (teal) reached over the console');
   check(await app(() => window.foxbench.templatesFor('foxlib-c', window.foxbench.catalog.boards['esp32c3-foxlibc']).map(t => t.id).sort().join()) === 'ble-beacon,checkpoint,puzzle-beacon,wifi-beacon,wifi-probe', 'the five network templates run on it');
@@ -721,7 +723,7 @@ try {
   check(await app(() => !!window.foxbench.catalog.boards['example_c3_clone'] && window.foxbench.catalog.boards['example_c3_clone']._pack === 'example-pack'), 'the pack\'s target is in the catalog, marked with the pack');
   await tab('board');
   await page.uncheck('#tab-board .card:first-child input[type=checkbox]'); await settle(300);   // the choice persists in browser storage: ticked in the picker section above
-  check(/Show experimental targets/.test(await text('#tab-board')) && /2 hidden/.test(await text('#tab-board')), 'the pack\'s experimental target joins the "show experimental" checkbox (2 hidden, with the C-firmware C3)');
+  check(/Show experimental targets/.test(await text('#tab-board')) && /5 hidden/.test(await text('#tab-board')), 'the pack\'s experimental target joins the "show experimental" checkbox (5 hidden, with the four C-firmware ESP32s)');
   await page.check('#tab-board .card:first-child input[type=checkbox]'); await settle(300);
   await page.selectOption('#tab-board select', 'example_c3_clone'); await settle(500);
   eq(await app(() => window.foxbench.boardId), 'example_c3_clone', 'the pack target can be selected');

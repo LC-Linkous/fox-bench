@@ -1,0 +1,17 @@
+{
+  "id": "esp32c5-foxlibc",
+  "name": "ESP32-C5 (fox-bench firmware, C)",
+  "hardware": "seeed_xiao_esp32c5",
+  "family": "foxlib-c",
+  "transport": "console",
+  "status": "experimental",
+  "firmware": {
+    "kind": "foxlib-c",
+    "note": "fox-bench's own firmware for the ESP32-C5 (C, ESP-IDF, GPL-3.0-or-later): the fox.json contract and the network templates of the CircuitPython foxes, without CircuitPython. No USB drive: fox.json and defaults.json travel over the serial console (PROTOCOL.md, \"Files over the console\") on the same USB lead that flashes the board. Built from the same source as the C3 image (idf.py set-target esp32c5); not yet tried on a board. Experimental: wifi-beacon runs; wifi-probe, ble-beacon, puzzle-beacon and the checkpoint portal are accepted by the firmware but not yet on the air (the banner says so).",
+    "image": "firmware/foxlib-c/esp32/foxbench-esp32c5.bin",
+    "version_file": "firmware/foxlib-c/VERSION",
+    "build_info": "firmware/foxlib-c/esp32/foxbench-esp32c5.json",
+    "build_info_note": "written by CI beside the .bin: {version, commit, idf, gcc, sha256, size, built}; the Board tab shows it and checks a fetched image against sha256/size",
+    "flash_offset": "0x0"
+  }
+}

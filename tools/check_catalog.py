@@ -234,7 +234,6 @@ for bid in board_ids:
         # two transports: the PicoFox's drive (+ console), and the console alone (the ESP32 boards: no CircuitPython, no drive)
         if t.get("transport", "drive") == "console":
             if "drive" in t: bad(rel, "a console-configured target has no drive section")
-            if hw.get("has_usb_drive"): bad(rel, "console transport on hardware that says has_usb_drive: pick one")
             if not t.get("firmware", {}).get("flash_offset"): bad(rel, "console-configured target needs firmware.flash_offset (the page's esptool path writes the .bin there)")
         else:
             for k in ("module_fixed", "drive"):
@@ -380,7 +379,7 @@ for tid in fw["templates"]:
             if d.get("net", {}).get("kind") not in ("wifi-ap", "wifi-probe", "ble"): bad(drel, f"net.kind {d.get('net', {}).get('kind')!r}")
             if "plan" in d or "variant" in d: bad(drel, "a console-configured fox has no plan and no variant")
             if set((d.get("pins") or {}).keys()) != set(fnetcfg.NET_PINS): bad(drel, f"pins must be exactly {list(fnetcfg.NET_PINS)}")
-            vhw = hardware.get(b.get("hardware"), {}); nr = vhw.get("net") or {}
+            vhw = hardware.get(b.get("hardware"), {}); nr = vhw.get("net") or vhw.get("roles") or {}
             for role in fnetcfg.NET_PINS:
                 if (d.get("pins") or {}).get(role) != nr.get(role): bad(drel, f"pins.{role} = {(d.get('pins') or {}).get(role)!r} != the hardware's {nr.get(role)!r}")
             names = [n for p in vhw.get("pins", []) for n in [p["name"]] + p.get("aliases", [])]

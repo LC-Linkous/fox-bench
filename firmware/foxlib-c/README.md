@@ -25,10 +25,10 @@ VERSION      firmware version (the banner's foxlib=c-<version>)
 |---|---|---|
 | `picofox-foxlibc` | AI6YM PicoFox rev 2/3 (`hardware/picofox.json`, `docs/picofox.md`) | stable: on the air on a rev 3 board since October 2026 (keying, 8 kHz FM, live reload, console bench, firmware swap both ways); attenuator dB/step not yet metered |
 | `esp32c3-foxlibc` | Seeed XIAO ESP32-C3 (`hardware/seeed_xiao_esp32c3.json`) | experimental: `wifi-beacon` runs; `wifi-probe`, `ble-beacon`, `puzzle-beacon` and the checkpoint portal are accepted and reported `not in this firmware`; not yet on a bench |
+| `esp32c6-foxlibc`, `esp32c5-foxlibc`, `esp32s3-foxlibc` | Seeed XIAO ESP32C6 / C5 / S3 | experimental: the same source built per chip by CI (`idf.py set-target`); the C5 adds 5 GHz, the C6/S3 their user LED; none tried on a board yet |
 
-The ESP32 application is written for the C3, C6, C5 and S3 (`idf.py
-set-target`); the catalog lists a target once its firmware has been built
-and tried on that chip.
+One application, four images: `esp32/` is built once per chip by CI's
+`esp32` matrix, and `BOARD_ID` in the banner is `<idf target>-foxlibc`.
 
 ## What the PicoFox firmware does
 

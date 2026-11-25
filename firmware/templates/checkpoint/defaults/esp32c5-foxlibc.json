@@ -1,0 +1,55 @@
+{
+ "schema": 1,
+ "template": "checkpoint",
+ "board": "esp32c5-foxlibc",
+ "pins": {
+  "led": "IO27",
+  "batt_sense": null
+ },
+ "net": {
+  "kind": "wifi-ap",
+  "ssid": "FOXBENCH Checkpoint",
+  "psk": "",
+  "mac": "F2:B0:00:00:00:C0",
+  "channel": 1,
+  "hidden": false,
+  "tx_power_dbm": 17,
+  "max_clients": 4
+ },
+ "id": {
+  "callmessage": "N0CALL DECOY DECOY N0CALL",
+  "use_callsign_as_name": false
+ },
+ "schedule": {
+  "kind": "duty",
+  "wake_s": 120,
+  "sleep_s": 10,
+  "sleep": "off"
+ },
+ "led": {
+  "enabled": true
+ },
+ "checkpoint": {
+  "enabled": true,
+  "portal": {
+   "enabled": true,
+   "title": "Checkpoint",
+   "body": "You found a fox-bench checkpoint.\n\nWrite down the code below, then enter your callsign so the organisers know you were here.",
+   "code": "4471",
+   "ask_callsign": true,
+   "captive_dns": true,
+   "log": true
+  },
+  "ble": {
+   "enabled": false,
+   "service_uuid": "F0B0F0B0-0000-4000-8000-0000000000C0",
+   "code": "4471"
+  }
+ },
+ "fleet": {
+  "profile": "",
+  "number": null,
+  "event": "",
+  "notes": ""
+ }
+}

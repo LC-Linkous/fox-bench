@@ -26,7 +26,7 @@ function pickerCard() {
   const groupOf = b => app.transportOf(b) === 'console' ? 'console' : ({ fm: 'combo', net: 'chip', drive: 'drive' })[app.kindOf(b)];
   for (const b of Object.values(app.catalog.boards)) if (!hidden.includes(b)) (groups[groupOf(b)] ??= []).push(b);
   if (groups.drive) groups.drive.sort((a, b) => (a.family === 'drive' ? 0 : 1) - (b.family === 'drive' ? 0 : 1));   // vendor firmware first
-  if (groups.chip) groups.chip.sort((a, b) => a.name.localeCompare(b.name));
+  for (const g of ['chip', 'console']) if (groups[g]) groups[g].sort((a, b) => a.name.localeCompare(b.name));
   const sel = h('select', { onchange: e => app.setBoard(e.target.value) });
   for (const fam of [...GROUP_ORDER, ...Object.keys(groups).filter(g => !GROUP_ORDER.includes(g))]) {
     const list = groups[fam]; if (!list) continue;

@@ -14,6 +14,27 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### foxlib-c 0.1.12 (fix) — the ESP32 image's first CI build
+
+- `TEMPLATE_VERSIONS` is a generated `template_versions.h` (comma-separated)
+  instead of a `-D`: the `;` between pairs was CMake's list separator, which
+  split the string into stray defines. `console.c`'s `LINE_MAX` renamed
+  `CON_LINE_MAX` (the toolchain's `<sys/syslimits.h>` owns the name).
+  `host_check` includes `limits.h` and the generated header, so both are
+  caught by `make check` from now on.
+
+### Page 0.18.35 — the C6, C5 and S3 join the console-configured section
+
+- `boards/esp32c6-foxlibc.json`, `esp32c5-foxlibc.json`, `esp32s3-foxlibc.json`
+  (experimental): the same ESP-IDF application built per chip — CI's
+  `esp32` matrix now builds all four images, and the deploy job already
+  staged `foxbench-esp32*` — with defaults for the five network templates
+  (pins as the CircuitPython chip targets': the C6's and S3's `LED`, the
+  C5's `IO27`). The picker's last section lists the four; the catalog check
+  no longer refuses a console target on a chip whose CircuitPython shows a
+  drive (the S3: `has_usb_drive` describes CircuitPython, and the C
+  firmware offers none).
+
 ### Page 0.18.34 — the ESP32-C3 on the C firmware is selectable (experimental)
 
 - `boards/esp32c3-foxlibc.json` goes from `planned` to `experimental`: the

@@ -19,7 +19,7 @@
 #include "fs.h"
 #include "netfox.h"
 
-#define LINE_MAX 160
+#define CON_LINE_MAX 160   /* (LINE_MAX is taken by the toolchain's <sys/syslimits.h>) */
 static QueueHandle_t lines;              /* complete command lines, reader -> main */
 static SemaphoreHandle_t out_lock;
 static const char *reset_reason = "?";
@@ -87,14 +87,14 @@ static void put_done(void) {
 }
 
 static void reader(void *arg) {
-    char line[LINE_MAX]; int n = 0;
+    char line[CON_LINE_MAX]; int n = 0;
     for (;;) {
         int c = fgetc(stdin);
         if (c == EOF) { vTaskDelay(pdMS_TO_TICKS(10)); continue; }
         if (c == '\r' || c == '\n') { if (n || put.active) { line[n] = 0; n = 0; char *copy = strdup(line); if (copy) xQueueSend(lines, &copy, portMAX_DELAY); } }
         else if (c == 3) { char *copy = strdup("\x03"); if (copy) xQueueSend(lines, &copy, portMAX_DELAY); n = 0; }
         else if (c == 8 || c == 127) { if (n) n--; }
-        else if (n < LINE_MAX - 1 && c >= 32) line[n++] = (char)c;
+        else if (n < CON_LINE_MAX - 1 && c >= 32) line[n++] = (char)c;
     }
 }
 
