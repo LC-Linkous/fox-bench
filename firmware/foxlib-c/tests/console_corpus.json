@@ -15,7 +15,7 @@
     "  freq <mhz> ",
     "  atten <0-127> ",
     "  batt ",
-    "files \\| reload \\| stop \\| uid \\| version \\| reboot \\| bootsel",
+    "files \\| put <name> <size> \\| get <name> \\| rm <name>\\r\\n  reload \\| stop \\| uid \\| version \\| reboot \\| bootsel",
     "\\r\\nok\\r\\n$"
    ]
   },
@@ -155,6 +155,79 @@
    ]
   },
   {
+   "cmd": "put images.bin 3",
+   "then": [
+    "AQID",
+    "."
+   ],
+   "expect": [
+    "^ok size=3 crc32=55bc801d\\r\\n"
+   ]
+  },
+  {
+   "cmd": "put images.bin 3",
+   "then": [
+    "AQI!",
+    "."
+   ],
+   "expect": [
+    "^err: bad base64"
+   ]
+  },
+  {
+   "cmd": "put images.bin 5",
+   "then": [
+    "AQID",
+    "."
+   ],
+   "expect": [
+    "^err: got 3 bytes, put said 5"
+   ]
+  },
+  {
+   "cmd": "put ../fox.json 3",
+   "expect": [
+    "^err: refused name"
+   ]
+  },
+  {
+   "cmd": "put fox.json",
+   "expect": [
+    "^err: put <name> <size"
+   ]
+  },
+  {
+   "cmd": "get fox.json",
+   "expect": [
+    "^size=\\d+ crc32=[0-9a-f]{8}\\r\\n",
+    "\\r\\n\\.\\r\\nok\\r\\n$"
+   ]
+  },
+  {
+   "cmd": "get nothere.bin",
+   "expect": [
+    "^err: no such file"
+   ]
+  },
+  {
+   "cmd": "get board.json",
+   "expect": [
+    "^err: refused name"
+   ]
+  },
+  {
+   "cmd": "rm nothere.bin",
+   "expect": [
+    "^err: no such file"
+   ]
+  },
+  {
+   "cmd": "rm defaults.json",
+   "expect": [
+    "^ok\\r\\n"
+   ]
+  },
+  {
    "cmd": "bogus",
    "expect": [
     "^err: unknown command 'bogus' \\(help\\)\\r\\n$"
@@ -179,7 +252,7 @@
    "c_only": [
     "^ok \\(stopped\\)\\r\\nattenuation 40\\r\\nok\\r\\n"
    ],
-   "note": "F15: atten during a bench action stops it (answering it) and applies — core 1 refuses the write mid-stream, so core 0 stops first; the value used to be dropped while the console printed ok"
+   "note": "F15: atten during a bench action stops it (answering it) and applies \u2014 core 1 refuses the write mid-stream, so core 0 stops first; the value used to be dropped while the console printed ok"
   },
   {
    "cmd": "key 5",

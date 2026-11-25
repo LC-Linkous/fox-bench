@@ -4,10 +4,10 @@
   "hardware": "seeed_xiao_esp32c3",
   "family": "foxlib-c",
   "transport": "console",
-  "status": "planned",
+  "status": "experimental",
   "firmware": {
     "kind": "foxlib-c",
-    "note": "fox-bench's own firmware for the ESP32-C3 (C, ESP-IDF, GPL-3.0-or-later): the fox.json contract and the network templates of the CircuitPython foxes, without CircuitPython. No USB drive: fox.json and defaults.json travel over the serial console (PROTOCOL.md, \"Files over the console\") on the same USB lead that flashes the board. Planned: the firmware source lands next; until then the target is listed and disabled.",
+    "note": "fox-bench's own firmware for the ESP32-C3 (C, ESP-IDF, GPL-3.0-or-later): the fox.json contract and the network templates of the CircuitPython foxes, without CircuitPython. No USB drive: fox.json and defaults.json travel over the serial console (PROTOCOL.md, \"Files over the console\") on the same USB lead that flashes the board. Experimental: wifi-beacon runs; wifi-probe, ble-beacon, puzzle-beacon and the checkpoint portal are accepted by the firmware but not yet on the air (the banner says so).",
     "image": "firmware/foxlib-c/esp32/foxbench-esp32c3.bin",
     "version_file": "firmware/foxlib-c/VERSION",
     "build_info": "firmware/foxlib-c/esp32/foxbench-esp32c3.json",

@@ -15,6 +15,7 @@ long fs_read(const char *path, char *buf, size_t cap);   /* bytes read (NUL-term
 long fs_read_at(const char *path, uint32_t off, void *buf, size_t n);   /* bytes read from an offset, -1 if missing */
 bool fs_write(const char *path, const void *data, size_t len);
 bool fs_exists(const char *path);
+bool fs_remove(const char *path);                 /* false when missing */
 int fs_seed(const char *board_json);        /* create the files the page expects if missing, keep board.json current; returns how many written */
 int fs_list(char *out, size_t cap);         /* "name size  name size ..." */
 long fs_size(const char *path);             /* file size, -1 if missing */

@@ -81,6 +81,23 @@ def check_range(req, have, where):
         if not ok:
             bad(where, f"needs foxlib {req}, repo has {have}")
 
+def foxlibc_net_validate(drel, bid, radios, names):
+    """Run firmware/foxlib-c's network validator (core/netcfg, host build) on a defaults file as if it were fox.json:
+    the status word, or None when it cannot be built."""
+    import shutil, subprocess
+    binp = os.path.join(ROOT, "firmware", "foxlib-c", "tests", "build", "netcfg_dump")
+    if not os.path.exists(binp):
+        if not shutil.which("gcc") and not shutil.which("cc"): return None
+        r = subprocess.run(["make", "-s", "-C", os.path.join(ROOT, "firmware", "foxlib-c", "tests"), "build/netcfg_dump"], capture_output=True, text=True)
+        if r.returncode != 0 or not os.path.exists(binp): return None
+    path = os.path.join(ROOT, drel)
+    r = subprocess.run([binp, path, path, bid, ",".join(radios) or "?", *names], capture_output=True, text=True)
+    if r.returncode != 0: return "error(%d)" % r.returncode
+    try: out = json.loads(r.stdout)
+    except ValueError: return "unparsable"
+    return out["status"] + ("" if out["status"] == "ok" else " " + json.dumps(out["items"]))
+
+
 def foxlibc_validate(drel, bid):
     """Run firmware/foxlib-c's validator (host build) on a defaults file as if it were fox.json. None when it cannot be built."""
     import shutil, subprocess
@@ -335,6 +352,10 @@ for tid in fw["templates"]:
         if b["_family"] == "foxlib" and (t.get("contract") == "net") != ("variants" in b):
             if exists(drel): bad(drel, "defaults for the wrong kind of target (network templates belong to chip targets, FM templates to board + module targets)")
             continue
+        # the same split in the C family: a console-configured target is a network fox, the PicoFox an FM one
+        if b["_family"] == "foxlib-c" and (t.get("contract") == "net") != (b.get("transport") == "console"):
+            if exists(drel): bad(drel, "defaults for the wrong kind of target (network templates belong to console-configured targets, FM templates to the PicoFox)")
+            continue
         # an FM template needs the pin roles it lists; a board whose hardware has none of them does not get it
         req = t.get("pins", {}).get("required", [])
         if req and b["_family"] == "foxlib":
@@ -349,6 +370,27 @@ for tid in fw["templates"]:
             if d.get("schedule", {}).get("kind") != "duty": bad(drel, "drive-family defaults need schedule.kind = duty")
             for k in ("itu_zone", "attenuation", "revision", "id_deviation_hz", "audio_deviation_hz"):
                 if k not in d.get("radio", {}): bad(drel, f"radio.{k} missing")
+            continue
+        if b["_family"] == "foxlib-c" and b.get("transport") == "console":
+            # a network fox on the C firmware: the same shape as a CircuitPython chip target's defaults (less `variant`,
+            # since the hardware is fixed), validated by the C netcfg on the host as if it were fox.json
+            if d.get("template") != tid or d.get("board") != bid: bad(drel, "template/board do not match")
+            for k in ("net", "id", "schedule", "led", "fleet"):
+                if k not in d: bad(drel, f"{k} section missing")
+            if d.get("net", {}).get("kind") not in ("wifi-ap", "wifi-probe", "ble"): bad(drel, f"net.kind {d.get('net', {}).get('kind')!r}")
+            if "plan" in d or "variant" in d: bad(drel, "a console-configured fox has no plan and no variant")
+            if set((d.get("pins") or {}).keys()) != set(fnetcfg.NET_PINS): bad(drel, f"pins must be exactly {list(fnetcfg.NET_PINS)}")
+            vhw = hardware.get(b.get("hardware"), {}); nr = vhw.get("net") or {}
+            for role in fnetcfg.NET_PINS:
+                if (d.get("pins") or {}).get(role) != nr.get(role): bad(drel, f"pins.{role} = {(d.get('pins') or {}).get(role)!r} != the hardware's {nr.get(role)!r}")
+            names = [n for p in vhw.get("pins", []) for n in [p["name"]] + p.get("aliases", [])]
+            out = foxlibc_net_validate(drel, bid, vhw.get("radios", []), names)
+            if out is None: pass   # no host compiler: the firmware CI job covers it
+            elif out != "ok":
+                # while the target is experimental a template may run as far as the firmware goes: a feature section the
+                # firmware accepts but has not built yet reports "not in this firmware" (the banner says the same)
+                unbuilt = out.startswith("partial(") and all(r == "not in this firmware" for _, r in json.loads(out[out.index(" ") + 1:]))
+                if not (unbuilt and b.get("status") == "experimental"): bad(drel, f"foxlib-c netcfg on its own defaults: {out}")
             continue
         if b["_family"] == "foxlib-c":
             # the C firmware's own validator (host build), fed the defaults as fox.json: must come back clean

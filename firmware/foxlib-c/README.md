@@ -3,14 +3,17 @@
 The `foxlib-c` device family: fox-bench's own firmware in C for boards that do
 not run CircuitPython. Same contract as the CircuitPython foxes — `fox.json`
 over `defaults.json` (CONFIG.md), the same templates, the `FOX …` banner, bench
-actions — on a board the page talks to through a USB drive and a serial console.
+actions — on a board the page talks to through a USB drive and a serial console
+(the PicoFox), or through the serial console alone (the ESP32 boards:
+PROTOCOL.md, "Files over the console").
 
 Licence: GPL-3.0-or-later (`firmware/LICENSE`), like foxlib. FatFs under
 `third_party/fatfs` has its own permissive licence.
 
 ```
-core/        portable, hardware-free: json, morse, melody, schedule, synth, cfg
+core/        portable, hardware-free: json, report, cfg (FM), netcfg (network), filexfer, morse, melody, schedule, synth, sstv
 picofox/     the Pico SDK application for the AI6YM PicoFox hardware (RP2040 + Si5351)
+esp32/       the ESP-IDF application for the XIAO ESP32 boards (network foxes, no drive)
 third_party/ FatFs R0.16
 tests/       host builds: parity with foxlib, the runner against the simulator's scenarios
 VERSION      firmware version (the banner's foxlib=c-<version>)
@@ -21,6 +24,11 @@ VERSION      firmware version (the banner's foxlib=c-<version>)
 | target | hardware | status |
 |---|---|---|
 | `picofox-foxlibc` | AI6YM PicoFox rev 2/3 (`hardware/picofox.json`, `docs/picofox.md`) | stable: on the air on a rev 3 board since October 2026 (keying, 8 kHz FM, live reload, console bench, firmware swap both ways); attenuator dB/step not yet metered |
+| `esp32c3-foxlibc` | Seeed XIAO ESP32-C3 (`hardware/seeed_xiao_esp32c3.json`) | experimental: `wifi-beacon` runs; `wifi-probe`, `ble-beacon`, `puzzle-beacon` and the checkpoint portal are accepted and reported `not in this firmware`; not yet on a bench |
+
+The ESP32 application is written for the C3, C6, C5 and S3 (`idf.py
+set-target`); the catalog lists a target once its firmware has been built
+and tried on that chip.
 
 ## What the PicoFox firmware does
 
@@ -95,6 +103,32 @@ VERSION      firmware version (the banner's foxlib=c-<version>)
   reported; more means a flash write landed mid-stream or something stalled,
   and is worth a look.
 
+## What the ESP32 firmware does (`esp32/`)
+
+- **Console only**: the USB-Serial-JTAG port the board is flashed through is
+  the whole interface — no drive. `fox.json` and `defaults.json` live in a
+  SPIFFS partition and travel as base64 over the console (`put <name>
+  <size>` … `.`, `get <name>`, `rm <name>`; `core/filexfer.c`), verified by
+  size and CRC-32; a put or rm of either config file reloads the fox about a
+  second later, and the banner follows on the same console. Compiled-in
+  `wifi-beacon` defaults are the last resort.
+- **Configuration**: `core/netcfg.c` validates `fox.json` over
+  `defaults.json` as foxlib's `netcfg.py` does (`tests/netcfg_parity.py`
+  runs both over `firmware/sim/schema_corpus.json`): the board's radios
+  (`wifi24`, `wifi5`, `ble`) decide which `net.kind` and channels are
+  accepted; a feature section the firmware has not built yet is reported
+  `not in this firmware` and the fox runs without it; deep sleep is refused
+  when the checkpoint portal is on.
+- **Behaviour**: the duty cycle (`schedule.wake_s` / `sleep_s`) with the
+  radio up and down (`esp_wifi` AP+STA mode so a `scan` works while the
+  beacon is up); `sleep: "deep"` deep-sleeps between wakes (the console
+  goes away with it — the page's Listen only waits for it to come back).
+- **Console** (`esp32/main/console.c`): `help status key <s> scan health
+  files put get rm reload stop uid version reboot`; `health` answers the
+  JSON the Bench tab's health card and `hw_smoke` read; `scan` answers
+  `-<dBm> ch<n> <name>` lines like the CircuitPython foxes' `rssi`.
+- **LED**: `pins.led` when the hardware has one (the bare XIAO C3 has none).
+
 ## Build
 
 ```
@@ -117,10 +151,25 @@ different binary: flash it for bench iterations, but the one to hand out
 is the site's. To build the same bytes locally, use the same xPack release
 and `PICO_SDK_PATH` at that commit.
 
+For the ESP32 boards, with ESP-IDF 5.4.2 exported:
+
+```
+cd firmware/foxlib-c/esp32
+idf.py set-target esp32c3 build            # also esp32c6, esp32c5, esp32s3
+idf.py merge-bin -o build/foxbench-esp32c3.bin
+idf.py -p /dev/ttyACM0 flash               # or the Board tab, with the site's .bin at 0x0
+```
+
+CI's `esp32` job builds the same in the `espressif/idf:v5.4.2` container,
+`tools/build_info_esp.py` writes `foxbench-esp32c3.json` beside the merged
+image (`version`, `commit`, `idf`, `gcc`, `sha256`, `size`, `built`), and
+the `deploy` job places both at `firmware/foxlib-c/esp32/` on the site.
+
 ## Tests (no hardware)
 
 ```
 make -C firmware/foxlib-c/tests check
+make -C firmware/foxlib-c/esp32/host_check check     # the ESP32 application against stand-in IDF headers: compiles
 ```
 
 The host builds run under AddressSanitizer and UBSan (`SANITIZE=` to turn
@@ -135,6 +184,9 @@ run on this board.
   (`tests/host_sim/`), run through the Python simulator's own scenarios
   (`firmware/sim/scenarios.json`) and judged by its decoder — the banner,
   the decoded ID, kinds of audio, waits, keydown cuts, retunes, dead wakes.
+- `netcfg_parity.py`: `core/netcfg.c` against `foxlib/netcfg.py` over the
+  schema corpus — the same status word, items and effective configuration
+  for every case without a feature section (those are not in C yet).
 - `console_test.py`: the real `picofox/console.c` (command parser, reply
   text, the `bootsel` path) built for the host over a stub TinyUSB CDC
   (`build/console_sim`), fed every command in `console_corpus.json` — and the

@@ -132,8 +132,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: '3.12' }
-      - name: Host build of the portable core + parity against foxlib (Morse, songs, schedules, cfg, synth)
+      - name: Host build of the portable core + parity against foxlib (Morse, songs, schedules, cfg, netcfg, synth)
         run: make -C firmware/foxlib-c/tests check
+      - name: The ESP32 application against stand-in IDF headers (syntax; the real build is the esp32 job)
+        run: make -C firmware/foxlib-c/esp32/host_check check
       # Pinned toolchain: the same compiler every time, by hash, so the UF2 on the site is reproducible from the
       # commit (two builds of one commit are bit-identical). Bumping it is a deliberate commit here, not an image drift.
       - name: Arm toolchain (xPack GCC 15.2.1-1.1, by sha256) + Pico SDK (2.1.1 by commit)
@@ -165,10 +167,37 @@ jobs:
             /tmp/fxbuild/foxbench-picofox.uf2
             /tmp/fxbuild/foxbench-picofox.json
 
+  # fox-bench's C firmware for the Espressif boards (firmware/foxlib-c/esp32): built in Espressif's own IDF container,
+  # pinned by tag, one target per matrix row; the merged .bin and its fingerprint are what the site serves. The host
+  # syntax check (host_check/) runs in the foxlib-c job without the SDK; this is the real build.
+  esp32:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    container: espressif/idf:v5.4.2
+    strategy:
+      matrix:
+        target: [esp32c3]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build (idf.py set-target ${{ matrix.target }})
+        shell: bash
+        run: |
+          . "$IDF_PATH/export.sh"
+          cd firmware/foxlib-c/esp32
+          idf.py set-target ${{ matrix.target }} build
+          idf.py merge-bin -o build/foxbench-${{ matrix.target }}.bin
+          python3 ../../../tools/build_info_esp.py build ${{ matrix.target }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: foxbench-${{ matrix.target }}-bin
+          path: |
+            firmware/foxlib-c/esp32/build/foxbench-${{ matrix.target }}.bin
+            firmware/foxlib-c/esp32/build/foxbench-${{ matrix.target }}.json
+
   deploy:
     # Only after every test job passed, only for pushes to main. A failed job upstream skips this one,
     # so a red suite leaves the live site as it was.
-    needs: [page, sim, foxlib-c]
+    needs: [page, sim, foxlib-c, esp32]
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -194,12 +223,19 @@ jobs:
         with:
           name: foxlib-mpy
           path: /tmp/mpy
+      - name: The ESP32 images the esp32 job built
+        uses: actions/download-artifact@v4
+        with:
+          pattern: foxbench-esp32*-bin
+          path: /tmp/esp
+          merge-multiple: true
       - name: Stage site (page, descriptors, firmware the page deploys, docs)
         run: |
           mkdir -p _site
           cp -r index.html css js flasher hardware boards modules songs bands.json firmware docs DESIGN.md CONFIG.md PROTOCOL.md LICENSES.md LICENSE _site/
-          rm -rf _site/firmware/sim _site/firmware/foxlib-c/tests/build
+          rm -rf _site/firmware/sim _site/firmware/foxlib-c/tests/build _site/firmware/foxlib-c/esp32/build _site/firmware/foxlib-c/esp32/host_check
           cp /tmp/uf2/foxbench-picofox.uf2 /tmp/uf2/foxbench-picofox.json _site/firmware/foxlib-c/picofox/
+          cp /tmp/esp/foxbench-esp32*.bin /tmp/esp/foxbench-esp32*.json _site/firmware/foxlib-c/esp32/
           cp -r /tmp/mpy/. _site/firmware/mpy/ && test -f _site/firmware/mpy/index.json
           python3 tools/stamp_assets.py _site && python3 tools/stamp_assets.py --check _site   # ?v=<VERSION> on css/js links: a deploy is not served against a cached main.js
           touch _site/.nojekyll   # Jekyll would drop foxlib/__init__.py (leading underscore)
@@ -215,7 +251,7 @@ jobs:
     # fingerprint, and the staged site as a zip — "yesterday's page" and "yesterday's firmware" for anyone who
     # hits a regression on the live site. Nothing here publishes without the tag — or without the "release"
     # box ticked on a manual run from main, which creates that tag itself (at the js/main.js VERSION).
-    needs: [page, sim, foxlib-c]
+    needs: [page, sim, foxlib-c, esp32]
     if: |
       (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
       (github.event_name == 'workflow_dispatch' && inputs.release && github.ref == 'refs/heads/main')

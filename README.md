@@ -61,7 +61,7 @@ Three **families** — what the fox's program is and how it reaches the board:
 | family | the fox's program | what the page writes | boards |
 |---|---|---|---|
 | `foxlib` | CircuitPython: `firmware/foxlib/` + a template's `code.py`, as source or precompiled `.mpy` | `code.py`, `fox.json`, `defaults.json`, `foxlib/`, `safemode.py` over the REPL | an ESP32 or nRF52840 running CircuitPython — bare, for the network foxes; with an SA868/SA818 module, for FM |
-| `foxlib-c` | C: `firmware/foxlib-c/`, built by CI to a UF2 | the UF2 onto the BOOTSEL drive; `fox.json` + `defaults.json` onto the `FOXBENCH` drive | the AI6YM PicoFox (RP2040 + SI5351, 2 m FM) |
+| `foxlib-c` | C: `firmware/foxlib-c/`, built by CI to a UF2 (PicoFox) or a `.bin` (ESP32) | PicoFox: the UF2 onto the BOOTSEL drive, `fox.json` + `defaults.json` onto the `FOXBENCH` drive. ESP32: the `.bin` flashed at `0x0`, the two files over the serial console (no drive) | the AI6YM PicoFox (RP2040 + SI5351, 2 m FM); the XIAO ESP32-C3 as a network fox (experimental; C6, C5, S3 to follow) |
 | `drive` | the vendor's own firmware, not ours | `settings.txt`, the audio and Morse-ID `.wav` files, onto its drive | the AI6YM PicoFox with its vendor firmware |
 
 What has been on a bench (`docs/hardware-log.md` has the rows; `python3
@@ -77,6 +77,7 @@ what the next session has to show):
 | Seeed XIAO ESP32C6 | `esp32c6` (stable) | Wi-Fi, BLE | 2026-11 | all five network templates from `.mpy`, 114–156 KB free after init; found by the laptop, the sign-in page and find log read back |
 | Seeed XIAO ESP32C5 | `esp32c5` (stable) | Wi-Fi 2.4/5, BLE | 2026-11 | all five network templates from `.mpy`, 8.2 MB free (PSRAM); found by the laptop, the sign-in page and find log read back; 5 GHz receive seen, a 5 GHz AP not yet tried |
 | Waveshare ESP32-S3-Nano | `esp32s3` | Wi-Fi, BLE | — | described from the Arduino Nano ESP32 build; nothing run |
+| Seeed XIAO ESP32-C3 (bare, C firmware) | `esp32c3-foxlibc` (experimental) | Wi-Fi, BLE | — | the ESP-IDF application builds; nothing run yet |
 | Seeed XIAO nRF52840 / Sense | `nrf52840` (stable) | BLE | 2026-11 | `ble-beacon` and `puzzle-beacon` from `.mpy`, 73 KB free; CircuitPython as a `.uf2` on the XIAO-SENSE drive; the one-way nRF watchdog noted in the runbook |
 | Arduino Nano 33 BLE | `nrf52840` | BLE | — | described; CircuitPython needs `bossac`; nothing run |
 

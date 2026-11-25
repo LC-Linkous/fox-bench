@@ -14,6 +14,41 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.18.34 — the ESP32-C3 on the C firmware is selectable (experimental)
+
+- `boards/esp32c3-foxlibc.json` goes from `planned` to `experimental`: the
+  firmware source is in the tree and CI builds it. Its five network
+  defaults validate through the C netcfg on the host (`check_catalog`,
+  which now applies the net/FM split to the C family too and accepts
+  `partial(... not in this firmware)` while a target is experimental).
+- Smoke: select the target, demo-connect over the fake console, deploy
+  (fox.json and defaults.json by `put`, verified), see the reload banner,
+  the fleet row and the Bench "On the board" card.
+- The fake console refuses names the firmware refuses, and its `put` size
+  limit is the firmware's 16 KB; `help` lists the file commands.
+
+### foxlib-c 0.1.12 — the ESP32 application, and files over the console
+
+- `esp32/`: an ESP-IDF 5.4.2 application for the XIAO ESP32-C3 (C6, C5,
+  S3 next): USB-Serial-JTAG console, SPIFFS for `fox.json` /
+  `defaults.json`, the duty cycle with the Wi-Fi AP up and down (`wifi-beacon`
+  on the air; `wifi-probe`, `ble-beacon`, `puzzle-beacon` and the portal
+  accepted but reported `not in this firmware`), deep sleep between wakes
+  when asked, bench `key` / `scan` / `health`, LED. `esp32/host_check/`
+  compiles it against stand-in IDF headers so the host suite catches
+  syntax; CI job `esp32` builds the real image in the `espressif/idf`
+  container, `tools/build_info_esp.py` writes its fingerprint, and the
+  deploy job places both under `firmware/foxlib-c/esp32/` on the site.
+- `core/netcfg.c`: the network contract (`foxlib/netcfg.py`) in C —
+  defaults, user overlay, radios, channels, report items, the portal-vs-deep
+  rule; `tests/netcfg_parity.py` runs it against the Python over the schema
+  corpus. `core/report.c` carries the report out of `cfg.c` so both
+  contracts share it.
+- `core/filexfer.c`: `put` / `get` / `rm` (PROTOCOL.md "Files over the
+  console") for both consoles. The PicoFox console answers them too, so a
+  script can configure either board the same way; `console_corpus.json`
+  covers them on the firmware and the page's fake alike.
+
 ### Page 0.18.33 — console-configured foxes (the C firmware for the ESP32 boards, part 1)
 
 The plan: fox-bench's C firmware (`foxlib-c`, so far the PicoFox) gains an

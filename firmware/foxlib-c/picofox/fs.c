@@ -108,3 +108,5 @@ int fs_list(char *out, size_t cap) {
     f_closedir(&d);
     return n;
 }
+
+bool fs_remove(const char *path) { return f_unlink(path) == FR_OK; }

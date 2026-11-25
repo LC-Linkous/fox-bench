@@ -78,6 +78,7 @@ long fs_read(const char *path, char *buf, size_t cap) { FILE *f = openp(path, "r
 long fs_read_at(const char *path, uint32_t off, void *buf, size_t n) { FILE *f = openp(path, "rb"); if (!f) return -1; fseek(f, (long)off, SEEK_SET); size_t got = fread(buf, 1, n, f); fclose(f); return (long)got; }
 bool fs_write(const char *path, const void *data, size_t len) { FILE *f = openp(path, "wb"); if (!f) return false; fwrite(data, 1, len, f); fclose(f); return true; }
 bool fs_exists(const char *path) { FILE *f = openp(path, "rb"); if (f) fclose(f); return f != NULL; }
+bool fs_remove(const char *path) { char full[512]; snprintf(full, sizeof full, "%s/%s", sim_dir, path); return remove(full) == 0; }
 long fs_size(const char *path) { FILE *f = openp(path, "rb"); if (!f) return -1; fseek(f, 0, SEEK_END); long n = ftell(f); fclose(f); return n; }
 int fs_seed(const char *bj) { (void)bj; return 0; }
 int fs_list(char *out, size_t cap) { snprintf(out, cap, "fox.json defaults.json"); return 2; }

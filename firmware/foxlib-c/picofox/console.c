@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "filexfer.h"
 #include "flash_disk.h"
 #include "fox.h"
 #include "fs.h"
@@ -23,6 +24,8 @@ static char ring[OUT_RING];
 static volatile unsigned ring_w, ring_r;
 static char line[160];
 static unsigned line_n;
+/* A `put` in progress: the body lines go to the decoder instead of dispatch until the `.` line. */
+static xfer_put_t put; static uint8_t put_buf[XFER_MAX_FILE];
 
 void con_init(void) { ring_w = ring_r = 0; line_n = 0; }
 bool con_connected(void) { return tud_cdc_connected(); }
@@ -60,7 +63,8 @@ static void help(void) {
              "  freq <mhz>        retune until the next reload\r\n"
              "  atten <0-127>     attenuator code now (rev 3 boards; dB per step not yet metered)\r\n"
              "  batt              charging state (no voltage sense on this board)\r\n"
-             "  files | reload | stop | uid | version | reboot | bootsel\r\n");
+             "  files | put <name> <size> | get <name> | rm <name>\r\n"
+             "  reload | stop | uid | version | reboot | bootsel\r\n");
 }
 
 /* A greppable version string in the image: the page reads it out of a UF2 before copying it, so an old download loaded
@@ -79,6 +83,17 @@ static void status(void) {
     char files[256]; fs_list(files, sizeof files); con_printf("files: %s\r\n", files);
 }
 
+static void emit(void *ctx, const char *text) { (void)ctx; con_puts(text); pump(); }
+
+/* The body of a `put` is complete (or broken): verify, write, answer, reload when it was a config file. */
+static void put_done(void) {
+    if (put.bad) { con_puts("err: bad base64\r\n"); return; }
+    if (put.overflow || put.n != put.expect) { con_printf("err: got %u bytes, put said %u\r\n", (unsigned)put.n, (unsigned)put.expect); return; }
+    if (!fs_write(put.name, put.buf, put.n)) { con_puts("err: write failed\r\n"); return; }
+    con_printf("ok size=%u crc32=%08x\r\n", (unsigned)put.n, (unsigned)xfer_crc32(put.buf, put.n));
+    if (!strcmp(put.name, "fox.json") || !strcmp(put.name, "defaults.json")) { pump(); fox_reload("console"); }
+}
+
 static void dispatch(char *cmd) {
     char *arg = strchr(cmd, ' '); if (arg) { *arg++ = 0; while (*arg == ' ') arg++; }
     if (!strcmp(cmd, "help") || !strcmp(cmd, "?")) { help(); con_puts("ok\r\n"); }
@@ -95,6 +110,25 @@ static void dispatch(char *cmd) {
     else if (!strcmp(cmd, "atten")) { int v = arg ? atoi(arg) : -1; if (v < 0 || v > 127) con_puts("err: 0-127\r\n"); else if (fox_bench_atten(v)) con_printf("attenuation %d\r\nok\r\n", v); else con_puts("err: attenuator not set (a rev 2 board has none; or no config / core 1 not answering)\r\n"); }
     else if (!strcmp(cmd, "stop")) { fox_bench_stop(); con_puts("ok\r\n"); }
     else if (!strcmp(cmd, "reload")) { fox_reload("console"); con_puts("ok\r\n"); }
+    else if (!strcmp(cmd, "get")) {
+        if (!xfer_name_ok(arg ? arg : "")) { con_puts("err: refused name\r\n"); return; }
+        long n = fs_read(arg, (char *)put_buf, sizeof put_buf);
+        if (n < 0) { con_puts("err: no such file\r\n"); return; }
+        xfer_get_emit(put_buf, (size_t)n, emit, NULL); con_puts("ok\r\n");
+    }
+    else if (!strcmp(cmd, "rm")) {
+        if (!xfer_name_ok(arg ? arg : "")) con_puts("err: refused name\r\n");
+        else if (fs_remove(arg)) { con_puts("ok\r\n"); if (!strcmp(arg, "fox.json") || !strcmp(arg, "defaults.json")) { pump(); fox_reload("console"); } }
+        else con_puts("err: no such file\r\n");
+    }
+    else if (!strcmp(cmd, "put")) {
+        char *sz = arg ? strchr(arg, ' ') : NULL; long n = -1;
+        if (sz) { *sz++ = 0; n = atol(sz); }
+        if (!xfer_name_ok(arg ? arg : "")) { con_puts("err: refused name\r\n"); return; }
+        if (n < 0 || n > (long)sizeof put_buf) { con_printf("err: put <name> <size 0-%u>\r\n", (unsigned)sizeof put_buf); return; }
+        xfer_put_begin(&put, arg, (size_t)n, put_buf, sizeof put_buf);
+        con_puts("send\r\n");
+    }
     else if (!strcmp(cmd, "reboot")) { fox_quiesce(); con_puts("ok\r\n"); pump(); flash_disk_flush(); watchdog_reboot(0, 0, 50); }
     else if (!strcmp(cmd, "bootsel")) { fox_quiesce(); con_puts("ok (entering UF2 bootloader: the RPI-RP2 drive appears)\r\n"); pump(); flash_disk_flush(); sleep_ms(50); reset_usb_boot(0, 0); }
     else if (*cmd) con_printf("err: unknown command '%s' (help)\r\n", cmd);
@@ -113,7 +147,9 @@ void tud_cdc_line_state_cb(uint8_t itf, bool dtr, bool rts) {
 void con_poll(void) {
     while (tud_cdc_available()) {
         char c = (char)tud_cdc_read_char();
-        if (c == '\r' || c == '\n') { if (line_n) { line[line_n] = 0; line_n = 0; dispatch(line); } }
+        if (c == '\r' || c == '\n') {
+            if (line_n || put.active) { line[line_n] = 0; line_n = 0; if (put.active) { if (xfer_put_line(&put, line)) put_done(); } else dispatch(line); }
+        }
         else if (c == 3) { fox_bench_stop(); con_puts("^C\r\nok\r\n"); line_n = 0; }   /* Ctrl-C from a terminal: stop like a REPL would */
         else if (c == 8 || c == 127) { if (line_n) line_n--; }
         else if (line_n < sizeof line - 1 && c >= 32) line[line_n++] = c;

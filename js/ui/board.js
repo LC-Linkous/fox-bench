@@ -96,7 +96,7 @@ function fwBadge(app, v) {
 
 function render() {
   if (app.family === 'drive') return renderDrive();
-  if (app.family === 'foxlib-c') return renderFoxlibC();
+  if (app.family === 'foxlib-c') return app.transport === 'console' ? renderConsoleFox() : renderFoxlibC();
   const b = app.board, ob = app.onBoard, info = app.info;
   const deviceCard = h('div.card', {},
     h('h3', {}, 'Connection'),
@@ -203,6 +203,54 @@ function renderDrive() {
       h('dt', {}, 'USB'), h('dd', {}, `drive "${b.drive.label}" + serial (boot messages only)`), h('dt', {}, 'Battery'),
       h('dd', {}, b.battery?.divider_note || '—')));
   root.replaceChildren(pickerCard(), h('div.cols', {}, deviceCard, flashCard(app)), notes, facts, flow, diagCard());
+}
+
+/** A console-configured fox (an ESP32 board on fox-bench's C firmware): no drive — fox.json travels over the serial console
+ *  the board is flashed through, and the banner, log and bench answer on the same console. */
+function renderConsoleFox() {
+  const b = app.board, ob = app.onBoard, info = app.info, hw = app.hardware;
+  const deviceCard = h('div.card', {},
+    h('h3', {}, 'Connection'),
+    !info ? h('div', {},
+        h('p.hint', {}, 'Not connected. Plug in USB, then ', h('b', {}, 'Connect'), ' in the top bar and pick the board\'s serial port (Chrome or Edge): the page asks the fox who it is (', h('code', {}, 'version'), ', ', h('code', {}, 'uid'), ') and reads its ', h('code', {}, 'fox.json'), ' back. Or ', h('i', {}, 'Try without hardware'), '.'),
+        h('p.hint', {}, h('b', {}, 'No fox on the port?'), ' The board still runs other firmware (CircuitPython, say). Flash fox-bench\'s from the card on the right; CircuitPython can be put back the same way at any time.'),
+        h('p.hint', {}, h('b', {}, 'Listen only'), ' opens the console without taking control: the ', h('code', {}, 'FOX …'),
+          ' banner appears at once, the log streams while the fox runs, and the console below takes commands (', h('code', {}, 'help'), ').'))
+      : ob.listening ? h('dl.kv', {},
+        h('dt', {}, 'Console'), h('dd', {}, 'listening',
+          ob.template ? '' : badge('no banner yet — it prints when the port opens and after every reload', 'warn')),
+        h('dt', {}, 'Board id'), h('dd', {}, info.boardId || '—'), h('dt', {}, 'Chip UID'), h('dd', {}, info.uid || '—'),
+        h('dt', {}, 'Firmware'), h('dd', {}, ob.foxlibVersion ? `foxlib-${ob.foxlibVersion}` : '—', fwBadge(app, ob.foxlibVersion)), h('dt', {}, 'Template on board'), h('dd', {}, ob.template || '—'))
+      : h('dl.kv', {},
+        h('dt', {}, 'Board id'), h('dd', {}, info.boardId || '—'), h('dt', {}, 'Chip UID'), h('dd', {}, info.uid || '—'),
+        h('dt', {}, 'Firmware'), h('dd', {}, ob.foxlibVersion ? `foxlib-${ob.foxlibVersion}` : '—', fwBadge(app, ob.foxlibVersion)),
+        h('dt', {}, 'Files'), h('dd', {},
+          Object.entries(ob.files || {}).sort().map(([n, f]) => `${n} (${f.size} B)`).join('  ') || '(none)', ob.cfg ? '' : badge('no fox.json', 'warn')),
+        h('dt', {}, 'Template on board'), h('dd', {}, ob.template || '—'),
+        h('dt', {}, 'fox.json'), h('dd', {},
+          ob.cfg ? `${ob.cfg.id?.callmessage} · ${ob.cfg.net?.kind || '?'}${ob.cfg.net?.ssid ? ' "' + ob.cfg.net.ssid + '"' : ob.cfg.net?.name ? ' "' + ob.cfg.net.name + '"' : ''}` : ob.raw ? badge('invalid JSON', 'err') : '—')),
+    info && !ob.listening ? h('div.tools', { style: 'margin-top:10px' },
+      ob.cfg ? h('button.btn',
+        { onclick: () => app.guard(async () => { await app.loadCfg(ob.cfg, { source: 'board' }); app.console.dim('working config replaced with the fox\'s fox.json'); }) },
+        'Load the fox\'s config into the form') : null,
+      h('button.btn.small', { onclick: () => app.guard(async () => { await app.readConsole(); app.changed('reread'); }) }, 'Re-read fox'),
+      h('button.btn.small', { onclick: () => app.device.send?.('status') }, 'Status'),
+      h('span.hint', {}, ob.cfg ? 'Otherwise the form keeps what you were editing; Deploy shows the difference.' : '')) : null);
+  const flow = h('div.card', {}, h('h3', {}, 'How a deploy works here'),
+    h('ol.steps', {},
+      h('li', {}, 'The form on tabs 2–7 is a complete ', h('code', {}, 'fox.json'),
+        ', the same contract the CircuitPython network foxes use. Validated here and again by the firmware when it loads.'),
+      h('li', {}, 'Deploy sends ', h('code', {}, 'fox.json'), ' and the template\'s ', h('code', {}, 'defaults.json'),
+        ' over the console (', h('code', {}, 'put'), ', checked by size and CRC) and reads them back. There is no code to copy: the behaviour is in the firmware, chosen by the template id.'),
+      h('li', {}, 'About a second after the last file the fox reloads by itself and prints a fresh ', h('code', {}, 'FOX …'),
+        ' banner on the same console. No drive, no eject, no power cycle.')));
+  const facts = h('div.card', {}, h('h3', {}, 'Board facts'),
+    h('dl.kv', {}, h('dt', {}, 'Family'), h('dd', {}, `fox-bench native firmware (C, ESP-IDF, GPL-3.0-or-later) on the ${hw?.name || b.name}`),
+      h('dt', {}, 'Radios'), h('dd', {}, (hw?.radios || []).join(', ') || '—'),
+      h('dt', {}, 'USB'), h('dd', {}, 'serial console only (banner, log, bench commands, the files) — no drive'),
+      h('dt', {}, 'LED'), h('dd', {}, hw?.net?.led ? hw.net.led : 'none on the bare board (the fox runs dark unless a LED is wired to a pin)')),
+    h('p.hint', {}, b.firmware?.note || ''));
+  root.replaceChildren(pickerCard(), h('div.cols', {}, deviceCard, flashCard(app)), facts, flow, diagCard());
 }
 
 /** foxlib-c family (PicoFox with fox-bench's own firmware): fox.json on its FOXBENCH drive, banner and bench on its serial console. */

@@ -1,0 +1,11 @@
+# fox-bench ESP32 firmware. The console is the chip's USB-Serial-JTAG port (the XIAO's USB-C): IDF's own log goes
+# there too, so its level is warnings only -- the FOX banner and the fox's lines must be what a terminal sees.
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+CONFIG_LOG_DEFAULT_LEVEL_WARN=y
+CONFIG_ESP_TASK_WDT_CHECK_IDLE_TASK_CPU0=n
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192
+CONFIG_ESP_SYSTEM_PANIC_PRINT_REBOOT=y
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+CONFIG_ESP_WIFI_NVS_ENABLED=n

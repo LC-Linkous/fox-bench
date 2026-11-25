@@ -6,7 +6,7 @@ CFLAGS ?= -std=gnu11 -O1 -g -Wall -Wextra -Werror -Wno-unused-parameter -D_GNU_S
 # UBSan catch what -Wall cannot. SANITIZE= (empty) turns them off for a compiler without them.
 SANITIZE ?= -fsanitize=address,undefined -fno-sanitize-recover=undefined
 CFLAGS += $(SANITIZE)
-CORE := ../core/json.c ../core/morse.c ../core/melody.c ../core/schedule.c ../core/synth.c ../core/sstv.c ../core/cfg.c
+CORE := ../core/json.c ../core/report.c ../core/morse.c ../core/melody.c ../core/schedule.c ../core/synth.c ../core/sstv.c ../core/cfg.c ../core/netcfg.c ../core/filexfer.c
 BUILD ?= build
 
 PF := ../picofox
@@ -52,8 +52,9 @@ FUZZ_ITERS ?= 20000
 fuzz: $(BUILD)/json_fuzz
 	$(BUILD)/json_fuzz ../../templates/morse-songs/defaults/picofox-foxlibc.json 1 $(FUZZ_ITERS) ../../templates/*/defaults/picofox-foxlibc.json
 
-check: $(BUILD)/core_dump $(BUILD)/host_sim $(BUILD)/console_sim $(BUILD)/si5351_sim $(BUILD)/player_sim fuzz
+check: $(BUILD)/core_dump $(BUILD)/host_sim $(BUILD)/console_sim $(BUILD)/si5351_sim $(BUILD)/player_sim $(BUILD)/netcfg_dump fuzz
 	python3 parity.py --bin $(BUILD)/core_dump
+	python3 netcfg_parity.py --bin $(BUILD)/netcfg_dump
 	python3 sim.py --bin $(BUILD)/host_sim
 	python3 console_test.py --bin $(BUILD)/console_sim
 	python3 si5351_ref.py --bin $(BUILD)/si5351_sim
@@ -63,3 +64,8 @@ clean:
 	rm -rf $(BUILD)
 
 .PHONY: all check clean fuzz
+
+# core/netcfg (the network foxes' validator) on the host; netcfg_parity.py compares it with foxlib/netcfg.py
+$(BUILD)/netcfg_dump: netcfg_dump.c ../core/netcfg.c ../core/report.c ../core/json.c ../core/*.h
+	@mkdir -p $(BUILD)
+	$(CC) $(CFLAGS) -o $@ netcfg_dump.c ../core/netcfg.c ../core/report.c ../core/json.c -lm

@@ -2,6 +2,7 @@
  * foxlib-c/core/cfg.c -- see cfg.h. The rules track foxlib/cfg.py validate(); where this
  * family differs (no pins; si5351fm radio keys) the differences are marked FOXLIB-C. */
 #include "cfg.h"
+#include "report.h"
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
@@ -23,26 +24,8 @@ static bool images_file_ok(const char *f) {
 
 static void scopy(char *dst, int n, const char *s) { if (!s) { dst[0] = 0; return; } strncpy(dst, s, (size_t)n - 1); dst[n - 1] = 0; }
 
-void cfg_report_init(cfg_report_t *rep) { rep->n_items = 0; rep->fatal[0] = 0; strcpy(rep->mode, "ok"); }
-void cfg_report_bad(cfg_report_t *rep, const char *key, const char *reason) {
-    if (!rep || rep->n_items >= CFG_MAX_ITEMS) return;
-    scopy(rep->items[rep->n_items].key, sizeof rep->items[0].key, key);
-    scopy(rep->items[rep->n_items].reason, sizeof rep->items[0].reason, reason);
-    rep->n_items++;
-}
 static void set_fatal(cfg_report_t *rep, const char *why) { if (rep && !rep->fatal[0]) scopy(rep->fatal, sizeof rep->fatal, why); }
 
-const char *cfg_report_status(const cfg_report_t *rep, char *buf, int n) {
-    if (rep->fatal[0]) { snprintf(buf, (size_t)n, "fatal(%s)", rep->fatal); return buf; }
-    if (!strncmp(rep->mode, "default", 7)) { snprintf(buf, (size_t)n, "%s", rep->mode); return buf; }
-    if (rep->n_items) {
-        int o = snprintf(buf, (size_t)n, "partial(");
-        for (int i = 0; i < rep->n_items && o < n - 2; i++) o += snprintf(buf + o, (size_t)(n - o), "%s%s", i ? "," : "", rep->items[i].key);
-        if (o < n - 1) snprintf(buf + o, (size_t)(n - o), ")");
-        return buf;
-    }
-    snprintf(buf, (size_t)n, "ok"); return buf;
-}
 
 bool cfg_id_ok(const fox_cfg_t *cfg) { return cfg->id.placeholder[0] && !strstr(cfg->id.callmessage, cfg->id.placeholder); }
 bool cfg_freq_in_ranges(const fox_cfg_t *cfg, double f) {
