@@ -2768,6 +2768,34 @@
  ],
  "ble-beacon": [
   {
+   "name": "nrf52-watchdog-already-running-is-adopted-and-fed",
+   "_doc": "an nRF52 after a soft reboot: the previous run's watchdog is still counting and cannot be reconfigured; the guard adopts it (feeds it with its own timeout) instead of reporting it unavailable and letting it reset the board into safe mode mid-run",
+   "board_id": "nrf52840",
+   "cp_board_id": "Seeed_XIAO_nRF52840_Sense",
+   "radios": [
+    "ble"
+   ],
+   "watchdog_running": 60,
+   "stop_after_unkeys": 3,
+   "cap_ms": 120000,
+   "fox": {
+    "id": {
+     "callmessage": "W1ABC FOX"
+    }
+   },
+   "expect": {
+    "banner": {
+     "cfg": "ok",
+     "radio": "ok"
+    },
+    "keyed_min": 3,
+    "prints_contain": [
+     "watchdog adopted(60s)"
+    ],
+    "watchdog_feeds_min": 3
+   }
+  },
+  {
    "name": "ibeacon-advertises-on-duty",
    "stop_after_unkeys": 2,
    "cap_ms": 120000,

@@ -7,8 +7,14 @@ import { chain } from '../model/handoff.js';
 import { table as shellTable, collisionFree, randomMac } from '../model/shellgame.js';
 import { batchCard, onChange as onFlashChange } from './flash.js';
 import { observe, match, auditRow } from '../model/audit.js';
+import { rollup, rollupCsv } from '../model/finds.js';
+
+/** The kind-of-fox dot (css .kdot, the 0.18.29 hues) for a target id; grey when the target is not in the catalog. */
+const KIND_TITLE = { fm: 'FM fox', net: 'Network fox', drive: 'PicoFox' };
+function kindDot(boardId) { const t = app.catalog.boards[boardId] || app.catalog.boards[app.resolveBoardId(boardId)?.target]; const k = t ? app.kindOf(t) : ''; return h('span.kdot', { 'data-kind': k, title: KIND_TITLE[k] || boardId || '' }); }
 
 let app, root, lastAudit = null;
+const logFilter = { text: '', action: '' };
 export function init(a, el) { app = a; root = el; app.listeners.add(render); onFlashChange(render); render(); }
 
 /** Audit: read what the connected fox is, match it with the log's last deploy for it, record the verdict. */
@@ -38,7 +44,7 @@ function auditCard() {
     h('div.tools', {}, h('button.btn.primary', { disabled: !connected, onclick: () => audit(noteIn) }, 'Audit'), noteIn),
     la ? h('div', { style: 'margin-top:10px' },
       h('p', {}, la.m.result === 'match' ? badge('match', 'ok') : la.m.result === 'mismatch' ? badge('mismatch', 'err') : badge(la.m.result, 'warn'), ' ',
-        la.m.row ? `board #${la.m.row.board_number || '?'}${la.m.row.profile ? ` · profile "${la.m.row.profile}"` : ''} · deployed ${String(la.m.row.timestamp).slice(0, 16).replace('T', ' ')} (matched by ${la.m.by})` : 'no deploy on record for this fox in this browser\'s log'),
+        la.obs.firmware ? `${la.obs.firmware} · ` : '', la.m.row ? `board #${la.m.row.board_number || '?'}${la.m.row.profile ? ` · profile "${la.m.row.profile}"` : ''} · deployed ${String(la.m.row.timestamp).slice(0, 16).replace('T', ' ')} (matched by ${la.m.by})` : 'no deploy on record for this fox in this browser\'s log'),
       la.m.checks.length ? h('ul.diff', {},
         la.m.checks.map(c => h('li', {}, h('span', {}, c.key), h('span.from', {}, String(c.expected)),
           h('span' + (c.ok ? '.to' : '.err'), {}, String(c.actual) + (c.ok ? ' ✓' : ' ✗'))))) : null) : null);
@@ -65,9 +71,31 @@ function sheetCard(log) {
     rows.length ? h('div.grid-wrap', {}, h('table.grid', { id: 'event-sheet' }, h('thead', {},
       h('tr', {}, ['#', 'fox', 'template', 'uid', 'operator', 'on the air', 'deployed'].map(f => h('th', {}, f)))),
       h('tbody', {},
-        rows.map(r => h('tr', {}, h('td.mono', {}, r.board_number || ''), h('td', {}, r.profile || ''), h('td.mono', {}, r.template || ''),
+        rows.map(r => h('tr', {}, h('td.mono', {}, r.board_number || ''), h('td', {}, kindDot(r.board), r.profile || ''), h('td.mono', {}, r.template || ''),
           h('td.mono', {}, String(r.uid || '').slice(-8)), h('td', {}, r.owner || r.callsign || ''),
           h('td', { style: 'font-size:12px' }, r.on_air || ''), h('td.mono', {}, String(r.timestamp || '').slice(0, 16).replace('T', ' '))))))) : h('p.hint', {}, 'No deploys in the log yet' + (ev ? ` for "${ev}"` : '') + '.'));
+}
+
+/** The checkpoint desk: who found which foxes, from the fleet log's find rows against the event sheet. */
+let findsEvent = null;
+function findsCard(log) {
+  if (!log.some(r => r.action === 'find')) return null;
+  const events = [...new Set(log.map(r => r.event).filter(Boolean))].sort();
+  const ev = findsEvent ?? sheetEvent ?? (app.cfg.fleet?.event || '');
+  const r = rollup(log, { event: ev });
+  const stamp = () => new Date().toISOString().slice(0, 10);
+  return h('div.card', {}, h('h3', {}, 'Finds ', badge(`${r.hunters.length} hunter${r.hunters.length === 1 ? '' : 's'} · ${r.foxes.length} fox${r.foxes.length === 1 ? '' : 'es'}`)),
+    h('p.hint', {},
+      'Who found which foxes: every ', h('code', {}, 'find'), ' row Collect finds brought in (Bench tab), against the foxes on the event sheet. Most foxes found first, then the earliest last find. A find on a fox that is not on the sheet (another event, the demo) counts under "other". The desk\'s scoring, not the fox\'s: a fox is found once per callsign however many times the page was submitted.'),
+    h('div.row', { style: 'gap:8px;align-items:center;flex-wrap:wrap' },
+      field('Event', select([['', 'all events'], ...events.map(e => [e, e])], ev, v => { findsEvent = v; render(); })),
+      h('div.tools', {}, h('button.btn.small', { disabled: !r.hunters.length, onclick: () => download(`finds-${(ev || 'all').replace(/[^\w-]+/g, '_')}-${stamp()}.csv`, rollupCsv(r), 'text/csv') }, 'Export CSV'))),
+    r.hunters.length ? h('div.grid-wrap', {}, h('table.grid', { id: 'finds-table' }, h('thead', {},
+      h('tr', {}, ['callsign', 'found', 'foxes', 'missing', 'first', 'last'].map(f => h('th', {}, f)))),
+      h('tbody', {}, r.hunters.map(hh => h('tr', {}, h('td.mono', {}, hh.callsign), h('td.num', {}, `${hh.found.length} / ${r.foxes.length}${hh.other ? ` (+${hh.other} other)` : ''}`),
+        h('td', {}, hh.found.join(' ')), h('td', {}, hh.missing.join(' ')),
+        h('td.mono', {}, String(hh.first || '').slice(11, 16)), h('td.mono', {}, String(hh.last || '').slice(11, 16))))))) : h('p.hint', {}, 'No finds' + (ev ? ` for "${ev}"` : '') + ' yet.'),
+    r.foxes.length ? h('p.hint', {}, 'Per fox: ' + r.foxes.map(f => `${f.label} ×${f.finds}`).join(' · ')) : null);
 }
 
 /** Phase H: the shell game — several saved network foxes share one identity list and trade names on a schedule. */
@@ -157,6 +185,12 @@ function render() {
     } catch (e) { app.console.err('fleet CSV import failed: ' + e.message); }
     csvIn.value = '';
   });
+  const q = logFilter.text.trim().toLowerCase();
+  const shown = log.filter(r => (!logFilter.action || r.action === logFilter.action)
+    && (!q || [r.uid, r.board_number, r.callsign, r.profile, r.event, r.board, r.notes].some(v => String(v ?? '').toLowerCase().includes(q))));
+  const actions = [...new Set(log.map(r => r.action).filter(Boolean))].sort();
+  const filterIn = h('input', { type: 'text', value: logFilter.text, placeholder: 'uid, #, callsign, profile, event…', style: 'min-width:220px' });
+  filterIn.addEventListener('change', () => { logFilter.text = filterIn.value; render(); });
   root.replaceChildren(
     h('div.cols', {},
       h('div.card', {}, h('h3', {}, 'Profiles ', badge(list.length + ' saved')),
@@ -164,7 +198,7 @@ function render() {
           'A profile is the whole form (and any SSTV images) under a name. Programming ten foxes the night before: connect → pick profile → deploy → next.'),
         field('Save current form as', h('div.row', {}, nameIn, h('button.btn', { onclick: save }, 'Save'))),
         h('ul.list', {}, list.map(p => h('li', {},
-          h('span.name', {}, p.name), h('span.meta', {},
+          h('span.name', {}, kindDot(p.cfg?.board), p.name), h('span.meta', {},
             [p.template, p.cfg?.id?.callmessage, p.cfg?.net ? onAir(p.cfg, { template: p.template }).split(' · ').slice(0, 2).join(' · ') : (p.cfg?.plan?.frequencies_mhz || []).join('/')].filter(Boolean).join(' · ')),
           h('button.btn.small',
             { onclick: async () => { try { app.images = unpackProfileImages(p.images); await app.loadCfg(p.cfg, { source: 'profile' }); app.console.dim(`profile "${p.name}" loaded into the form`); } catch (e) { app.console.err(`profile "${p.name}" could not be loaded: ${e.message || e}`); } } },
@@ -181,17 +215,20 @@ function render() {
     chainCard(list) || h('span'),
     shellGameCard(list) || h('span'),
     sheetCard(log),
-    h('div.card', {}, h('h3', {}, 'Fleet log ', badge(log.length + ' rows')),
+    findsCard(log) || h('span'),
+    h('div.card', {}, h('h3', {}, 'Fleet log ', badge(log.length + ' rows' + (shown.length !== log.length ? `, ${shown.length} shown` : ''))),
       h('p.hint', {},
-        'Every deploy, flash, export and audit appends a row keyed on the chip UID, which survives reflashing. Same columns as the batch flasher\'s CSV so the two merge.'),
-      log.length ? h('div.grid-wrap', {}, h('table.grid', { id: 'fleet-log' }, h('thead', {},
+        'Every deploy, flash, export, find and audit appends a row keyed on the chip UID, which survives reflashing. Same columns as the batch flasher\'s CSV so the two merge; the newest 50 of the rows the filter leaves are shown.'),
+      log.length ? h('div.row', { style: 'gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px' },
+        field('Find', filterIn), field('Action', select([['', 'all actions'], ...actions.map(a => [a, a])], logFilter.action, v => { logFilter.action = v; render(); }))) : null,
+      shown.length ? h('div.grid-wrap', {}, h('table.grid', { id: 'fleet-log' }, h('thead', {},
         h('tr', {},
-          ['timestamp', '#', 'uid', 'action', 'template', 'profile', 'callsign', 'owner', 'event', 'freq', 'power', 'chip_type', 'result',
+          ['timestamp', '#', 'uid', 'action', 'template', 'profile', 'callsign', 'owner', 'event', 'freq', 'power', 'firmware', 'result',
             'notes'].map(f => h('th', {}, f)))),
         h('tbody', {},
-          log.slice(-50).reverse().map(r => h('tr', {},
-            ['timestamp', 'board_number', 'uid', 'action', 'template', 'profile', 'callsign', 'owner', 'event', 'freq', 'power', 'chip_type',
-              'result', 'notes'].map(f => h('td.mono', {}, f === 'timestamp' ? String(r[f]).slice(0, 19).replace('T', ' ') : f === 'uid' ? String(r[f] || '').slice(-8) : r[f] ?? ''))))))) : null,
+          shown.slice(-50).reverse().map(r => h('tr', {},
+            ['timestamp', 'board_number', 'uid', 'action', 'template', 'profile', 'callsign', 'owner', 'event', 'freq', 'power', 'firmware',
+              'result', 'notes'].map(f => h('td.mono', {}, f === 'timestamp' ? String(r[f]).slice(0, 19).replace('T', ' ') : f === 'uid' ? String(r[f] || '').slice(-8) : r[f] ?? ''))))))) : log.length ? h('p.hint', {}, 'No rows match the filter.') : null,
       h('div.tools', { style: 'margin-top:8px' },
         h('button.btn.small', { disabled: !log.length, onclick: () => download('flash_log.csv', fleet.toCsv(), 'text/csv') }, 'Download CSV'),
         h('button.btn.small',

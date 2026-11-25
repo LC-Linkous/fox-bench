@@ -26,12 +26,27 @@ def arm(seconds):
         import microcontroller
         from watchdog import WatchDogMode
         w = microcontroller.watchdog
+    except Exception as e:
+        _wd = None
+        return "unavailable(%s)" % e.__class__.__name__
+    try:
         w.timeout = float(seconds)
         w.mode = WatchDogMode.RESET
         w.feed()
         _wd = w
         return "%ds" % seconds
     except Exception as e:
+        # The nRF52's watchdog cannot be changed or stopped once it runs, and a soft reboot (a deploy, a reload)
+        # does not stop it: the previous run's watchdog is still counting. Adopt it -- feed it from here on with
+        # whatever timeout it has -- rather than leave it to reset the board into safe mode partway through this run.
+        try:
+            running = w.mode is not None
+            if running:
+                w.feed()
+                _wd = w
+                return "adopted(%ds)" % int(w.timeout)
+        except Exception:
+            pass
         _wd = None
         return "unavailable(%s)" % e.__class__.__name__
 

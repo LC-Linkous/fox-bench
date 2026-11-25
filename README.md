@@ -20,7 +20,7 @@ point, a Wi-Fi probing station or a BLE iBeacon on a duty cycle, with the
 callsign or a configured name as the SSID / device name and a chosen MAC —
 on bare boards with no radio module, listed by chip (ESP32-C3, -C6, -C5,
 -S3, nRF52840: the XIAO C3 / C6 / C5 / S3, the Waveshare ESP32-S3-Nano,
-the Arduino Nano 33 BLE). On top of the three
+the XIAO nRF52840, the Arduino Nano 33 BLE). On top of the three
 beacons, the network foxes carry contest features configured per fox on
 the Payload tab — what the fox says (rotating names, codes, Eddystone
 frames, split clues), what it serves (a captive sign-in page with a code
@@ -35,8 +35,9 @@ on the XIAO ESP32S3 — found by a phone and by the laptop, the checkpoint's
 sign-in page and find log read back — and the XIAO ESP32-C3 runs the two
 BLE ones (its CircuitPython core cannot hold a Wi-Fi fox: `boards/esp32c3.json`
 says why); the XIAO ESP32C6 (2026-11-23) and the XIAO ESP32C5 (2026-11-24) run all five
-as well; the S3-Nano and Nano 33 BLE chip targets stay **experimental** until
-their own hardware-log row. The
+as well, and the XIAO nRF52840 runs the two BLE templates (2026-11-24). Every
+chip target has a hardware-log row; the S3-Nano and Nano 33 BLE *variants*
+have not been on the bench yet. The
 AI6YM PicoFox is supported two ways: with its **vendor firmware** (the page
 writes its settings, renders its audio and Morse-ID files, and draws the
 cycle that firmware runs — verified on air, `docs/picofox.md`), and
@@ -76,6 +77,7 @@ what the next session has to show):
 | Seeed XIAO ESP32C6 | `esp32c6` (stable) | Wi-Fi, BLE | 2026-11 | all five network templates from `.mpy`, 114–156 KB free after init; found by the laptop, the sign-in page and find log read back |
 | Seeed XIAO ESP32C5 | `esp32c5` (stable) | Wi-Fi 2.4/5, BLE | 2026-11 | all five network templates from `.mpy`, 8.2 MB free (PSRAM); found by the laptop, the sign-in page and find log read back; 5 GHz receive seen, a 5 GHz AP not yet tried |
 | Waveshare ESP32-S3-Nano | `esp32s3` | Wi-Fi, BLE | — | described from the Arduino Nano ESP32 build; nothing run |
+| Seeed XIAO nRF52840 / Sense | `nrf52840` (stable) | BLE | 2026-11 | `ble-beacon` and `puzzle-beacon` from `.mpy`, 73 KB free; CircuitPython as a `.uf2` on the XIAO-SENSE drive; the one-way nRF watchdog noted in the runbook |
 | Arduino Nano 33 BLE | `nrf52840` | BLE | — | described; CircuitPython needs `bossac`; nothing run |
 
 A target is **stable** when a hardware-log row backs it and

@@ -68,6 +68,7 @@ function exportZip() {
     makeZip([...fs, { path: 'README.txt', data: readme }]));
   fleet.append({board_number: '', uid: '', board: app.boardId, action: 'export-zip', template: `${app.templateId}/${app.template.version}`,
     profile: cfg.fleet?.profile || '', callsign: cfg.id.callmessage, owner: cfg.fleet?.owner || '', event: cfg.fleet?.event || '',
+    firmware: app.catalog.foxlibcVersion ? `foxlib-c ${app.catalog.foxlibcVersion}` : '',
     on_air: onAir(cfg, { family: app.family, template: app.templateId }), freq: cfg.plan.frequencies_mhz.join(' '), power: powerText(cfg),
     seed: cfg.schedule.seed ?? '', result: 'zip', notes: ''});
   app.console.dim('exported fox.json + defaults.json as a zip');

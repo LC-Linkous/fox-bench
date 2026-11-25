@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { observe, match, auditRow } from '../../js/model/audit.js';
+import { observe, match, auditRow, firmwareText } from '../../js/model/audit.js';
 
 const log = [
   { timestamp: '2026-10-21T18:00:00Z', board_number: 1, uid: 'aaaa1111', board: 'seeed_xiao_esp32c3', action: 'flash', result: 'ok' },
@@ -80,4 +80,27 @@ test('vendor drive: no UID, matched by board; CALLSIGN compared as the firmware 
 test('nothing connected observes null and matches to unmatched', () => {
   assert.equal(observe({ device: null }), null);
   assert.equal(match(null, log).result, 'unmatched');
+});
+
+test('a network fox is compared on what it shows on the air; a wrong SSID is a mismatch even with template and callsign right', () => {
+  const netRow = { timestamp: '2026-11-24T09:00:00Z', board_number: 5, uid: 'c6c6c6', board: 'esp32c6', action: 'deploy', template: 'wifi-beacon/1.0.0', profile: 'Fox 5', callsign: 'W1ABC FOX DE W1ABC',
+    freq: '', on_air: 'AP "W1ABC FOX DE W1ABC" · ch 1 · MAC F2:B0:00:00:00:01 · 17 dBm · 15 s on / 5 s off', firmware: 'foxlib 1.11.3 · CircuitPython 10.3.2' };
+  const cfg = (ssid) => ({ template: 'wifi-beacon', id: { callmessage: 'W1ABC FOX DE W1ABC', use_callsign_as_name: !ssid }, net: { kind: 'wifi-ap', ssid: ssid || '', mac: 'F2:B0:00:00:00:01', channel: 1, tx_power_dbm: 17 },
+    schedule: { kind: 'duty', wake_s: 15, sleep_s: 5 } });
+  const appFor = c => ({ device: { kind: 'repl' }, boardId: 'esp32c6', family: 'foxlib', info: { uid: 'c6c6c6', cpVersion: '10.3.2' }, onBoard: { cfg: c, template: 'wifi-beacon', foxlibVersion: '1.11.3' }, lastBanner: null });
+  const good = match(observe(appFor(cfg(null))), [netRow]);
+  assert.equal(good.result, 'match');
+  assert.ok(good.checks.some(c => c.key === 'on the air' && c.ok));
+  const obs = observe(appFor(cfg('FOXBENCH WiFi Beacon')));
+  const bad = match(obs, [netRow]);
+  assert.equal(bad.result, 'mismatch');
+  assert.deepEqual(bad.checks.filter(c => !c.ok).map(c => c.key), ['on the air']);
+  assert.match(auditRow(obs, bad).notes, /on the air: expected AP "W1ABC FOX DE W1ABC"/);
+  assert.equal(auditRow(obs, bad).firmware, 'foxlib 1.11.3 · CircuitPython 10.3.2');
+});
+
+test('firmwareText: foxlib + CircuitPython, foxlib-c from the banner form, empty when unknown', () => {
+  assert.equal(firmwareText('1.11.3', '10.3.2'), 'foxlib 1.11.3 · CircuitPython 10.3.2');
+  assert.equal(firmwareText('c-0.1.11'), 'foxlib-c 0.1.11');
+  assert.equal(firmwareText('', ''), '');
 });

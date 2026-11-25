@@ -1,14 +1,19 @@
 // bench.js — Bench tab: key test, RSSI, battery, against the firmware on the board; event log.
 // SPDX-License-Identifier: GPL-2.0-only
-import { h, badge, field, numInput } from './dom.js';
+import { h, badge, field, numInput, fill } from './dom.js';
 import { download, fleet } from '../model/profiles.js';
-import { name as nameOnAir } from '../model/sheet.js';
+import { name as nameOnAir, onAir } from '../model/sheet.js';
 import { bleMac } from '../model/netschema.js';
 
-let app, root, busy = false; const events = [];
+let app, root, busy = false;
+// the event log is kept in browser storage (the last 300), as the fleet log is: a key test or health read from this
+// morning is still here after a reload; it is per browser, like everything the page remembers
+const KEY_E = 'fox-bench.bench';
+const events = (() => { try { const v = JSON.parse(localStorage.getItem(KEY_E)); return Array.isArray(v) ? v : []; } catch { return []; } })();
+function keep() { try { localStorage.setItem(KEY_E, JSON.stringify(events.slice(-300))); } catch { /* storage refused: the log lives for this page load */ } }
 export function init(a, el) { app = a; root = el; app.benchEvents = events; app.listeners.add(render); render(); }
 
-function note(action, detail) { events.push({ t: new Date().toISOString(), uid: app.info?.uid || '', action, detail }); render(); }
+function note(action, detail) { events.push({ t: new Date().toISOString(), uid: app.info?.uid || '', action, detail }); keep(); render(); }
 
 /** finds.csv from the fox (the checkpoint section's find log) into the fleet log: one row per find, action 'find',
  *  deduplicated on fox uid + ms_since_boot + callsign so collecting twice adds nothing. Returns a summary line. */
@@ -34,6 +39,7 @@ async function collectFinds(btn) {
           notes: `cycle ${r.cycle}, +${r.ms_since_boot} ms after boot, via ${r.via || '?'}${app.cfg.net ? ', ' + app.cfg.net.kind : ''}`});
       }
       lastFinds = { rows, text, added, present };
+      if (added) app.changed('fleet');          // the Fleet tab's Finds card and log follow
       note('finds', `${rows.length} find${rows.length === 1 ? '' : 's'} on the fox: ${added} new in the fleet log, ${present} already there`);
     }
   } catch (e) { note('finds:error', String(e.message || e)); }
@@ -122,6 +128,26 @@ async function health(btn) {
 }
 const kB = n => (n >= 1048576 ? (n / 1048576).toFixed(2) + ' MB' : (n / 1024).toFixed(0) + ' KB');
 
+/** What is on the board, as read at connect (fox.json) and from its last banner: the first question for a fox you did
+ *  not just deploy. The features line says which contest sections are live, with the one fact each that matters. */
+function onBoardCard() {
+  const cfg = app.onBoard?.cfg, b = app.lastBanner, t = (cfg?.template || app.onBoard?.template || '').split('/')[0];
+  if (!cfg && !b) return null;
+  const feats = [];
+  if (cfg?.payload?.enabled) feats.push(`payload: ${cfg.payload.kind || 'static'}${cfg.payload.names?.length ? ` (${cfg.payload.names.length} names)` : ''}${cfg.payload.eddystone?.url ? ' · URL frame' : ''}${cfg.payload.split?.wifi || cfg.payload.split?.ble ? ' · split clue' : ''}`);
+  if (cfg?.checkpoint?.enabled) feats.push(`checkpoint: ${cfg.checkpoint.portal?.enabled ? 'sign-in page' + (cfg.checkpoint.portal.ask_callsign ? ', asks the callsign' : '') : 'no page'}${cfg.checkpoint.ble?.enabled ? ' · BLE code' : ''}${cfg.checkpoint.stop_at ? ` · stops at ${cfg.checkpoint.stop_at}` : ''}`);
+  if (cfg?.stealth?.enabled) { const s = cfg.stealth; feats.push(`stealth: ${[s.rotate_mac ? `MAC ${s.rotate_mac}` : '', s.rotate_name ? 'rotating name' : '', s.decoys?.length ? `${s.decoys.length} decoys` : '', s.shell_game ? `shell game seat ${s.shell_game.index + 1} of ${s.shell_game.identities?.length} every ${s.shell_game.period_s} s` : '', s.modes?.length ? `modes ${s.modes.join('/')}` : '', s.start?.at ? `starts ${s.start.at}` : s.start?.after_s ? `starts after ${s.start.after_s} s` : ''].filter(Boolean).join(', ') || 'on'}`); }
+  if (cfg?.sense?.enabled) { const s = cfg.sense; feats.push(`sense: ${[s.crowd?.enabled ? `crowd ≤ ${s.crowd.max}` : '', s.honeypot?.enabled ? 'honeypot' : '', s.relay?.enabled ? 'relay' : ''].filter(Boolean).join(', ') || 'on'}`); }
+  const sch = cfg?.schedule;
+  return h('div.card', {}, h('h3', {}, 'On the board ', t ? badge(t, 'info') : null),
+    h('dl.kv', {},
+      h('dt', {}, 'on the air'), h('dd', {}, cfg ? onAir(cfg, { family: app.family, template: t }) : (b?.name ? `${b.net || ''} "${b.name}" ${b.mac || ''}` : '—')),
+      sch ? [h('dt', {}, 'schedule'), h('dd', {}, `${sch.kind}${sch.kind === 'duty' ? ` ${sch.wake_s} s on / ${sch.sleep_s} s off` : ''}${sch.sleep && sch.sleep !== 'off' ? ` · ${sch.sleep} sleep` : ''}${sch.start_at ? ` · from ${sch.start_at}` : ''}`)] : null,
+      h('dt', {}, 'features'), h('dd', {}, feats.length ? feats.join(' · ') : 'none'),
+      b ? [h('dt', {}, 'last banner'), h('dd', {}, `cfg=${b.cfg || '?'} radio=${b.radio || '?'} id=${b.id || '?'}${b.features ? ` features=${b.features}` : ''}${b.clock ? ` clock=${b.clock}` : ''}${b.mem ? ` mem=${b.mem}` : ''}`)] : null),
+    h('p.hint', {}, 'From the fox.json read at connect and the last banner seen; Re-read board on the Board tab refreshes it. The bench actions below use the same files.'));
+}
+
 function render() {
   if (app.family === 'foxlib-c') return renderConsole();
   if (app.family === 'drive') { root.replaceChildren(h('div.card', {},
@@ -133,9 +159,10 @@ function render() {
   const ready = app.connected && (app.device.kind === 'demo' || app.onBoard.foxlibVersion);
   let keySecs = 3;
   const last = a => [...events].reverse().find(e => e.action === a)?.detail;
-  root.replaceChildren(
+  fill(root,
     !ready ? h('p.notice.warn', { style: 'border:1px solid var(--edge);border-radius:4px' },
       app.connected ? 'The fox firmware is not on this board yet — deploy first.' : 'Connect a board (or the demo) to use the bench.') : null,
+    ready ? onBoardCard() : null,
     h('div.cols', {},
       caps.has('keytest') && app.isNet ? h('div.card', {}, h('h3', {}, 'Radio up'),
         h('p.hint', {},
@@ -208,7 +235,7 @@ function render() {
       h('span.hint', {}, 'Bench actions stop the running fox and talk to the firmware directly, one at a time; restart it when you are done. With foxlib deployed as source (not .mpy) the first action after a reboot takes several seconds longer while CircuitPython compiles it.')) : null,
     h('div.card', {}, h('h3', {}, 'Event log ', badge(events.length + ' events')),
       h('p.hint', {},
-        'Every bench action with a timestamp and the board UID, so an external test procedure can be lined up against it later.'),
+        'Every bench action with a timestamp and the board UID, so an external test procedure can be lined up against it later. Kept in this browser (the last 300) like the fleet log.'),
       events.length ? h('pre.out', {},
         events.slice(-40).map(e => `${e.t}  ${e.uid.slice(-6)}  ${e.action.padEnd(12)} ${e.detail}`).join('\n')) : null,
       h('div.tools', { style: 'margin-top:8px' },
@@ -216,7 +243,7 @@ function render() {
           {disabled: !events.length,
             onclick: () => download(`fox-bench-events-${Date.now()}.json`, JSON.stringify(events, null, 2), 'application/json')},
           'Download JSON'),
-        h('button.btn.small', { disabled: !events.length, onclick: () => { events.length = 0; render(); } }, 'Clear'))));
+        h('button.btn.small', { disabled: !events.length, onclick: () => { events.length = 0; keep(); render(); } }, 'Clear'))));
 }
 
 /** foxlib-c family: the same bench, as text commands on the firmware's console (Listen only, or the demo's). */
@@ -234,7 +261,7 @@ async function runC(action, args, btn, label) {
 function renderConsole() {
   const con = app.consoleDevice(), ready = !!con && !busy;
   const last = a => [...events].reverse().find(e => e.action === a)?.detail;
-  root.replaceChildren(
+  fill(root,
     !con ? h('p.notice.warn', { style: 'border:1px solid var(--edge);border-radius:4px' },
       app.connected && !app.onBoard.listening ? `The ${app.board.drive?.label || 'drive'} is open; the bench talks to the serial console instead. Disconnect, then Listen only.` : 'Listen only on the board\'s serial port (or start the demo) to use the bench.') : null,
     h('div.cols', {},
@@ -278,5 +305,5 @@ function renderConsole() {
           {disabled: !events.length,
             onclick: () => download(`fox-bench-events-${Date.now()}.json`, JSON.stringify(events, null, 2), 'application/json')},
           'Download JSON'),
-        h('button.btn.small', { disabled: !events.length, onclick: () => { events.length = 0; render(); } }, 'Clear'))));
+        h('button.btn.small', { disabled: !events.length, onclick: () => { events.length = 0; keep(); render(); } }, 'Clear'))));
 }

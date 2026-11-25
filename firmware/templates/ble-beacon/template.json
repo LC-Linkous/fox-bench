@@ -1,7 +1,7 @@
 {
   "id": "ble-beacon",
   "name": "BLE beacon (iBeacon)",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "families": [
     "foxlib"
   ],
@@ -30,5 +30,5 @@
     "keytest",
     "rssi"
   ],
-  "boards_tested": ["esp32s3", "esp32c3", "esp32c6", "esp32c5"]
+  "boards_tested": ["esp32s3", "esp32c3", "esp32c6", "esp32c5", "nrf52840"]
 }

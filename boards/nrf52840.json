@@ -1,14 +1,15 @@
 {
   "id": "nrf52840",
   "name": "nRF52840",
-  "hardware": "arduino_nano_33_ble",
+  "hardware": "seeed_xiao_nrf52840",
   "variants": [
+    "seeed_xiao_nrf52840",
     "arduino_nano_33_ble"
   ],
   "family": "foxlib",
-  "status": "experimental",
+  "status": "stable",
   "firmware": {
     "kind": "circuitpython+foxlib",
-    "note": "CircuitPython on the board, fox-bench's foxlib and a network-fox template (Wi-Fi beacon, Wi-Fi probe, BLE beacon) deployed over the REPL. The SoC's own radio: no module. The board variant sets the CircuitPython build and the LED / battery pins; a connected board's reported id picks it. Not yet on the bench."
+    "note": "CircuitPython on the board, fox-bench's foxlib and a BLE template (ble-beacon, puzzle-beacon) deployed over the REPL; the SoC's own radio, no module and no Wi-Fi. The board variant sets the CircuitPython build and the LED / battery pins; a connected board's reported id picks it (the XIAO nRF52840 and its Sense twin share one build and report Seeed_XIAO_nRF52840_Sense). CircuitPython is installed by hand: a .uf2 onto the XIAO-SENSE drive, or bossac for the Nano 33 BLE. On the bench 2026-11-24 (XIAO): both BLE templates from .mpy. The nRF52's watchdog cannot be stopped once it runs, so a soft reboot leaves the previous run's watchdog counting: foxlib adopts and feeds it, and a board left idle at the REPL for longer than limits.watchdog_s resets into safe mode (safemode.py restarts the fox; a power cycle clears it)."
   }
 }

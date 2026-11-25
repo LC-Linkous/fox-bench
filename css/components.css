@@ -44,6 +44,8 @@ input:invalid, .invalid { border-color: var(--err) !important; }
 .status.ok .dot { background: var(--ok); } .status.demo .dot { background: var(--warn); } .status.err .dot { background: var(--err); } .status.tx .dot { background: var(--tx); animation: pulse 1s infinite; }
 
 .badge { display: inline-block; font-size: .88rem; font-weight: 500; padding: 3px 10px; border-radius: 11px; border: 1px solid var(--edge); color: var(--ink); background: var(--screen); white-space: nowrap; }
+.kdot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--ink-3); margin-right: 7px; vertical-align: middle; }
+.kdot[data-kind="fm"] { background: var(--kind-fm); } .kdot[data-kind="net"] { background: var(--kind-net); } .kdot[data-kind="drive"] { background: var(--kind-drive); }
 .badge.kind { border-color: var(--kind); color: var(--kind); background: color-mix(in srgb, var(--kind) 12%, var(--screen)); }
 .badge.ok { border-color: var(--ok); color: var(--ok); } .badge.warn { border-color: var(--warn); color: var(--warn); background: color-mix(in srgb, var(--warn) 12%, var(--screen)); } .badge.err { border-color: var(--err); color: var(--err); } .badge.info { border-color: var(--info); color: var(--info); background: color-mix(in srgb, var(--info) 12%, var(--screen)); }
 

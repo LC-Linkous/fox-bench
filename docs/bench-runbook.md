@@ -669,6 +669,24 @@ What to know:
   ESP32 build. `board.LED` is the descriptor's guess (the Nano's GPIO48
   builtin); the RGB trio is `LED_RED/GREEN/BLUE` — switch the LED pin on the
   wiring card to one of those if `LED` is not in `dir(board)`.
+- **XIAO nRF52840 / Sense** (`nrf52840`, the default variant): `ble-beacon`
+  and `puzzle-beacon` only. CircuitPython goes on as a `.uf2`: double-tap
+  the reset button beside the USB-C port, the `XIAO-SENSE` drive appears,
+  copy the file from the board page onto it, the board reboots and
+  `CIRCUITPY` appears (the page's UF2 copier is RP2040-only, so this is the
+  file manager). Reports `Seeed_XIAO_nRF52840_Sense` — mixed case, both the
+  plain and the Sense board. The user LED is RGB and active low; foxlib
+  drives the red channel and does not honour `active_low` yet, so expect
+  it inverted (lit while off) and note the direction. 256 KB RAM: `mem=`
+  should sit well above the C3's. No Wi-Fi, so no `--payload` or
+  `--checkpoint`; the bench line is the C3's with `--board nrf52840`. The
+  2.4 GHz BLE beacon is the one thing to check from a phone. **The nRF52
+  watchdog is one-way**: once a fox has armed it, a soft reboot (deploy,
+  reload, Ctrl-D) leaves it counting; foxlib 1.11.4 adopts it (`watchdog
+  adopted(90s)` in the banner) so the fox is fine, but a board left at the
+  REPL for more than `limits.watchdog_s` resets into safe mode (safemode.py
+  restarts the fox). Keep bench phases under 90 s, or power-cycle between
+  them; `hw_smoke`'s phases are well inside that.
 - **Nano 33 BLE Rev2** (`nrf52840`): `ble-beacon` and `puzzle-beacon` only. CircuitPython goes
   on with `bossac` (double-tap reset → the Arduino bootloader; the
   circuitpython.org page has the command); the page then deploys over the

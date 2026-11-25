@@ -14,6 +14,66 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### foxlib 1.11.4 — a watchdog that was already running is adopted
+
+- `guard.arm()`: when the hardware watchdog refuses a new timeout because it
+  is already running (the nRF52's cannot be reconfigured or stopped once
+  started, and a soft reboot does not clear it), the guard feeds that one
+  instead of reporting `unavailable` — banner `watchdog adopted(90s)`. On
+  the XIAO nRF52840's first session the second boot had the previous run's
+  90 s watchdog counting with nothing feeding it. Sim mock `watchdog_running`
+  and a scenario.
+
+### Page 0.18.32 — the XIAO nRF52840 joins the catalog, and leaves experimental
+
+- `hardware/seeed_xiao_nrf52840.json`: the Seeed XIAO nRF52840 and its Sense
+  twin (one CircuitPython build, `Seeed_XIAO_nRF52840_Sense`, mixed-case as
+  the build directory is), BLE only; the RGB user LED (board.LED is the red
+  channel, active low), the switched battery divider (READ_BATT_ENABLE must
+  be driven low, which the battery role does not do yet — `batt_sense`
+  stays null), the UF2 bootloader drive `XIAO-SENSE`. It is the `nrf52840`
+  target's default variant; the Nano 33 BLE stays the other. Flashing
+  CircuitPython is a `.uf2` drag-and-drop (the page's UF2 copier knows the
+  RP2040 bootloader only — `method: uf2-nrf52` routes to the instructions).
+- `ble-beacon` 1.0.1, `puzzle-beacon` 1.0.1: their `nrf52840` defaults name the
+  XIAO variant (a defaults change bumps the template).
+- **`nrf52840` is stable**: the XIAO ran both BLE templates from `.mpy` on
+  2026-11-24 (73 KB free at the banner; recording
+  `seeed_xiao_nrf52840-ble-2026-11-24.json`). Every chip target now has a
+  hardware-log row, so the picker's "show experimental" checkbox has nothing
+  to show and is gone until a new target arrives; the smoke's picker section
+  says so. The one-way watchdog is in the runbook's board notes.
+
+### Page 0.18.31 — Bench and Fleet, eval items C + D and two more
+
+- Fleet: **the audit of a network fox compares what it shows on the air**
+  (kind, name, MAC, channel, power, duty — the deploy row's `on_air`,
+  recomputed from the `fox.json` read back). A C6 advertising the wrong
+  SSID with the right template and callsign was a *match*; it is a
+  *mismatch* naming the difference now. The audit row records what it saw.
+- Fleet: a **`firmware` column** in the log — `foxlib 1.11.3 · CircuitPython
+  10.3.2 (.mpy)`, `foxlib-c 0.1.11`, `vendor r3` — on every deploy and audit
+  row, from the connect info and the banner. "Which firmware was fox 3
+  running at the event" is in the log now, as it is in the hardware log for
+  the bench. Older CSVs import as before (the column is empty).
+- Fleet: a **Finds** card — the checkpoint desk's rollup: each callsign that
+  handed itself in, which foxes of the event sheet it found and which it is
+  missing, first and last find; most foxes first, earliest finish breaks
+  the tie; a fox counts once per callsign; CSV export. `js/model/finds.js`,
+  unit-tested.
+- Fleet: the **log has a filter** (text across uid, #, callsign, profile,
+  event, board, notes; and by action) and shows the `firmware` column in
+  place of `chip_type` (still in the CSV).
+- Fleet: the **kind dot** (0.18.29's hues) on every profile and every event
+  sheet row.
+- Bench: an **On the board** card — template, what is on the air, the
+  schedule, which contest sections are live with the one fact each that
+  matters (names count, shell-game seat, portal asking the callsign…), and
+  the last banner's statuses — from the `fox.json` read at connect. The
+  first question for a fox you did not just deploy.
+- Bench: the **event log is kept in browser storage** (the last 300), as the
+  fleet log is; a key test from this morning survives a reload.
+
 ### foxlib 1.11.3 — the bench entry points say more
 
 - `NetFox.key_for()` appends the radio's notes to its line (`…for 3.0 s;

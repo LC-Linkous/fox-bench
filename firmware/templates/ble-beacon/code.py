@@ -4,6 +4,6 @@
 
 from foxlib.netfox import NetFox
 
-fox = NetFox("fox.json", defaults="defaults.json", version="1.0.0")
+fox = NetFox("fox.json", defaults="defaults.json", version="1.0.1")
 for tx in fox.cycles():
     tx.beacon()

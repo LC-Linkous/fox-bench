@@ -256,6 +256,9 @@ try {
   eq(await app(() => JSON.parse(localStorage.getItem('fox-bench.fleet') || '[]').filter(r => r.action === 'find').map(r => r.callsign).join()), 'W1ABC,W1ABC/P', 'two find rows in the fleet log, keyed by the fox');
   await page.locator('#tab-bench button', { hasText: 'Collect finds' }).click(); await until(() => window.foxbench.benchEvents.filter(e => e.action === 'finds').length >= 2, 'collect again', 15000); await settle(200);
   check(/2 finds on the fox: 0 new in the fleet log, 2 already there/.test(await text('#tab-bench')), 'collecting again adds nothing');
+  check(/On the board/.test(await text('#tab-bench')) && /features.{0,3}payload: rotate/.test(await text('#tab-bench')) && /checkpoint: sign-in page, asks the callsign/.test(await text('#tab-bench')), 'On the board names the live features from the fox.json read back');
+  await tab('fleet'); await settle(300);
+  check(/Finds/.test(await text('#tab-fleet')) && /W1ABC\/P.{0,3}1 \/ 2.{0,3}wifi-beacon/.test(await text('#finds-table')), 'the Finds rollup lists each hunter against the foxes on the sheet');
   await tab('payload');
   check(/stealth: silent until 2026-08-08T09:00:00-04:00 \(clock 2026-08-08T08:30:00\)/.test(await text('#log')), 'the demo fox says it waits for the start time against the clock it was given');
   check(/payload: name this cycle "ONE"/.test(await text('#log')) && /wifi-ap up: ONE/.test(await text('#log')), 'the demo fox announces the first rotated name');
@@ -448,6 +451,12 @@ try {
   check(/match/.test(await text('#tab-fleet')) && !/mismatch/.test(await text('#tab-fleet')), 'audit of the demo board matches its last deploy');
   const auditRowOk = await app(() => JSON.parse(localStorage.getItem('fox-bench.fleet') || '[]').filter(r => r.action === 'audit').pop());
   check(auditRowOk && auditRowOk.result === 'match' && /matched by uid/.test(auditRowOk.notes) && /smoke box/.test(auditRowOk.notes), 'audit row appended with the note');
+  check(auditRowOk && /^foxlib \S+ · CircuitPython 10\.0\.0-demo/.test(auditRowOk.firmware) && auditRowOk.on_air === '', 'the audit row records the firmware (an FM fox: nothing in on_air)');
+  check(await app(() => { const d = JSON.parse(localStorage.getItem('fox-bench.fleet') || '[]').filter(r => r.action === 'deploy').pop(); return /^foxlib \S+ · CircuitPython 10\.0\.0-demo/.test(d.firmware); }), 'deploy rows carry the firmware column');
+  await page.fill('#tab-fleet input[placeholder^="uid, #"]', 'smoke profile'); await page.press('#tab-fleet input[placeholder^="uid, #"]', 'Tab'); await settle(300);
+  check(/rows, \d+ shown/.test(await text('#tab-fleet')), 'the fleet log filter narrows the rows');
+  await page.fill('#tab-fleet input[placeholder^="uid, #"]', ''); await page.press('#tab-fleet input[placeholder^="uid, #"]', 'Tab'); await settle(300);
+  check(await page.$$eval('#tab-fleet .kdot[data-kind]', els => els.length > 0 && els.every(e => ['fm', 'net', 'drive'].includes(e.dataset.kind))), 'profile and sheet rows carry the kind dot');
   // change the callsign on the form only: the board still carries the deployed one, so the audit still matches the log, not the form
   await app(() => { window.foxbench.cfg.id.callmessage = 'N0BODY HERE'; window.foxbench.changed('id'); }); await settle(200);
   await page.click('#tab-fleet button:has-text("Audit")'); await settle(400);
@@ -655,16 +664,12 @@ try {
   check((await page.$$eval('#tab-behavior select option', els => els.length)) >= 7, 'template dropdown back to the foxlib set');
   await page.click('#demoBtn'); await settle(600);
 
-  section('experimental targets in the picker');
+  section('the picker: every chip target listed, nothing hidden');
   await tab('board');
   const optsDefault = await page.$$eval('#tab-board select option', els => els.map(e => e.value));
-  check(optsDefault.includes('picofox-foxlibc') && optsDefault.includes('seeed_xiao_esp32c3') && optsDefault.includes('esp32s3') && optsDefault.includes('esp32c3') && optsDefault.includes('esp32c6') && optsDefault.includes('esp32c5') && !optsDefault.includes('nrf52840'), 'experimental targets are hidden from the picker by default; the stable ones are listed (the four Espressif chip targets since 0.18.27)');
+  check(['picofox-foxlibc', 'seeed_xiao_esp32c3', 'esp32s3', 'esp32c3', 'esp32c6', 'esp32c5', 'nrf52840'].every(v => optsDefault.includes(v)), 'all five chip targets, the combo and the PicoFox are listed by default (the nRF52840 went stable in 0.18.32)');
   const nExp = await app(() => Object.values(window.foxbench.catalog.boards).filter(b => b.status === 'experimental').length);
-  check(/Show experimental targets/.test(await text('#tab-board')) && new RegExp(nExp + ' hidden').test(await text('#tab-board')), `the picker says how many targets are hidden (${nExp})`);
-  await page.check('#tab-board .card:first-child input[type=checkbox]'); await settle(300);   // the picker card's checkbox, not the flash card's erase box
-  const optsAll = await page.$$eval('#tab-board select option', els => els.map(e => e.value));
-  const nNet = optsAll.filter(v => ['esp32c3', 'esp32c6', 'esp32c5', 'esp32s3', 'nrf52840'].includes(v)).length;
-  check(nNet === 5 && optsAll.length === optsDefault.length + nExp && nExp === 1, `the checkbox adds the ${nExp} experimental target (nRF52840); all five chip targets listed`);
+  check(nExp === 0 && !/Show experimental targets/.test(await text('#tab-board')), 'no experimental target is left, so the picker has no "show experimental" checkbox');
   const groupsAll = await page.$$eval('#tab-board select optgroup', els => els.map(e => [e.label, [...e.querySelectorAll('option')].map(o => o.value)]));
   const chipGroup = groupsAll.find(([l]) => l === 'CircuitPython board'), fmGroup = groupsAll.find(([l]) => /\+ radio module/.test(l)), driveGroup = groupsAll.find(([l]) => l === 'Drive-configured fox');
   check(chipGroup && chipGroup[1].join() === 'esp32c3,esp32c5,esp32c6,esp32s3,nrf52840' && fmGroup && fmGroup[1].join() === 'seeed_xiao_esp32c3', 'picker groups: the five chips under "CircuitPython board", the XIAO + SA868 under "+ radio module"');
@@ -678,7 +683,10 @@ try {
   const pk = await app(() => window.foxbench.catalog.packs);
   check(pk.length === 1 && pk[0].name === 'example-pack' && pk[0].counts.boards === 1 && !pk[0].error, 'the example pack loads: ' + JSON.stringify(pk));
   check(await app(() => !!window.foxbench.catalog.boards['example_c3_clone'] && window.foxbench.catalog.boards['example_c3_clone']._pack === 'example-pack'), 'the pack\'s target is in the catalog, marked with the pack');
-  await tab('board'); await page.selectOption('#tab-board select', 'example_c3_clone'); await settle(500);
+  await tab('board');
+  check(/Show experimental targets/.test(await text('#tab-board')) && /1 hidden/.test(await text('#tab-board')), 'the pack\'s experimental target brings the "show experimental" checkbox back (1 hidden)');
+  await page.check('#tab-board .card:first-child input[type=checkbox]'); await settle(300);
+  await page.selectOption('#tab-board select', 'example_c3_clone'); await settle(500);
   eq(await app(() => window.foxbench.boardId), 'example_c3_clone', 'the pack target can be selected');
   eq(await app(() => window.foxbench.defaults.board), 'example_c3_clone', 'its defaults come from the pack (for a built-in template)');
   check(/catalog pack/.test(await text('#tab-board')) && /example-pack/.test(await text('#tab-board')), 'Board tab names the pack');
@@ -770,6 +778,8 @@ try {
   await page.click('#connectBtn'); await until(() => window.foxbench.connected, 'connect to the fake S3-Nano', 15000); await settle(400);
   eq(await app(() => window.foxbench.boardId + '/' + window.foxbench.variantId), 'esp32s3/waveshare_esp32s3_nano', 'arduino_nano_esp32s3 is resolved to the ESP32-S3 chip target, Waveshare S3-Nano variant');
   check(/runs this build/.test(await text('#tab-board')), 'Board tab explains the id');
+  eq(await app(() => JSON.stringify(window.foxbench.resolveBoardId('Seeed_XIAO_nRF52840_Sense'))), '{"target":"nrf52840","variant":"seeed_xiao_nrf52840"}', 'the XIAO nRF52840 build (mixed-case id, shared by the Sense) maps to the nRF52840 target, XIAO variant');
+  eq(await app(() => JSON.stringify(window.foxbench.resolveBoardId('Seeed_XIAO_nRF52840_Sense'))), '{"target":"nrf52840","variant":"seeed_xiao_nrf52840"}', 'the XIAO nRF52840 build (mixed-case id, shared by the Sense) maps to the nRF52840 target, XIAO variant');
   eq(await app(() => JSON.stringify(window.foxbench.resolveBoardId('arduino_nano_33_ble_rev2'))), '{"target":"nrf52840","variant":"arduino_nano_33_ble"}', 'the Nano 33 BLE Rev2 build maps to the nRF52840 target');
   eq(await app(() => JSON.stringify(window.foxbench.resolveBoardId('espressif_esp32c5_devkitc_1_n8r8'))), '{"target":"esp32c5","variant":"seeed_xiao_esp32c5"}', 'the shared C5 build maps to the ESP32-C5 target, first variant when none is selected');
   await app(() => window.foxbench.setBoard('esp32s3', { variant: 'waveshare_esp32s3_nano' }));

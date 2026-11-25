@@ -16,6 +16,7 @@ import { parseBanner } from '../device/device.js';
 import { airtime, fmtDuration } from '../model/airtime.js';
 import { packImages } from '../audio/sstv.js';
 import { fleet, download } from '../model/profiles.js';
+import { firmwareText } from '../model/audit.js';
 import { onAir } from '../model/sheet.js';
 import { profiles } from '../model/profiles.js';
 import { PLACEHOLDERS } from '../model/handoff.js';
@@ -258,6 +259,7 @@ async function deploy(btn) {
       owner: cfg.fleet?.owner || '', event: cfg.fleet?.event || '', on_air: onAir(cfg, { template: app.templateId }), freq: freqText(cfg),
       power: powerText(cfg), seed: cfg.schedule?.seed ?? '',
       result: lastResult.ok ? 'ok' : lastResult.failedFeature ? `failed to load: ${lastResult.failedFeature}` : (banner ? `${banner.cfg} ${banner.radio} ${banner.id}` : 'no banner'),
+      firmware: firmwareText(app.catalog.foxlibVersion, app.info?.cpVersion || '') + (wantMpy() ? ' (.mpy)' : ''),
       notes: [app.variantId ? app.board.variantName : '', app.device.kind === 'demo' ? 'demo' : ''].filter(Boolean).join(' · ')});
   } catch (e) {
     setLast({usbDrive: !!e.usbDrive,

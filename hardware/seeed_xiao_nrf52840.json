@@ -1,0 +1,194 @@
+{
+  "id": "seeed_xiao_nrf52840",
+  "name": "Seeed XIAO nRF52840 (and Sense)",
+  "mcu": "nRF52840",
+  "radio": "the SoC's own radio: ble (Bluetooth 5.0 / BLE; the 802.15.4 radio is unused)",
+  "radios": [
+    "ble"
+  ],
+  "design": {
+    "by": "Seeed Studio",
+    "source": "https://wiki.seeedstudio.com/XIAO_BLE/",
+    "license": "see the vendor's page"
+  },
+  "flash": {
+    "method": "uf2-nrf52",
+    "chip": "nrf52840",
+    "offset": "0x0",
+    "flash_mb": 2,
+    "bootloader_instructions": "Double-tap the reset button (the small button beside the USB-C port, or short RST to GND twice): the Adafruit nRF52 UF2 bootloader comes up as a drive named XIAO-SENSE. Copy the CircuitPython .uf2 from the board page onto it; the board reboots into CircuitPython and the CIRCUITPY drive appears. This page's UF2 copier knows the RP2040 bootloader only, so this one is a drag-and-drop from the file manager (a terminal is not needed).",
+    "drive_name": "XIAO-SENSE",
+    "note": "2 MB QSPI flash beside the chip's 1 MB; the UF2 bootloader is on the board from the factory and survives everything but a J-Link erase. 256 KB RAM."
+  },
+  "has_usb_drive": true,
+  "usb": [
+    {
+      "vid": "0x2886",
+      "pid": "0x0045",
+      "when": "CircuitPython CDC (Seeed's ids: the Sense and plain boards share the build and the pid)"
+    },
+    {
+      "vid": "0x2886",
+      "pid": "0x0044",
+      "when": "the UF2 bootloader (XIAO-SENSE drive)"
+    }
+  ],
+  "pins": [
+    {
+      "name": "LED",
+      "gpio": 26,
+      "aliases": [
+        "LED_RED"
+      ],
+      "note": "the red channel of the RGB user LED, P0.26, active low (board.LED is this pin in CircuitPython's build)"
+    },
+    {
+      "name": "LED_GREEN",
+      "gpio": 30,
+      "note": "green channel, P0.30, active low"
+    },
+    {
+      "name": "LED_BLUE",
+      "gpio": 6,
+      "note": "blue channel, P0.06, active low"
+    },
+    {
+      "name": "D0",
+      "gpio": 2,
+      "aliases": [
+        "A0"
+      ]
+    },
+    {
+      "name": "D1",
+      "gpio": 3,
+      "aliases": [
+        "A1"
+      ]
+    },
+    {
+      "name": "D2",
+      "gpio": 28,
+      "aliases": [
+        "A2"
+      ]
+    },
+    {
+      "name": "D3",
+      "gpio": 29,
+      "aliases": [
+        "A3"
+      ]
+    },
+    {
+      "name": "D4",
+      "gpio": 4,
+      "aliases": [
+        "A4",
+        "SDA"
+      ]
+    },
+    {
+      "name": "D5",
+      "gpio": 5,
+      "aliases": [
+        "A5",
+        "SCL"
+      ]
+    },
+    {
+      "name": "D6",
+      "gpio": 43,
+      "aliases": [
+        "TX"
+      ]
+    },
+    {
+      "name": "D7",
+      "gpio": 44,
+      "aliases": [
+        "RX"
+      ]
+    },
+    {
+      "name": "D8",
+      "gpio": 45,
+      "aliases": [
+        "SCK"
+      ]
+    },
+    {
+      "name": "D9",
+      "gpio": 46,
+      "aliases": [
+        "MISO"
+      ]
+    },
+    {
+      "name": "D10",
+      "gpio": 47,
+      "aliases": [
+        "MOSI"
+      ]
+    },
+    {
+      "name": "VBATT",
+      "gpio": 31,
+      "note": "battery divider output (1/3 of the cell), live only while READ_BATT_ENABLE is driven low"
+    },
+    {
+      "name": "READ_BATT_ENABLE",
+      "gpio": 14,
+      "note": "drive low to connect the battery divider to VBATT (floating by default to save the cell)"
+    },
+    {
+      "name": "CHARGE_RATE",
+      "gpio": 13,
+      "note": "low selects the 100 mA charge current, high (default) 50 mA"
+    },
+    {
+      "name": "CHARGE_STATUS",
+      "gpio": 17,
+      "note": "low while the BQ25101 is charging"
+    }
+  ],
+  "roles": {
+    "led": "LED",
+    "batt_sense": null
+  },
+  "led": {
+    "kind": "rgb_pins",
+    "pins": {
+      "red": 26,
+      "green": 30,
+      "blue": 6
+    },
+    "active_low": true,
+    "note": "one RGB LED, three active-low lines; foxlib drives board.LED (the red channel). The firmware does not honour active_low yet, so the LED reads inverted (lit while the fox is off): note the direction on the bench. A separate orange charge LED is the charger's, not a GPIO."
+  },
+  "battery": {
+    "charger": true,
+    "divider_note": "BQ25101 charger with BAT pads on the back (3.7 V cell). A divider to VBATT (P0.31) is on the board, but it is switched: READ_BATT_ENABLE (P0.14) must be driven low to read it, which foxlib's battery role does not do, so roles.batt_sense stays null until it does."
+  },
+  "notes": [
+    "BLE only: the ble-beacon and puzzle-beacon templates. No Wi-Fi, no 5 GHz, no Wi-Fi checkpoint.",
+    "gpio numbers here are nRF port*32+pin (P1.11 = 43); CircuitPython names the pins D0..D10 and the roles above.",
+    "The Sense board adds an IMU and a PDM microphone (IMU_PWR, MIC_PWR are power-switch pins) and reports the same id; the plain board runs the same build.",
+    "An onboard ceramic antenna; no U.FL. NFC1/NFC2 (P0.09/P0.10) are the NFC antenna pads, not GPIO by default.",
+    "The nRF52 watchdog is one-way: once started it cannot be reconfigured or stopped, and a soft reboot does not clear it. After a deploy or reload the previous run's watchdog is still counting; foxlib 1.11.4 adopts it (banner: watchdog adopted(90s)). A board sitting at the REPL longer than limits.watchdog_s resets into safe mode, from which safemode.py restarts the fox; a power cycle starts clean. Keep bench phases short, or power-cycle between them."
+  ],
+  "serial": {
+    "baud": 115200
+  },
+  "silkscreen": null,
+  "circuitpython": {
+    "board_id": "Seeed_XIAO_nRF52840_Sense",
+    "board_ids": [
+      "Seeed_XIAO_nRF52840_Sense",
+      "Seeed_XIAO_nRF52840"
+    ],
+    "download": "https://circuitpython.org/board/Seeed_XIAO_nRF52840_Sense/",
+    "latest_known": "10.3.2",
+    "note": "One build for both boards (the Sense's page; Seeed's plain XIAO nRF52840 is listed as running the same firmware). The id is mixed-case as CircuitPython's board directory is: Seeed_XIAO_nRF52840_Sense. Installed as a .uf2 on the XIAO-SENSE bootloader drive, not from this page. board.LED is the red channel; LED_GREEN and LED_BLUE are the others. On the bench 2026-11-24: both BLE templates from .mpy, 73 KB free at the banner."
+  }
+}

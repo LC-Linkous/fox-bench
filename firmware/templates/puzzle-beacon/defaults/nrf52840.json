@@ -2,7 +2,7 @@
  "schema": 1,
  "template": "puzzle-beacon",
  "board": "nrf52840",
- "variant": "arduino_nano_33_ble",
+ "variant": "seeed_xiao_nrf52840",
  "pins": {
   "led": "LED",
   "batt_sense": null

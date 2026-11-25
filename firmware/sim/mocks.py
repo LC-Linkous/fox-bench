@@ -120,19 +120,29 @@ def _mock_board(env):
     wdm.WatchDogMode = types.SimpleNamespace(RESET="reset", RAISE="raise")
     rec.watchdog_bite = None
     rec.watchdog_feeds = 0
+    # scenario "watchdog_running": the board is an nRF52 after a soft reboot -- the previous run's watchdog (that many
+    # seconds) is already counting and cannot be changed or stopped (RuntimeError, as the nordic port raises)
     class _WDT:
         def __init__(self):
-            self._timeout = None; self.mode = None; self._fed_ns = 0
+            self._timeout = None; self.mode = None; self._fed_ns = 0; self._locked = False
+            if scenario.get("watchdog_running"):
+                self._timeout = float(scenario["watchdog_running"]); self.mode = "reset"; self._locked = True; self._fed_ns = clock.ns
         @property
         def timeout(self): return self._timeout
         @timeout.setter
         def timeout(self, v):
+            if self._locked: raise RuntimeError("Watchdog timer already running")
             if not (0 < float(v) <= 3600): raise ValueError("watchdog timeout")
             self._timeout = float(v)
         def feed(self):
             if self.mode is None: raise ValueError("watchdog not running")
             self._fed_ns = clock.ns; rec.watchdog_feeds += 1
-        def deinit(self): self.mode = None
+        def deinit(self):
+            if self._locked: raise RuntimeError("Watchdog timer cannot be stopped")
+            self.mode = None
+        def __setattr__(self, k, v):
+            if k == "mode" and getattr(self, "_locked", False) and v is None: raise RuntimeError("Watchdog timer cannot be stopped")
+            object.__setattr__(self, k, v)
         def _check(self):
             if self.mode and rec.watchdog_bite is None and clock.ns - self._fed_ns > self._timeout * 1e9:
                 rec.watchdog_bite = (self._fed_ns / 1e6, clock.ns / 1e6)

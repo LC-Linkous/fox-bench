@@ -33,7 +33,7 @@ async function write(btn, render) {
     fleet.append({board_number: '', uid: '', board: app.boardId, action: 'deploy', template: `${app.templateId}/${app.template.version}`,
       profile: cfg.fleet?.profile || '', callsign: cfg.id.callmessage, owner: cfg.fleet?.owner || '', event: cfg.fleet?.event || '',
       on_air: onAir(cfg, { family: app.family, template: app.templateId }), freq: String(cfg.plan.frequencies_mhz[0]), power: powerText(cfg),
-      seed: '', result: 'written', notes: [app.info?.driveName, d.kind === 'demo' ? 'demo' : ''].filter(Boolean).join(' · ')});
+      firmware: `vendor${cfg.radio?.revision ? ' ' + cfg.radio.revision : ''}`, seed: '', result: 'written', notes: [app.info?.driveName, d.kind === 'demo' ? 'demo' : ''].filter(Boolean).join(' · ')});
     log.line(`wrote ${files.length} files to ${app.info?.driveName || 'the drive'} — eject it, then switch the fox off and on`, 'ok');
   } catch (e) { setLast({ error: String(e.message || e) }); log.err('deploy failed: ' + last.error); }
   busy = false; gateOk = false; app.changed('deploy');
