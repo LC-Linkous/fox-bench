@@ -3,7 +3,8 @@
   "name": "Puzzle beacon (BLE: code + URL + rotating names)",
   "version": "1.0.1",
   "families": [
-    "foxlib"
+    "foxlib",
+    "foxlib-c"
   ],
   "contract": "net",
   "status": "stable",
@@ -31,5 +32,11 @@
     "keytest",
     "rssi"
   ],
-  "boards_tested": ["esp32s3", "esp32c3", "esp32c6", "esp32c5", "nrf52840"]
+  "boards_tested": [
+    "esp32s3",
+    "esp32c3",
+    "esp32c6",
+    "esp32c5",
+    "nrf52840"
+  ]
 }

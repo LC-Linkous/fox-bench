@@ -149,7 +149,7 @@ function onBoardCard() {
 }
 
 function render() {
-  if (app.family === 'foxlib-c') return renderConsole();
+  if (app.family === 'foxlib-c' && app.transport !== 'console') return renderConsole();   // the PicoFox console; a console-configured network fox gets the network cards, over its console
   if (app.family === 'drive') { root.replaceChildren(h('div.card', {},
     h('p.hint', {},
       `${app.board.name}: no bench. The firmware has no command interface and does not transmit while the drive is mounted. Use a receiver after the power cycle; Listen only shows the boot messages.`))); return; }

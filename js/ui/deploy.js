@@ -23,6 +23,7 @@ import { PLACEHOLDERS } from '../model/handoff.js';
 import { makeZip } from '../model/zip.js';
 import * as drive from './deploy-drive.js';
 import * as foxlibc from './deploy-foxlibc.js';
+import * as consoleFox from './deploy-console.js';
 
 let app, root, gateOk = false, lastResult = null, busy = false;
 // Set the board clock at deploy: CircuitPython boots at 2000-01-01, and a network fox's timed start (stealth.start.at)
@@ -69,7 +70,7 @@ export function clockToSet() {
 }
 const setLast = r => { lastResult = r; app.lastDeploy = r ? {...r, at: new Date().toISOString(), template: app.templateId,
   uid: app.info?.uid} : null; };
-export function init(a, el) { app = a; root = el; app.deployClock = loadClock(); app.deployRecovery = loadRecovery(); app.setDeployClock = patch => { Object.assign(app.deployClock, patch); saveClock(app.deployClock); app.changed('deploy'); }; drive.init(a); foxlibc.init(a); app.listeners.add(render); render(); }
+export function init(a, el) { app = a; root = el; app.deployClock = loadClock(); app.deployRecovery = loadRecovery(); app.setDeployClock = patch => { Object.assign(app.deployClock, patch); saveClock(app.deployClock); app.changed('deploy'); }; drive.init(a); foxlibc.init(a); consoleFox.init(a); app.listeners.add(render); render(); }
 
 /** The clock control (Deploy card): on, and from where. Changing it re-runs the page checks (stealth.start.at wants it on). */
 function clockRow() {
@@ -274,6 +275,7 @@ async function deploy(btn) {
 
 function render() {
   if (app.family === 'drive') return drive.render(root, render);
+  if (app.family === 'foxlib-c' && app.transport === 'console') return consoleFox.render(root, render);
   if (app.family === 'foxlib-c') return foxlibc.render(root, render);
   const cfg = app.cfg, { files, changes } = plan();
   // a network fox has no keydown: its "transmission" is the wake time on the Schedule tab

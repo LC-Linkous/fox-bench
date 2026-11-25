@@ -83,3 +83,31 @@ test('drawer send(): one write, after the fox has been quiet, and no second tx l
   assert.deepEqual(link.sent.filter(l => l === 'status'), ['status'], 'written exactly once');
   assert.equal(logs.filter(([cls]) => cls === 'tx').length, 0, 'send() does not log a tx line itself');
 });
+
+test('files over the console: put is verified by size and crc, get reads it back, rm removes it, a put of fox.json reloads', async () => {
+  const link = new FakeConsoleLink({ latency: 2 }); const d = new ConsoleDevice(link); const logs = []; d.onLog = (t, c) => logs.push([c, t]);
+  await link.open(); await sleep(10);
+  const text = JSON.stringify({ schema: 1, template: 'wifi-beacon', net: { kind: 'wifi-ap', ssid: 'W1ABC FOX DE W1ABC' }, note: 'x'.repeat(300) });
+  assert.equal(await d.writeText('fox.json', text), text.length);
+  assert.equal(await d.readText('fox.json'), text);
+  const files = await d.list();
+  assert.equal(files['fox.json'].size, text.length); assert.ok(files['README.txt']);
+  assert.equal(await d.readText('images.bin'), null, 'a missing file reads as null, not an error');
+  assert.equal(await d.remove('fox.json'), true); assert.equal(await d.readText('fox.json'), null);
+  assert.equal(await d.remove('fox.json'), false, 'removing a missing file is not an error');
+  await assert.rejects(d.writeText('code.py', 'print(1)'), /refused name/);
+  const sent = link.sent.filter(l => l.startsWith('put ') || l === '.' || l.startsWith('get ') || l.startsWith('rm '));
+  assert.deepEqual(sent.slice(0, 3), [`put fox.json ${text.length}`, '.', 'get fox.json'], 'the body went after the fox\'s `send`, ended by the dot line');
+  await d.writeText('fox.json', text); await sleep(1100);
+  assert.equal(link.reloads, 2, 'the fox reloads about a second after each fox.json put (two so far)');
+  assert.ok(logs.some(([, t]) => /^FOX template=/.test(t)), 'and prints its banner again');
+});
+
+test('a get whose bytes do not match the announced size or crc is refused', async () => {
+  const link = new FakeConsoleLink({ latency: 2 }); const d = new ConsoleDevice(link); d.onLog = () => {};
+  await link.open(); await sleep(10);
+  link.files.set('fox.json', new TextEncoder().encode('{"a":1}'));
+  const orig = link._cmd.bind(link);
+  link._cmd = line => { if (line === 'get fox.json') { link._emit('size=7 crc32=00000000\r\neyJhIjoxfQ==\r\n.\r\nok\r\n'); return; } orig(line); };
+  await assert.rejects(d.readText('fox.json'), /crc/);
+});

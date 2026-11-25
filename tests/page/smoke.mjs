@@ -674,7 +674,13 @@ try {
   const chipGroup = groupsAll.find(([l]) => l === 'CircuitPython board'), fmGroup = groupsAll.find(([l]) => /\+ radio module/.test(l)), driveGroup = groupsAll.find(([l]) => l === 'Drive-configured fox');
   check(chipGroup && chipGroup[1].join() === 'esp32c3,esp32c5,esp32c6,esp32s3,nrf52840' && fmGroup && fmGroup[1].join() === 'seeed_xiao_esp32c3', 'picker groups: the five chips under "CircuitPython board", the XIAO + SA868 under "+ radio module"');
   check(driveGroup && driveGroup[1].join() === 'picofox-vendor,picofox-foxlibc', 'both PicoFox lines under "Drive-configured fox", vendor first');
-  eq(groupsAll.map(([l]) => l).join(' | '), 'CircuitPython board + radio module | Drive-configured fox | CircuitPython board', 'group order');
+  const consoleGroup = groupsAll.find(([l]) => l === 'Console-configured fox');
+  check(consoleGroup && consoleGroup[1].join() === 'esp32c3-foxlibc' && groupsAll[groupsAll.length - 1][0] === 'Console-configured fox', 'the console-configured foxes have their own, last section: the ESP32-C3 on fox-bench\'s C firmware');
+  check(await page.$eval('#tab-board select option[value="esp32c3-foxlibc"]', o => o.disabled && / — planned$/.test(o.textContent)), 'the C-firmware target is listed and disabled while its firmware is planned');
+  check(await app(() => window.foxbench.kindOf(window.foxbench.catalog.boards['esp32c3-foxlibc']) + '|' + window.foxbench.transportOf(window.foxbench.catalog.boards['esp32c3-foxlibc'])) === 'net|console', 'it is a network fox (teal) reached over the console');
+  check(await app(() => window.foxbench.templatesFor('foxlib-c', window.foxbench.catalog.boards['esp32c3-foxlibc']).map(t => t.id).sort().join()) === 'ble-beacon,checkpoint,puzzle-beacon,wifi-beacon,wifi-probe', 'the five network templates run on it');
+  check(await app(() => window.foxbench.templatesFor('foxlib-c', window.foxbench.catalog.boards['picofox-foxlibc']).every(t => t.contract !== 'net')), 'and none of them is offered to the PicoFox (no radios on that hardware)');
+  eq(groupsAll.map(([l]) => l).join(' | '), 'CircuitPython board + radio module | Drive-configured fox | CircuitPython board | Console-configured fox', 'group order');
   await page.selectOption('#tab-board select', 'seeed_xiao_esp32c3'); await settle(300);
   check(await page.isVisible('.rail button[data-tab="payload"]'), 'Payload tab shown');
 

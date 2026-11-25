@@ -12,8 +12,10 @@ export function init(a, el) { app = a; root = el; app.listeners.add(render); onF
 // The picker groups by what the fox is and how it is configured, not by firmware family: a board wired to a radio module;
 // a bare board whose own radio is the transmitter (listed by chip, the physical board chosen on the Radio tab); a fox
 // configured through its USB drive (the PicoFox, vendor firmware first, fox-bench firmware second).
-const GROUP_LABEL = { combo: 'CircuitPython board + radio module', chip: 'CircuitPython board', drive: 'Drive-configured fox' };
-const GROUP_ORDER = ['combo', 'drive', 'chip'];
+// the sections say how the page talks to the board: the CircuitPython REPL (a bare chip, or a chip + radio module), a USB
+// drive (the PicoFox, either firmware), or a serial console alone (the ESP32 boards on fox-bench's C firmware)
+const GROUP_LABEL = { combo: 'CircuitPython board + radio module', chip: 'CircuitPython board', drive: 'Drive-configured fox', console: 'Console-configured fox' };
+const GROUP_ORDER = ['combo', 'drive', 'chip', 'console'];
 
 /** The board picker, grouped by family. This one choice drives every other tab. */
 function pickerCard() {
@@ -21,7 +23,7 @@ function pickerCard() {
   // Targets not yet verified on hardware (status experimental) stay out
   // of the list unless asked for — a release is what the hardware log vouches for. The selected target is always listed.
   const hidden = Object.values(app.catalog.boards).filter(b => b.status === 'experimental' && !app.showExperimental && b.id !== app.boardId);
-  const groupOf = b => ({ fm: 'combo', net: 'chip', drive: 'drive' })[app.kindOf(b)];
+  const groupOf = b => app.transportOf(b) === 'console' ? 'console' : ({ fm: 'combo', net: 'chip', drive: 'drive' })[app.kindOf(b)];
   for (const b of Object.values(app.catalog.boards)) if (!hidden.includes(b)) (groups[groupOf(b)] ??= []).push(b);
   if (groups.drive) groups.drive.sort((a, b) => (a.family === 'drive' ? 0 : 1) - (b.family === 'drive' ? 0 : 1));   // vendor firmware first
   if (groups.chip) groups.chip.sort((a, b) => a.name.localeCompare(b.name));

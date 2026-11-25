@@ -120,6 +120,16 @@ export function statusBlock() {
 /** Board tab: image source, options, one flash. */
 export function flashCard(app) {
   const b = app.board;
+  if (app.family === 'foxlib-c' && app.transport === 'console') {
+    // fox-bench's own firmware for an Espressif chip: CI builds the .bin beside its fingerprint; it goes on with the same
+    // esptool path as CircuitPython, at firmware.flash_offset. Until the build exists (status planned) the card says so.
+    const fw = b.firmware || {};
+    return h('div.card', {}, h('h3', {}, 'Flash fox-bench firmware'),
+      h('p.hint', {}, `${b.name}: fox-bench's C firmware for the ${b.mcu || 'chip'}, flashed over the same USB lead as CircuitPython (esptool, at ${fw.flash_offset || '0x0'}). `,
+        b.status === 'planned' ? 'The firmware source is not in the repository yet, so there is no image to flash: this target is listed ahead of its first build.'
+          : `CI builds ${fw.image?.split('/').pop() || 'the image'} and its fingerprint from each commit; this card fetches and checks it, then flashes it.`),
+      b.status !== 'planned' ? h('p.hint.warn', {}, 'Flashing from this card is not wired yet (the image path exists; the esptool card below CircuitPython\'s is the next patch). Until then: esptool.py --chip ' + (b.flash.chip || 'esp32c3') + ' write_flash ' + (fw.flash_offset || '0x0') + ' <the .bin>.') : null);
+  }
   if (b.flash.method === 'uf2') return uf2Card(app);
   if (b.flash.method !== 'esptool') {
     return h('div.card', {}, h('h3', {}, 'Flash CircuitPython'),

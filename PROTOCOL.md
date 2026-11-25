@@ -134,3 +134,42 @@ text console (115200, rate ignored):
 - `reboot`, `bootsel` and the 1200-baud touch unkey before resetting: a
   reset does not touch the Si5351 or the amplifier enable, so anything
   keyed at that moment would otherwise stay keyed in the bootloader.
+
+### Files over the console (console-configured foxes)
+
+A `foxlib-c` target whose `transport` is `console` (the ESP32 boards
+running fox-bench's firmware: no CircuitPython, no USB drive, the same
+USB lead that flashes them) is configured entirely through this console.
+Three commands move files; the encoding is base64 in lines, so the
+exchange is text from end to end and survives any terminal, and the
+page's line reader needs nothing new:
+
+- `put <name> <size>` — the fox answers `send`; the host sends the file
+  as base64, up to 76 characters per line, then a line holding a single
+  `.`; the fox writes it and answers `ok size=<n> crc32=<hex8>` (or
+  `err: …` and discards it). `<size>` is the decoded size, checked.
+- `get <name>` — `size=<n> crc32=<hex8>`, the base64 lines, a `.` line,
+  `ok`. Missing: `err: no such file`.
+- `rm <name>` — `ok`; missing: `err: no such file`.
+- `files` lists `<name> <size>` pairs as before.
+
+Names are `fox.json`, `defaults.json` and a template's `images_file`;
+anything else is refused. A `put` of `fox.json` or `defaults.json`
+schedules a reload about a second after the last write, as a drive
+write does on the PicoFox. The PicoFox firmware answers the same
+commands from 0.1.12, so a page or script can configure either board
+over its console; the page uses the drive for the PicoFox and the
+console for the ESP32 boards (`js/device/console-device.js`
+`writeText`/`readText`/`list`/`remove`, the same surface
+`drive-device.js` offers, so the Deploy tab does not know which it is
+talking to). `tools/hw_smoke.py` gets the same client with the ESP32
+firmware.
+
+A console-configured fox runs the network templates, so its bench is the
+network foxes' (the Bench tab's cards, `hw_smoke`'s phases) in console
+words: `key <s>` brings the radio up for `s` seconds and answers as
+foxlib's `key_for` does (`ok wifi-ap <name> (<mac>) for <s> s`, radio
+notes appended); `scan` prints what the radio hears, one `<dBm> ch<n>
+<name>` entry per line; `health` prints the board's numbers as one JSON
+line (`free`, `with_fox`, `foxlib`, `fatal`); the find and near logs are
+`finds.csv` and `near.csv`, read with `get`.

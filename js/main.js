@@ -31,7 +31,7 @@ import * as tabAbout from './ui/about.js';
 import { state as flashState } from './ui/flash.js';
 
 const KIND_LABEL = { fm: 'FM fox', net: 'Network fox', drive: 'PicoFox' };   // the kind badge in the top bar (body[data-kind] carries the colour)
-const VERSION = '0.18.32';
+const VERSION = '0.18.33';
 /** Tab subtitles that read differently per device family (null = the page's original text). */
 const LEDES = { drive: {
   board: 'Which fox is on the bench, open its USB drive (or use the simulated one). The vendor firmware stays; the page writes its files.',
@@ -80,13 +80,17 @@ export const app = {
   get family() { return this.board.family || 'foxlib'; },
   /** What kind of fox a target is, as the picker groups them and the page colours them: 'fm' (a board + radio module),
    *  'net' (a bare board, its own Wi-Fi / BLE), 'drive' (a fox configured through its USB drive: the PicoFox, either firmware). */
-  kindOf(t) { const fam = t.family || 'foxlib'; return fam === 'foxlib' ? (t.variants ? 'net' : 'fm') : 'drive'; },
+  kindOf(t) { const fam = t.family || 'foxlib'; return fam === 'foxlib' ? (t.variants ? 'net' : 'fm') : this.transportOf(t) === 'console' ? 'net' : 'drive'; },
+  /** How the page reaches a target: 'repl' (CircuitPython), 'drive' (the PicoFox's USB drive, plus its console), or 'console'
+   *  (fox-bench's C firmware on a board with no drive: the ESP32s — files travel over the console, PROTOCOL.md). */
+  transportOf(t) { return t.transport || ((t.family || 'foxlib') === 'foxlib' ? 'repl' : 'drive'); },
+  get transport() { return this.transportOf(this.board); },
   get kind() { return this.kindOf(this.catalog.boards[this.boardId]); },
   /** Null when the connected device can take a deploy for the selected board; otherwise the reason, in words
    *  (js/model/transport.js). Deploy modules refuse anything else, whatever the top bar says. */
   deployBlocker() { return deployBlocker({ device: this.device, board: this.board, onBoard: this.onBoard }); },
   /** Families configured through files on a USB drive rather than a REPL. */
-  get usesDrive() { return this.family === 'drive' || this.family === 'foxlib-c'; },
+  get usesDrive() { return (this.family === 'drive' || this.family === 'foxlib-c') && this.transport !== 'console'; },
   /** Board picker: targets with status experimental are listed only when asked (remembered per browser). */
   get showExperimental() { try { return localStorage.getItem('fox-bench.experimental') === '1'; } catch { return false; } },
   setShowExperimental(v) { try { if (v) localStorage.setItem('fox-bench.experimental', '1'); else localStorage.removeItem('fox-bench.experimental'); } catch {} this.changed('board'); },
@@ -160,10 +164,12 @@ export const app = {
     const hw = board ? this.catalog.hardware?.[board.hardware] : null;      // for a chip target, the selected variant's hardware
     // a template fits a board when the hardware has the radios it names, and (CircuitPython FM templates) the pin roles
     // it requires; foxlib-c fixes its pins in the firmware, so the roles filter is for the foxlib family only
-    const chip = !!board?.variants;      // a chip target (a bare board, no module) runs the network foxes only; a board + module combo the FM foxes only
+    // a bare chip (a CircuitPython chip target, or a console-configured C fox) runs the network foxes only; a board + module
+    // combo and the PicoFox the FM foxes only
+    const chip = !!board?.variants || (board && this.transportOf(board) === 'console');
     return Object.values(this.catalog.templates).filter(t => (t.families || ['foxlib']).includes(family)
-      && (family !== 'foxlib' || !board || (t.contract === 'net') === chip)
-      && (!t.radios || !hw?.radios || t.radios.every(r => hw.radios.includes(r) && (!board.radios || board.radios.includes(r))))   // a target may offer fewer radios than its chip has (the C3: BLE only)
+      && (!board || (t.contract === 'net') === chip)
+      && (!t.radios || !hw || t.radios.every(r => (hw.radios || []).includes(r) && (!board.radios || board.radios.includes(r))))   // a target may offer fewer radios than its chip has (the C3: BLE only); hardware without radios offers none
       && (family !== 'foxlib' || !t.pins?.required?.length || !hw || t.pins.required.every(r => hw.roles && hw.roles[r] !== undefined)));
   },
 
@@ -403,6 +409,7 @@ export const app = {
       if (kind === 'demo') device = this.family === 'drive' ? await demoDrive(this.board, { MemDirectoryHandle }) : await demoFoxbenchDrive(this.board, this.defaults, { MemDirectoryHandle });
       else { let handle; try { handle = await DriveDevice.pick({ id: 'fox-bench-' + this.boardId }); } catch (e) { if (e.name !== 'AbortError') this.console.err(String(e.message || e)); return; } device = new DriveDevice(handle, { board: this.board }); }
     }
+    else if (kind === 'demo' && this.transport === 'console') { const { device: c, link } = demoConsole(this.board, this.cfg, { files: true }); device = c; this._demoLink = link; }
     else if (kind === 'demo') device = new DemoDevice({ board: this.board, moduleRanges: this.module.ranges_mhz });
     else {
       const link = new SerialLink(); await link.open(115200, port);
@@ -433,7 +440,7 @@ export const app = {
     try { this.info = await device.connect(); }
     catch (e) {
       this.console.err(String(e.message || e));
-      if (kind !== 'demo' && !this.usesDrive) this.console.err('No REPL prompt. If the board is running other firmware, tap its R (reset) button — or unplug and replug without holding B — then click Connect again. The board must already run CircuitPython.');
+      if (kind !== 'demo' && !this.usesDrive && this.transport !== 'console') this.console.err('No REPL prompt. If the board is running other firmware, tap its R (reset) button — or unplug and replug without holding B — then click Connect again. The board must already run CircuitPython.');
       this.setStatus('Not connected', 'err'); try { await device.close(); } catch {} return;
     }
     this.device = device;
@@ -450,6 +457,17 @@ export const app = {
     try { await this.readBoard(); }
     catch (e) { this.console.err(`connected, but reading the board failed: ${e.message || e} — Re-read board on the Board tab retries`); }
     this.changed('connect');
+  },
+  /** A console-configured fox (the ESP32 boards on fox-bench's C firmware): what is on it, over its console — the file
+   *  list, fox.json, the firmware version the `version` reply gave at connect. The same onBoard shape the drive read fills. */
+  async readConsole() {
+    const d = this.device; if (!d) return;
+    const files = await d.list();
+    const raw = await d.readText('fox.json');
+    const ob = { cfg: null, raw, foxlibVersion: this.info?.foxlibVersion || this.onBoard.foxlibVersion || '', foxlibMissing: [], foxlibComplete: true, files, template: null, ident: null };
+    if (raw != null) { try { ob.cfg = JSON.parse(raw); ob.template = ob.cfg.template || null; } catch { this.console.err('fox.json on the fox is not valid JSON (it falls back to defaults.json)'); } }
+    this.onBoard = ob;
+    this.console.dim(raw != null ? `fox.json on the fox: template ${ob.template || '?'}` : 'no fox.json on the fox yet: it runs its defaults, or nothing — deploy writes one');
   },
   /** Listening with another board selected: the banner says which fox this is, so follow it — select that board and, when its
    *  family speaks a different protocol (console vs REPL), put the matching device on the same port. Otherwise an action that
@@ -532,6 +550,7 @@ export const app = {
   async readBoard() {
     const d = this.device; if (!d) return;
     if (this.usesDrive) return this.readDrive();
+    if (this.transport === 'console') return this.readConsole();
     if (d.listening) { this.info = await d.identify(); this.setStatus(`${this.info.boardId} · uid ${this.info.uid.slice(-6)}`, 'ok'); this.console.setEnabled(true); }
     else await d.interrupt();
     const files = await d.list('');

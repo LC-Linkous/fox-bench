@@ -44,3 +44,11 @@ test('a demo board of another board id is refused', () => {
 });
 
 test('nothing connected', () => { assert.equal(deployBlocker({ device: null, board: xiao, onBoard: idle }), 'not connected'); });
+
+test('a console-configured fox takes its deploy over the serial console and nothing else', () => {
+  const esp = { id: 'esp32c3-foxlibc', name: 'ESP32-C3 (fox-bench firmware, C)', family: 'foxlib-c', transport: 'console', hardware: 'seeed_xiao_esp32c3' };
+  assert.deepEqual(deployTransports('foxlib-c', esp), ['console']);
+  assert.equal(deployBlocker({ device: { transport: 'console', kind: 'console' }, board: esp, onBoard: {} }), null);
+  assert.match(deployBlocker({ device: { transport: 'drive', kind: 'drive' }, board: esp, onBoard: {} }), /its serial console/);
+  assert.match(deployBlocker({ device: { transport: 'console', kind: 'console' }, board: { id: 'picofox-foxlibc', name: 'PicoFox', family: 'foxlib-c' }, onBoard: {} }), /its drive/, 'the PicoFox still wants its drive');
+});

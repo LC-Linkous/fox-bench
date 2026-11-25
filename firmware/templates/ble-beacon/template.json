@@ -3,11 +3,12 @@
   "name": "BLE beacon (iBeacon)",
   "version": "1.0.1",
   "families": [
-    "foxlib"
+    "foxlib",
+    "foxlib-c"
   ],
   "contract": "net",
   "status": "stable",
-  "description": "An iBeacon advertisement \u2014 UUID, major, minor, measured power \u2014 with a name (or the callsign), on a duty cycle. Any BLE scanner app sees it. The SoC's own radio; also the nRF52 boards.",
+  "description": "An iBeacon advertisement — UUID, major, minor, measured power — with a name (or the callsign), on a duty cycle. Any BLE scanner app sees it. The SoC's own radio; also the nRF52 boards.",
   "foxlib": ">=1.5.0 <2.0.0",
   "radios": [
     "ble"
@@ -30,5 +31,11 @@
     "keytest",
     "rssi"
   ],
-  "boards_tested": ["esp32s3", "esp32c3", "esp32c6", "esp32c5", "nrf52840"]
+  "boards_tested": [
+    "esp32s3",
+    "esp32c3",
+    "esp32c6",
+    "esp32c5",
+    "nrf52840"
+  ]
 }

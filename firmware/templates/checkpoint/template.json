@@ -3,7 +3,8 @@
   "name": "Checkpoint (Wi-Fi sign-in page with a code and a find log)",
   "version": "1.0.0",
   "families": [
-    "foxlib"
+    "foxlib",
+    "foxlib-c"
   ],
   "contract": "net",
   "status": "stable",
@@ -34,5 +35,9 @@
     "rssi",
     "finds"
   ],
-  "boards_tested": ["esp32s3", "esp32c6", "esp32c5"]
+  "boards_tested": [
+    "esp32s3",
+    "esp32c6",
+    "esp32c5"
+  ]
 }

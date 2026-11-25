@@ -14,6 +14,39 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Page 0.18.33 — console-configured foxes (the C firmware for the ESP32 boards, part 1)
+
+The plan: fox-bench's C firmware (`foxlib-c`, so far the PicoFox) gains an
+ESP32 application for the XIAO C3, C6, C5 and S3 — the same `fox.json`
+contract and the network templates, without CircuitPython and without a
+drive: the serial console on the USB lead that flashes the board is the
+whole interface. This patch is the page's and the catalog's side; the
+firmware source and its CI build are the next one.
+
+- PROTOCOL.md "Files over the console": `put <name> <size>` / `get <name>`
+  / `rm <name>` as base64 in lines (text end to end), `ok size= crc32=`
+  verified; a put of `fox.json` reloads the fox. The network foxes' bench
+  in console words: `key`, `scan`, `health`, the logs by `get`.
+- `js/device/console-device.js` speaks it: `list`, `readText`,
+  `writeText`, `remove` — the drive device's surface — plus `connect()`
+  that identifies the fox by `version` and `uid`; the fake console keeps
+  files and answers the same. Unit-tested (round trip, size/crc refusal).
+- A target's `transport` (`repl` | `drive` | `console`; `app.transportOf`)
+  says how the page reaches it. `boards/esp32c3-foxlibc.json` is the first
+  console-configured target (`family: foxlib-c`, `status: planned` until
+  its firmware is in the tree — `check_catalog` holds that line); the five
+  network templates list `foxlib-c` in their families, and a template that
+  names radios is no longer offered to hardware without them (the PicoFox).
+- The picker's new, last section **Console-configured fox** (the other
+  three sections do not move). `kindOf` says network fox (teal) for it.
+- Deploy tab for the transport (`js/ui/deploy-console.js`): checks, what
+  will be sent, send over the console with read-back, export; the Bench
+  tab's network cards work over the console (`rssi` → `scan`, `health`,
+  the logs); the Board tab's flash card says the image is CI's `.bin` at
+  `firmware.flash_offset` (flashing from the card comes with the build).
+  `deployBlocker` lets a console-configured target deploy only over a
+  console. `readConsole()` reads `fox.json` back after a connect.
+
 ### foxlib 1.11.4 — a watchdog that was already running is adopted
 
 - `guard.arm()`: when the hardware watchdog refuses a new timeout because it

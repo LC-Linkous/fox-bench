@@ -6,8 +6,12 @@
 // form may since have changed to another family. A deploy over the wrong transport writes one
 // firmware's files onto another's board. These checks are what the deploy modules ask before writing.
 
-/** Transports that can carry a deploy for a family: the REPL (or the in-memory demo board) for foxlib, the drive otherwise. */
-export function deployTransports(family) { return family === 'foxlib' ? ['repl', 'memory'] : ['drive']; }
+/** Transports that can carry a deploy for a target: the REPL (or the in-memory demo board) for foxlib; the drive for the
+ *  PicoFox families; the serial console alone for a console-configured fox (a foxlib-c target with transport: console). */
+export function deployTransports(family, board = null) {
+  if (board?.transport === 'console') return ['console'];
+  return family === 'foxlib' ? ['repl', 'memory'] : ['drive'];
+}
 
 const name = t => t === 'repl' ? 'the CircuitPython REPL' : t === 'console' ? 'the serial console' : t === 'drive' ? 'a USB drive' : t === 'memory' ? 'the demo board' : t;
 
@@ -18,7 +22,7 @@ const name = t => t === 'repl' ? 'the CircuitPython REPL' : t === 'console' ? 't
 export function deployBlocker({ device, board, onBoard }) {
   const family = board.family || 'foxlib';
   if (!device) return 'not connected';
-  if (!deployTransports(family).includes(device.transport)) return `the connected device is ${name(device.transport)}; ${board.name} is deployed over ${family === 'foxlib' ? 'the REPL' : 'its drive'}. Disconnect, then connect the ${board.name} the right way.`;
+  if (!deployTransports(family, board).includes(device.transport)) return `the connected device is ${name(device.transport)}; ${board.name} is deployed over ${board.transport === 'console' ? 'its serial console' : family === 'foxlib' ? 'the REPL' : 'its drive'}. Disconnect, then connect the ${board.name} the right way.`;
   // the demo simulates a physical board: the same XIAO C3 serves the C3 + SA868 combo and the bare ESP32-C3 chip target
   if (device.kind === 'demo' && device.board && (device.board.hardware || device.board.id) !== (board.hardware || board.id)) return `the demo board is a ${device.board.variantName || device.board.name}; start the demo again for ${board.name}.`;
   if (onBoard?.listening) return 'Listen only: the board has not been identified. Connect (or Re-read board) first.';

@@ -214,8 +214,14 @@ for bid in board_ids:
             if not re.fullmatch(r"[0-9a-f]{64}", str(f.get("sha256", ""))): bad(rel, f"stock_firmware_files ({n}): sha256 missing or not 64 hex")
             if not isinstance(f.get("size"), int) or f["size"] <= 0 or f["size"] % 512: bad(rel, f"stock_firmware_files ({n}): size must be a positive multiple of 512 (UF2 blocks)")
     if fam == "foxlib-c":
-        for k in ("module_fixed", "drive"):
-            if k not in t: bad(rel, f"foxlib-c target missing {k}")
+        # two transports: the PicoFox's drive (+ console), and the console alone (the ESP32 boards: no CircuitPython, no drive)
+        if t.get("transport", "drive") == "console":
+            if "drive" in t: bad(rel, "a console-configured target has no drive section")
+            if hw.get("has_usb_drive"): bad(rel, "console transport on hardware that says has_usb_drive: pick one")
+            if not t.get("firmware", {}).get("flash_offset"): bad(rel, "console-configured target needs firmware.flash_offset (the page's esptool path writes the .bin there)")
+        else:
+            for k in ("module_fixed", "drive"):
+                if k not in t: bad(rel, f"foxlib-c target missing {k}")
         img = t.get("firmware", {}).get("image", "")
         # the image itself is built by CI into the site; the source tree it comes from must be in the repo
         src = os.path.dirname(img) + "/CMakeLists.txt" if img else ""
