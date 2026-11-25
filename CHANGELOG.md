@@ -14,6 +14,13 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### foxlib-c 0.1.13 (fix) — the merged ESP32 image
+
+- `idf.py merge-bin` writes relative to `build/`, and the app image already
+  carried the `foxbench-<target>.bin` name: the project is `fox` (app
+  `fox.bin`) and the merged image `build/foxbench-<target>.bin`. All four
+  chips compiled and linked on the first run; this was the packaging step.
+
 ### foxlib-c 0.1.13 — the PicoFox's RAM budget, the C5 build, template versions
 
 - PicoFox: the console's `put`/`get` use the fox's own 24 KB file buffer
