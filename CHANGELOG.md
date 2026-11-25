@@ -14,6 +14,17 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### foxlib-c 0.1.13 — the PicoFox's RAM budget, the C5 build, template versions
+
+- PicoFox: the console's `put`/`get` use the fox's own 24 KB file buffer
+  instead of a second 16 KB one — CI's static-RAM budget (220 000 B) was
+  exceeded by 7.9 KB. A drive-settle reload waits while a put is in flight.
+- CI: the C5 is a preview target in IDF 5.4, so its row builds with
+  `idf.py --preview`.
+- The five network templates bump a patch version (`wifi-beacon`
+  `wifi-probe` `checkpoint` 1.0.1, `ble-beacon` `puzzle-beacon` 1.0.2): the
+  C6/C5/S3 defaults added in 0.18.35 are template files.
+
 ### foxlib-c 0.1.12 (fix) — the ESP32 image's first CI build
 
 - `TEMPLATE_VERSIONS` is a generated `template_versions.h` (comma-separated)

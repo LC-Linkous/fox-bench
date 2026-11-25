@@ -8,5 +8,6 @@ void con_poll(void);                       /* pump output, read and dispatch com
 void con_printf(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 void con_puts(const char *s);              /* line without newline handling */
 bool con_connected(void);                  /* a terminal has DTR up */
+bool con_file_busy(void);                  /* a put is in flight: the file buffer is the console's until its `.` line */
 void con_set_reset_reason(const char *why); /* shown by status as reset=; decided once at boot */
 #endif

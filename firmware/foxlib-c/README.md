@@ -155,7 +155,7 @@ For the ESP32 boards, with ESP-IDF 5.4.2 exported:
 
 ```
 cd firmware/foxlib-c/esp32
-idf.py set-target esp32c3 build            # also esp32c6, esp32c5, esp32s3
+idf.py set-target esp32c3 build            # also esp32c6, esp32s3; the C5 needs `idf.py --preview set-target esp32c5` on IDF 5.4
 idf.py merge-bin -o build/foxbench-esp32c3.bin
 idf.py -p /dev/ttyACM0 flash               # or the Board tab, with the site's .bin at 0x0
 ```

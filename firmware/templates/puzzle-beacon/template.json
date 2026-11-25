@@ -1,7 +1,7 @@
 {
   "id": "puzzle-beacon",
   "name": "Puzzle beacon (BLE: code + URL + rotating names)",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "families": [
     "foxlib",
     "foxlib-c"

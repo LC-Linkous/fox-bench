@@ -24,8 +24,11 @@ static char ring[OUT_RING];
 static volatile unsigned ring_w, ring_r;
 static char line[160];
 static unsigned line_n;
-/* A `put` in progress: the body lines go to the decoder instead of dispatch until the `.` line. */
-static xfer_put_t put; static uint8_t put_buf[XFER_MAX_FILE];
+/* A `put` in progress: the body lines go to the decoder instead of dispatch until the `.` line. The body lands in the
+ * fox's own 24 KB file buffer (fox_filebuf): a second one would not fit the RP2040's RAM (CI's bss budget). The fox only
+ * reads files into it on a reload, which a put ends with — and main.c holds a drive-settle reload while a put is in flight. */
+static xfer_put_t put;
+bool con_file_busy(void) { return put.active; }
 
 void con_init(void) { ring_w = ring_r = 0; line_n = 0; }
 bool con_connected(void) { return tud_cdc_connected(); }
@@ -112,9 +115,10 @@ static void dispatch(char *cmd) {
     else if (!strcmp(cmd, "reload")) { fox_reload("console"); con_puts("ok\r\n"); }
     else if (!strcmp(cmd, "get")) {
         if (!xfer_name_ok(arg ? arg : "")) { con_puts("err: refused name\r\n"); return; }
-        long n = fs_read(arg, (char *)put_buf, sizeof put_buf);
+        size_t cap; char *buf = fox_filebuf(&cap);
+        long n = fs_read(arg, buf, cap);
         if (n < 0) { con_puts("err: no such file\r\n"); return; }
-        xfer_get_emit(put_buf, (size_t)n, emit, NULL); con_puts("ok\r\n");
+        xfer_get_emit((const uint8_t *)buf, (size_t)n, emit, NULL); con_puts("ok\r\n");
     }
     else if (!strcmp(cmd, "rm")) {
         if (!xfer_name_ok(arg ? arg : "")) con_puts("err: refused name\r\n");
@@ -125,8 +129,9 @@ static void dispatch(char *cmd) {
         char *sz = arg ? strchr(arg, ' ') : NULL; long n = -1;
         if (sz) { *sz++ = 0; n = atol(sz); }
         if (!xfer_name_ok(arg ? arg : "")) { con_puts("err: refused name\r\n"); return; }
-        if (n < 0 || n > (long)sizeof put_buf) { con_printf("err: put <name> <size 0-%u>\r\n", (unsigned)sizeof put_buf); return; }
-        xfer_put_begin(&put, arg, (size_t)n, put_buf, sizeof put_buf);
+        size_t cap; uint8_t *buf = (uint8_t *)fox_filebuf(&cap); if (cap > XFER_MAX_FILE) cap = XFER_MAX_FILE;
+        if (n < 0 || n > (long)cap) { con_printf("err: put <name> <size 0-%u>\r\n", (unsigned)cap); return; }
+        xfer_put_begin(&put, arg, (size_t)n, buf, cap);
         con_puts("send\r\n");
     }
     else if (!strcmp(cmd, "reboot")) { fox_quiesce(); con_puts("ok\r\n"); pump(); flash_disk_flush(); watchdog_reboot(0, 0, 50); }

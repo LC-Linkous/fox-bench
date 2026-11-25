@@ -1,7 +1,7 @@
 {
   "id": "wifi-beacon",
   "name": "Wi-Fi beacon (access point)",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "families": [
     "foxlib",
     "foxlib-c"

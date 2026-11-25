@@ -17,6 +17,7 @@ void fox_drive_changed(void);                   /* host writes settled: reload i
 void fox_poll(void);                            /* advance the state machine; call from the main loop */
 const char *fox_banner_line(char *buf, int n);  /* "FOX template=... " */
 void fox_print_banner(void);
+char *fox_filebuf(size_t *cap);                 /* the 24 KB file buffer, lent to the console for put/get (the RP2040 has no room for a second one) */
 const fox_cfg_t *fox_cfg(void);
 const cfg_report_t *fox_report(void);
 bool fox_id_ok(void);

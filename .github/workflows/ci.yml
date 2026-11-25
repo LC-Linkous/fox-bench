@@ -47,7 +47,7 @@ jobs:
           name: page-screenshots
           path: _shots
           retention-days: 7
-
+ 
   sim:
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -124,7 +124,7 @@ jobs:
           python3 firmware/sim/schema_parity.py > /tmp/spy.json
           node firmware/sim/schema_parity.mjs > /tmp/sjs.json
           node firmware/sim/schema_parity.mjs --compare /tmp/spy.json /tmp/sjs.json
-
+ 
   foxlib-c:
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -166,7 +166,7 @@ jobs:
           path: |
             /tmp/fxbuild/foxbench-picofox.uf2
             /tmp/fxbuild/foxbench-picofox.json
-
+ 
   # fox-bench's C firmware for the Espressif boards (firmware/foxlib-c/esp32): built in Espressif's own IDF container,
   # pinned by tag, one target per matrix row; the merged .bin and its fingerprint are what the site serves. The host
   # syntax check (host_check/) runs in the foxlib-c job without the SDK; this is the real build.
@@ -184,7 +184,8 @@ jobs:
         run: |
           . "$IDF_PATH/export.sh"
           cd firmware/foxlib-c/esp32
-          idf.py set-target ${{ matrix.target }} build
+          # the C5 is a preview target in IDF 5.4: idf.py refuses it without --preview
+          idf.py ${{ matrix.target == 'esp32c5' && '--preview' || '' }} set-target ${{ matrix.target }} build
           idf.py merge-bin -o build/foxbench-${{ matrix.target }}.bin
           python3 ../../../tools/build_info_esp.py build ${{ matrix.target }}
       - uses: actions/upload-artifact@v4
@@ -193,7 +194,7 @@ jobs:
           path: |
             firmware/foxlib-c/esp32/build/foxbench-${{ matrix.target }}.bin
             firmware/foxlib-c/esp32/build/foxbench-${{ matrix.target }}.json
-
+ 
   deploy:
     # Only after every test job passed, only for pushes to main. A failed job upstream skips this one,
     # so a red suite leaves the live site as it was.
@@ -245,7 +246,7 @@ jobs:
           path: _site
       - id: deployment
         uses: actions/deploy-pages@v4
-
+ 
   release:
     # A tag vX.Y.Z (the page version) makes a GitHub Release carrying the UF2 the tests ran against, its
     # fingerprint, and the staged site as a zip — "yesterday's page" and "yesterday's firmware" for anyone who

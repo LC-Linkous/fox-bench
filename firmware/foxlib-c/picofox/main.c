@@ -54,7 +54,7 @@ int main(void) {
         /* host wrote the drive: wait for the writes to settle, then reload */
         uint32_t w = msc_host_writes();
         if (w != seen_writes) { seen_writes = w; banner_pending = true; }
-        if (banner_pending && to_ms_since_boot(get_absolute_time()) - flash_disk_last_write_ms() > RELOAD_SETTLE_MS && !flash_disk_dirty()) {
+        if (banner_pending && to_ms_since_boot(get_absolute_time()) - flash_disk_last_write_ms() > RELOAD_SETTLE_MS && !flash_disk_dirty() && !con_file_busy()) {   /* a console put holds the file buffer: check again next loop */
             banner_pending = false;
             fox_drive_changed();
         }

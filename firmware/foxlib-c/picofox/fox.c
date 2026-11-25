@@ -32,6 +32,7 @@
 
 static json_doc doc;                 /* one arena, reused for defaults then fox.json */
 static char filebuf[24576];   /* fox.json / defaults.json as read from the drive; js/model/foxlibc-limits.js FILE_MAX_BYTES = this - 1 */
+char *fox_filebuf(size_t *cap) { *cap = sizeof filebuf; return filebuf; }
 static fox_cfg_t defaults, cfg;
 static cfg_report_t report;
 static bool have_cfg, id_ok, loaded_defaults_from_flash;

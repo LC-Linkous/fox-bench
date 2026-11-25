@@ -1,7 +1,7 @@
 {
   "id": "checkpoint",
   "name": "Checkpoint (Wi-Fi sign-in page with a code and a find log)",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "families": [
     "foxlib",
     "foxlib-c"
