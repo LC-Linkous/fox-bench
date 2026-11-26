@@ -661,6 +661,7 @@ class Console:
         self.t0 = time.monotonic()
         try: self.s.dtr = True   # the PicoFox prints its banner when a terminal opens (DTR); the ESP32 console needs nothing
         except OSError: pass     # a pty (the fake) has no modem lines
+        self.opened = self._drain(1.5)   # that banner (and anything else the fox was saying): not a reply to anything
 
     def _rec(self, kind, **kw):
         if self.record is not None:
@@ -696,6 +697,7 @@ class Console:
             l = self._line(max(0.1, timeout - (time.monotonic() - t0)))
             if l is None: raise TimeoutError("%r: no ok/err within %s s; got %r" % (line, timeout, lines[-3:]))
             if l.strip() == line.strip() and not lines: continue      # a console that echoes
+            if not lines and (l.startswith("FOX ") or l.startswith("  ") or l.startswith("**") or l.startswith("initializing")): continue   # the fox talking on its own (a banner the DTR raised, a note) ahead of the reply
             lines.append(l)
             if l.startswith("ok") or l.startswith("err:"): break
         out = "\n".join(lines)
@@ -1309,12 +1311,13 @@ class ConsoleRun(Run):
 
     def identify(self):
         a, r = self.a, self.r
-        v = r.cmd("version").split("\n")[0]        # "foxlib-c 0.1.14 board=esp32c3-foxlibc"
-        m = re.match(r"foxlib-c (\S+)(?: board=(\S+))?", v)
-        if not m: sys.exit("not a foxlib-c console on %s: `version` answered %r (a CircuitPython board wants the REPL client: --board <its target>)" % (r.s.port, v))
+        v = r.cmd("version")                         # "foxlib-c 0.1.14 board=esp32c3-foxlibc" (a banner may still be arriving ahead of it)
+        m = re.search(r"^foxlib-c (\S+)(?: board=(\S+))?", v, re.M)
+        if not m: sys.exit("not a foxlib-c console on %s: `version` answered %r (a CircuitPython board wants the REPL client: --board <its target>)" % (r.s.port, v.split("\n")[0]))
         self.foxlib_version = "c-" + m.group(1)
         self.board_id = m.group(2) or ("picofox-foxlibc" if self.picofox else "?")
-        self.uid = r.cmd("uid").split("\n")[0].split("=")[-1].strip()
+        u = re.search(r"^uid=(\S+)", r.cmd("uid"), re.M)
+        self.uid = u.group(1) if u else "?"
         self.cp_release = self.cp_version = "none (foxlib-c)"
         print("board %s  uid %s  foxlib-c %s" % (self.board_id, self.uid, m.group(1)))
         if self.board_id != a.board and not (self.picofox and self.board_id.startswith("picofox")):

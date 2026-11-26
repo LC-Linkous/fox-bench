@@ -14,6 +14,13 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### Tools — first PicoFox session on the console client
+
+- `hw_smoke.py`: opening the PicoFox's port raises DTR and the fox prints
+  its banner; the client drains it and ignores what the fox says on its
+  own ahead of a reply, so `version` and `uid` are read from their own
+  lines. Runbook: the PicoFox has one serial port (the drive is a disk).
+
 ### Page 0.18.36 — flash the ESP32 firmware from the Board tab
 
 - A console-configured target's Board tab flashes fox-bench's firmware:

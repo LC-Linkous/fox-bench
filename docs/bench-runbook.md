@@ -51,8 +51,9 @@ decides something in code or in the catalog. Write the answers into
 ## 1. PicoFox re-run (foxlib-c 0.1.14 / page 0.18.35)
 
 From foxlib-c 0.1.12 the script runs the PicoFox too, over its console
-(the second serial port; no drive involved — PROTOCOL.md "Files over the
-console"). Flash the site's `foxbench-picofox.uf2` from the Board tab first
+(its one serial port — the FOXBENCH drive is a disk, not a port; no drive
+involved — PROTOCOL.md "Files over the console"). Close the Board tab's
+connection first: one program holds the port. Flash the site's `foxbench-picofox.uf2` from the Board tab first
 if the fox is older, then:
 
 ```
