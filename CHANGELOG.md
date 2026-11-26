@@ -14,6 +14,19 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### foxlib-c 0.1.15 — the first ESP32-C3 session
+
+- The board booted, the console printed its banner — and the banner said
+  `cfg=fatal(defaults)`: `EMBED_TXTFILES` appends a NUL to the compiled-in
+  defaults and the end symbol sits after it, so the parser saw a trailing
+  character and refused the document. The length is now taken by the
+  terminator. The fox ran its compiled-in `wifi-beacon` defaults for the
+  first time only after this.
+- `version` over the console went unanswered: the reader took bytes through
+  stdin (VFS), which depends on the console choice in sdkconfig and on
+  line-ending conversion. It reads the USB-Serial-JTAG driver directly now,
+  with bigger buffers for a `put`'s lines and a `get`'s reply.
+
 ### Tools — first PicoFox session on the console client
 
 - `hw_smoke.py`: opening the PicoFox's port raises DTR and the fox prints

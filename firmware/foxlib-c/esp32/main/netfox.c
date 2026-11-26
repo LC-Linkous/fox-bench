@@ -85,7 +85,7 @@ static bool load(void) {
     have_cfg = false; cfg_report_init(&REP); radio_status = "skipped";
     long n = fs_read("defaults.json", FILE_BUF, sizeof FILE_BUF);
     const char *dtext = FILE_BUF; size_t dlen = n > 0 ? (size_t)n : 0;
-    if (n <= 0) { dtext = builtin_defaults_json_start; dlen = (size_t)(builtin_defaults_json_end - builtin_defaults_json_start); }
+    if (n <= 0) { dtext = builtin_defaults_json_start; dlen = strlen(builtin_defaults_json_start); }   /* EMBED_TXTFILES adds a NUL and _end sits after it: the length by the terminator, or the parser sees a trailing character (first C3 session: cfg=fatal(defaults)) */
     int droot = json_parse(&DOC, dtext, dlen);
     if (droot < 0 || !net_cfg_load_defaults(&DEF, &DOC, droot)) { strcpy(REP.fatal, "defaults"); return false; }
     long un = fs_read("fox.json", FILE_BUF, sizeof FILE_BUF);          /* DEF holds the defaults now: the doc and buffer are free */

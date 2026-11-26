@@ -90,22 +90,28 @@ static void put_done(void) {
 }
 
 static void reader(void *arg) {
-    char line[CON_LINE_MAX]; int n = 0;
+    /* Bytes straight from the USB-Serial-JTAG driver (not stdin: the VFS route depends on the console choice in
+     * sdkconfig and on line-ending conversion, and the first C3 session got no reply to `version` through it). */
+    (void)arg;
+    static char line[CON_LINE_MAX]; static unsigned n; uint8_t buf[64];
     for (;;) {
-        int c = fgetc(stdin);
-        if (c == EOF) { vTaskDelay(pdMS_TO_TICKS(10)); continue; }
-        if (c == '\r' || c == '\n') { if (n || put.active) { line[n] = 0; n = 0; char *copy = strdup(line); if (copy) xQueueSend(lines, &copy, portMAX_DELAY); } }
-        else if (c == 3) { char *copy = strdup("\x03"); if (copy) xQueueSend(lines, &copy, portMAX_DELAY); n = 0; }
-        else if (c == 8 || c == 127) { if (n) n--; }
-        else if (n < CON_LINE_MAX - 1 && c >= 32) line[n++] = (char)c;
+        int got = usb_serial_jtag_read_bytes(buf, sizeof buf, pdMS_TO_TICKS(20));
+        for (int i = 0; i < got; i++) {
+            int c = buf[i];
+            if (c == '\r' || c == '\n') { if (n || put.active) { line[n] = 0; n = 0; char *copy = strdup(line); if (copy) xQueueSend(lines, &copy, portMAX_DELAY); } }
+            else if (c == 3) { char *copy = strdup("\x03"); if (copy) xQueueSend(lines, &copy, portMAX_DELAY); n = 0; }
+            else if (c == 8 || c == 127) { if (n) n--; }
+            else if (n < CON_LINE_MAX - 1 && c >= 32) line[n++] = (char)c;
+        }
     }
 }
 
 void con_init(void) {
     usb_serial_jtag_driver_config_t cfg = USB_SERIAL_JTAG_DRIVER_CONFIG_DEFAULT();
+    cfg.rx_buffer_size = 1024; cfg.tx_buffer_size = 2048;   /* a put's base64 lines arrive faster than the fox reads them; a `get` answers a file at once */
     usb_serial_jtag_driver_install(&cfg);
-    usb_serial_jtag_vfs_use_driver();
-    setvbuf(stdin, NULL, _IONBF, 0); setvbuf(stdout, NULL, _IONBF, 0);
+    usb_serial_jtag_vfs_use_driver();                       /* printf (the banner, log, replies) through the driver, so it does not block when no host reads */
+    setvbuf(stdout, NULL, _IONBF, 0);
     out_lock = xSemaphoreCreateMutex();
     lines = xQueueCreate(8, sizeof(char *));
     xTaskCreate(reader, "console", 4096, NULL, 5, NULL);
