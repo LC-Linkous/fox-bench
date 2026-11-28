@@ -70,7 +70,24 @@ and prints its banner about a second later), listens, runs `status`,
 `put` path writes the flash (the host sim covers the parser), and a drive
 write while a `put` is in flight waits for it (`main.c`, 0.1.13).
 
-## 1a. First session on a C-firmware ESP32 (foxlib-c 0.1.14)
+**ModemManager** (Linux, optional): a freshly plugged ESP32 (`303a:1001`)
+or PicoFox is opened by ModemManager for a few seconds to see if it is a
+modem, with the tty's echo on — the fox then reads its own banner back as
+commands. Nothing depends on fixing that: from foxlib-c 0.1.16 the
+firmware drops lines it just sent itself, the page retries `version`, and
+`hw_smoke.py` waits the window out. If the few-second wait after a
+plug-in annoys you, a udev rule keeps ModemManager off these ports (the
+same rule Arduino, PlatformIO and Espressif suggest for Linux):
+
+```
+# /etc/udev/rules.d/99-fox-bench.rules
+ATTRS{idVendor}=="303a", ENV{ID_MM_DEVICE_IGNORE}="1"
+ATTRS{idVendor}=="2e8a", ENV{ID_MM_DEVICE_IGNORE}="1"
+```
+
+(`sudo udevadm control --reload`, replug.)
+
+## 1a. First session on a C-firmware ESP32 (foxlib-c 0.1.16)
 
 Flash the site's `foxbench-esp32c3.bin` (under `firmware/foxlib-c/esp32/` on the site, from CI) at `0x0`
 (`esptool.py --chip esp32c3 write_flash 0x0 foxbench-esp32c3.bin`; the Board

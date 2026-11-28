@@ -43,6 +43,24 @@
    ]
   },
   {
+   "cmd": "version",
+   "then": [
+    "foxlib-c host board=picofox-foxlibc",
+    "ok"
+   ],
+   "expect": [
+    "^$"
+   ],
+   "note": "the host echoing the fox's own reply lines back (a Linux tty with echo on; ModemManager probing a new port): no answer at all, not 'unknown command'"
+  },
+  {
+   "cmd": "err: unknown command 'nothing' (help)",
+   "expect": [
+    "^err: unknown command 'err:'"
+   ],
+   "note": "a line the fox did not send recently is a command like any other"
+  },
+  {
    "cmd": "batt",
    "expect": [
     "^batt charging=(yes|no) volts=none note=(charger_active|charger_idle\\(full_or_no_usb_power\\))\\r\\nok\\r\\n$"

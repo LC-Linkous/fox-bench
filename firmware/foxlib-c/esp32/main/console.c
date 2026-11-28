@@ -12,6 +12,7 @@
 #include "esp_system.h"
 #include "esp_timer.h"
 #include "filexfer.h"
+#include "echo.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/semphr.h"
@@ -24,11 +25,13 @@ static QueueHandle_t lines;              /* complete command lines, reader -> ma
 static SemaphoreHandle_t out_lock;
 static const char *reset_reason = "?";
 static xfer_put_t put;   /* the body lands in the fox's file buffer (netfox_filebuf): no second 16 KB */
+static int64_t put_last_us;   /* when the last body line came: a put whose host went quiet is abandoned (PUT_IDLE_S), or every later command would be read as body */
+#define PUT_IDLE_S 5
 bool con_file_busy(void) { return put.active; }
 static const char VERSION_TAG[] = "FOXLIBC-VERSION:" FOXLIBC_VERSION;
 
 void con_set_reset_reason(const char *why) { reset_reason = why; }
-void con_puts(const char *s) { if (out_lock) xSemaphoreTake(out_lock, portMAX_DELAY); fputs(s, stdout); fflush(stdout); if (out_lock) xSemaphoreGive(out_lock); }
+void con_puts(const char *s) { if (out_lock) xSemaphoreTake(out_lock, portMAX_DELAY); echo_note(s); fputs(s, stdout); fflush(stdout); if (out_lock) xSemaphoreGive(out_lock); }
 void con_printf(const char *fmt, ...) { char buf[400]; va_list ap; va_start(ap, fmt); vsnprintf(buf, sizeof buf, fmt, ap); va_end(ap); con_puts(buf); }
 void con_flush(void) { fflush(stdout); vTaskDelay(pdMS_TO_TICKS(50)); }
 
@@ -75,7 +78,7 @@ static void dispatch(char *cmd) {
         if (!xfer_name_ok(arg ? arg : "")) { con_puts("err: refused name\r\n"); return; }
         size_t cap; uint8_t *buf = (uint8_t *)netfox_filebuf(&cap); if (cap > XFER_MAX_FILE) cap = XFER_MAX_FILE;
         if (n < 0 || n > (long)cap) { con_printf("err: put <name> <size 0-%u>\r\n", (unsigned)cap); return; }
-        xfer_put_begin(&put, arg, (size_t)n, buf, cap);
+        xfer_put_begin(&put, arg, (size_t)n, buf, cap); put_last_us = esp_timer_get_time();
         con_puts("send\r\n");
     }
     else if (*cmd) con_printf("err: unknown command '%s' (help)\r\n", cmd);
@@ -108,19 +111,27 @@ static void reader(void *arg) {
 
 void con_init(void) {
     usb_serial_jtag_driver_config_t cfg = USB_SERIAL_JTAG_DRIVER_CONFIG_DEFAULT();
-    cfg.rx_buffer_size = 1024; cfg.tx_buffer_size = 2048;   /* a put's base64 lines arrive faster than the fox reads them; a `get` answers a file at once */
+    /* A put's body comes from the host in one burst, faster than lines are consumed, and the driver drops what its ring
+     * cannot hold (first C3 session: a 1043-byte fox.json lost its last line at 1 KB). The ring holds the largest put
+     * as base64 (16 KB -> ~22 KB) with room for the line queue below; a `get` answers a file at once. */
+    cfg.rx_buffer_size = 24576; cfg.tx_buffer_size = 4096;
     usb_serial_jtag_driver_install(&cfg);
     usb_serial_jtag_vfs_use_driver();                       /* printf (the banner, log, replies) through the driver, so it does not block when no host reads */
     setvbuf(stdout, NULL, _IONBF, 0);
     out_lock = xSemaphoreCreateMutex();
-    lines = xQueueCreate(8, sizeof(char *));
+    lines = xQueueCreate(64, sizeof(char *));
     xTaskCreate(reader, "console", 4096, NULL, 5, NULL);
 }
 
 void con_poll(void) {
     char *line;
+    if (put.active && esp_timer_get_time() - put_last_us > PUT_IDLE_S * 1000000LL) {
+        con_printf("err: put %s abandoned: %u of %u bytes, then nothing for %d s\r\n", put.name, (unsigned)put.n, (unsigned)put.expect, PUT_IDLE_S);
+        put.active = false;
+    }
     while (xQueueReceive(lines, &line, 0) == pdTRUE) {
-        if (put.active) { if (xfer_put_line(&put, line)) put_done(); }
+        if (!put.active && echo_is(line)) { free(line); continue; }     /* our own output, sent back by the host (never inside a put: a body may repeat lines a `get` just sent) */
+        if (put.active) { put_last_us = esp_timer_get_time(); if (xfer_put_line(&put, line)) put_done(); }
         else if (line[0] == 3) { netfox_bench_stop(); con_puts("^C\r\nok\r\n"); }
         else dispatch(line);
         free(line);

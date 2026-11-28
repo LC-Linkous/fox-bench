@@ -98,6 +98,9 @@ static bool load(void) {
     net_cfg_apply_user(&CFG, &DEF, &DOC, uroot, BOARD_ID, radios, NULL, &REP);
     if (un > 0 && uroot < 0) cfg_report_mode(&REP, "default(json)");
     template_version_lookup(CFG.template_id);
+    /* radio= in the banner is the radio's state, as on the CircuitPython foxes: ok once the Wi-Fi driver is up, whatever
+     * the schedule does next (the first C3 session printed "skipped" for a fox that was on the air a second later) */
+    radio_status = wifi_init_once() ? "ok" : "failed";
     id_ok = net_cfg_id_ok(&CFG);
     have_cfg = true;
     return true;
@@ -123,7 +126,8 @@ void netfox_print_banner(void) {
 
 static void start_cycle(void) {
     cycle_n = 0; state = HOLD;
-    if (!have_cfg || REP.fatal[0] || !id_ok || CFG.net.kind != NET_WIFI_AP) { radio_status = CFG.net.kind != NET_WIFI_AP && have_cfg ? "unsupported" : "skipped"; return; }
+    if (!have_cfg || REP.fatal[0]) { radio_status = "skipped"; return; }      /* nothing to run */
+    if (!id_ok || CFG.net.kind != NET_WIFI_AP) return;                         /* silent on purpose (no callsign; a kind not built yet): the banner's notes say so, the radio is fine */
     state = WAKE; phase_until = now_ms() + (uint32_t)CFG.schedule.wake_s * 1000;
     con_printf("cycle %d\r\n", cycle_n); radio_up();
 }

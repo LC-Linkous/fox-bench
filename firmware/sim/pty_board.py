@@ -149,8 +149,12 @@ class ConsoleBoard:
         if self.picofox:
             return "FOX template=%s/1.0.0 foxlib=c-0.1.14 board=picofox-foxlibc uid=e66138528b4c1234 cfg=ok radio=ok id=%s freq=146.5650 mode=fm\n" % (cfg.get("template", "?"), "set" if call and "N0CALL" not in call else "unset")
         kind = (cfg.get("net") or {}).get("kind", "wifi-ap")
-        lines = "FOX template=%s/1.0.1 foxlib=c-0.1.14 board=%s uid=0123456789abcdef cfg=ok radio=ok id=%s freq=none net=%s name=\"%s\" mac=F2:B0:00:00:00:01 clock=unset mem=180000\n" % (
-            cfg.get("template", "?"), self.board, "set" if call and "N0CALL" not in call else "unset", kind, call)
+        # a feature section the C firmware has not built (payload, checkpoint, ...) is reported partial and dropped, as the real one does
+        unbuilt = [k for k in ("payload", "checkpoint", "stealth", "sense", "vary", "modes") if (cfg.get(k) or {}).get("enabled")]
+        st = "partial(%s)" % ",".join(unbuilt) if unbuilt else "ok"
+        lines = "FOX template=%s/1.0.1 foxlib=c-0.1.14 board=%s uid=0123456789abcdef cfg=%s radio=ok id=%s freq=none net=%s name=\"%s\" mac=F2:B0:00:00:00:01 clock=unset mem=180000\n" % (
+            cfg.get("template", "?"), self.board, st, "set" if call and "N0CALL" not in call else "unset", kind, call)
+        for k in unbuilt: lines += "  cfg: %s -> default (not in this firmware)\n" % k
         if kind != "wifi-ap": lines += "  note: %s is not in this firmware yet: the fox stays silent\n" % kind
         return lines + "cycle 0\n" + ("wifi-ap up: %s (F2:B0:00:00:00:01) for 15 s\n" % call if kind == "wifi-ap" else "")
     def live(self, text):

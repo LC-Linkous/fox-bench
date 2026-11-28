@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "filexfer.h"
+#include "echo.h"
 #include "flash_disk.h"
 #include "fox.h"
 #include "fs.h"
@@ -28,12 +29,15 @@ static unsigned line_n;
  * fox's own 24 KB file buffer (fox_filebuf): a second one would not fit the RP2040's RAM (CI's bss budget). The fox only
  * reads files into it on a reload, which a put ends with — and main.c holds a drive-settle reload while a put is in flight. */
 static xfer_put_t put;
+static uint32_t put_last_ms;   /* a put whose host went quiet is abandoned (PUT_IDLE_S), or every later command would be read as body */
+#define PUT_IDLE_S 5
 bool con_file_busy(void) { return put.active; }
 
 void con_init(void) { ring_w = ring_r = 0; line_n = 0; }
 bool con_connected(void) { return tud_cdc_connected(); }
 
 void con_puts(const char *s) {
+    echo_note(s);
     while (*s) {
         unsigned next = (ring_w + 1) % OUT_RING;
         if (next == ring_r) ring_r = (ring_r + 1) % OUT_RING;   /* overrun: drop the oldest */
@@ -131,7 +135,7 @@ static void dispatch(char *cmd) {
         if (!xfer_name_ok(arg ? arg : "")) { con_puts("err: refused name\r\n"); return; }
         size_t cap; uint8_t *buf = (uint8_t *)fox_filebuf(&cap); if (cap > XFER_MAX_FILE) cap = XFER_MAX_FILE;
         if (n < 0 || n > (long)cap) { con_printf("err: put <name> <size 0-%u>\r\n", (unsigned)cap); return; }
-        xfer_put_begin(&put, arg, (size_t)n, buf, cap);
+        xfer_put_begin(&put, arg, (size_t)n, buf, cap); put_last_ms = to_ms_since_boot(get_absolute_time());
         con_puts("send\r\n");
     }
     else if (!strcmp(cmd, "reboot")) { fox_quiesce(); con_puts("ok\r\n"); pump(); flash_disk_flush(); watchdog_reboot(0, 0, 50); }
@@ -150,10 +154,18 @@ void tud_cdc_line_state_cb(uint8_t itf, bool dtr, bool rts) {
 }
 
 void con_poll(void) {
+    if (put.active && to_ms_since_boot(get_absolute_time()) - put_last_ms > PUT_IDLE_S * 1000u) {
+        con_printf("err: put %s abandoned: %u of %u bytes, then nothing for %d s\r\n", put.name, (unsigned)put.n, (unsigned)put.expect, PUT_IDLE_S);
+        put.active = false;
+    }
     while (tud_cdc_available()) {
         char c = (char)tud_cdc_read_char();
         if (c == '\r' || c == '\n') {
-            if (line_n || put.active) { line[line_n] = 0; line_n = 0; if (put.active) { if (xfer_put_line(&put, line)) put_done(); } else dispatch(line); }
+            if (line_n || put.active) {
+                line[line_n] = 0; line_n = 0;
+                if (!put.active && echo_is(line)) continue;           /* our own output, sent back by the host (never inside a put: a body may repeat lines a `get` just sent) */
+                if (put.active) { put_last_ms = to_ms_since_boot(get_absolute_time()); if (xfer_put_line(&put, line)) put_done(); } else dispatch(line);
+            }
         }
         else if (c == 3) { fox_bench_stop(); con_puts("^C\r\nok\r\n"); line_n = 0; }   /* Ctrl-C from a terminal: stop like a REPL would */
         else if (c == 8 || c == 127) { if (line_n) line_n--; }

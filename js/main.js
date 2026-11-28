@@ -31,7 +31,7 @@ import * as tabAbout from './ui/about.js';
 import { state as flashState } from './ui/flash.js';
 
 const KIND_LABEL = { fm: 'FM fox', net: 'Network fox', drive: 'PicoFox' };   // the kind badge in the top bar (body[data-kind] carries the colour)
-const VERSION = '0.18.36';
+const VERSION = '0.18.37';
 /** Tab subtitles that read differently per device family (null = the page's original text). */
 const LEDES = { drive: {
   board: 'Which fox is on the bench, open its USB drive (or use the simulated one). The vendor firmware stays; the page writes its files.',

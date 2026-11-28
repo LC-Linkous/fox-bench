@@ -166,7 +166,8 @@ export class FakeConsoleLink extends Link {
   reloads = 0;
   async open() { this._emit(this.banner()); }
   banner() { const set = !this.callsign.includes('N0CALL'); return `initializing system ... \r\nFOX template=${this.template}/${FAKE_VERSION} foxlib=c-${FAKE_VERSION} board=${this.boardId} uid=${this.uid} cfg=ok radio=ok id=${set ? 'set' : 'unset'} freq=${this.carrier}\r\n${set ? '' : '** callsign not set: staying silent (id.tx_without_callsign=false) **\r\n'}`; }
-  _emit(text, after = this.latency) { const t = setTimeout(() => this._feed(this.enc.encode(text)), after); this._timers.push(t); }
+  _emit(text, after = this.latency) { for (const l of text.split(/\r?\n/)) if (l) { this._echoRing.push(l); if (this._echoRing.length > 12) this._echoRing.shift(); } const t = setTimeout(() => this._feed(this.enc.encode(text)), after); this._timers.push(t); }
+  _echoRing = [];   // the last lines the fox sent: a received line equal to one is the host echoing it back, and is dropped (core/echo.c)
   async write(data) {
     const text = typeof data === 'string' ? data : dec.decode(data);
     for (const line of text.split(/\r?\n/).map(s => s.trim()).filter(Boolean)) { this.sent.push(line); this._cmd(line); }
@@ -174,6 +175,7 @@ export class FakeConsoleLink extends Link {
   static FILE_OK = /^(fox\.json|defaults\.json|[A-Za-z0-9_.-]+\.bin)$/;
   _cmd(line) {
     const reply = (t, ms) => this._emit(t + '\r\n', ms ?? this.latency);
+    if (!this._put) { const echoed = this._echoRing.indexOf(line); if (echoed >= 0) { this._echoRing.splice(echoed, 1); return; } }   // never inside a put: a body may repeat lines a `get` just sent
     if (this._put) {   // the body of a put: base64 lines until the `.`
       const p = this._put;
       if (line !== '.') { p.lines.push(line); return; }

@@ -13,7 +13,7 @@ execute_process(COMMAND python3 -c "import json,glob,os;print(','.join('%s=%s'%(
                 OUTPUT_VARIABLE TEMPLATE_VERSIONS OUTPUT_STRIP_TRAILING_WHITESPACE)
 file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/template_versions.h "#define TEMPLATE_VERSIONS \"${TEMPLATE_VERSIONS}\"\n")
 
-idf_component_register(SRCS main.c console.c fs.c netfox.c led.c ${CORE}/json.c ${CORE}/report.c ${CORE}/netcfg.c ${CORE}/filexfer.c
+idf_component_register(SRCS main.c console.c fs.c netfox.c led.c ${CORE}/json.c ${CORE}/report.c ${CORE}/netcfg.c ${CORE}/filexfer.c ${CORE}/echo.c
                        INCLUDE_DIRS . ${CORE} ${CMAKE_CURRENT_BINARY_DIR}
                        EMBED_TXTFILES ${CMAKE_CURRENT_BINARY_DIR}/builtin_defaults.json
                        REQUIRES esp_wifi nvs_flash esp_event spiffs driver esp_timer esp_netif)

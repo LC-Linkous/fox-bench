@@ -158,7 +158,7 @@ class Repl:
         t0 = time.monotonic()
         while True:
             try:
-                self.s = serial.Serial(port, 115200, timeout=0.05); break
+                self.s = self._open(port, self.picofox); break
             except (serial.SerialException, OSError):
                 if time.monotonic() - t0 > timeout: sys.exit("the port did not come back within %d s (%s): the fox is still asleep, or the pack cut its power -- replug and run again" % (timeout, port))
                 time.sleep(0.5)
@@ -653,15 +653,29 @@ class Console:
     defaults.json makes the fox reload and print a fresh FOX banner about a second later. Recorded the way Repl records:
     {"kind": "con", "cmd", "out"}, {"kind": "put", "path", "size", "crc", "out"}, {"kind": "banner", "out"},
     {"kind": "listen", "seconds", "out"}; firmware/sim/pty_board.py --replay answers a console recording in line mode."""
-    def __init__(self, port, verbose=False, record=None):
-        self.s = serial.Serial(port, 115200, timeout=0.05)
+    def __init__(self, port, verbose=False, record=None, picofox=False):
+        self.s = self._open(port, picofox)
         self.verbose = verbose
         self.buf = b""
         self.record = record
         self.t0 = time.monotonic()
-        try: self.s.dtr = True   # the PicoFox prints its banner when a terminal opens (DTR); the ESP32 console needs nothing
-        except OSError: pass     # a pty (the fake) has no modem lines
-        self.opened = self._drain(1.5)   # that banner (and anything else the fox was saying): not a reply to anything
+        self.picofox = picofox
+        self.opened = self._drain(1.5)   # a banner (the PicoFox prints one when DTR rises) and anything else the fox was saying: not a reply to anything
+
+    @staticmethod
+    def _open(port, picofox):
+        """Open without touching the modem lines first: on an ESP32's USB-Serial-JTAG port DTR and RTS are the reset and
+        boot controls esptool drives, and pyserial's default of raising both on open resets the chip (first C3 session:
+        the fox printed its boot banner at every connect). The PicoFox wants DTR up — that is how it knows a terminal
+        is there — so it gets it after the port is open."""
+        s = serial.Serial()
+        s.port = port; s.baudrate = 115200; s.timeout = 0.05
+        s.dtr = False; s.rts = False
+        s.open()
+        if picofox:
+            try: s.dtr = True
+            except OSError: pass     # a pty (the fake) has no modem lines
+        return s
 
     def _rec(self, kind, **kw):
         if self.record is not None:
@@ -1307,13 +1321,27 @@ class ConsoleRun(Run):
         self.foxlib_version = "c-?"
         self.picofox = a.board.startswith("picofox")
 
-    def open_link(self, port): return Console(port, self.a.verbose, self.recording)
+    def open_link(self, port): return Console(port, self.a.verbose, self.recording, picofox=self.a.board.startswith("picofox"))
 
     def identify(self):
         a, r = self.a, self.r
-        v = r.cmd("version")                         # "foxlib-c 0.1.14 board=esp32c3-foxlibc" (a banner may still be arriving ahead of it)
+        # `version`, with a few retries: for some seconds after a plug-in or a reset, a Linux desktop's ModemManager
+        # holds a new port to probe it and the kernel echoes the fox's output back to it (the fox answers that noise
+        # with err: lines, and may miss ours); the window passes on its own
+        v = ""; echoed = False
+        for attempt in range(5):
+            try: v = r.cmd("version")
+            except RuntimeError as e: v = str(e)
+            except TimeoutError as e: v = ""; print("  no answer to `version` yet (%s)" % str(e)[:60])
+            if re.search(r"^foxlib-c ", v, re.M): break
+            if "unknown command" in v and re.search(r"unknown command '\S*(nitializing|FOX|ok|err)", v): echoed = True
+            print("  the fox is busy with echoed lines, waiting..." if echoed else "  waiting for the fox...") if attempt < 4 else None
+            r._drain(2.0)
         m = re.search(r"^foxlib-c (\S+)(?: board=(\S+))?", v, re.M)
-        if not m: sys.exit("not a foxlib-c console on %s: `version` answered %r (a CircuitPython board wants the REPL client: --board <its target>)" % (r.s.port, v.split("\n")[0]))
+        if not m:
+            if echoed:
+                sys.exit("the fox keeps reading its own output as commands: the computer is echoing the port back to it (on Linux a freshly plugged port has tty echo on and ModemManager opens it to probe it). Keep ModemManager off this port: docs/bench-runbook.md, \"ModemManager\"")
+            sys.exit("not a foxlib-c console on %s: `version` answered %r (a CircuitPython board wants the REPL client: --board <its target>)" % (r.s.port, v.split("\n")[0]))
         self.foxlib_version = "c-" + m.group(1)
         self.board_id = m.group(2) or ("picofox-foxlibc" if self.picofox else "?")
         u = re.search(r"^uid=(\S+)", r.cmd("uid"), re.M)
@@ -1350,9 +1378,27 @@ class ConsoleRun(Run):
         if not b:
             res["ok"] = False; print("  no FOX banner within 20 s of the put:\n" + "\n".join("    " + l for l in boot.strip().splitlines()[-8:])); return False
         print("  %s (%.1f s to banner)" % (b["_raw"], res["boot_s"]))
+        t["unbuilt"] = None
         for l in boot.splitlines():
             if "not in this firmware" in l or l.startswith("  cfg:"): print("  " + l.strip())
+            m = re.search(r"note: (\S+) is not in this firmware yet", l)
+            if m: t["unbuilt"] = m.group(1)
         return True
+
+    def watch(self, t, res):
+        """A kind the firmware has not built yet (the banner's note says so, and the target is experimental): the fox
+        boots with the config, stays silent on purpose, and the template is a skip with that note — not a pass, not a
+        failure. Everything else as the parent."""
+        if t.get("unbuilt"):
+            res["observed"] = self.r.listen(2).strip()[-500:]
+            res["ok"] = None; res["skip"] = "%s is not in this firmware yet (the fox boots the config and stays silent)" % t["unbuilt"]
+            cfgw = t["banner"].get("cfg", "")
+            if cfgw != "ok" and "(not in this firmware)" not in res["boot_log"]: res["ok"] = False; print("  cfg=%s — the firmware disagreed with the defaults or fox.json" % cfgw)
+            else: print("  skip: " + res["skip"])
+            return
+        Run.watch(self, t, res)
+        if res["ok"] is False and t["banner"].get("cfg", "").startswith("partial(") and "(not in this firmware)" in res["boot_log"] and t["banner"].get("radio") == "ok":
+            res["ok"] = True; print("  cfg=%s: a feature section the firmware has not built yet — accepted while the target is experimental" % t["banner"]["cfg"])
 
     def bench(self, t, res):
         """The console's bench words: the ESP32s answer `health` (JSON) and `scan`; the PicoFox `status` and `batt`; both
@@ -1376,7 +1422,7 @@ class ConsoleRun(Run):
             except RuntimeError: res["batt_v"] = None
             res["rssi"] = None
             print("  status %s · batt %s" % (res["probe"][:120], res["batt_v"]))
-        if a.key_seconds > 0 and (net or "keytest" in t["manifest"].get("capabilities", [])):
+        if a.key_seconds > 0 and (net or "keytest" in t["manifest"].get("capabilities", [])) and not t.get("unbuilt"):
             out = r.cmd("key %s" % _num(a.key_seconds), timeout=a.key_seconds + 15).split("\n")
             res["key"] = next((l for l in out if l.startswith("ok ") or l.startswith("keyed")), out[-1])
             print("  key %ss: %s" % (a.key_seconds, res["key"]))

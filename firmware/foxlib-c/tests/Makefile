@@ -6,7 +6,7 @@ CFLAGS ?= -std=gnu11 -O1 -g -Wall -Wextra -Werror -Wno-unused-parameter -D_GNU_S
 # UBSan catch what -Wall cannot. SANITIZE= (empty) turns them off for a compiler without them.
 SANITIZE ?= -fsanitize=address,undefined -fno-sanitize-recover=undefined
 CFLAGS += $(SANITIZE)
-CORE := ../core/json.c ../core/report.c ../core/morse.c ../core/melody.c ../core/schedule.c ../core/synth.c ../core/sstv.c ../core/cfg.c ../core/netcfg.c ../core/filexfer.c
+CORE := ../core/json.c ../core/report.c ../core/morse.c ../core/melody.c ../core/schedule.c ../core/synth.c ../core/sstv.c ../core/cfg.c ../core/netcfg.c ../core/filexfer.c ../core/echo.c
 BUILD ?= build
 
 PF := ../picofox

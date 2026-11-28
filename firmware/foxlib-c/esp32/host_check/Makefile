@@ -11,5 +11,5 @@ CORE := ../../core
 DEFS := -DFOXLIBC_VERSION='"host"' -DBOARD_ID='"esp32c3-foxlibc"' -include limits.h
 check:
 	@mkdir -p build && printf '#define TEMPLATE_VERSIONS "ble-beacon=1.0.1,wifi-beacon=1.0.0"\n' > build/template_versions.h
-	$(CC) $(CFLAGS) $(DEFS) -I. -Ibuild -I$(APP) -I$(CORE) $(APP)/main.c $(APP)/console.c $(APP)/fs.c $(APP)/netfox.c $(APP)/led.c
+	$(CC) $(CFLAGS) $(DEFS) -I. -Ibuild -I$(APP) -I$(CORE) $(APP)/main.c $(APP)/console.c $(APP)/fs.c $(APP)/netfox.c $(APP)/led.c $(CORE)/echo.c
 	@echo "esp32 application: syntax ok"

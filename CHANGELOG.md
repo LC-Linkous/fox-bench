@@ -14,6 +14,51 @@ its fingerprint (`foxbench-picofox.json`) that CI built from that commit.
 
 ## Unreleased
 
+### foxlib-c 0.1.17 — the first ESP32-C3 on the air
+
+- The first `hw_smoke` session on a C-firmware ESP32 (XIAO C3, 0.1.15 +
+  0186): `wifi-beacon` up 1.4 s after the put, the SSID seen by the
+  laptop from the fox's MAC on channel 1, `health`/`scan`/`key` answered;
+  the five network templates all booted their config. Three things the
+  session found, fixed here:
+  - the banner said `radio=skipped` for a fox that was on the air a second
+    later (and the script read that as "nothing transmitted"): `radio=` is
+    the Wi-Fi driver's state, `ok` once it is up, whatever the schedule or
+    an unbuilt kind does next;
+  - a put over ~1 KB lost its tail (`got 1026 bytes, put said 1043`): the
+    console's receive ring was 1 KB and the driver drops what it cannot
+    hold; it holds the largest put now (24 KB), with a 64-line queue;
+  - `hw_smoke`: a kind the banner reports `not in this firmware yet`
+    (probe, BLE, puzzle on this firmware) is a skip with that note, not a
+    failure, and `key` is not sent to it; a `partial(...)` for an unbuilt
+    feature section is accepted while the target is experimental. The fake
+    console reports unbuilt sections the same way.
+
+### Tools — the ESP32 console opened without a reset
+
+- `hw_smoke.py` opens a foxlib-c console with DTR and RTS low: on an
+  ESP32's USB-Serial-JTAG port those lines are esptool's reset and boot
+  controls, and pyserial's default of raising both on open reset the C3 at
+  every connect (the fox printed its boot banner, which ModemManager's
+  probe then echoed back). The PicoFox still gets DTR after the open — that
+  is its "terminal here" signal. `version` is retried through that window
+  rather than failing on the first echoed line. The runbook's ModemManager
+  rule is optional: nothing in the repo depends on it.
+
+### foxlib-c 0.1.16 + page 0.18.37 — the first ESP32-C3 session, second round
+
+- 0.1.15 booted with `cfg=ok` and answered the console. Two more findings:
+  the fox read its own boot line back as a command (`err: unknown command
+  'initializing'`) — a Linux host echoing the port while ModemManager
+  probes a new device — and a `put` that never got its body left the
+  console in put mode for good, swallowing every later command.
+- Both consoles (ESP32 and PicoFox) now drop a received line equal to one
+  they just sent (`core/echo.c`; not inside a put, whose body may repeat a
+  `get`'s lines), and abandon a put with no line for 5 s with
+  `err: put <name> abandoned: <n> of <size> bytes…`. The page's fake does
+  the same; `hw_smoke` names the echo when it sees it; the runbook has the
+  udev rule that keeps ModemManager off the foxes.
+
 ### foxlib-c 0.1.15 — the first ESP32-C3 session
 
 - The board booted, the console printed its banner — and the banner said

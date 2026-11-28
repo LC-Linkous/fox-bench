@@ -1,7 +1,7 @@
 {
 "format": "fox-bench-bench-recording/2",
 "transport": "console",
-"generated": "2026-11-25T13:58:30",
+"generated": "2026-11-26T21:16:31",
 "board_id": "esp32c3-foxlibc",
 "uid": "0123456789abcdef",
 "circuitpython": "none (foxlib-c)",
@@ -33,31 +33,31 @@
 },
 "exchanges": [
 {
-"t": 0.1,
+"t": 1.608,
 "kind": "con",
 "cmd": "version",
 "out": "foxlib-c 0.1.14 board=esp32c3-foxlibc\nok"
 },
 {
-"t": 0.201,
+"t": 1.709,
 "kind": "con",
 "cmd": "uid",
 "out": "uid=0123456789abcdef\nok"
 },
 {
-"t": 0.302,
+"t": 1.81,
 "kind": "con",
 "cmd": "get fox.json",
 "out": "err: no such file"
 },
 {
-"t": 0.402,
+"t": 1.91,
 "kind": "con",
 "cmd": "get defaults.json",
 "out": "size=107 crc32=8538ae65\neyJ0ZW1wbGF0ZSI6ICJ3aWZpLWJlYWNvbiIsICJpZCI6IHsiY2FsbG1lc3NhZ2UiOiAiTjBDQUxM\nIERFQ09ZIERFQ09ZIE4wQ0FMTCJ9LCAibmV0IjogeyJraW5kIjogIndpZmktYXAifX0=\n.\nok"
 },
 {
-"t": 0.555,
+"t": 2.066,
 "kind": "put",
 "path": "defaults.json",
 "size": 530,
@@ -65,7 +65,7 @@
 "out": "ok size=530 crc32=8a937c6b"
 },
 {
-"t": 0.706,
+"t": 2.217,
 "kind": "put",
 "path": "fox.json",
 "size": 601,
@@ -73,42 +73,42 @@
 "out": "ok size=601 crc32=7305374b"
 },
 {
-"t": 1.208,
+"t": 2.719,
 "kind": "banner",
 "out": "reload: console\nFOX template=wifi-beacon/1.0.1 foxlib=c-0.1.14 board=esp32c3-foxlibc uid=0123456789abcdef cfg=ok radio=ok id=set freq=none net=wifi-ap name=\"W1ABC FOX DE W1ABC\" mac=F2:B0:00:00:00:01 clock=unset mem=180000\ncycle 0\nwifi-ap up: W1ABC FOX DE W1ABC (F2:B0:00:00:00:01) for 15 s\n"
 },
 {
-"t": 1.811,
+"t": 3.323,
 "kind": "listen",
 "seconds": 0.5,
 "out": ""
 },
 {
-"t": 1.912,
+"t": 3.424,
 "kind": "con",
 "cmd": "health",
 "out": "{\"free\": 180000, \"after_import\": 180000, \"import_s\": 0, \"with_fox\": 150000, \"foxlib\": \"c-0.1.14\", \"fatal\": null}\nok"
 },
 {
-"t": 2.012,
+"t": 3.525,
 "kind": "con",
 "cmd": "scan",
 "out": "-38 ch6 neighbour-1\n-71 ch11 neighbour-1\nok"
 },
 {
-"t": 3.067,
+"t": 4.588,
 "kind": "con",
 "cmd": "key 1",
 "out": "ok wifi-ap W1ABC FOX DE W1ABC (F2:B0:00:00:00:01) for 1.0 s"
 },
 {
-"t": 3.168,
+"t": 4.689,
 "kind": "con",
 "cmd": "stop",
 "out": "ok"
 },
 {
-"t": 3.319,
+"t": 4.84,
 "kind": "put",
 "path": "defaults.json",
 "size": 471,
@@ -116,7 +116,7 @@
 "out": "ok size=471 crc32=a3cd5ee4"
 },
 {
-"t": 3.47,
+"t": 4.991,
 "kind": "put",
 "path": "fox.json",
 "size": 534,
@@ -124,42 +124,36 @@
 "out": "ok size=534 crc32=2eac5c1b"
 },
 {
-"t": 3.972,
+"t": 5.494,
 "kind": "banner",
 "out": "reload: console\nFOX template=wifi-probe/1.0.1 foxlib=c-0.1.14 board=esp32c3-foxlibc uid=0123456789abcdef cfg=ok radio=ok id=set freq=none net=wifi-probe name=\"W1ABC FOX DE W1ABC\" mac=F2:B0:00:00:00:01 clock=unset mem=180000\n  note: wifi-probe is not in this firmware yet: the fox stays silent\ncycle 0\n"
 },
 {
-"t": 4.575,
+"t": 7.504,
 "kind": "listen",
-"seconds": 0.5,
+"seconds": 2,
 "out": ""
 },
 {
-"t": 4.675,
+"t": 7.605,
 "kind": "con",
 "cmd": "health",
 "out": "{\"free\": 180000, \"after_import\": 180000, \"import_s\": 0, \"with_fox\": 150000, \"foxlib\": \"c-0.1.14\", \"fatal\": null}\nok"
 },
 {
-"t": 4.776,
+"t": 7.705,
 "kind": "con",
 "cmd": "scan",
 "out": "-38 ch6 neighbour-1\n-71 ch11 neighbour-1\nok"
 },
 {
-"t": 5.83,
-"kind": "con",
-"cmd": "key 1",
-"out": "ok wifi-probe W1ABC FOX DE W1ABC (F2:B0:00:00:00:05) for 1.0 s"
-},
-{
-"t": 5.931,
+"t": 7.806,
 "kind": "con",
 "cmd": "stop",
 "out": "ok"
 },
 {
-"t": 6.082,
+"t": 7.957,
 "kind": "put",
 "path": "defaults.json",
 "size": 588,
@@ -167,7 +161,7 @@
 "out": "ok size=588 crc32=efbf050e"
 },
 {
-"t": 6.233,
+"t": 8.108,
 "kind": "put",
 "path": "fox.json",
 "size": 663,
@@ -175,42 +169,36 @@
 "out": "ok size=663 crc32=4d3b8af0"
 },
 {
-"t": 6.735,
+"t": 8.61,
 "kind": "banner",
 "out": "reload: console\nFOX template=ble-beacon/1.0.1 foxlib=c-0.1.14 board=esp32c3-foxlibc uid=0123456789abcdef cfg=ok radio=ok id=set freq=none net=ble name=\"W1ABC FOX DE W1ABC\" mac=F2:B0:00:00:00:01 clock=unset mem=180000\n  note: ble is not in this firmware yet: the fox stays silent\ncycle 0\n"
 },
 {
-"t": 7.337,
+"t": 10.62,
 "kind": "listen",
-"seconds": 0.5,
+"seconds": 2,
 "out": ""
 },
 {
-"t": 7.438,
+"t": 10.721,
 "kind": "con",
 "cmd": "health",
 "out": "{\"free\": 180000, \"after_import\": 180000, \"import_s\": 0, \"with_fox\": 150000, \"foxlib\": \"c-0.1.14\", \"fatal\": null}\nok"
 },
 {
-"t": 7.538,
+"t": 10.821,
 "kind": "con",
 "cmd": "scan",
 "out": "-38 ch6 neighbour-1\n-71 ch11 neighbour-1\nok"
 },
 {
-"t": 8.592,
-"kind": "con",
-"cmd": "key 1",
-"out": "ok ble W1ABC FOX DE W1ABC (F2:B0:00:00:00:07) for 1.0 s"
-},
-{
-"t": 8.692,
+"t": 10.922,
 "kind": "con",
 "cmd": "stop",
 "out": "ok"
 },
 {
-"t": 8.843,
+"t": 11.073,
 "kind": "put",
 "path": "defaults.json",
 "size": 838,
@@ -218,7 +206,7 @@
 "out": "ok size=838 crc32=c37fbbdc"
 },
 {
-"t": 8.994,
+"t": 11.224,
 "kind": "put",
 "path": "fox.json",
 "size": 976,
@@ -226,42 +214,36 @@
 "out": "ok size=976 crc32=a9ab79e5"
 },
 {
-"t": 9.496,
+"t": 11.727,
 "kind": "banner",
-"out": "reload: console\nFOX template=puzzle-beacon/1.0.1 foxlib=c-0.1.14 board=esp32c3-foxlibc uid=0123456789abcdef cfg=ok radio=ok id=set freq=none net=ble name=\"W1ABC FOX DE W1ABC\" mac=F2:B0:00:00:00:01 clock=unset mem=180000\n  note: ble is not in this firmware yet: the fox stays silent\ncycle 0\n"
+"out": "reload: console\nFOX template=puzzle-beacon/1.0.1 foxlib=c-0.1.14 board=esp32c3-foxlibc uid=0123456789abcdef cfg=partial(payload) radio=ok id=set freq=none net=ble name=\"W1ABC FOX DE W1ABC\" mac=F2:B0:00:00:00:01 clock=unset mem=180000\n  cfg: payload -> default (not in this firmware)\n  note: ble is not in this firmware yet: the fox stays silent\ncycle 0\n"
 },
 {
-"t": 10.101,
+"t": 13.737,
 "kind": "listen",
-"seconds": 0.5,
+"seconds": 2,
 "out": ""
 },
 {
-"t": 10.201,
+"t": 13.838,
 "kind": "con",
 "cmd": "health",
 "out": "{\"free\": 180000, \"after_import\": 180000, \"import_s\": 0, \"with_fox\": 150000, \"foxlib\": \"c-0.1.14\", \"fatal\": null}\nok"
 },
 {
-"t": 10.302,
+"t": 13.939,
 "kind": "con",
 "cmd": "scan",
 "out": "-38 ch6 neighbour-1\n-71 ch11 neighbour-1\nok"
 },
 {
-"t": 11.357,
-"kind": "con",
-"cmd": "key 1",
-"out": "ok ble W1ABC FOX DE W1ABC (F2:B0:00:00:00:07) for 1.0 s"
-},
-{
-"t": 11.457,
+"t": 14.039,
 "kind": "con",
 "cmd": "stop",
 "out": "ok"
 },
 {
-"t": 11.608,
+"t": 14.191,
 "kind": "put",
 "path": "defaults.json",
 "size": 924,
@@ -269,7 +251,7 @@
 "out": "ok size=924 crc32=6a7a0dfc"
 },
 {
-"t": 11.759,
+"t": 14.342,
 "kind": "put",
 "path": "fox.json",
 "size": 1043,
@@ -277,48 +259,48 @@
 "out": "ok size=1043 crc32=c91696a5"
 },
 {
-"t": 12.261,
+"t": 14.844,
 "kind": "banner",
-"out": "reload: console\nFOX template=checkpoint/1.0.1 foxlib=c-0.1.14 board=esp32c3-foxlibc uid=0123456789abcdef cfg=ok radio=ok id=set freq=none net=wifi-ap name=\"W1ABC FOX DE W1ABC\" mac=F2:B0:00:00:00:01 clock=unset mem=180000\ncycle 0\nwifi-ap up: W1ABC FOX DE W1ABC (F2:B0:00:00:00:01) for 15 s\n"
+"out": "reload: console\nFOX template=checkpoint/1.0.1 foxlib=c-0.1.14 board=esp32c3-foxlibc uid=0123456789abcdef cfg=partial(checkpoint) radio=ok id=set freq=none net=wifi-ap name=\"W1ABC FOX DE W1ABC\" mac=F2:B0:00:00:00:01 clock=unset mem=180000\n  cfg: checkpoint -> default (not in this firmware)\ncycle 0\nwifi-ap up: W1ABC FOX DE W1ABC (F2:B0:00:00:00:01) for 15 s\n"
 },
 {
-"t": 12.863,
+"t": 15.447,
 "kind": "listen",
 "seconds": 0.5,
 "out": ""
 },
 {
-"t": 12.963,
+"t": 15.548,
 "kind": "con",
 "cmd": "health",
 "out": "{\"free\": 180000, \"after_import\": 180000, \"import_s\": 0, \"with_fox\": 150000, \"foxlib\": \"c-0.1.14\", \"fatal\": null}\nok"
 },
 {
-"t": 13.064,
+"t": 15.648,
 "kind": "con",
 "cmd": "scan",
 "out": "-38 ch6 neighbour-1\n-71 ch11 neighbour-1\nok"
 },
 {
-"t": 14.118,
+"t": 16.703,
 "kind": "con",
 "cmd": "key 1",
 "out": "ok wifi-ap W1ABC FOX DE W1ABC (F2:B0:00:00:00:C0) for 1.0 s"
 },
 {
-"t": 14.218,
+"t": 16.804,
 "kind": "con",
 "cmd": "stop",
 "out": "ok"
 },
 {
-"t": 14.319,
+"t": 16.905,
 "kind": "con",
 "cmd": "rm fox.json",
 "out": "ok"
 },
 {
-"t": 14.469,
+"t": 17.056,
 "kind": "put",
 "path": "defaults.json",
 "size": 107,
@@ -326,7 +308,7 @@
 "out": "ok size=107 crc32=8538ae65"
 },
 {
-"t": 14.971,
+"t": 17.557,
 "kind": "banner",
 "out": "reload: console\nFOX template=wifi-beacon/1.0.1 foxlib=c-0.1.14 board=esp32c3-foxlibc uid=0123456789abcdef cfg=ok radio=ok id=unset freq=none net=wifi-ap name=\"N0CALL DECOY DECOY N0CALL\" mac=F2:B0:00:00:00:01 clock=unset mem=180000\ncycle 0\nwifi-ap up: N0CALL DECOY DECOY N0CALL (F2:B0:00:00:00:01) for 15 s\n"
 }
